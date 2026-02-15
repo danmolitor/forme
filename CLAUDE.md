@@ -1,0 +1,169 @@
+# CLAUDE.md
+
+## What This Is
+
+Forme is a **page-native PDF rendering engine** written in Rust. It takes a tree of document nodes (like a simplified DOM) and produces PDF bytes. The key differentiator is that layout happens INTO pages rather than on an infinite canvas that gets sliced afterward. This means page breaks, table header repetition, and flex layout across pages all work correctly.
+
+## Project Structure
+
+```
+forme/
+├── Cargo.toml              # Only deps: serde, serde_json, miniz_oxide
+├── CLAUDE.md               # You are here
+├── README.md               # Product readme
+├── src/
+│   ├── lib.rs              # Public API: render() and render_json()
+│   ├── main.rs             # CLI binary + example invoice JSON
+│   ├── model/mod.rs        # Document tree: Node, NodeKind, PageConfig, Edges
+│   ├── style/mod.rs        # CSS-like styles, resolution with inheritance
+│   ├── layout/
+│   │   ├── mod.rs          # THE CORE: page-aware layout engine
+│   │   ├── flex.rs         # Flex grow/shrink distribution helpers
+│   │   └── page_break.rs   # Break decision logic (split/move/place)
+│   ├── text/mod.rs         # Line breaking + text measurement
+│   ├── font/mod.rs         # Font registry (14 standard PDF fonts)
+│   └── pdf/mod.rs          # PDF 1.7 serializer (from scratch)
+└── tests/
+    └── integration.rs      # Full pipeline tests
+```
+
+## Build & Test
+
+```bash
+cargo build
+cargo test
+cargo run -- --example > invoice.json    # dump example invoice
+cargo run -- invoice.json -o output.pdf  # render to PDF
+```
+
+## Architecture (data flow)
+
+```
+JSON / API input
+      ↓
+  Document (model/mod.rs)     # Tree of Node { kind, style, children }
+      ↓
+  Style Resolution            # Style::resolve() → ResolvedStyle (no Options)
+      ↓
+  Layout Engine               # PageCursor tracks position, splits across pages
+      ↓
+  Vec<LayoutPage>             # Each page = list of positioned LayoutElements
+      ↓
+  PDF Serializer              # Writes %PDF-1.7 header, objects, xref, trailer
+      ↓
+  Vec<u8>                     # Valid PDF file bytes
+```
+
+## Key Design Decisions
+
+### Page-Native Layout (THE DIFFERENTIATOR)
+The layout engine uses a `PageCursor` that tracks the current Y position on the current page. Before placing any node, it checks: "does this fit in the remaining space?" If not, it either moves the node to a new page (unbreakable) or splits it (breakable). For tables, header rows are automatically re-drawn on continuation pages.
+
+**This is different from react-pdf**, which lays out everything on an infinite canvas and slices. That's why react-pdf's flex breaks on page boundaries — flex runs once on the full container, then gets sliced, making both halves wrong.
+
+### Flex After Split
+When a breakable flex container splits across pages, children are laid out individually into available space. This means flex calculations reflect actual page-constrained dimensions, not pre-split infinite-canvas dimensions.
+
+### No CSS Margin Collapsing
+Margins are additive (like flexbox gap), not collapsing. This is a deliberate simplification that makes layout more predictable. Document this to users.
+
+### Coordinate System
+Layout: origin at top-left, Y increases downward (like web).
+PDF: origin at bottom-left, Y increases upward.
+Transform in pdf serializer: `pdf_y = page_height - layout_y - element_height`
+
+## Known Issues & Limitations (Current State)
+
+### MUST FIX BEFORE V1
+
+1. **Text measurement is fake.** `text/mod.rs` uses hardcoded proportional width estimates (e.g., "m" = 0.72 × font_size). This produces roughly correct line breaks for Helvetica but will be wrong for any other font. **Fix:** Add `ttf-parser` dependency, load actual font files, read the `hmtx` table for real glyph advance widths.
+
+2. **No custom font embedding.** Only the 14 standard PDF fonts (Helvetica, Times, Courier) work. Custom fonts need: TrueType parsing, glyph subsetting (only embed used glyphs), CIDFont/CMap PDF embedding tables. **Fix:** Use `ttf-parser` for parsing. Write the subsetting and PDF embedding code in `font/mod.rs` and `pdf/mod.rs`. Budget 2-3 weeks.
+
+3. **Font name indexing in PDF is hardcoded.** `PdfWriter::font_name_index()` maps family names to indices with a match statement. Should use the `font_objects` HashMap to dynamically resolve indices. Fix is straightforward.
+
+4. **Table cell content can silently overflow.** In `layout_table_row`, cell children are laid out with `&mut Vec::new()` as the pages target, meaning page breaks inside cells are swallowed. For v1 this is acceptable (cells should be short), but needs a real solution for cells with long text.
+
+### SHOULD FIX
+
+5. **`flex-wrap: wrap` is not implemented.** Row items that overflow the available width should wrap to a new line. Currently they just squeeze via flex-shrink or overflow.
+
+6. **`measure_intrinsic_width` returns hardcoded 100pt for containers.** Should recursively measure content. Affects flex row sizing when children don't have explicit widths.
+
+7. **Image embedding is a placeholder.** `DrawCommand::Image` stores data but the PDF serializer just draws a grey rectangle. Need to embed JPEG data directly and decode+re-encode PNG to PDF image XObjects.
+
+8. **Fixed elements (headers/footers) are collected but not injected.** `inject_fixed_elements` is a stub. The nodes are stored in `PageCursor.fixed_header/fixed_footer` but never rendered onto pages.
+
+9. **Widow/orphan control in text layout is incomplete.** The page_break module has the logic, but the text layout path in `layout_text` doesn't use it — it just breaks at any line boundary.
+
+### NICE TO HAVE (LATER)
+
+10. No Knuth-Plass line breaking (using greedy algorithm — fine for documents).
+11. No hyphenation.
+12. No BiDi text support (Arabic, Hebrew).
+13. No CSS Grid.
+14. No PDF/A compliance.
+15. No WASM build yet.
+
+## How the Layout Engine Works (for making changes)
+
+The core loop in `layout/mod.rs`:
+
+```rust
+fn layout_node(&self, node, cursor, pages, x, available_width, parent_style) {
+    match node.kind {
+        Text { content } => layout_text(content, ...),     // Line break, place lines
+        View => layout_view(node, ...),                     // Flex container
+        Table { columns } => layout_table(node, ...),       // Row-by-row with headers
+        Image { .. } => layout_image(node, ...),            // Block placement
+        PageBreak => { pages.push(cursor.finalize()); *cursor = cursor.new_page(); }
+        Fixed { position } => { store in cursor for repetition }
+    }
+}
+```
+
+**PageCursor** is the central state:
+- `y`: current vertical position within content area (increases downward)
+- `content_width`, `content_height`: page content area dimensions
+- `content_x`, `content_y`: offset of content area (accounts for margins)
+- `elements`: laid-out elements on this page
+- `remaining_height()`: how much vertical space is left
+- `finalize()`: produces a LayoutPage from current state
+- `new_page()`: creates fresh page, carries over fixed elements
+
+**Adding a new node type:**
+1. Add variant to `NodeKind` in `model/mod.rs`
+2. Add match arm in `layout_node` in `layout/mod.rs`
+3. Write the layout function (measure height → check fit → place or split)
+4. Add drawing in `write_element` in `pdf/mod.rs` if it has visual output
+
+## Testing Strategy
+
+- **Unit tests** in each module (`#[cfg(test)]` blocks): flex distribution, page break decisions, text line breaking, PDF string escaping
+- **Integration tests** in `tests/integration.rs`: full pipeline from Document → PDF bytes, verifying page counts, PDF structural validity, JSON deserialization
+- **Visual regression** (not yet built): render known documents, compare pixel-by-pixel against reference images. Use this for table header repetition, page break aesthetics, flex layout correctness.
+
+When making layout changes, always test with:
+1. The example invoice (`cargo run -- --example | cargo run -- -o test.pdf`)
+2. A document with enough content to overflow multiple pages
+3. A table with 50+ rows (verifies header repetition)
+
+## Dependencies
+
+Current (minimal):
+- `serde` + `serde_json`: JSON deserialization of document tree
+- `miniz_oxide`: DEFLATE compression for PDF content streams
+
+To add:
+- `ttf-parser`: Font file parsing for real metrics and subsetting
+- `image`: Image decoding (JPEG/PNG) for embedding
+- `unicode-linebreak`: UAX#14 line break algorithm (proper Unicode line breaking)
+
+## Code Style
+
+- Comments explain WHY, not WHAT
+- The doc comments at the top of each module explain the design intent
+- Use `///` doc comments on all public items
+- Err on the side of explicitness (no implicit conversions, no magic)
+- `f64` everywhere for coordinates (sufficient precision, matches PDF spec)
+- Prefix unused variables with `_` to suppress warnings
