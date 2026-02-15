@@ -570,3 +570,168 @@ fn test_dimension_resolve() {
     assert_eq!(Dimension::Percent(50.0).resolve(500.0), Some(250.0));
     assert_eq!(Dimension::Auto.resolve(500.0), None);
 }
+
+// ─── Custom Font Embedding Tests ────────────────────────────────
+
+use forme::pdf::PdfWriter;
+
+/// Load a system TTF font for testing. Returns None if not available.
+fn load_test_font() -> Option<Vec<u8>> {
+    // Try common macOS system fonts
+    let paths = [
+        "/System/Library/Fonts/Supplemental/Andale Mono.ttf",
+        "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+        "/System/Library/Fonts/Supplemental/Verdana.ttf",
+        "/System/Library/Fonts/Apple Braille.ttf",
+    ];
+    for path in &paths {
+        if let Ok(data) = std::fs::read(path) {
+            // Verify it's a valid TTF
+            if ttf_parser::Face::parse(&data, 0).is_ok() {
+                return Some(data);
+            }
+        }
+    }
+    None
+}
+
+fn render_with_custom_font(font_data: &[u8], text: &str) -> Vec<u8> {
+    let mut font_context = FontContext::new();
+    font_context.registry_mut().register("TestFont", 400, false, font_data.to_vec());
+
+    let doc = Document {
+        children: vec![Node {
+            kind: NodeKind::Text { content: text.to_string() },
+            style: Style {
+                font_family: Some("TestFont".to_string()),
+                font_size: Some(14.0),
+                ..Default::default()
+            },
+            children: vec![],
+            id: None,
+        }],
+        metadata: Metadata::default(),
+        default_page: PageConfig::default(),
+    };
+
+    let engine = LayoutEngine::new();
+    let pages = engine.layout(&doc, &font_context);
+    let writer = PdfWriter::new();
+    writer.write(&pages, &doc.metadata, &font_context)
+}
+
+#[test]
+fn test_custom_font_produces_valid_pdf() {
+    let font_data = match load_test_font() {
+        Some(data) => data,
+        None => { eprintln!("Skipping: no test TTF font found"); return; }
+    };
+
+    let bytes = render_with_custom_font(&font_data, "Hello Custom Font");
+    assert_valid_pdf(&bytes);
+}
+
+#[test]
+fn test_custom_font_has_cidfont_objects() {
+    let font_data = match load_test_font() {
+        Some(data) => data,
+        None => { eprintln!("Skipping: no test TTF font found"); return; }
+    };
+
+    let bytes = render_with_custom_font(&font_data, "ABC");
+    let text = String::from_utf8_lossy(&bytes);
+
+    assert!(text.contains("CIDFontType2"), "Should contain CIDFontType2 subtype");
+    assert!(text.contains("/FontFile2"), "Should contain FontFile2 reference");
+    assert!(text.contains("/Type0"), "Should contain Type0 font dictionary");
+    assert!(text.contains("/Identity-H"), "Should use Identity-H encoding");
+    assert!(text.contains("/DescendantFonts"), "Should have DescendantFonts array");
+}
+
+#[test]
+fn test_custom_font_has_tounicode() {
+    let font_data = match load_test_font() {
+        Some(data) => data,
+        None => { eprintln!("Skipping: no test TTF font found"); return; }
+    };
+
+    let bytes = render_with_custom_font(&font_data, "Test");
+    let text = String::from_utf8_lossy(&bytes);
+
+    assert!(text.contains("/ToUnicode"), "Should have ToUnicode CMap for text extraction");
+}
+
+#[test]
+fn test_mixed_standard_and_custom_fonts() {
+    let font_data = match load_test_font() {
+        Some(data) => data,
+        None => { eprintln!("Skipping: no test TTF font found"); return; }
+    };
+
+    let mut font_context = FontContext::new();
+    font_context.registry_mut().register("CustomFont", 400, false, font_data);
+
+    let doc = Document {
+        children: vec![
+            // Standard font text
+            Node {
+                kind: NodeKind::Text { content: "Standard Helvetica".to_string() },
+                style: Style {
+                    font_family: Some("Helvetica".to_string()),
+                    font_size: Some(12.0),
+                    ..Default::default()
+                },
+                children: vec![],
+                id: None,
+            },
+            // Custom font text
+            Node {
+                kind: NodeKind::Text { content: "Custom Font Text".to_string() },
+                style: Style {
+                    font_family: Some("CustomFont".to_string()),
+                    font_size: Some(12.0),
+                    ..Default::default()
+                },
+                children: vec![],
+                id: None,
+            },
+        ],
+        metadata: Metadata::default(),
+        default_page: PageConfig::default(),
+    };
+
+    let engine = LayoutEngine::new();
+    let pages = engine.layout(&doc, &font_context);
+    let writer = PdfWriter::new();
+    let bytes = writer.write(&pages, &doc.metadata, &font_context);
+
+    assert_valid_pdf(&bytes);
+    let text = String::from_utf8_lossy(&bytes);
+
+    // Should have both Type1 (standard) and Type0/CIDFontType2 (custom) fonts
+    assert!(text.contains("/Type1"), "Should have Type1 for standard font");
+    assert!(text.contains("CIDFontType2"), "Should have CIDFontType2 for custom font");
+}
+
+#[test]
+fn test_custom_font_subset_smaller_than_full() {
+    let font_data = match load_test_font() {
+        Some(data) => data,
+        None => { eprintln!("Skipping: no test TTF font found"); return; }
+    };
+
+    // Render with just "A" — the subset should be much smaller than the full font
+    let bytes = render_with_custom_font(&font_data, "A");
+    let pdf_text = String::from_utf8_lossy(&bytes);
+
+    // The PDF should contain FontFile2 with compressed subset data
+    assert!(pdf_text.contains("/FontFile2"), "Should embed font data");
+
+    // PDF output should be reasonable size — much smaller than embedding the full font
+    // Full font is typically >50KB. With subsetting + compression, PDF should be <50KB for "A"
+    assert!(
+        bytes.len() < font_data.len(),
+        "PDF ({} bytes) should be smaller than full font ({} bytes)",
+        bytes.len(), font_data.len()
+    );
+}

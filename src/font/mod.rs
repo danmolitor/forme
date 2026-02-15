@@ -6,6 +6,7 @@
 //! which don't require embedding. Custom font support via ttf-parser comes next.
 
 pub mod metrics;
+pub mod subset;
 
 use std::collections::HashMap;
 pub use metrics::StandardFontMetrics;
@@ -44,6 +45,8 @@ pub struct CustomFontMetrics {
     pub default_advance: u16,
     pub ascender: i16,
     pub descender: i16,
+    /// Maps characters to their glyph IDs in the original font.
+    pub glyph_ids: HashMap<char, u16>,
 }
 
 impl CustomFontMetrics {
@@ -61,14 +64,16 @@ impl CustomFontMetrics {
         let descender = face.descender();
 
         let mut advance_widths = HashMap::new();
+        let mut glyph_ids = HashMap::new();
         let mut default_advance = 0u16;
 
-        // Sample common characters to build width map
+        // Sample common characters to build width and glyph ID maps
         for code in 32u32..=0xFFFF {
             if let Some(ch) = char::from_u32(code) {
                 if let Some(glyph_id) = face.glyph_index(ch) {
                     let advance = face.glyph_hor_advance(glyph_id).unwrap_or(0);
                     advance_widths.insert(ch, advance);
+                    glyph_ids.insert(ch, glyph_id.0);
                     if ch == ' ' {
                         default_advance = advance;
                     }
@@ -90,6 +95,7 @@ impl CustomFontMetrics {
             default_advance,
             ascender,
             descender,
+            glyph_ids,
         })
     }
 }
