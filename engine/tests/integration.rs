@@ -735,3 +735,633 @@ fn test_custom_font_subset_smaller_than_full() {
         bytes.len(), font_data.len()
     );
 }
+
+// ─── Image Embedding Tests ─────────────────────────────────────
+
+/// Helper: create a minimal in-memory JPEG for testing.
+fn make_test_jpeg(width: u32, height: u32) -> Vec<u8> {
+    let img = image::RgbImage::from_fn(width, height, |_, _| image::Rgb([0, 128, 255]));
+    let mut buf = Vec::new();
+    let encoder = image::codecs::jpeg::JpegEncoder::new(&mut buf);
+    image::ImageEncoder::write_image(
+        encoder,
+        img.as_raw(),
+        width, height,
+        image::ColorType::Rgb8,
+    ).unwrap();
+    buf
+}
+
+/// Helper: create a minimal in-memory PNG (opaque) for testing.
+fn make_test_png(width: u32, height: u32) -> Vec<u8> {
+    let mut img = image::RgbaImage::new(width, height);
+    for pixel in img.pixels_mut() {
+        *pixel = image::Rgba([255, 0, 0, 255]);
+    }
+    let mut buf = Vec::new();
+    let encoder = image::codecs::png::PngEncoder::new(&mut buf);
+    image::ImageEncoder::write_image(
+        encoder,
+        img.as_raw(),
+        width, height,
+        image::ColorType::Rgba8,
+    ).unwrap();
+    buf
+}
+
+/// Helper: create an RGBA PNG with partial transparency for testing.
+fn make_test_png_with_alpha(width: u32, height: u32) -> Vec<u8> {
+    let mut img = image::RgbaImage::new(width, height);
+    for (x, _y, pixel) in img.enumerate_pixels_mut() {
+        let alpha = if x % 2 == 0 { 128 } else { 255 };
+        *pixel = image::Rgba([0, 255, 0, alpha]);
+    }
+    let mut buf = Vec::new();
+    let encoder = image::codecs::png::PngEncoder::new(&mut buf);
+    image::ImageEncoder::write_image(
+        encoder,
+        img.as_raw(),
+        width, height,
+        image::ColorType::Rgba8,
+    ).unwrap();
+    buf
+}
+
+/// Helper: encode bytes as base64 data URI.
+fn to_data_uri(data: &[u8], mime: &str) -> String {
+    use base64::Engine;
+    let b64 = base64::engine::general_purpose::STANDARD.encode(data);
+    format!("data:{};base64,{}", mime, b64)
+}
+
+fn make_image_node(src: &str, width: Option<f64>, height: Option<f64>) -> Node {
+    Node {
+        kind: NodeKind::Image {
+            src: src.to_string(),
+            width,
+            height,
+        },
+        style: Style::default(),
+        children: vec![],
+        id: None,
+    }
+}
+
+#[test]
+fn test_jpeg_image_produces_valid_pdf() {
+    let jpeg_data = make_test_jpeg(4, 4);
+    let src = to_data_uri(&jpeg_data, "image/jpeg");
+
+    let doc = default_doc(vec![make_image_node(&src, Some(100.0), Some(100.0))]);
+    let bytes = render_to_pdf(&doc);
+    assert_valid_pdf(&bytes);
+
+    let text = String::from_utf8_lossy(&bytes);
+    assert!(text.contains("/DCTDecode"), "JPEG should use DCTDecode filter");
+    assert!(text.contains("/XObject"), "Page should reference XObject");
+    assert!(text.contains("/Im0"), "Should reference /Im0");
+}
+
+#[test]
+fn test_png_image_produces_valid_pdf() {
+    let png_data = make_test_png(4, 4);
+    let src = to_data_uri(&png_data, "image/png");
+
+    let doc = default_doc(vec![make_image_node(&src, Some(80.0), Some(80.0))]);
+    let bytes = render_to_pdf(&doc);
+    assert_valid_pdf(&bytes);
+
+    let text = String::from_utf8_lossy(&bytes);
+    assert!(text.contains("/FlateDecode"), "PNG should use FlateDecode filter");
+    assert!(text.contains("/XObject"), "Page should reference XObject");
+}
+
+#[test]
+fn test_png_with_alpha_has_smask() {
+    let png_data = make_test_png_with_alpha(4, 4);
+    let src = to_data_uri(&png_data, "image/png");
+
+    let doc = default_doc(vec![make_image_node(&src, Some(60.0), Some(60.0))]);
+    let bytes = render_to_pdf(&doc);
+    assert_valid_pdf(&bytes);
+
+    let text = String::from_utf8_lossy(&bytes);
+    assert!(text.contains("/SMask"), "Alpha PNG should have SMask reference");
+    assert!(text.contains("/DeviceGray"), "SMask should use DeviceGray");
+}
+
+#[test]
+fn test_image_aspect_ratio() {
+    // 8x4 image: aspect ratio 0.5
+    let png_data = make_test_png(8, 4);
+    let src = to_data_uri(&png_data, "image/png");
+
+    // Only specify width=100, height should be auto-calculated to 50
+    let doc = default_doc(vec![make_image_node(&src, Some(100.0), None)]);
+    let pages = layout_doc(&doc);
+    assert_eq!(pages.len(), 1);
+
+    // Find the image element
+    let img_elem = pages[0].elements.iter()
+        .find(|e| matches!(e.draw, forme::layout::DrawCommand::Image { .. }))
+        .expect("Should have an image element");
+
+    assert!((img_elem.width - 100.0).abs() < 0.1, "Width should be 100");
+    assert!((img_elem.height - 50.0).abs() < 0.1,
+        "Height should be 50 (100 * 4/8), got {}", img_elem.height);
+}
+
+#[test]
+fn test_base64_image_src() {
+    let png_data = make_test_png(2, 2);
+    use base64::Engine;
+    let raw_b64 = base64::engine::general_purpose::STANDARD.encode(&png_data);
+
+    // Test with raw base64 (no data URI prefix)
+    let doc = default_doc(vec![make_image_node(&raw_b64, Some(50.0), Some(50.0))]);
+    let bytes = render_to_pdf(&doc);
+    assert_valid_pdf(&bytes);
+
+    let text = String::from_utf8_lossy(&bytes);
+    assert!(text.contains("/XObject"), "Raw base64 image should produce XObject");
+}
+
+#[test]
+fn test_missing_image_falls_back() {
+    // Invalid src should fall back to placeholder, not crash
+    let doc = default_doc(vec![make_image_node("nonexistent_file.png", Some(100.0), Some(75.0))]);
+    let bytes = render_to_pdf(&doc);
+    assert_valid_pdf(&bytes);
+
+    let text = String::from_utf8_lossy(&bytes);
+    // Should NOT have XObject (it's a placeholder)
+    assert!(!text.contains("/XObject"),
+        "Missing image should render as placeholder, not XObject");
+}
+
+#[test]
+fn test_multiple_images_on_same_page() {
+    let jpeg_data = make_test_jpeg(4, 4);
+    let png_data = make_test_png(4, 4);
+    let jpeg_src = to_data_uri(&jpeg_data, "image/jpeg");
+    let png_src = to_data_uri(&png_data, "image/png");
+
+    let doc = default_doc(vec![
+        make_image_node(&jpeg_src, Some(100.0), Some(100.0)),
+        make_image_node(&png_src, Some(100.0), Some(100.0)),
+    ]);
+    let bytes = render_to_pdf(&doc);
+    assert_valid_pdf(&bytes);
+
+    let text = String::from_utf8_lossy(&bytes);
+    assert!(text.contains("/Im0"), "Should have first image reference");
+    assert!(text.contains("/Im1"), "Should have second image reference");
+}
+
+#[test]
+fn test_image_json_deserialization() {
+    let png_data = make_test_png(2, 2);
+    let src = to_data_uri(&png_data, "image/png");
+
+    let json = format!(r#"{{
+        "children": [
+            {{
+                "kind": {{ "type": "Image", "src": "{}", "width": 100.0, "height": 100.0 }},
+                "style": {{}}
+            }}
+        ]
+    }}"#, src);
+
+    let bytes = forme::render_json(&json).expect("Should parse image JSON");
+    assert_valid_pdf(&bytes);
+
+    let text = String::from_utf8_lossy(&bytes);
+    assert!(text.contains("/XObject"), "Image from JSON should produce XObject");
+}
+
+// ─── Fixed Header/Footer Tests ──────────────────────────────────
+
+fn make_fixed_header(text: &str) -> Node {
+    Node {
+        kind: NodeKind::Fixed { position: FixedPosition::Header },
+        style: Style {
+            padding: Some(Edges::uniform(8.0)),
+            background_color: Some(Color::rgb(0.9, 0.9, 0.95)),
+            ..Default::default()
+        },
+        children: vec![make_text(text, 10.0)],
+        id: None,
+    }
+}
+
+fn make_fixed_footer(text: &str) -> Node {
+    Node {
+        kind: NodeKind::Fixed { position: FixedPosition::Footer },
+        style: Style {
+            padding: Some(Edges::uniform(8.0)),
+            background_color: Some(Color::rgb(0.95, 0.95, 0.95)),
+            ..Default::default()
+        },
+        children: vec![make_text(text, 10.0)],
+        id: None,
+    }
+}
+
+#[test]
+fn test_fixed_header_single_page() {
+    let doc = default_doc(vec![
+        make_fixed_header("Header Text"),
+        make_text("Body content", 12.0),
+    ]);
+    let pages = layout_doc(&doc);
+    assert_eq!(pages.len(), 1);
+    // Header + body elements should be present
+    assert!(pages[0].elements.len() >= 2, "Page should have header + body elements");
+}
+
+#[test]
+fn test_fixed_header_repeats_on_overflow() {
+    let mut children = vec![make_fixed_header("Page Header")];
+    // Add enough content to overflow to 3+ pages
+    for i in 0..120 {
+        children.push(make_text(&format!("Line {}", i), 12.0));
+    }
+    let doc = default_doc(children);
+    let pages = layout_doc(&doc);
+    assert!(pages.len() >= 3, "Should have 3+ pages, got {}", pages.len());
+
+    // Every page should have elements (header renders on each)
+    for (i, page) in pages.iter().enumerate() {
+        assert!(
+            !page.elements.is_empty(),
+            "Page {} should have elements (header should render)",
+            i
+        );
+    }
+}
+
+#[test]
+fn test_fixed_footer_renders() {
+    let doc = default_doc(vec![
+        make_fixed_footer("Footer Text"),
+        make_text("Body content", 12.0),
+    ]);
+    let pages = layout_doc(&doc);
+    assert_eq!(pages.len(), 1);
+    // Footer elements should be at the bottom of content area
+    assert!(pages[0].elements.len() >= 2, "Page should have footer + body elements");
+}
+
+#[test]
+fn test_header_and_footer_together() {
+    let mut children = vec![
+        make_fixed_header("Header"),
+        make_fixed_footer("Footer"),
+    ];
+    for i in 0..80 {
+        children.push(make_text(&format!("Content line {}", i), 12.0));
+    }
+    let doc = default_doc(children);
+    let pages = layout_doc(&doc);
+    assert!(pages.len() >= 2, "Should overflow to multiple pages, got {}", pages.len());
+
+    // Each page should have elements
+    for (i, page) in pages.iter().enumerate() {
+        assert!(
+            !page.elements.is_empty(),
+            "Page {} should have header/footer/content elements",
+            i
+        );
+    }
+
+    // Verify PDF is valid
+    let bytes = render_to_pdf(&doc);
+    assert_valid_pdf(&bytes);
+}
+
+#[test]
+fn test_footer_reduces_content_area() {
+    // Doc without footer
+    let mut children_no_footer = Vec::new();
+    for i in 0..80 {
+        children_no_footer.push(make_text(&format!("Line {}", i), 12.0));
+    }
+    let doc_no_footer = default_doc(children_no_footer);
+    let pages_no_footer = layout_doc(&doc_no_footer);
+
+    // Doc with large footer
+    let big_footer = Node {
+        kind: NodeKind::Fixed { position: FixedPosition::Footer },
+        style: Style {
+            padding: Some(Edges::symmetric(40.0, 8.0)), // tall footer
+            ..Default::default()
+        },
+        children: vec![make_text("Big Footer", 14.0)],
+        id: None,
+    };
+    let mut children_with_footer = vec![big_footer];
+    for i in 0..80 {
+        children_with_footer.push(make_text(&format!("Line {}", i), 12.0));
+    }
+    let doc_with_footer = default_doc(children_with_footer);
+    let pages_with_footer = layout_doc(&doc_with_footer);
+
+    assert!(
+        pages_with_footer.len() > pages_no_footer.len(),
+        "Doc with footer ({} pages) should have more pages than without ({} pages)",
+        pages_with_footer.len(),
+        pages_no_footer.len()
+    );
+}
+
+#[test]
+fn test_fixed_element_json() {
+    let json = r#"{
+        "children": [
+            {
+                "kind": { "type": "Fixed", "position": "Header" },
+                "style": { "padding": { "top": 8, "right": 8, "bottom": 8, "left": 8 } },
+                "children": [
+                    { "kind": { "type": "Text", "content": "JSON Header" }, "style": {} }
+                ]
+            },
+            {
+                "kind": { "type": "Text", "content": "Body text" },
+                "style": {}
+            }
+        ]
+    }"#;
+    let bytes = forme::render_json(json).expect("Should parse Fixed node JSON");
+    assert_valid_pdf(&bytes);
+}
+
+// ─── Flex Wrap Tests ────────────────────────────────────────────
+
+#[test]
+fn test_flex_wrap_single_line_fits() {
+    // 3 items × 100pt = 300pt; available ~487pt (A4 minus margins) — should fit on one line
+    let row = make_styled_view(
+        Style {
+            flex_direction: Some(FlexDirection::Row),
+            flex_wrap: Some(FlexWrap::Wrap),
+            ..Default::default()
+        },
+        vec![
+            make_styled_view(
+                Style { width: Some(Dimension::Pt(100.0)), ..Default::default() },
+                vec![make_text("A", 12.0)],
+            ),
+            make_styled_view(
+                Style { width: Some(Dimension::Pt(100.0)), ..Default::default() },
+                vec![make_text("B", 12.0)],
+            ),
+            make_styled_view(
+                Style { width: Some(Dimension::Pt(100.0)), ..Default::default() },
+                vec![make_text("C", 12.0)],
+            ),
+        ],
+    );
+    let doc = default_doc(vec![row]);
+    let pages = layout_doc(&doc);
+    assert_eq!(pages.len(), 1);
+}
+
+#[test]
+fn test_flex_wrap_items_wrap_to_second_line() {
+    // 5 items × 120pt = 600pt; available ~487pt — items should wrap
+    let mut items = Vec::new();
+    for i in 0..5 {
+        items.push(make_styled_view(
+            Style {
+                width: Some(Dimension::Pt(120.0)),
+                ..Default::default()
+            },
+            vec![make_text(&format!("Item {}", i), 12.0)],
+        ));
+    }
+    let row = make_styled_view(
+        Style {
+            flex_direction: Some(FlexDirection::Row),
+            flex_wrap: Some(FlexWrap::Wrap),
+            ..Default::default()
+        },
+        items,
+    );
+    let doc = default_doc(vec![row]);
+    let pages = layout_doc(&doc);
+    assert_eq!(pages.len(), 1);
+
+    // Check that items are at different Y positions (wrapped to multiple lines)
+    let y_positions: Vec<f64> = pages[0]
+        .elements
+        .iter()
+        .filter(|e| matches!(e.draw, forme::layout::DrawCommand::Rect { .. }))
+        .map(|e| e.y)
+        .collect();
+
+    // Should have at least 2 distinct Y positions (2 wrap lines)
+    let mut unique_ys: Vec<f64> = y_positions.clone();
+    unique_ys.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    unique_ys.dedup_by(|a, b| (*a - *b).abs() < 1.0);
+    assert!(
+        unique_ys.len() >= 2,
+        "Wrapped items should produce at least 2 Y positions, got {:?}",
+        unique_ys
+    );
+}
+
+#[test]
+fn test_flex_wrap_produces_valid_pdf() {
+    let mut items = Vec::new();
+    for i in 0..8 {
+        items.push(make_styled_view(
+            Style {
+                width: Some(Dimension::Pt(120.0)),
+                padding: Some(Edges::uniform(4.0)),
+                ..Default::default()
+            },
+            vec![make_text(&format!("Cell {}", i), 10.0)],
+        ));
+    }
+    let grid = make_styled_view(
+        Style {
+            flex_direction: Some(FlexDirection::Row),
+            flex_wrap: Some(FlexWrap::Wrap),
+            gap: Some(8.0),
+            ..Default::default()
+        },
+        items,
+    );
+    let doc = default_doc(vec![grid]);
+    let bytes = render_to_pdf(&doc);
+    assert_valid_pdf(&bytes);
+}
+
+#[test]
+fn test_flex_wrap_nowrap_unchanged() {
+    // NoWrap regression: 10 items should still squeeze on one line
+    let mut items = Vec::new();
+    for i in 0..10 {
+        items.push(make_styled_view(
+            Style {
+                width: Some(Dimension::Pt(80.0)),
+                ..Default::default()
+            },
+            vec![make_text(&format!("{}", i), 10.0)],
+        ));
+    }
+    let row = make_styled_view(
+        Style {
+            flex_direction: Some(FlexDirection::Row),
+            flex_wrap: Some(FlexWrap::NoWrap),
+            ..Default::default()
+        },
+        items,
+    );
+    let doc = default_doc(vec![row]);
+    let pages = layout_doc(&doc);
+    assert_eq!(pages.len(), 1);
+
+    // All items should be at the same Y position (single line)
+    let y_positions: Vec<f64> = pages[0]
+        .elements
+        .iter()
+        .filter(|e| matches!(e.draw, forme::layout::DrawCommand::Rect { .. }))
+        .map(|e| e.y)
+        .collect();
+
+    if y_positions.len() > 1 {
+        let first_y = y_positions[0];
+        for y in &y_positions {
+            assert!(
+                (y - first_y).abs() < 1.0,
+                "NoWrap items should all be on same line, got different Y positions"
+            );
+        }
+    }
+}
+
+#[test]
+fn test_flex_wrap_page_break_per_line() {
+    // Many wrapped items with padding should span multiple pages
+    // A4 content: ~487pt wide, ~734pt tall
+    // Items: 200pt wide → 2 per line, each ~40pt tall → 100 lines × 40pt = 4000pt
+    let mut items = Vec::new();
+    for i in 0..200 {
+        items.push(make_styled_view(
+            Style {
+                width: Some(Dimension::Pt(200.0)),
+                padding: Some(Edges::uniform(10.0)),
+                ..Default::default()
+            },
+            vec![make_text(&format!("I{}", i), 12.0)],
+        ));
+    }
+    let grid = make_styled_view(
+        Style {
+            flex_direction: Some(FlexDirection::Row),
+            flex_wrap: Some(FlexWrap::Wrap),
+            ..Default::default()
+        },
+        items,
+    );
+    let doc = default_doc(vec![grid]);
+    let pages = layout_doc(&doc);
+    assert!(
+        pages.len() >= 2,
+        "200 wrapped items should span multiple pages, got {}",
+        pages.len()
+    );
+}
+
+#[test]
+fn test_flex_wrap_with_row_gap() {
+    // Verify row_gap applies between wrap lines
+    let mut items = Vec::new();
+    for i in 0..6 {
+        items.push(make_styled_view(
+            Style {
+                width: Some(Dimension::Pt(200.0)),
+                ..Default::default()
+            },
+            vec![make_text(&format!("Item {}", i), 12.0)],
+        ));
+    }
+    // 6 items × 200pt; available ~487pt → 2 per line → 3 lines
+    // row_gap=20 should add space between lines
+    let grid_with_gap = make_styled_view(
+        Style {
+            flex_direction: Some(FlexDirection::Row),
+            flex_wrap: Some(FlexWrap::Wrap),
+            row_gap: Some(20.0),
+            ..Default::default()
+        },
+        items.clone(),
+    );
+    let grid_no_gap = make_styled_view(
+        Style {
+            flex_direction: Some(FlexDirection::Row),
+            flex_wrap: Some(FlexWrap::Wrap),
+            row_gap: Some(0.0),
+            ..Default::default()
+        },
+        items,
+    );
+
+    let doc_with_gap = default_doc(vec![grid_with_gap]);
+    let doc_no_gap = default_doc(vec![grid_no_gap]);
+
+    let pages_gap = layout_doc(&doc_with_gap);
+    let pages_no_gap = layout_doc(&doc_no_gap);
+
+    // Both should produce valid output
+    assert_eq!(pages_gap.len(), 1);
+    assert_eq!(pages_no_gap.len(), 1);
+
+    // The version with row_gap should use more vertical space
+    let max_y_gap = pages_gap[0].elements.iter().map(|e| e.y + e.height).fold(0.0f64, f64::max);
+    let max_y_no_gap = pages_no_gap[0].elements.iter().map(|e| e.y + e.height).fold(0.0f64, f64::max);
+    assert!(
+        max_y_gap > max_y_no_gap,
+        "Grid with row_gap ({:.1}) should use more vertical space than without ({:.1})",
+        max_y_gap,
+        max_y_no_gap
+    );
+}
+
+#[test]
+fn test_flex_wrap_json_deserialization() {
+    let json = r#"{
+        "children": [
+            {
+                "kind": { "type": "View" },
+                "style": { "flexDirection": "Row", "flexWrap": "Wrap", "gap": 8 },
+                "children": [
+                    {
+                        "kind": { "type": "View" },
+                        "style": { "width": { "Pt": 200 } },
+                        "children": [
+                            { "kind": { "type": "Text", "content": "A" }, "style": {} }
+                        ]
+                    },
+                    {
+                        "kind": { "type": "View" },
+                        "style": { "width": { "Pt": 200 } },
+                        "children": [
+                            { "kind": { "type": "Text", "content": "B" }, "style": {} }
+                        ]
+                    },
+                    {
+                        "kind": { "type": "View" },
+                        "style": { "width": { "Pt": 200 } },
+                        "children": [
+                            { "kind": { "type": "Text", "content": "C" }, "style": {} }
+                        ]
+                    }
+                ]
+            }
+        ]
+    }"#;
+    let bytes = forme::render_json(json).expect("Should parse flex-wrap JSON");
+    assert_valid_pdf(&bytes);
+}

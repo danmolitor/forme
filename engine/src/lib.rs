@@ -31,6 +31,7 @@ pub mod style;
 pub mod layout;
 pub mod text;
 pub mod font;
+pub mod image_loader;
 pub mod pdf;
 
 use model::Document;

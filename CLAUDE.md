@@ -8,28 +8,30 @@ Forme is a **page-native PDF rendering engine** written in Rust. It takes a tree
 
 ```
 forme/
-├── Cargo.toml              # Only deps: serde, serde_json, miniz_oxide
 ├── CLAUDE.md               # You are here
 ├── README.md               # Product readme
-├── src/
-│   ├── lib.rs              # Public API: render() and render_json()
-│   ├── main.rs             # CLI binary + example invoice JSON
-│   ├── model/mod.rs        # Document tree: Node, NodeKind, PageConfig, Edges
-│   ├── style/mod.rs        # CSS-like styles, resolution with inheritance
-│   ├── layout/
-│   │   ├── mod.rs          # THE CORE: page-aware layout engine
-│   │   ├── flex.rs         # Flex grow/shrink distribution helpers
-│   │   └── page_break.rs   # Break decision logic (split/move/place)
-│   ├── text/mod.rs         # Line breaking + text measurement
-│   ├── font/mod.rs         # Font registry (14 standard PDF fonts)
-│   └── pdf/mod.rs          # PDF 1.7 serializer (from scratch)
-└── tests/
-    └── integration.rs      # Full pipeline tests
+└── engine/                 # Rust rendering engine
+    ├── Cargo.toml          # Only deps: serde, serde_json, miniz_oxide
+    ├── src/
+    │   ├── lib.rs          # Public API: render() and render_json()
+    │   ├── main.rs         # CLI binary + example invoice JSON
+    │   ├── model/mod.rs    # Document tree: Node, NodeKind, PageConfig, Edges
+    │   ├── style/mod.rs    # CSS-like styles, resolution with inheritance
+    │   ├── layout/
+    │   │   ├── mod.rs      # THE CORE: page-aware layout engine
+    │   │   ├── flex.rs     # Flex grow/shrink/wrap distribution helpers
+    │   │   └── page_break.rs # Break decision logic (split/move/place)
+    │   ├── text/mod.rs     # Line breaking + text measurement
+    │   ├── font/mod.rs     # Font registry (14 standard PDF fonts)
+    │   └── pdf/mod.rs      # PDF 1.7 serializer (from scratch)
+    └── tests/
+        └── integration.rs  # Full pipeline tests
 ```
 
 ## Build & Test
 
 ```bash
+cd engine
 cargo build
 cargo test
 cargo run -- --example > invoice.json    # dump example invoice
@@ -86,24 +88,20 @@ Transform in pdf serializer: `pdf_y = page_height - layout_y - element_height`
 
 ### SHOULD FIX
 
-5. **`flex-wrap: wrap` is not implemented.** Row items that overflow the available width should wrap to a new line. Currently they just squeeze via flex-shrink or overflow.
+5. **`measure_intrinsic_width` returns hardcoded 100pt for containers.** Should recursively measure content. Affects flex row sizing when children don't have explicit widths.
 
-6. **`measure_intrinsic_width` returns hardcoded 100pt for containers.** Should recursively measure content. Affects flex row sizing when children don't have explicit widths.
+6. **Widow/orphan control in text layout is incomplete.** The page_break module has the logic, but the text layout path in `layout_text` doesn't use it — it just breaks at any line boundary.
 
-7. **Image embedding is a placeholder.** `DrawCommand::Image` stores data but the PDF serializer just draws a grey rectangle. Need to embed JPEG data directly and decode+re-encode PNG to PDF image XObjects.
-
-8. **Fixed elements (headers/footers) are collected but not injected.** `inject_fixed_elements` is a stub. The nodes are stored in `PageCursor.fixed_header/fixed_footer` but never rendered onto pages.
-
-9. **Widow/orphan control in text layout is incomplete.** The page_break module has the logic, but the text layout path in `layout_text` doesn't use it — it just breaks at any line boundary.
+7. **`align-content` is not implemented.** Wrapped flex lines always stack from the top (`flex-start`). Properties like `center`, `space-between`, etc. for distributing lines within the cross-axis are not supported.
 
 ### NICE TO HAVE (LATER)
 
-10. No Knuth-Plass line breaking (using greedy algorithm — fine for documents).
-11. No hyphenation.
-12. No BiDi text support (Arabic, Hebrew).
-13. No CSS Grid.
-14. No PDF/A compliance.
-15. No WASM build yet.
+8. No Knuth-Plass line breaking (using greedy algorithm — fine for documents).
+9. No hyphenation.
+10. No BiDi text support (Arabic, Hebrew).
+11. No CSS Grid.
+12. No PDF/A compliance.
+13. No WASM build yet.
 
 ## How the Layout Engine Works (for making changes)
 

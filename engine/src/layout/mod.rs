@@ -45,6 +45,12 @@ pub struct LayoutPage {
     pub width: f64,
     pub height: f64,
     pub elements: Vec<LayoutElement>,
+    /// Fixed header nodes to inject after layout (internal use).
+    pub(crate) fixed_header: Vec<(Node, f64)>,
+    /// Fixed footer nodes to inject after layout (internal use).
+    pub(crate) fixed_footer: Vec<(Node, f64)>,
+    /// Page config needed for fixed element layout (internal use).
+    pub(crate) config: PageConfig,
 }
 
 /// A positioned element on a page.
@@ -81,9 +87,10 @@ pub enum DrawCommand {
     },
     /// Draw an image.
     Image {
-        data: Vec<u8>,
-        format: ImageFormat,
+        image_data: crate::image_loader::LoadedImage,
     },
+    /// Draw a grey placeholder rectangle (fallback when image loading fails).
+    ImagePlaceholder,
 }
 
 #[derive(Debug, Clone)]
@@ -104,12 +111,6 @@ pub struct PositionedGlyph {
     pub font_weight: u32,
     pub font_style: FontStyle,
     pub char_value: char,
-}
-
-#[derive(Debug, Clone)]
-pub enum ImageFormat {
-    Jpeg,
-    Png,
 }
 
 /// The main layout engine.
@@ -161,6 +162,9 @@ impl PageCursor {
             width: page_w,
             height: page_h,
             elements: self.elements.clone(),
+            fixed_header: self.fixed_header.clone(),
+            fixed_footer: self.fixed_footer.clone(),
+            config: self.config.clone(),
         }
     }
 
@@ -231,7 +235,7 @@ impl LayoutEngine {
             pages.push(cursor.finalize());
         }
 
-        self.inject_fixed_elements(&mut pages, &cursor);
+        self.inject_fixed_elements(&mut pages, font_context);
 
         pages
     }
@@ -407,7 +411,8 @@ impl LayoutEngine {
             .map(|s| s.flex_direction)
             .unwrap_or(FlexDirection::Column);
 
-        let gap = parent_style.map(|s| s.gap).unwrap_or(0.0);
+        let row_gap = parent_style.map(|s| s.row_gap).unwrap_or(0.0);
+        let column_gap = parent_style.map(|s| s.column_gap).unwrap_or(0.0);
 
         match direction {
             FlexDirection::Column | FlexDirection::ColumnReverse => {
@@ -419,7 +424,7 @@ impl LayoutEngine {
 
                 for (i, child) in items.iter().enumerate() {
                     if i > 0 {
-                        cursor.y += gap;
+                        cursor.y += row_gap;
                     }
                     self.layout_node(
                         child,
@@ -434,7 +439,7 @@ impl LayoutEngine {
             }
 
             FlexDirection::Row | FlexDirection::RowReverse => {
-                self.layout_flex_row(children, cursor, pages, available_width, parent_style, gap, font_context);
+                self.layout_flex_row(children, cursor, pages, available_width, parent_style, column_gap, row_gap, font_context);
             }
         }
     }
@@ -446,20 +451,23 @@ impl LayoutEngine {
         pages: &mut Vec<LayoutPage>,
         available_width: f64,
         parent_style: Option<&ResolvedStyle>,
-        gap: f64,
+        column_gap: f64,
+        row_gap: f64,
         font_context: &FontContext,
     ) {
         if children.is_empty() {
             return;
         }
 
-        let total_gap = gap * (children.len() as f64 - 1.0).max(0.0);
-        let distributable_width = available_width - total_gap;
+        let flex_wrap = parent_style
+            .map(|s| s.flex_wrap)
+            .unwrap_or(FlexWrap::NoWrap);
 
-        let mut items: Vec<FlexItem> = children
+        // Phase 1: resolve styles and measure base widths for all items
+        let items: Vec<FlexItem> = children
             .iter()
             .map(|child| {
-                let style = child.style.resolve(parent_style, distributable_width);
+                let style = child.style.resolve(parent_style, available_width);
                 let base_width = match style.width {
                     SizeConstraint::Fixed(w) => w,
                     SizeConstraint::Auto => {
@@ -470,122 +478,167 @@ impl LayoutEngine {
                     node: child,
                     style,
                     base_width,
-                    final_width: base_width,
                 }
             })
             .collect();
 
-        let total_base: f64 = items.iter().map(|i| i.base_width).sum();
-        let remaining = distributable_width - total_base;
+        // Phase 2: determine wrap lines
+        let base_widths: Vec<f64> = items.iter().map(|i| i.base_width).collect();
+        let lines = match flex_wrap {
+            FlexWrap::NoWrap => {
+                vec![flex::WrapLine { start: 0, end: items.len() }]
+            }
+            FlexWrap::Wrap => {
+                flex::partition_into_lines(&base_widths, column_gap, available_width)
+            }
+            FlexWrap::WrapReverse => {
+                let mut l = flex::partition_into_lines(&base_widths, column_gap, available_width);
+                l.reverse();
+                l
+            }
+        };
 
-        if remaining > 0.0 {
-            let total_grow: f64 = items.iter().map(|i| i.style.flex_grow).sum();
-            if total_grow > 0.0 {
-                for item in &mut items {
-                    item.final_width += remaining * (item.style.flex_grow / total_grow);
-                }
-            }
-        } else if remaining < 0.0 {
-            let total_shrink: f64 = items
-                .iter()
-                .map(|i| i.style.flex_shrink * i.base_width)
-                .sum();
-            if total_shrink > 0.0 {
-                for item in &mut items {
-                    let shrink_factor = (item.style.flex_shrink * item.base_width) / total_shrink;
-                    item.final_width += remaining * shrink_factor;
-                    item.final_width = item.final_width.max(item.style.min_width);
-                }
-            }
+        if lines.is_empty() {
+            return;
         }
 
-        let row_height: f64 = items
-            .iter()
-            .map(|item| {
-                self.measure_node_height(item.node, item.final_width, &item.style, font_context)
-                    + item.style.margin.vertical()
-            })
-            .fold(0.0f64, f64::max);
-
-        if row_height > cursor.remaining_height() {
-            pages.push(cursor.finalize());
-            *cursor = cursor.new_page();
-        }
-
-        let mut x = cursor.content_x;
-        let row_start_y = cursor.y;
-
-        let actual_total: f64 = items.iter().map(|i| i.final_width).sum();
-        let slack = available_width - actual_total - total_gap;
-
+        // Phase 3: lay out each line
         let justify = parent_style
             .map(|s| s.justify_content)
             .unwrap_or_default();
 
-        let (start_offset, between_extra) = match justify {
-            JustifyContent::FlexStart => (0.0, 0.0),
-            JustifyContent::FlexEnd => (slack, 0.0),
-            JustifyContent::Center => (slack / 2.0, 0.0),
-            JustifyContent::SpaceBetween => {
-                if items.len() > 1 {
-                    (0.0, slack / (items.len() as f64 - 1.0))
-                } else {
-                    (0.0, 0.0)
+        // We need mutable final_widths per line, so collect into a vec
+        let mut final_widths: Vec<f64> = items.iter().map(|i| i.base_width).collect();
+
+        for (line_idx, line) in lines.iter().enumerate() {
+            let line_items = &items[line.start..line.end];
+            let line_count = line.end - line.start;
+            let line_gap = column_gap * (line_count as f64 - 1.0).max(0.0);
+            let distributable = available_width - line_gap;
+
+            // Flex distribution for this line
+            let total_base: f64 = line_items.iter().map(|i| i.base_width).sum();
+            let remaining = distributable - total_base;
+
+            if remaining > 0.0 {
+                let total_grow: f64 = line_items.iter().map(|i| i.style.flex_grow).sum();
+                if total_grow > 0.0 {
+                    for (j, item) in line_items.iter().enumerate() {
+                        final_widths[line.start + j] =
+                            item.base_width + remaining * (item.style.flex_grow / total_grow);
+                    }
+                }
+            } else if remaining < 0.0 {
+                let total_shrink: f64 = line_items
+                    .iter()
+                    .map(|i| i.style.flex_shrink * i.base_width)
+                    .sum();
+                if total_shrink > 0.0 {
+                    for (j, item) in line_items.iter().enumerate() {
+                        let factor = (item.style.flex_shrink * item.base_width) / total_shrink;
+                        let w = item.base_width + remaining * factor;
+                        final_widths[line.start + j] = w.max(item.style.min_width);
+                    }
                 }
             }
-            JustifyContent::SpaceAround => {
-                let s = slack / items.len() as f64;
-                (s / 2.0, s)
+
+            // Measure line height
+            let line_height: f64 = line_items
+                .iter()
+                .enumerate()
+                .map(|(j, item)| {
+                    let fw = final_widths[line.start + j];
+                    self.measure_node_height(item.node, fw, &item.style, font_context)
+                        + item.style.margin.vertical()
+                })
+                .fold(0.0f64, f64::max);
+
+            // Page break check for this line
+            if line_height > cursor.remaining_height() {
+                pages.push(cursor.finalize());
+                *cursor = cursor.new_page();
             }
-            JustifyContent::SpaceEvenly => {
-                let s = slack / (items.len() as f64 + 1.0);
-                (s, s)
-            }
-        };
 
-        x += start_offset;
-
-        for (i, item) in items.iter().enumerate() {
-            if i > 0 {
-                x += gap + between_extra;
+            // Add row_gap between lines (not before first)
+            if line_idx > 0 {
+                cursor.y += row_gap;
             }
 
-            let align = item
-                .style
-                .align_self
-                .unwrap_or(parent_style.map(|s| s.align_items).unwrap_or_default());
+            let row_start_y = cursor.y;
 
-            let item_height =
-                self.measure_node_height(item.node, item.final_width, &item.style, font_context);
+            // Justify-content for this line
+            let actual_total: f64 = (line.start..line.end).map(|i| final_widths[i]).sum();
+            let slack = available_width - actual_total - line_gap;
 
-            let y_offset = match align {
-                AlignItems::FlexStart => 0.0,
-                AlignItems::FlexEnd => row_height - item_height - item.style.margin.vertical(),
-                AlignItems::Center => {
-                    (row_height - item_height - item.style.margin.vertical()) / 2.0
+            let (start_offset, between_extra) = match justify {
+                JustifyContent::FlexStart => (0.0, 0.0),
+                JustifyContent::FlexEnd => (slack, 0.0),
+                JustifyContent::Center => (slack / 2.0, 0.0),
+                JustifyContent::SpaceBetween => {
+                    if line_count > 1 {
+                        (0.0, slack / (line_count as f64 - 1.0))
+                    } else {
+                        (0.0, 0.0)
+                    }
                 }
-                AlignItems::Stretch => 0.0,
-                AlignItems::Baseline => 0.0,
+                JustifyContent::SpaceAround => {
+                    let s = slack / line_count as f64;
+                    (s / 2.0, s)
+                }
+                JustifyContent::SpaceEvenly => {
+                    let s = slack / (line_count as f64 + 1.0);
+                    (s, s)
+                }
             };
 
-            let saved_y = cursor.y;
-            cursor.y = row_start_y + y_offset;
+            let mut x = cursor.content_x + start_offset;
 
-            self.layout_node(
-                item.node,
-                cursor,
-                pages,
-                x,
-                item.final_width,
-                parent_style,
-                font_context,
-            );
+            for (j, item) in line_items.iter().enumerate() {
+                if j > 0 {
+                    x += column_gap + between_extra;
+                }
 
-            cursor.y = saved_y;
-            x += item.final_width;
+                let fw = final_widths[line.start + j];
+
+                let align = item
+                    .style
+                    .align_self
+                    .unwrap_or(parent_style.map(|s| s.align_items).unwrap_or_default());
+
+                let item_height =
+                    self.measure_node_height(item.node, fw, &item.style, font_context);
+
+                let y_offset = match align {
+                    AlignItems::FlexStart => 0.0,
+                    AlignItems::FlexEnd => {
+                        line_height - item_height - item.style.margin.vertical()
+                    }
+                    AlignItems::Center => {
+                        (line_height - item_height - item.style.margin.vertical()) / 2.0
+                    }
+                    AlignItems::Stretch => 0.0,
+                    AlignItems::Baseline => 0.0,
+                };
+
+                let saved_y = cursor.y;
+                cursor.y = row_start_y + y_offset;
+
+                self.layout_node(
+                    item.node,
+                    cursor,
+                    pages,
+                    x,
+                    fw,
+                    parent_style,
+                    font_context,
+                );
+
+                cursor.y = saved_y;
+                x += fw;
+            }
+
+            cursor.y = row_start_y + line_height;
         }
-
-        cursor.y = row_start_y + row_height;
     }
 
     fn layout_table(
@@ -832,7 +885,7 @@ impl LayoutEngine {
 
     fn layout_image(
         &self,
-        _node: &Node,
+        node: &Node,
         style: &ResolvedStyle,
         cursor: &mut PageCursor,
         pages: &mut Vec<LayoutPage>,
@@ -842,8 +895,41 @@ impl LayoutEngine {
         explicit_height: Option<f64>,
     ) {
         let margin = &style.margin;
-        let img_width = explicit_width.unwrap_or(available_width - margin.horizontal());
-        let img_height = explicit_height.unwrap_or(img_width * 0.75);
+
+        // Try to load the image from the node's src field
+        let src = match &node.kind {
+            NodeKind::Image { src, .. } => src.as_str(),
+            _ => "",
+        };
+
+        let loaded = if !src.is_empty() {
+            crate::image_loader::load_image(src).ok()
+        } else {
+            None
+        };
+
+        // Compute display dimensions with aspect ratio preservation
+        let (img_width, img_height) = if let Some(ref img) = loaded {
+            let intrinsic_w = img.width_px as f64;
+            let intrinsic_h = img.height_px as f64;
+            let aspect = if intrinsic_w > 0.0 { intrinsic_h / intrinsic_w } else { 0.75 };
+
+            match (explicit_width, explicit_height) {
+                (Some(w), Some(h)) => (w, h),
+                (Some(w), None) => (w, w * aspect),
+                (None, Some(h)) => (h / aspect, h),
+                (None, None) => {
+                    let max_w = available_width - margin.horizontal();
+                    let w = intrinsic_w.min(max_w);
+                    (w, w * aspect)
+                }
+            }
+        } else {
+            // Fallback dimensions when image can't be loaded
+            let w = explicit_width.unwrap_or(available_width - margin.horizontal());
+            let h = explicit_height.unwrap_or(w * 0.75);
+            (w, h)
+        };
 
         let total_height = img_height + margin.vertical();
 
@@ -854,15 +940,18 @@ impl LayoutEngine {
 
         cursor.y += margin.top;
 
+        let draw = if let Some(image_data) = loaded {
+            DrawCommand::Image { image_data }
+        } else {
+            DrawCommand::ImagePlaceholder
+        };
+
         cursor.elements.push(LayoutElement {
             x: x + margin.left,
             y: cursor.content_y + cursor.y,
             width: img_width,
             height: img_height,
-            draw: DrawCommand::Image {
-                data: vec![],
-                format: ImageFormat::Png,
-            },
+            draw,
             children: vec![],
         });
 
@@ -911,19 +1000,67 @@ impl LayoutEngine {
         parent_style: &ResolvedStyle,
         font_context: &FontContext,
     ) -> f64 {
-        let gap = parent_style.gap;
-        let mut total = 0.0;
+        let direction = parent_style.flex_direction;
+        let row_gap = parent_style.row_gap;
+        let column_gap = parent_style.column_gap;
 
-        for (i, child) in children.iter().enumerate() {
-            let child_style = child.style.resolve(Some(parent_style), available_width);
-            let child_height = self.measure_node_height(child, available_width, &child_style, font_context);
-            total += child_height + child_style.margin.vertical();
-            if i > 0 {
-                total += gap;
+        match direction {
+            FlexDirection::Row | FlexDirection::RowReverse => {
+                // Measure base widths for all children
+                let base_widths: Vec<f64> = children
+                    .iter()
+                    .map(|child| {
+                        let child_style = child.style.resolve(Some(parent_style), available_width);
+                        match child_style.width {
+                            SizeConstraint::Fixed(w) => w,
+                            SizeConstraint::Auto => {
+                                self.measure_intrinsic_width(child, &child_style, font_context)
+                            }
+                        }
+                    })
+                    .collect();
+
+                let lines = match parent_style.flex_wrap {
+                    FlexWrap::NoWrap => {
+                        vec![flex::WrapLine { start: 0, end: children.len() }]
+                    }
+                    FlexWrap::Wrap | FlexWrap::WrapReverse => {
+                        flex::partition_into_lines(&base_widths, column_gap, available_width)
+                    }
+                };
+
+                let mut total = 0.0;
+                for (i, line) in lines.iter().enumerate() {
+                    let line_height: f64 = children[line.start..line.end]
+                        .iter()
+                        .zip(&base_widths[line.start..line.end])
+                        .map(|(child, &bw)| {
+                            let child_style = child.style.resolve(Some(parent_style), bw);
+                            self.measure_node_height(child, bw, &child_style, font_context)
+                                + child_style.margin.vertical()
+                        })
+                        .fold(0.0f64, f64::max);
+                    total += line_height;
+                    if i > 0 {
+                        total += row_gap;
+                    }
+                }
+                total
+            }
+            FlexDirection::Column | FlexDirection::ColumnReverse => {
+                let mut total = 0.0;
+                for (i, child) in children.iter().enumerate() {
+                    let child_style = child.style.resolve(Some(parent_style), available_width);
+                    let child_height =
+                        self.measure_node_height(child, available_width, &child_style, font_context);
+                    total += child_height + child_style.margin.vertical();
+                    if i > 0 {
+                        total += row_gap;
+                    }
+                }
+                total
             }
         }
-
-        total
     }
 
     /// Measure intrinsic width of a node (used for flex row sizing).
@@ -1055,9 +1192,65 @@ impl LayoutEngine {
         widths
     }
 
-    fn inject_fixed_elements(&self, _pages: &mut Vec<LayoutPage>, _cursor: &PageCursor) {
-        // TODO: render fixed header/footer nodes and insert their elements
-        // into each page at the appropriate positions
+    fn inject_fixed_elements(
+        &self,
+        pages: &mut Vec<LayoutPage>,
+        font_context: &FontContext,
+    ) {
+        for page in pages.iter_mut() {
+            if page.fixed_header.is_empty() && page.fixed_footer.is_empty() {
+                continue;
+            }
+
+            // Lay out headers at top of content area
+            if !page.fixed_header.is_empty() {
+                let mut hdr_cursor = PageCursor::new(&page.config);
+                for (node, _h) in &page.fixed_header {
+                    let cw = hdr_cursor.content_width;
+                    let cx = hdr_cursor.content_x;
+                    let style = node.style.resolve(None, cw);
+                    self.layout_view(
+                        node,
+                        &style,
+                        &mut hdr_cursor,
+                        &mut Vec::new(),
+                        cx,
+                        cw,
+                        font_context,
+                    );
+                }
+                // Prepend header elements so they draw behind body content
+                let mut combined = hdr_cursor.elements;
+                combined.append(&mut page.elements);
+                page.elements = combined;
+            }
+
+            // Lay out footers at bottom of content area
+            if !page.fixed_footer.is_empty() {
+                let mut ftr_cursor = PageCursor::new(&page.config);
+                let total_ftr: f64 = page.fixed_footer.iter().map(|(_, h)| *h).sum();
+                ftr_cursor.y = ftr_cursor.content_height - total_ftr;
+                for (node, _h) in &page.fixed_footer {
+                    let cw = ftr_cursor.content_width;
+                    let cx = ftr_cursor.content_x;
+                    let style = node.style.resolve(None, cw);
+                    self.layout_view(
+                        node,
+                        &style,
+                        &mut ftr_cursor,
+                        &mut Vec::new(),
+                        cx,
+                        cw,
+                        font_context,
+                    );
+                }
+                page.elements.extend(ftr_cursor.elements);
+            }
+
+            // Clean up internal fields
+            page.fixed_header.clear();
+            page.fixed_footer.clear();
+        }
     }
 }
 
@@ -1065,5 +1258,4 @@ struct FlexItem<'a> {
     node: &'a Node,
     style: ResolvedStyle,
     base_width: f64,
-    final_width: f64,
 }

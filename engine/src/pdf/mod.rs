@@ -58,6 +58,12 @@ struct PdfBuilder {
     font_objects: Vec<(FontKey, usize)>,
     /// Embedding data for custom fonts, keyed by FontKey.
     custom_font_data: HashMap<FontKey, CustomFontEmbedData>,
+    /// XObject obj IDs for images, indexed as /Im0, /Im1, ...
+    /// Each entry is (main_xobject_id, optional_smask_xobject_id).
+    image_objects: Vec<usize>,
+    /// Maps (page_index, element_position_in_page) to image index in image_objects.
+    /// Used during content stream writing to find the right /ImN reference.
+    image_index_map: HashMap<(usize, usize), usize>,
 }
 
 struct PdfObject {
@@ -77,6 +83,8 @@ impl PdfWriter {
             objects: Vec::new(),
             font_objects: Vec::new(),
             custom_font_data: HashMap::new(),
+            image_objects: Vec::new(),
+            image_index_map: HashMap::new(),
         };
 
         // Reserve object IDs:
@@ -91,11 +99,14 @@ impl PdfWriter {
         // Register the fonts actually used across all pages
         self.register_fonts(&mut builder, pages, font_context);
 
+        // Register images as XObject PDF objects
+        self.register_images(&mut builder, pages);
+
         // Build page objects and content streams
         let mut page_obj_ids: Vec<usize> = Vec::new();
 
-        for page in pages {
-            let content = self.build_content_stream(page, &builder);
+        for (page_idx, page) in pages.iter().enumerate() {
+            let content = self.build_content_stream_for_page(page, page_idx, &builder);
             let compressed = compress_to_vec_zlib(content.as_bytes(), 6);
 
             let content_obj_id = builder.objects.len();
@@ -114,10 +125,16 @@ impl PdfWriter {
 
             let page_obj_id = builder.objects.len();
             let font_resources = self.build_font_resource_dict(&builder.font_objects);
+            let xobject_resources = self.build_xobject_resource_dict(page_idx, &builder);
+            let resources = if xobject_resources.is_empty() {
+                format!("/Font << {} >>", font_resources)
+            } else {
+                format!("/Font << {} >> /XObject << {} >>", font_resources, xobject_resources)
+            };
             let page_dict = format!(
                 "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {:.2} {:.2}] \
-                 /Contents {} 0 R /Resources << /Font << {} >> >> >>",
-                page.width, page.height, content_obj_id, font_resources
+                 /Contents {} 0 R /Resources << {} >> >>",
+                page.width, page.height, content_obj_id, resources
             );
             builder.objects.push(PdfObject {
                 id: page_obj_id,
@@ -169,16 +186,18 @@ impl PdfWriter {
     }
 
     /// Build the PDF content stream for a single page.
-    fn build_content_stream(
+    fn build_content_stream_for_page(
         &self,
         page: &LayoutPage,
+        page_idx: usize,
         builder: &PdfBuilder,
     ) -> String {
         let mut stream = String::new();
         let page_height = page.height;
+        let mut element_counter = 0usize;
 
         for element in &page.elements {
-            self.write_element(&mut stream, element, page_height, builder);
+            self.write_element(&mut stream, element, page_height, builder, page_idx, &mut element_counter);
         }
 
         stream
@@ -191,6 +210,8 @@ impl PdfWriter {
         element: &LayoutElement,
         page_height: f64,
         builder: &PdfBuilder,
+        page_idx: usize,
+        element_counter: &mut usize,
     ) {
         match &element.draw {
             DrawCommand::None => {}
@@ -308,6 +329,31 @@ impl PdfWriter {
             }
 
             DrawCommand::Image { .. } => {
+                let elem_idx = *element_counter;
+                *element_counter += 1;
+                if let Some(&img_idx) = builder.image_index_map.get(&(page_idx, elem_idx)) {
+                    let x = element.x;
+                    let y = page_height - element.y - element.height;
+                    let _ = write!(
+                        stream,
+                        "q\n{:.4} 0 0 {:.4} {:.2} {:.2} cm\n/Im{} Do\nQ\n",
+                        element.width, element.height, x, y, img_idx
+                    );
+                } else {
+                    // Fallback: grey placeholder if image index not found
+                    let x = element.x;
+                    let y = page_height - element.y - element.height;
+                    let _ = write!(
+                        stream,
+                        "q\n0.9 0.9 0.9 rg\n{:.2} {:.2} {:.2} {:.2} re\nf\nQ\n",
+                        x, y, element.width, element.height
+                    );
+                }
+                return; // Don't increment counter again for children
+            }
+
+            DrawCommand::ImagePlaceholder => {
+                *element_counter += 1;
                 let x = element.x;
                 let y = page_height - element.y - element.height;
                 let _ = write!(
@@ -315,11 +361,12 @@ impl PdfWriter {
                     "q\n0.9 0.9 0.9 rg\n{:.2} {:.2} {:.2} {:.2} re\nf\nQ\n",
                     x, y, element.width, element.height
                 );
+                return;
             }
         }
 
         for child in &element.children {
-            self.write_element(stream, child, page_height, builder);
+            self.write_element(stream, child, page_height, builder, page_idx, element_counter);
         }
     }
 
@@ -515,6 +562,173 @@ impl PdfWriter {
             }
             Self::collect_font_keys_and_chars(&element.children, font_chars);
         }
+    }
+
+    /// Walk all pages, create XObject PDF objects for each image,
+    /// and populate the image_index_map for content stream reference.
+    fn register_images(
+        &self,
+        builder: &mut PdfBuilder,
+        pages: &[LayoutPage],
+    ) {
+        for (page_idx, page) in pages.iter().enumerate() {
+            let mut element_counter = 0usize;
+            Self::collect_images_recursive(
+                &page.elements,
+                page_idx,
+                &mut element_counter,
+                builder,
+            );
+        }
+    }
+
+    fn collect_images_recursive(
+        elements: &[LayoutElement],
+        page_idx: usize,
+        element_counter: &mut usize,
+        builder: &mut PdfBuilder,
+    ) {
+        for element in elements {
+            match &element.draw {
+                DrawCommand::Image { image_data } => {
+                    let elem_idx = *element_counter;
+                    *element_counter += 1;
+
+                    let img_idx = builder.image_objects.len();
+                    let xobj_id = Self::write_image_xobject(builder, image_data);
+                    builder.image_objects.push(xobj_id);
+                    builder.image_index_map.insert((page_idx, elem_idx), img_idx);
+                }
+                DrawCommand::ImagePlaceholder => {
+                    *element_counter += 1;
+                }
+                _ => {
+                    Self::collect_images_recursive(
+                        &element.children,
+                        page_idx,
+                        element_counter,
+                        builder,
+                    );
+                }
+            }
+        }
+    }
+
+    /// Write a single image as one or two XObject PDF objects.
+    /// Returns the main XObject ID.
+    fn write_image_xobject(
+        builder: &mut PdfBuilder,
+        image: &crate::image_loader::LoadedImage,
+    ) -> usize {
+        use crate::image_loader::{ImagePixelData, JpegColorSpace};
+
+        match &image.pixel_data {
+            ImagePixelData::Jpeg { data, color_space } => {
+                let color_space_str = match color_space {
+                    JpegColorSpace::DeviceRGB => "/DeviceRGB",
+                    JpegColorSpace::DeviceGray => "/DeviceGray",
+                };
+
+                let obj_id = builder.objects.len();
+                let mut obj_data: Vec<u8> = Vec::new();
+                let _ = write!(
+                    obj_data,
+                    "<< /Type /XObject /Subtype /Image \
+                     /Width {} /Height {} \
+                     /ColorSpace {} \
+                     /BitsPerComponent 8 \
+                     /Filter /DCTDecode \
+                     /Length {} >>\nstream\n",
+                    image.width_px, image.height_px,
+                    color_space_str,
+                    data.len()
+                );
+                obj_data.extend_from_slice(data);
+                obj_data.extend_from_slice(b"\nendstream");
+                builder.objects.push(PdfObject {
+                    id: obj_id,
+                    data: obj_data,
+                });
+                obj_id
+            }
+
+            ImagePixelData::Decoded { rgb, alpha } => {
+                // Write SMask first if alpha channel exists
+                let smask_id = alpha.as_ref().map(|alpha_data| {
+                    let compressed_alpha = compress_to_vec_zlib(alpha_data, 6);
+                    let smask_obj_id = builder.objects.len();
+                    let mut smask_data: Vec<u8> = Vec::new();
+                    let _ = write!(
+                        smask_data,
+                        "<< /Type /XObject /Subtype /Image \
+                         /Width {} /Height {} \
+                         /ColorSpace /DeviceGray \
+                         /BitsPerComponent 8 \
+                         /Filter /FlateDecode \
+                         /Length {} >>\nstream\n",
+                        image.width_px, image.height_px,
+                        compressed_alpha.len()
+                    );
+                    smask_data.extend_from_slice(&compressed_alpha);
+                    smask_data.extend_from_slice(b"\nendstream");
+                    builder.objects.push(PdfObject {
+                        id: smask_obj_id,
+                        data: smask_data,
+                    });
+                    smask_obj_id
+                });
+
+                // Write main RGB image XObject
+                let compressed_rgb = compress_to_vec_zlib(rgb, 6);
+                let obj_id = builder.objects.len();
+                let mut obj_data: Vec<u8> = Vec::new();
+
+                let smask_ref = smask_id
+                    .map(|id| format!(" /SMask {} 0 R", id))
+                    .unwrap_or_default();
+
+                let _ = write!(
+                    obj_data,
+                    "<< /Type /XObject /Subtype /Image \
+                     /Width {} /Height {} \
+                     /ColorSpace /DeviceRGB \
+                     /BitsPerComponent 8 \
+                     /Filter /FlateDecode \
+                     /Length {}{} >>\nstream\n",
+                    image.width_px, image.height_px,
+                    compressed_rgb.len(),
+                    smask_ref
+                );
+                obj_data.extend_from_slice(&compressed_rgb);
+                obj_data.extend_from_slice(b"\nendstream");
+                builder.objects.push(PdfObject {
+                    id: obj_id,
+                    data: obj_data,
+                });
+                obj_id
+            }
+        }
+    }
+
+    /// Build the /XObject resource dict entries for a specific page.
+    fn build_xobject_resource_dict(&self, page_idx: usize, builder: &PdfBuilder) -> String {
+        let mut entries: Vec<(usize, usize)> = Vec::new();
+        for (&(pidx, _), &img_idx) in &builder.image_index_map {
+            if pidx == page_idx {
+                let obj_id = builder.image_objects[img_idx];
+                entries.push((img_idx, obj_id));
+            }
+        }
+        if entries.is_empty() {
+            return String::new();
+        }
+        entries.sort_by_key(|(idx, _)| *idx);
+        entries.dedup();
+        entries
+            .iter()
+            .map(|(idx, obj_id)| format!("/Im{} {} 0 R", idx, obj_id))
+            .collect::<Vec<_>>()
+            .join(" ")
     }
 
     /// Write the 5 CIDFont PDF objects for a custom TrueType font.
@@ -887,6 +1101,9 @@ mod tests {
             width: 595.28,
             height: 841.89,
             elements: vec![],
+            fixed_header: vec![],
+            fixed_footer: vec![],
+            config: PageConfig::default(),
         }];
         let metadata = Metadata::default();
         let bytes = writer.write(&pages, &metadata, &font_context);
@@ -905,6 +1122,9 @@ mod tests {
             width: 595.28,
             height: 841.89,
             elements: vec![],
+            fixed_header: vec![],
+            fixed_footer: vec![],
+            config: PageConfig::default(),
         }];
         let metadata = Metadata {
             title: Some("Test Document".to_string()),
@@ -962,6 +1182,9 @@ mod tests {
                     children: vec![],
                 },
             ],
+            fixed_header: vec![],
+            fixed_footer: vec![],
+            config: PageConfig::default(),
         }];
 
         let metadata = Metadata::default();
@@ -1049,6 +1272,9 @@ mod tests {
                 },
                 children: vec![],
             }],
+            fixed_header: vec![],
+            fixed_footer: vec![],
+            config: PageConfig::default(),
         }];
 
         let metadata = Metadata::default();
