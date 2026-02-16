@@ -1,0 +1,557 @@
+import { type ReactElement, isValidElement, Children } from 'react';
+import { Document, Page, View, Text, Image, Table, Row, Cell, Fixed, PageBreak } from './components';
+import type {
+  Style,
+  Edges,
+  Corners,
+  EdgeColors,
+  ColumnDef,
+  FormeDocument,
+  FormeNode,
+  FormeNodeKind,
+  FormeStyle,
+  FormePageConfig,
+  FormePageSize,
+  FormeEdges,
+  FormeColumnDef,
+  FormeColumnWidth,
+  FormeDimension,
+  FormeColor,
+  FormeEdgeValues,
+  FormeCornerValues,
+} from './types';
+
+// ─── Public API ──────────────────────────────────────────────────────
+
+/**
+ * Serialize a React element tree into a Forme JSON document object.
+ * The top-level element must be a <Document>.
+ */
+export function serialize(element: ReactElement): FormeDocument {
+  if (element.type !== Document) {
+    throw new Error('Top-level element must be <Document>');
+  }
+
+  const props = element.props as { title?: string; author?: string; subject?: string; creator?: string; children?: unknown };
+  const childElements = flattenChildren(props.children);
+
+  // Separate Page children from content children
+  const pageNodes: FormeNode[] = [];
+  const contentNodes: FormeNode[] = [];
+
+  for (const child of childElements) {
+    if (isValidElement(child) && child.type === Page) {
+      pageNodes.push(serializePage(child));
+    } else {
+      const node = serializeChild(child);
+      if (node) contentNodes.push(node);
+    }
+  }
+
+  // If there are page nodes, use them. Otherwise wrap content in a default page.
+  let children: FormeNode[];
+  if (pageNodes.length > 0) {
+    // Any loose content nodes get added to the last page's children
+    if (contentNodes.length > 0) {
+      const lastPage = pageNodes[pageNodes.length - 1];
+      lastPage.children.push(...contentNodes);
+    }
+    children = pageNodes;
+  } else if (contentNodes.length > 0) {
+    children = contentNodes;
+  } else {
+    children = [];
+  }
+
+  const metadata: FormeDocument['metadata'] = {};
+  if (props.title !== undefined) metadata.title = props.title;
+  if (props.author !== undefined) metadata.author = props.author;
+  if (props.subject !== undefined) metadata.subject = props.subject;
+  if (props.creator !== undefined) metadata.creator = props.creator;
+
+  return {
+    children,
+    metadata,
+    defaultPage: {
+      size: 'A4',
+      margin: { top: 54, right: 54, bottom: 54, left: 54 },
+      wrap: true,
+    },
+  };
+}
+
+// ─── Page serialization ──────────────────────────────────────────────
+
+function serializePage(element: ReactElement): FormeNode {
+  const props = element.props as { size?: string | { width: number; height: number }; margin?: number | Edges; children?: unknown };
+
+  let size: FormePageSize = 'A4';
+  if (props.size !== undefined) {
+    if (typeof props.size === 'string') {
+      size = props.size as FormePageSize;
+    } else {
+      size = { Custom: { width: props.size.width, height: props.size.height } };
+    }
+  }
+
+  let margin: FormeEdges = { top: 54, right: 54, bottom: 54, left: 54 };
+  if (props.margin !== undefined) {
+    margin = expandEdges(props.margin);
+  }
+
+  const config: FormePageConfig = { size, margin, wrap: true };
+  const childElements = flattenChildren(props.children);
+  const children = serializeChildren(childElements);
+
+  return {
+    kind: { type: 'Page', config },
+    style: {},
+    children,
+  };
+}
+
+// ─── Node serialization ─────────────────────────────────────────────
+
+function serializeChild(child: unknown): FormeNode | null {
+  if (child === null || child === undefined || typeof child === 'boolean') {
+    return null;
+  }
+
+  if (typeof child === 'string') {
+    return {
+      kind: { type: 'Text', content: child },
+      style: {},
+      children: [],
+    };
+  }
+
+  if (typeof child === 'number') {
+    return {
+      kind: { type: 'Text', content: String(child) },
+      style: {},
+      children: [],
+    };
+  }
+
+  if (!isValidElement(child)) {
+    return null;
+  }
+
+  const element = child as ReactElement;
+
+  if (element.type === View) {
+    return serializeView(element);
+  }
+  if (element.type === Text) {
+    return serializeText(element);
+  }
+  if (element.type === Image) {
+    return serializeImage(element);
+  }
+  if (element.type === Table) {
+    return serializeTable(element);
+  }
+  if (element.type === Row) {
+    return serializeRow(element);
+  }
+  if (element.type === Cell) {
+    return serializeCell(element);
+  }
+  if (element.type === Fixed) {
+    return serializeFixed(element);
+  }
+  if (element.type === PageBreak) {
+    return {
+      kind: { type: 'PageBreak' },
+      style: {},
+      children: [],
+    };
+  }
+  if (element.type === Page) {
+    return serializePage(element);
+  }
+  if (element.type === Document) {
+    // Nested Document — just serialize its children
+    const props = element.props as { children?: unknown };
+    const childElements = flattenChildren(props.children);
+    const nodes = serializeChildren(childElements);
+    return nodes.length === 1 ? nodes[0] : {
+      kind: { type: 'View' },
+      style: {},
+      children: nodes,
+    };
+  }
+
+  // Unknown component — try to call it as a function component
+  if (typeof element.type === 'function') {
+    const result = (element.type as (props: Record<string, unknown>) => unknown)(element.props as Record<string, unknown>);
+    if (isValidElement(result)) {
+      return serializeChild(result);
+    }
+    return null;
+  }
+
+  return null;
+}
+
+function serializeView(element: ReactElement): FormeNode {
+  const props = element.props as { style?: Style; wrap?: boolean; children?: unknown };
+  const style = mapStyle(props.style);
+  if (props.wrap !== undefined) {
+    style.wrap = props.wrap;
+  }
+  const childElements = flattenChildren(props.children);
+  const children = serializeChildren(childElements);
+
+  return {
+    kind: { type: 'View' },
+    style,
+    children,
+  };
+}
+
+function serializeText(element: ReactElement): FormeNode {
+  const props = element.props as { style?: Style; children?: unknown };
+  const content = flattenTextContent(props.children);
+
+  return {
+    kind: { type: 'Text', content },
+    style: mapStyle(props.style),
+    children: [],
+  };
+}
+
+function serializeImage(element: ReactElement): FormeNode {
+  const props = element.props as { src: string; width?: number; height?: number; style?: Style };
+  const kind: FormeNodeKind = { type: 'Image', src: props.src };
+  if (props.width !== undefined) (kind as { width?: number }).width = props.width;
+  if (props.height !== undefined) (kind as { height?: number }).height = props.height;
+
+  return {
+    kind,
+    style: mapStyle(props.style),
+    children: [],
+  };
+}
+
+function serializeTable(element: ReactElement): FormeNode {
+  const props = element.props as { columns?: ColumnDef[]; style?: Style; children?: unknown };
+  const columns: FormeColumnDef[] = (props.columns ?? []).map(col => ({
+    width: mapColumnWidth(col.width),
+  }));
+
+  const childElements = flattenChildren(props.children);
+  const children = serializeChildren(childElements);
+
+  return {
+    kind: { type: 'Table', columns },
+    style: mapStyle(props.style),
+    children,
+  };
+}
+
+function serializeRow(element: ReactElement): FormeNode {
+  const props = element.props as { header?: boolean; style?: Style; children?: unknown };
+  const childElements = flattenChildren(props.children);
+  const children = serializeChildren(childElements);
+
+  return {
+    kind: { type: 'TableRow', is_header: props.header ?? false },
+    style: mapStyle(props.style),
+    children,
+  };
+}
+
+function serializeCell(element: ReactElement): FormeNode {
+  const props = element.props as { colSpan?: number; rowSpan?: number; style?: Style; children?: unknown };
+  const childElements = flattenChildren(props.children);
+  const children = serializeChildren(childElements);
+
+  return {
+    kind: { type: 'TableCell', col_span: props.colSpan ?? 1, row_span: props.rowSpan ?? 1 },
+    style: mapStyle(props.style),
+    children,
+  };
+}
+
+function serializeFixed(element: ReactElement): FormeNode {
+  const props = element.props as { position: 'header' | 'footer'; style?: Style; children?: unknown };
+  const position = props.position === 'header' ? 'Header' as const : 'Footer' as const;
+  const childElements = flattenChildren(props.children);
+  const children = serializeChildren(childElements);
+
+  return {
+    kind: { type: 'Fixed', position },
+    style: mapStyle(props.style),
+    children,
+  };
+}
+
+// ─── Children helpers ────────────────────────────────────────────────
+
+function flattenChildren(children: unknown): unknown[] {
+  const result: unknown[] = [];
+  Children.forEach(children as React.ReactNode, child => {
+    if (Array.isArray(child)) {
+      result.push(...child.flatMap(c => flattenChildren(c)));
+    } else {
+      result.push(child);
+    }
+  });
+  return result;
+}
+
+function serializeChildren(children: unknown[]): FormeNode[] {
+  const nodes: FormeNode[] = [];
+  for (const child of children) {
+    const node = serializeChild(child);
+    if (node) nodes.push(node);
+  }
+  return nodes;
+}
+
+/**
+ * Flatten all text content within a <Text> element to a single string.
+ * Nested <Text> children have their content extracted and concatenated.
+ */
+function flattenTextContent(children: unknown): string {
+  if (children === null || children === undefined) return '';
+  if (typeof children === 'string') return children;
+  if (typeof children === 'number') return String(children);
+  if (typeof children === 'boolean') return '';
+
+  if (Array.isArray(children)) {
+    return children.map(c => flattenTextContent(c)).join('');
+  }
+
+  if (isValidElement(children)) {
+    const element = children as ReactElement;
+    if (element.type === Text) {
+      const props = element.props as { children?: unknown };
+      return flattenTextContent(props.children);
+    }
+    // For other elements inside Text, try to extract text content
+    const props = element.props as { children?: unknown };
+    return flattenTextContent(props.children);
+  }
+
+  // React.Children.toArray for iterables
+  const arr: unknown[] = [];
+  Children.forEach(children as React.ReactNode, c => arr.push(c));
+  if (arr.length > 0) {
+    return arr.map(c => flattenTextContent(c)).join('');
+  }
+
+  return String(children);
+}
+
+// ─── Style mapping ──────────────────────────────────────────────────
+
+const FLEX_DIRECTION_MAP: Record<string, string> = {
+  'row': 'Row',
+  'column': 'Column',
+  'row-reverse': 'RowReverse',
+  'column-reverse': 'ColumnReverse',
+};
+
+const JUSTIFY_CONTENT_MAP: Record<string, string> = {
+  'flex-start': 'FlexStart',
+  'flex-end': 'FlexEnd',
+  'center': 'Center',
+  'space-between': 'SpaceBetween',
+  'space-around': 'SpaceAround',
+  'space-evenly': 'SpaceEvenly',
+};
+
+const ALIGN_ITEMS_MAP: Record<string, string> = {
+  'flex-start': 'FlexStart',
+  'flex-end': 'FlexEnd',
+  'center': 'Center',
+  'stretch': 'Stretch',
+  'baseline': 'Baseline',
+};
+
+const FLEX_WRAP_MAP: Record<string, string> = {
+  'nowrap': 'NoWrap',
+  'wrap': 'Wrap',
+  'wrap-reverse': 'WrapReverse',
+};
+
+const FONT_STYLE_MAP: Record<string, string> = {
+  'normal': 'Normal',
+  'italic': 'Italic',
+  'oblique': 'Oblique',
+};
+
+const TEXT_ALIGN_MAP: Record<string, string> = {
+  'left': 'Left',
+  'right': 'Right',
+  'center': 'Center',
+  'justify': 'Justify',
+};
+
+const TEXT_DECORATION_MAP: Record<string, string> = {
+  'none': 'None',
+  'underline': 'Underline',
+  'line-through': 'LineThrough',
+};
+
+const TEXT_TRANSFORM_MAP: Record<string, string> = {
+  'none': 'None',
+  'uppercase': 'Uppercase',
+  'lowercase': 'Lowercase',
+  'capitalize': 'Capitalize',
+};
+
+export function mapStyle(style?: Style): FormeStyle {
+  if (!style) return {};
+
+  const result: FormeStyle = {};
+
+  // Dimensions
+  if (style.width !== undefined) result.width = mapDimension(style.width);
+  if (style.height !== undefined) result.height = mapDimension(style.height);
+  if (style.minWidth !== undefined) result.minWidth = mapDimension(style.minWidth);
+  if (style.minHeight !== undefined) result.minHeight = mapDimension(style.minHeight);
+  if (style.maxWidth !== undefined) result.maxWidth = mapDimension(style.maxWidth);
+  if (style.maxHeight !== undefined) result.maxHeight = mapDimension(style.maxHeight);
+
+  // Edges
+  if (style.padding !== undefined) result.padding = expandEdges(style.padding);
+  if (style.margin !== undefined) result.margin = expandEdges(style.margin);
+
+  // Flex
+  if (style.flexDirection !== undefined) result.flexDirection = FLEX_DIRECTION_MAP[style.flexDirection];
+  if (style.justifyContent !== undefined) result.justifyContent = JUSTIFY_CONTENT_MAP[style.justifyContent];
+  if (style.alignItems !== undefined) result.alignItems = ALIGN_ITEMS_MAP[style.alignItems];
+  if (style.alignSelf !== undefined) result.alignSelf = ALIGN_ITEMS_MAP[style.alignSelf];
+  if (style.flexWrap !== undefined) result.flexWrap = FLEX_WRAP_MAP[style.flexWrap];
+  if (style.flexGrow !== undefined) result.flexGrow = style.flexGrow;
+  if (style.flexShrink !== undefined) result.flexShrink = style.flexShrink;
+  if (style.flexBasis !== undefined) result.flexBasis = mapDimension(style.flexBasis);
+  if (style.gap !== undefined) result.gap = style.gap;
+  if (style.rowGap !== undefined) result.rowGap = style.rowGap;
+  if (style.columnGap !== undefined) result.columnGap = style.columnGap;
+
+  // Typography
+  if (style.fontFamily !== undefined) result.fontFamily = style.fontFamily;
+  if (style.fontSize !== undefined) result.fontSize = style.fontSize;
+  if (style.fontWeight !== undefined) {
+    result.fontWeight = style.fontWeight === 'bold' ? 700 : style.fontWeight === 'normal' ? 400 : style.fontWeight;
+  }
+  if (style.fontStyle !== undefined) result.fontStyle = FONT_STYLE_MAP[style.fontStyle];
+  if (style.lineHeight !== undefined) result.lineHeight = style.lineHeight;
+  if (style.textAlign !== undefined) result.textAlign = TEXT_ALIGN_MAP[style.textAlign];
+  if (style.letterSpacing !== undefined) result.letterSpacing = style.letterSpacing;
+  if (style.textDecoration !== undefined) result.textDecoration = TEXT_DECORATION_MAP[style.textDecoration];
+  if (style.textTransform !== undefined) result.textTransform = TEXT_TRANSFORM_MAP[style.textTransform];
+
+  // Color
+  if (style.color !== undefined) result.color = parseColor(style.color);
+  if (style.backgroundColor !== undefined) result.backgroundColor = parseColor(style.backgroundColor);
+  if (style.opacity !== undefined) result.opacity = style.opacity;
+
+  // Border
+  if (style.borderWidth !== undefined) {
+    result.borderWidth = expandEdgeValues(style.borderWidth);
+  }
+  if (style.borderColor !== undefined) {
+    if (typeof style.borderColor === 'string') {
+      const c = parseColor(style.borderColor);
+      result.borderColor = { top: c, right: c, bottom: c, left: c };
+    } else {
+      result.borderColor = {
+        top: parseColor(style.borderColor.top),
+        right: parseColor(style.borderColor.right),
+        bottom: parseColor(style.borderColor.bottom),
+        left: parseColor(style.borderColor.left),
+      };
+    }
+  }
+  if (style.borderRadius !== undefined) result.borderRadius = expandCorners(style.borderRadius);
+
+  // Page behavior
+  if (style.wrap !== undefined) result.wrap = style.wrap;
+  if (style.breakBefore !== undefined) result.breakBefore = style.breakBefore;
+
+  return result;
+}
+
+export function mapDimension(val: number | string): FormeDimension {
+  if (typeof val === 'number') {
+    return { Pt: val };
+  }
+  if (val === 'auto') return 'Auto';
+  const match = val.match(/^([0-9.]+)%$/);
+  if (match) {
+    return { Percent: parseFloat(match[1]) };
+  }
+  // Try to parse as a number (e.g. "100" without units)
+  const num = parseFloat(val);
+  if (!isNaN(num)) {
+    return { Pt: num };
+  }
+  return 'Auto';
+}
+
+export function parseColor(hex: string): FormeColor {
+  const h = hex.replace(/^#/, '');
+
+  if (h.length === 3) {
+    const r = parseInt(h[0] + h[0], 16) / 255;
+    const g = parseInt(h[1] + h[1], 16) / 255;
+    const b = parseInt(h[2] + h[2], 16) / 255;
+    return { r, g, b, a: 1 };
+  }
+
+  if (h.length === 6) {
+    const r = parseInt(h.slice(0, 2), 16) / 255;
+    const g = parseInt(h.slice(2, 4), 16) / 255;
+    const b = parseInt(h.slice(4, 6), 16) / 255;
+    return { r, g, b, a: 1 };
+  }
+
+  if (h.length === 8) {
+    const r = parseInt(h.slice(0, 2), 16) / 255;
+    const g = parseInt(h.slice(2, 4), 16) / 255;
+    const b = parseInt(h.slice(4, 6), 16) / 255;
+    const a = parseInt(h.slice(6, 8), 16) / 255;
+    return { r, g, b, a };
+  }
+
+  // Fallback: black
+  return { r: 0, g: 0, b: 0, a: 1 };
+}
+
+export function expandEdges(val: number | Edges): FormeEdges {
+  if (typeof val === 'number') {
+    return { top: val, right: val, bottom: val, left: val };
+  }
+  return { top: val.top, right: val.right, bottom: val.bottom, left: val.left };
+}
+
+function expandEdgeValues(val: number | Edges): FormeEdgeValues<number> {
+  if (typeof val === 'number') {
+    return { top: val, right: val, bottom: val, left: val };
+  }
+  return { top: val.top, right: val.right, bottom: val.bottom, left: val.left };
+}
+
+export function expandCorners(val: number | Corners): FormeCornerValues {
+  if (typeof val === 'number') {
+    return { top_left: val, top_right: val, bottom_right: val, bottom_left: val };
+  }
+  return {
+    top_left: val.topLeft,
+    top_right: val.topRight,
+    bottom_right: val.bottomRight,
+    bottom_left: val.bottomLeft,
+  };
+}
+
+function mapColumnWidth(w: ColumnDef['width']): FormeColumnWidth {
+  if (w === 'auto') return 'Auto';
+  if ('fraction' in w) return { Fraction: w.fraction };
+  if ('fixed' in w) return { Fixed: w.fixed };
+  return 'Auto';
+}
