@@ -1,0 +1,29 @@
+{
+  "name": "forme",
+  "version": "0.1.0",
+  "description": "CLI for Forme PDF rendering engine — dev server with live preview and build command",
+  "type": "module",
+  "bin": {
+    "forme": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc && cp -r src/preview dist/preview",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@forme/core": "file:../core",
+    "@forme/react": "file:../react",
+    "esbuild": "^0.24.0",
+    "chokidar": "^4.0.0",
+    "ws": "^8.18.0",
+    "open": "^10.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.5.0",
+    "react": "^19.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  },
+  "license": "MIT"
+}

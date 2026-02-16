@@ -34,10 +34,95 @@
 pub mod flex;
 pub mod page_break;
 
+use serde::Serialize;
+
 use crate::model::*;
 use crate::style::*;
 use crate::text::TextLayout;
 use crate::font::FontContext;
+
+// ── Serializable layout metadata (for debug overlays / dev tools) ───
+
+/// Complete layout metadata for all pages.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LayoutInfo {
+    pub pages: Vec<PageInfo>,
+}
+
+/// Layout metadata for a single page.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PageInfo {
+    pub width: f64,
+    pub height: f64,
+    pub content_x: f64,
+    pub content_y: f64,
+    pub content_width: f64,
+    pub content_height: f64,
+    pub elements: Vec<ElementInfo>,
+}
+
+/// Layout metadata for a single positioned element.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ElementInfo {
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+    pub kind: String,
+}
+
+impl LayoutInfo {
+    /// Extract serializable layout metadata from laid-out pages.
+    pub fn from_pages(pages: &[LayoutPage]) -> Self {
+        LayoutInfo {
+            pages: pages.iter().map(|page| {
+                let (page_w, page_h) = page.config.size.dimensions();
+                let content_x = page.config.margin.left;
+                let content_y = page.config.margin.top;
+                let content_width = page_w - page.config.margin.horizontal();
+                let content_height = page_h - page.config.margin.vertical();
+
+                let mut elements = Vec::new();
+                Self::flatten_elements(&page.elements, &mut elements);
+
+                PageInfo {
+                    width: page_w,
+                    height: page_h,
+                    content_x,
+                    content_y,
+                    content_width,
+                    content_height,
+                    elements,
+                }
+            }).collect(),
+        }
+    }
+
+    fn flatten_elements(elems: &[LayoutElement], out: &mut Vec<ElementInfo>) {
+        for elem in elems {
+            let kind = match &elem.draw {
+                DrawCommand::None => "None",
+                DrawCommand::Rect { .. } => "Rect",
+                DrawCommand::Text { .. } => "Text",
+                DrawCommand::Image { .. } => "Image",
+                DrawCommand::ImagePlaceholder => "ImagePlaceholder",
+            };
+            out.push(ElementInfo {
+                x: elem.x,
+                y: elem.y,
+                width: elem.width,
+                height: elem.height,
+                kind: kind.to_string(),
+            });
+            if !elem.children.is_empty() {
+                Self::flatten_elements(&elem.children, out);
+            }
+        }
+    }
+}
 
 /// A fully laid-out page ready for PDF serialization.
 #[derive(Debug, Clone)]

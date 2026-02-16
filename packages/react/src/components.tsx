@@ -8,7 +8,7 @@ import type {
   RowProps,
   CellProps,
   FixedProps,
-} from './types';
+} from './types.js';
 
 /** Root document container. Must be the top-level element. */
 export function Document(_props: DocumentProps): null {

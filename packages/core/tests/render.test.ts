@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { renderPdf, renderDocument } from '../src/index';
+import { renderPdf, renderPdfWithLayout, renderDocument } from '../src/index';
 
 function minimalDoc(children: unknown[]) {
   return JSON.stringify({ children });
@@ -46,6 +46,64 @@ describe('renderPdf', () => {
     const bytes = await renderPdf(json);
     expect(bytes.length).toBeGreaterThan(100);
     expect(bytes.length).toBeLessThan(100_000);
+  });
+});
+
+describe('renderPdfWithLayout', () => {
+  it('returns object with pdf and layout', async () => {
+    const json = minimalDoc([
+      { kind: { type: 'Text', content: 'Hello' }, style: {} },
+    ]);
+    const result = await renderPdfWithLayout(json);
+    expect(result).toHaveProperty('pdf');
+    expect(result).toHaveProperty('layout');
+    expect(result.pdf).toBeInstanceOf(Uint8Array);
+    const header = new TextDecoder().decode(result.pdf.slice(0, 5));
+    expect(header).toBe('%PDF-');
+  });
+
+  it('layout has pages array with dimensions', async () => {
+    const json = minimalDoc([
+      { kind: { type: 'Text', content: 'Hello' }, style: {} },
+    ]);
+    const { layout } = await renderPdfWithLayout(json);
+    expect(layout.pages).toBeInstanceOf(Array);
+    expect(layout.pages.length).toBeGreaterThanOrEqual(1);
+
+    const page = layout.pages[0];
+    expect(page.width).toBeGreaterThan(0);
+    expect(page.height).toBeGreaterThan(0);
+    expect(typeof page.contentX).toBe('number');
+    expect(typeof page.contentY).toBe('number');
+    expect(page.contentWidth).toBeGreaterThan(0);
+    expect(page.contentHeight).toBeGreaterThan(0);
+  });
+
+  it('layout elements have position, size, and kind', async () => {
+    const json = minimalDoc([
+      { kind: { type: 'Text', content: 'Hello' }, style: {} },
+    ]);
+    const { layout } = await renderPdfWithLayout(json);
+    const elements = layout.pages[0].elements;
+    expect(elements.length).toBeGreaterThan(0);
+
+    const el = elements[0];
+    expect(typeof el.x).toBe('number');
+    expect(typeof el.y).toBe('number');
+    expect(typeof el.width).toBe('number');
+    expect(typeof el.height).toBe('number');
+    expect(typeof el.kind).toBe('string');
+    expect(['Text', 'Rect', 'Image', 'None', 'ImagePlaceholder']).toContain(el.kind);
+  });
+
+  it('multi-page document has multiple pages in layout', async () => {
+    const json = minimalDoc([
+      { kind: { type: 'Text', content: 'Page 1' }, style: {} },
+      { kind: { type: 'PageBreak' }, style: {}, children: [] },
+      { kind: { type: 'Text', content: 'Page 2' }, style: {} },
+    ]);
+    const { layout } = await renderPdfWithLayout(json);
+    expect(layout.pages.length).toBeGreaterThanOrEqual(2);
   });
 });
 

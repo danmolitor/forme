@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Forme Preview</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #1a1a2e;
+    color: #e0e0e0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    overflow-y: auto;
+  }
+
+  /* ── Toolbar ─────────────────────────────────── */
+  #toolbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    height: 48px;
+    background: #16213e;
+    border-bottom: 1px solid #0f3460;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 16px;
+    font-size: 13px;
+  }
+
+  #toolbar .filename {
+    font-weight: 600;
+    color: #e94560;
+    flex-shrink: 0;
+  }
+
+  #toolbar .render-time {
+    color: #888;
+    flex-shrink: 0;
+  }
+
+  #toolbar .spacer { flex: 1; }
+
+  #toolbar button {
+    background: #0f3460;
+    color: #e0e0e0;
+    border: 1px solid #1a1a5e;
+    border-radius: 4px;
+    padding: 4px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+
+  #toolbar button:hover { background: #1a4a80; }
+  #toolbar button.active {
+    background: #e94560;
+    border-color: #e94560;
+    color: #fff;
+  }
+
+  /* ── Pages Container ─────────────────────────── */
+  #pages {
+    padding: 68px 20px 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+  }
+
+  .page-wrapper {
+    position: relative;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+  }
+
+  .page-wrapper canvas.pdf-canvas {
+    display: block;
+    background: #fff;
+  }
+
+  .page-wrapper canvas.overlay-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+  }
+
+  /* ── Error Overlay ───────────────────────────── */
+  #error-overlay {
+    display: none;
+    position: fixed;
+    top: 48px;
+    left: 0;
+    right: 0;
+    z-index: 90;
+    background: #8b0000;
+    color: #fff;
+    padding: 12px 20px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 13px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  /* ── Status indicator ────────────────────────── */
+  #status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #555;
+    flex-shrink: 0;
+  }
+  #status-dot.connected { background: #4ade80; }
+  #status-dot.disconnected { background: #ef4444; }
+</style>
+</head>
+<body>
+
+<div id="toolbar">
+  <div id="status-dot"></div>
+  <span class="filename" id="filename">Loading...</span>
+  <span class="render-time" id="render-time"></span>
+  <div class="spacer"></div>
+  <button id="btn-margins" title="Show page margin boundaries">Margins</button>
+  <button id="btn-boxes" title="Show element bounding boxes">Boxes</button>
+  <button id="btn-breaks" title="Show page break indicators">Breaks</button>
+</div>
+
+<div id="error-overlay"></div>
+<div id="pages"></div>
+
+<script type="module">
+  // ── PDF.js Setup ──────────────────────────────────────────────
+  const PDFJS_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.9.155/pdf.min.mjs';
+  const PDFJS_WORKER_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.9.155/pdf.worker.min.mjs';
+
+  const pdfjsLib = await import(PDFJS_CDN);
+  pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_CDN;
+
+  // ── State ─────────────────────────────────────────────────────
+  let showMargins = false;
+  let showBoxes = false;
+  let showBreaks = false;
+  let layoutData = null;
+  const SCALE = 1.5;
+
+  // ── DOM refs ──────────────────────────────────────────────────
+  const pagesEl = document.getElementById('pages');
+  const errorEl = document.getElementById('error-overlay');
+  const filenameEl = document.getElementById('filename');
+  const renderTimeEl = document.getElementById('render-time');
+  const statusDot = document.getElementById('status-dot');
+  const btnMargins = document.getElementById('btn-margins');
+  const btnBoxes = document.getElementById('btn-boxes');
+  const btnBreaks = document.getElementById('btn-breaks');
+
+  // ── Toggle buttons ────────────────────────────────────────────
+  btnMargins.addEventListener('click', () => {
+    showMargins = !showMargins;
+    btnMargins.classList.toggle('active', showMargins);
+    drawOverlays();
+  });
+  btnBoxes.addEventListener('click', () => {
+    showBoxes = !showBoxes;
+    btnBoxes.classList.toggle('active', showBoxes);
+    drawOverlays();
+  });
+  btnBreaks.addEventListener('click', () => {
+    showBreaks = !showBreaks;
+    btnBreaks.classList.toggle('active', showBreaks);
+    drawOverlays();
+  });
+
+  // ── Render PDF pages ──────────────────────────────────────────
+  async function renderPdfPages() {
+    const resp = await fetch('/pdf');
+    if (!resp.ok) return;
+    const buffer = await resp.arrayBuffer();
+
+    const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+    pagesEl.innerHTML = '';
+
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const viewport = page.getViewport({ scale: SCALE });
+
+      const wrapper = document.createElement('div');
+      wrapper.className = 'page-wrapper';
+      wrapper.dataset.pageIndex = String(i - 1);
+
+      // PDF canvas
+      const pdfCanvas = document.createElement('canvas');
+      pdfCanvas.className = 'pdf-canvas';
+      pdfCanvas.width = viewport.width;
+      pdfCanvas.height = viewport.height;
+      pdfCanvas.style.width = viewport.width + 'px';
+      pdfCanvas.style.height = viewport.height + 'px';
+
+      // Overlay canvas
+      const overlayCanvas = document.createElement('canvas');
+      overlayCanvas.className = 'overlay-canvas';
+      overlayCanvas.width = viewport.width;
+      overlayCanvas.height = viewport.height;
+      overlayCanvas.style.width = viewport.width + 'px';
+      overlayCanvas.style.height = viewport.height + 'px';
+
+      wrapper.appendChild(pdfCanvas);
+      wrapper.appendChild(overlayCanvas);
+      pagesEl.appendChild(wrapper);
+
+      const ctx = pdfCanvas.getContext('2d');
+      await page.render({ canvasContext: ctx, viewport }).promise;
+    }
+  }
+
+  // ── Fetch Layout ──────────────────────────────────────────────
+  async function fetchLayout() {
+    try {
+      const resp = await fetch('/layout');
+      if (resp.ok) {
+        layoutData = await resp.json();
+      }
+    } catch { /* ignore */ }
+  }
+
+  // ── Draw Debug Overlays ───────────────────────────────────────
+  function drawOverlays() {
+    const wrappers = pagesEl.querySelectorAll('.page-wrapper');
+    wrappers.forEach((wrapper) => {
+      const overlay = wrapper.querySelector('.overlay-canvas');
+      const pageIdx = parseInt(wrapper.dataset.pageIndex, 10);
+      const ctx = overlay.getContext('2d');
+      ctx.clearRect(0, 0, overlay.width, overlay.height);
+
+      if (!layoutData || !layoutData.pages[pageIdx]) return;
+      const page = layoutData.pages[pageIdx];
+
+      // Margins
+      if (showMargins) {
+        ctx.strokeStyle = '#3b82f6';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([6, 4]);
+        ctx.strokeRect(
+          page.contentX * SCALE,
+          page.contentY * SCALE,
+          page.contentWidth * SCALE,
+          page.contentHeight * SCALE
+        );
+        ctx.setLineDash([]);
+      }
+
+      // Boxes
+      if (showBoxes) {
+        const kindColors = {
+          Text: 'rgba(239, 68, 68, 0.7)',       // red
+          Rect: 'rgba(34, 197, 94, 0.7)',        // green
+          Image: 'rgba(168, 85, 247, 0.7)',      // purple
+          ImagePlaceholder: 'rgba(168, 85, 247, 0.5)',
+          None: 'rgba(100, 100, 100, 0.4)',
+        };
+
+        ctx.lineWidth = 1;
+        for (const el of page.elements) {
+          ctx.strokeStyle = kindColors[el.kind] || 'rgba(255,255,255,0.3)';
+          ctx.strokeRect(
+            el.x * SCALE,
+            el.y * SCALE,
+            el.width * SCALE,
+            el.height * SCALE
+          );
+        }
+      }
+
+      // Breaks
+      if (showBreaks && pageIdx > 0) {
+        const y = page.contentY * SCALE;
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([8, 4]);
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(overlay.width, y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = '#f59e0b';
+        ctx.font = '11px system-ui';
+        ctx.fillText(`page ${pageIdx + 1}`, 8, y - 4);
+      }
+    });
+  }
+
+  // ── Full reload cycle ─────────────────────────────────────────
+  async function reload() {
+    errorEl.style.display = 'none';
+    await renderPdfPages();
+    await fetchLayout();
+    drawOverlays();
+  }
+
+  // ── WebSocket ─────────────────────────────────────────────────
+  function connectWs() {
+    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const ws = new WebSocket(`${protocol}//${location.host}`);
+
+    ws.addEventListener('open', () => {
+      statusDot.className = 'connected';
+    });
+
+    ws.addEventListener('close', () => {
+      statusDot.className = 'disconnected';
+      // Auto-reconnect after 1s
+      setTimeout(connectWs, 1000);
+    });
+
+    ws.addEventListener('message', async (event) => {
+      const msg = JSON.parse(event.data);
+
+      if (msg.type === 'reload') {
+        renderTimeEl.textContent = msg.renderTime ? `${msg.renderTime}ms` : '';
+        await reload();
+      }
+
+      if (msg.type === 'error') {
+        errorEl.textContent = msg.message;
+        errorEl.style.display = 'block';
+      }
+    });
+  }
+
+  // ── Init ──────────────────────────────────────────────────────
+  filenameEl.textContent = 'Forme Preview';
+  connectWs();
+  // Initial render (the WS reload message will trigger a fresh render,
+  // but try immediately in case the PDF is already available)
+  reload().catch(() => {});
+</script>
+</body>
+</html>

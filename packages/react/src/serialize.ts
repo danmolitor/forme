@@ -1,5 +1,5 @@
 import { type ReactElement, isValidElement, Children } from 'react';
-import { Document, Page, View, Text, Image, Table, Row, Cell, Fixed, PageBreak } from './components';
+import { Document, Page, View, Text, Image, Table, Row, Cell, Fixed, PageBreak } from './components.js';
 import type {
   Style,
   Edges,
@@ -19,7 +19,7 @@ import type {
   FormeColor,
   FormeEdgeValues,
   FormeCornerValues,
-} from './types';
+} from './types.js';
 
 // ─── Public API ──────────────────────────────────────────────────────
 

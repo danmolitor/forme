@@ -18,9 +18,11 @@ ttf-parser = "0.25"         # Real font metrics + subsetting
 image = { version = "0.24", default-features = false, features = ["jpeg", "png"] }
 base64 = "0.22"
 wasm-bindgen = { version = "0.2", optional = true }
+js-sys = { version = "0.3", optional = true }
+serde-wasm-bindgen = { version = "0.6", optional = true }
 
 [features]
-wasm = ["wasm-bindgen"]
+wasm = ["wasm-bindgen", "js-sys", "serde-wasm-bindgen"]
 
 [lib]
 name = "forme"

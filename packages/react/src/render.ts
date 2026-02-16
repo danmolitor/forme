@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react';
-import { serialize } from './serialize';
-import type { FormeDocument } from './types';
+import { serialize } from './serialize.js';
+import type { FormeDocument } from './types.js';
 
 /**
  * Render a React element tree to a Forme JSON string.

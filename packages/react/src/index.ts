@@ -1,11 +1,11 @@
 // Components
-export { Document, Page, View, Text, Image, Table, Row, Cell, Fixed, PageBreak } from './components';
+export { Document, Page, View, Text, Image, Table, Row, Cell, Fixed, PageBreak } from './components.js';
 
 // Serialization
-export { serialize, mapStyle, mapDimension, parseColor, expandEdges, expandCorners } from './serialize';
+export { serialize, mapStyle, mapDimension, parseColor, expandEdges, expandCorners } from './serialize.js';
 
 // Render functions
-export { render, renderToObject } from './render';
+export { render, renderToObject } from './render.js';
 
 // Types
 export type {
@@ -39,4 +39,4 @@ export type {
   FormeColor,
   FormeEdgeValues,
   FormeCornerValues,
-} from './types';
+} from './types.js';
