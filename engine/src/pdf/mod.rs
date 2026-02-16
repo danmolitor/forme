@@ -30,6 +30,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::Write as FmtWrite; // for write! on String
 use std::io::Write as IoWrite;   // for write! on Vec<u8>
 
+use crate::error::FormeError;
 use crate::layout::*;
 use crate::model::*;
 use crate::style::{Color, FontStyle};
@@ -78,7 +79,7 @@ impl PdfWriter {
     }
 
     /// Write laid-out pages to a PDF byte vector.
-    pub fn write(&self, pages: &[LayoutPage], metadata: &Metadata, font_context: &FontContext) -> Vec<u8> {
+    pub fn write(&self, pages: &[LayoutPage], metadata: &Metadata, font_context: &FontContext) -> Result<Vec<u8>, FormeError> {
         let mut builder = PdfBuilder {
             objects: Vec::new(),
             font_objects: Vec::new(),
@@ -97,7 +98,7 @@ impl PdfWriter {
         builder.objects.push(PdfObject { id: 2, data: vec![] });
 
         // Register the fonts actually used across all pages
-        self.register_fonts(&mut builder, pages, font_context);
+        self.register_fonts(&mut builder, pages, font_context)?;
 
         // Register images as XObject PDF objects
         self.register_images(&mut builder, pages);
@@ -184,7 +185,7 @@ impl PdfWriter {
             None
         };
 
-        self.serialize(&builder, info_obj_id)
+        Ok(self.serialize(&builder, info_obj_id))
     }
 
     /// Build the PDF content stream for a single page.
@@ -327,7 +328,19 @@ impl PdfWriter {
                         .unwrap_or(false);
 
                     if is_custom {
-                        let embed_data = builder.custom_font_data.get(font_key.as_ref().unwrap()).unwrap();
+                        let embed_data = if let Some(ref key) = font_key {
+                            builder.custom_font_data.get(key)
+                        } else {
+                            None
+                        };
+                        let embed_data = match embed_data {
+                            Some(d) => d,
+                            None => {
+                                // Fallback: write empty text operator
+                                let _ = write!(stream, "<> Tj\n");
+                                continue;
+                            }
+                        };
                         let mut hex = String::new();
                         for ch in text_after.chars() {
                             let gid = embed_data.char_to_gid.get(&ch).copied().unwrap_or(0);
@@ -517,7 +530,7 @@ impl PdfWriter {
         builder: &mut PdfBuilder,
         pages: &[LayoutPage],
         font_context: &FontContext,
-    ) {
+    ) -> Result<(), FormeError> {
         // Collect font keys AND used characters per font
         let mut font_chars: HashMap<FontKey, HashSet<char>> = HashMap::new();
 
@@ -565,11 +578,13 @@ impl PdfWriter {
                     let used_chars = font_chars.get(key).cloned().unwrap_or_default();
                     let type0_obj_id = Self::write_custom_font_objects(
                         builder, key, data, &used_chars,
-                    );
+                    )?;
                     builder.font_objects.push((key.clone(), type0_obj_id));
                 }
             }
         }
+
+        Ok(())
     }
 
     /// Collect unique FontKey tuples and used characters from layout elements.
@@ -769,9 +784,11 @@ impl PdfWriter {
         key: &FontKey,
         ttf_data: &[u8],
         used_chars: &HashSet<char>,
-    ) -> usize {
+    ) -> Result<usize, FormeError> {
         let face = ttf_parser::Face::parse(ttf_data, 0)
-            .expect("Failed to parse TTF data for embedding");
+            .map_err(|e| FormeError::FontError(
+                format!("Failed to parse TTF data for font '{}': {}", key.family, e)
+            ))?;
 
         let units_per_em = face.units_per_em();
         let ascender = face.ascender();
@@ -926,7 +943,7 @@ impl PdfWriter {
             descender,
         });
 
-        type0_id
+        Ok(type0_id)
     }
 
     /// Build the /W array for per-glyph widths in CIDFont.
@@ -1182,7 +1199,7 @@ mod tests {
             config: PageConfig::default(),
         }];
         let metadata = Metadata::default();
-        let bytes = writer.write(&pages, &metadata, &font_context);
+        let bytes = writer.write(&pages, &metadata, &font_context).unwrap();
 
         assert!(bytes.starts_with(b"%PDF-1.7"));
         assert!(bytes.windows(5).any(|w| w == b"%%EOF"));
@@ -1208,7 +1225,7 @@ mod tests {
             subject: None,
             creator: None,
         };
-        let bytes = writer.write(&pages, &metadata, &font_context);
+        let bytes = writer.write(&pages, &metadata, &font_context).unwrap();
         let text = String::from_utf8_lossy(&bytes);
 
         assert!(text.contains("/Title (Test Document)"));
@@ -1264,7 +1281,7 @@ mod tests {
         }];
 
         let metadata = Metadata::default();
-        let bytes = writer.write(&pages, &metadata, &font_context);
+        let bytes = writer.write(&pages, &metadata, &font_context).unwrap();
         let text = String::from_utf8_lossy(&bytes);
 
         // Should have both Helvetica and Helvetica-Bold registered
@@ -1354,7 +1371,7 @@ mod tests {
         }];
 
         let metadata = Metadata::default();
-        let bytes = writer.write(&pages, &metadata, &font_context);
+        let bytes = writer.write(&pages, &metadata, &font_context).unwrap();
         let text = String::from_utf8_lossy(&bytes);
 
         // Standard fonts should use Type1, not CIDFontType2

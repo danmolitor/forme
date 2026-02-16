@@ -21,6 +21,35 @@ import type {
   FormeCornerValues,
 } from './types.js';
 
+// ─── Nesting validation ──────────────────────────────────────────────
+
+type ParentContext = 'Document' | 'Page' | 'View' | 'Table' | 'Row' | 'Cell' | 'Fixed' | null;
+
+const VALID_PARENTS: Record<string, { allowed: ParentContext[]; suggestion: string }> = {
+  Page: {
+    allowed: ['Document'],
+    suggestion: '<Page> must be a direct child of <Document>.',
+  },
+  Row: {
+    allowed: ['Table'],
+    suggestion: '<Row> must be inside a <Table>. Wrap it: <Table><Row>...</Row></Table>',
+  },
+  Cell: {
+    allowed: ['Row'],
+    suggestion: '<Cell> must be inside a <Row>. Wrap it: <Row><Cell>...</Cell></Row>',
+  },
+};
+
+function validateNesting(componentName: string, parent: ParentContext): void {
+  const rule = VALID_PARENTS[componentName];
+  if (!rule) return;
+  if (parent !== null && !rule.allowed.includes(parent)) {
+    throw new Error(
+      `Invalid nesting: <${componentName}> found inside <${parent}>. ${rule.suggestion}`
+    );
+  }
+}
+
 // ─── Public API ──────────────────────────────────────────────────────
 
 /**
@@ -43,7 +72,7 @@ export function serialize(element: ReactElement): FormeDocument {
     if (isValidElement(child) && child.type === Page) {
       pageNodes.push(serializePage(child));
     } else {
-      const node = serializeChild(child);
+      const node = serializeChild(child, 'Document');
       if (node) contentNodes.push(node);
     }
   }
@@ -101,7 +130,7 @@ function serializePage(element: ReactElement): FormeNode {
 
   const config: FormePageConfig = { size, margin, wrap: true };
   const childElements = flattenChildren(props.children);
-  const children = serializeChildren(childElements);
+  const children = serializeChildren(childElements, 'Page');
 
   return {
     kind: { type: 'Page', config },
@@ -112,7 +141,7 @@ function serializePage(element: ReactElement): FormeNode {
 
 // ─── Node serialization ─────────────────────────────────────────────
 
-function serializeChild(child: unknown): FormeNode | null {
+function serializeChild(child: unknown, parent: ParentContext = null): FormeNode | null {
   if (child === null || child === undefined || typeof child === 'boolean') {
     return null;
   }
@@ -134,13 +163,29 @@ function serializeChild(child: unknown): FormeNode | null {
   }
 
   if (!isValidElement(child)) {
+    // Detect HTML elements and give helpful suggestion
+    if (typeof child === 'object' && child !== null && 'type' in child) {
+      const t = (child as { type: unknown }).type;
+      if (typeof t === 'string') {
+        const suggestions: Record<string, string> = {
+          div: 'View', span: 'Text', p: 'Text', h1: 'Text', h2: 'Text',
+          h3: 'Text', img: 'Image', table: 'Table', tr: 'Row', td: 'Cell',
+        };
+        const suggestion = suggestions[t];
+        if (suggestion) {
+          throw new Error(
+            `HTML element <${t}> is not supported. Use <${suggestion}> instead.`
+          );
+        }
+      }
+    }
     return null;
   }
 
   const element = child as ReactElement;
 
   if (element.type === View) {
-    return serializeView(element);
+    return serializeView(element, parent);
   }
   if (element.type === Text) {
     return serializeText(element);
@@ -149,12 +194,14 @@ function serializeChild(child: unknown): FormeNode | null {
     return serializeImage(element);
   }
   if (element.type === Table) {
-    return serializeTable(element);
+    return serializeTable(element, parent);
   }
   if (element.type === Row) {
+    validateNesting('Row', parent);
     return serializeRow(element);
   }
   if (element.type === Cell) {
+    validateNesting('Cell', parent);
     return serializeCell(element);
   }
   if (element.type === Fixed) {
@@ -168,13 +215,14 @@ function serializeChild(child: unknown): FormeNode | null {
     };
   }
   if (element.type === Page) {
+    validateNesting('Page', parent);
     return serializePage(element);
   }
   if (element.type === Document) {
     // Nested Document — just serialize its children
     const props = element.props as { children?: unknown };
     const childElements = flattenChildren(props.children);
-    const nodes = serializeChildren(childElements);
+    const nodes = serializeChildren(childElements, parent);
     return nodes.length === 1 ? nodes[0] : {
       kind: { type: 'View' },
       style: {},
@@ -186,7 +234,7 @@ function serializeChild(child: unknown): FormeNode | null {
   if (typeof element.type === 'function') {
     const result = (element.type as (props: Record<string, unknown>) => unknown)(element.props as Record<string, unknown>);
     if (isValidElement(result)) {
-      return serializeChild(result);
+      return serializeChild(result, parent);
     }
     return null;
   }
@@ -194,14 +242,14 @@ function serializeChild(child: unknown): FormeNode | null {
   return null;
 }
 
-function serializeView(element: ReactElement): FormeNode {
+function serializeView(element: ReactElement, _parent: ParentContext = null): FormeNode {
   const props = element.props as { style?: Style; wrap?: boolean; children?: unknown };
   const style = mapStyle(props.style);
   if (props.wrap !== undefined) {
     style.wrap = props.wrap;
   }
   const childElements = flattenChildren(props.children);
-  const children = serializeChildren(childElements);
+  const children = serializeChildren(childElements, 'View');
 
   return {
     kind: { type: 'View' },
@@ -234,14 +282,14 @@ function serializeImage(element: ReactElement): FormeNode {
   };
 }
 
-function serializeTable(element: ReactElement): FormeNode {
+function serializeTable(element: ReactElement, _parent: ParentContext = null): FormeNode {
   const props = element.props as { columns?: ColumnDef[]; style?: Style; children?: unknown };
   const columns: FormeColumnDef[] = (props.columns ?? []).map(col => ({
     width: mapColumnWidth(col.width),
   }));
 
   const childElements = flattenChildren(props.children);
-  const children = serializeChildren(childElements);
+  const children = serializeChildren(childElements, 'Table');
 
   return {
     kind: { type: 'Table', columns },
@@ -253,7 +301,7 @@ function serializeTable(element: ReactElement): FormeNode {
 function serializeRow(element: ReactElement): FormeNode {
   const props = element.props as { header?: boolean; style?: Style; children?: unknown };
   const childElements = flattenChildren(props.children);
-  const children = serializeChildren(childElements);
+  const children = serializeChildren(childElements, 'Row');
 
   return {
     kind: { type: 'TableRow', is_header: props.header ?? false },
@@ -265,7 +313,7 @@ function serializeRow(element: ReactElement): FormeNode {
 function serializeCell(element: ReactElement): FormeNode {
   const props = element.props as { colSpan?: number; rowSpan?: number; style?: Style; children?: unknown };
   const childElements = flattenChildren(props.children);
-  const children = serializeChildren(childElements);
+  const children = serializeChildren(childElements, 'Cell');
 
   return {
     kind: { type: 'TableCell', col_span: props.colSpan ?? 1, row_span: props.rowSpan ?? 1 },
@@ -278,7 +326,7 @@ function serializeFixed(element: ReactElement): FormeNode {
   const props = element.props as { position: 'header' | 'footer'; style?: Style; children?: unknown };
   const position = props.position === 'header' ? 'Header' as const : 'Footer' as const;
   const childElements = flattenChildren(props.children);
-  const children = serializeChildren(childElements);
+  const children = serializeChildren(childElements, 'Fixed');
 
   return {
     kind: { type: 'Fixed', position },
@@ -304,10 +352,10 @@ function flattenChildren(children: unknown): unknown[] {
   return result;
 }
 
-function serializeChildren(children: unknown[]): FormeNode[] {
+function serializeChildren(children: unknown[], parent: ParentContext = null): FormeNode[] {
   const nodes: FormeNode[] = [];
   for (const child of children) {
-    const node = serializeChild(child);
+    const node = serializeChild(child, parent);
     if (node) nodes.push(node);
   }
   return nodes;
@@ -476,6 +524,8 @@ export function mapStyle(style?: Style): FormeStyle {
   // Page behavior
   if (style.wrap !== undefined) result.wrap = style.wrap;
   if (style.breakBefore !== undefined) result.breakBefore = style.breakBefore;
+  if (style.minWidowLines !== undefined) result.minWidowLines = style.minWidowLines;
+  if (style.minOrphanLines !== undefined) result.minOrphanLines = style.minOrphanLines;
 
   return result;
 }

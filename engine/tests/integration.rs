@@ -95,7 +95,7 @@ fn layout_doc(doc: &Document) -> Vec<forme::layout::LayoutPage> {
 }
 
 fn render_to_pdf(doc: &Document) -> Vec<u8> {
-    forme::render(doc)
+    forme::render(doc).unwrap()
 }
 
 fn assert_valid_pdf(bytes: &[u8]) {
@@ -406,7 +406,7 @@ fn test_camel_case_deserialization() {
     assert!(matches!(doc.default_page.size, PageSize::Letter));
     assert_eq!(doc.default_page.margin.top, 72.0);
 
-    let bytes = forme::render(&doc);
+    let bytes = forme::render(&doc).unwrap();
     assert_valid_pdf(&bytes);
 }
 
@@ -617,7 +617,7 @@ fn render_with_custom_font(font_data: &[u8], text: &str) -> Vec<u8> {
     let engine = LayoutEngine::new();
     let pages = engine.layout(&doc, &font_context);
     let writer = PdfWriter::new();
-    writer.write(&pages, &doc.metadata, &font_context)
+    writer.write(&pages, &doc.metadata, &font_context).unwrap()
 }
 
 #[test]
@@ -703,7 +703,7 @@ fn test_mixed_standard_and_custom_fonts() {
     let engine = LayoutEngine::new();
     let pages = engine.layout(&doc, &font_context);
     let writer = PdfWriter::new();
-    let bytes = writer.write(&pages, &doc.metadata, &font_context);
+    let bytes = writer.write(&pages, &doc.metadata, &font_context).unwrap();
 
     assert_valid_pdf(&bytes);
     let text = String::from_utf8_lossy(&bytes);
@@ -1443,6 +1443,40 @@ fn test_table_row_level_page_break_works() {
     }
 }
 
+// ─── Error Handling Tests ────────────────────────────────────────
+
+#[test]
+fn test_invalid_json_returns_parse_error() {
+    let result = forme::render_json("not valid json {{{");
+    assert!(result.is_err(), "Invalid JSON should return Err");
+    let err = result.unwrap_err();
+    let msg = err.to_string();
+    assert!(msg.contains("Failed to parse document"), "Error should describe parse failure: {}", msg);
+}
+
+#[test]
+fn test_wrong_schema_returns_parse_error() {
+    let result = forme::render_json(r#"{"wrong": "schema"}"#);
+    assert!(result.is_err(), "Wrong schema should return Err");
+    let err = result.unwrap_err();
+    let msg = err.to_string();
+    assert!(msg.contains("Hint:"), "Error should include hint: {}", msg);
+}
+
+#[test]
+fn test_valid_doc_returns_ok() {
+    let json = r#"{"children": [{"kind": {"type": "Text", "content": "Hello"}, "style": {}}]}"#;
+    let result = forme::render_json(json);
+    assert!(result.is_ok(), "Valid JSON should return Ok, got: {:?}", result.err());
+}
+
+#[test]
+fn test_empty_json_object_returns_ok() {
+    let json = r#"{"children": []}"#;
+    let result = forme::render_json(json);
+    assert!(result.is_ok(), "Empty children should return Ok");
+}
+
 // ─── Page Number Placeholder Tests ──────────────────────────────
 
 #[test]
@@ -1468,7 +1502,7 @@ fn test_page_number_placeholder_single_page() {
         ],
         id: None,
     }]);
-    let pdf_bytes = forme::render(&doc);
+    let pdf_bytes = forme::render(&doc).unwrap();
     let pdf_str = String::from_utf8_lossy(&pdf_bytes);
     // Streams are compressed, but the raw PDF bytes should not contain
     // the placeholder strings (they should have been replaced before encoding).
@@ -1507,7 +1541,7 @@ fn test_page_number_placeholder_multi_page() {
         children: page_children,
         id: None,
     }]);
-    let pdf_bytes = forme::render(&doc);
+    let pdf_bytes = forme::render(&doc).unwrap();
     let pdf_str = String::from_utf8_lossy(&pdf_bytes);
     assert!(
         !pdf_str.contains("{{pageNumber}}"),
@@ -1525,7 +1559,7 @@ fn test_page_number_in_body_text() {
         "This is page {{pageNumber}} of {{totalPages}}.",
         12.0,
     )]);
-    let pdf_bytes = forme::render(&doc);
+    let pdf_bytes = forme::render(&doc).unwrap();
     let pdf_str = String::from_utf8_lossy(&pdf_bytes);
     assert!(
         !pdf_str.contains("{{pageNumber}}"),
@@ -1536,7 +1570,7 @@ fn test_page_number_in_body_text() {
 #[test]
 fn test_no_placeholder_unchanged() {
     let doc = default_doc(vec![make_text("Hello World", 12.0)]);
-    let pdf_bytes = forme::render(&doc);
+    let pdf_bytes = forme::render(&doc).unwrap();
     assert!(
         pdf_bytes.starts_with(b"%PDF"),
         "Should produce valid PDF without placeholders"

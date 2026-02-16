@@ -5,18 +5,20 @@ import { pathToFileURL } from 'node:url';
 import { watch } from 'chokidar';
 import { WebSocketServer, type WebSocket } from 'ws';
 import open from 'open';
+import { isValidElement, type ReactElement } from 'react';
 import { bundleFile, BUNDLE_DIR } from './bundle.js';
 import { renderDocumentWithLayout, type LayoutInfo } from '@forme/core';
-import type { ReactElement } from 'react';
 
 export interface DevOptions {
   port: number;
+  dataPath?: string;
 }
 
 export function startDevServer(inputPath: string, options: DevOptions): void {
   const absoluteInput = resolve(inputPath);
   const fileName = basename(absoluteInput);
   const port = options.port;
+  const dataPath = options.dataPath ? resolve(options.dataPath) : undefined;
 
   let currentPdf: Uint8Array | null = null;
   let currentLayout: LayoutInfo | null = null;
@@ -109,11 +111,8 @@ export function startDevServer(inputPath: string, options: DevOptions): void {
       } finally {
         await unlink(tmpFile).catch(() => {});
       }
-      let element: ReactElement = mod.default as ReactElement;
 
-      if (typeof element === 'function') {
-        element = await (element as () => ReactElement | Promise<ReactElement>)();
-      }
+      const element = await resolveElement(mod, dataPath);
 
       const { pdf, layout } = await renderDocumentWithLayout(element);
 
@@ -125,15 +124,21 @@ export function startDevServer(inputPath: string, options: DevOptions): void {
       lastError = null;
       lastRenderTime = Math.round(performance.now() - start);
 
-      console.log(`Rendered ${pdf.length} bytes in ${lastRenderTime}ms`);
-      broadcast({ type: 'reload', renderTime: lastRenderTime });
+      const pageCount = layout?.pages?.length ?? 0;
 
       if (firstRender) {
         firstRender = false;
         const url = `http://localhost:${port}`;
-        console.log(`Opening ${url}`);
+        console.log(`Forme dev server\n`);
+        console.log(`  Watching:  ${fileName}${dataPath ? ` + ${basename(dataPath)}` : ''}`);
+        console.log(`  Rendered:  ${pageCount} page${pageCount !== 1 ? 's' : ''} in ${lastRenderTime}ms`);
+        console.log(`  Preview:   ${url}\n`);
         open(url);
+      } else {
+        console.log(`Rebuilt in ${lastRenderTime}ms (${pageCount} page${pageCount !== 1 ? 's' : ''})`);
       }
+
+      broadcast({ type: 'reload', renderTime: lastRenderTime });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       lastError = message;
@@ -146,20 +151,81 @@ export function startDevServer(inputPath: string, options: DevOptions): void {
 
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-  const watcher = watch(absoluteInput, { ignoreInitial: true });
+  const watchPaths = [absoluteInput, ...(dataPath ? [dataPath] : [])];
+  const watcher = watch(watchPaths, { ignoreInitial: true });
   watcher.on('change', () => {
     if (debounceTimer) clearTimeout(debounceTimer);
     debounceTimer = setTimeout(rebuild, 100);
   });
 
+  // ── Graceful shutdown ───────────────────────────────────────
+
+  process.on('SIGINT', () => {
+    console.log('\nShutting down...');
+    watcher.close();
+    wss.close();
+    server.close(() => process.exit(0));
+    // Force exit after 2s if graceful shutdown stalls
+    setTimeout(() => process.exit(0), 2000);
+  });
+
   // ── Start ────────────────────────────────────────────────────
 
   server.listen(port, () => {
-    console.log(`Forme dev server watching ${fileName}`);
-    console.log(`  http://localhost:${port}`);
-    console.log('');
     rebuild();
   });
+}
+
+async function resolveElement(
+  mod: Record<string, unknown>,
+  dataPath?: string,
+): Promise<ReactElement> {
+  const exported = mod.default;
+
+  if (exported === undefined) {
+    throw new Error(
+      `No default export found.\n\n` +
+      `  Your file must export a Forme element or a function that returns one:\n\n` +
+      `    export default (\n` +
+      `      <Document>\n` +
+      `        <Text>Hello</Text>\n` +
+      `      </Document>\n` +
+      `    );`
+    );
+  }
+
+  if (typeof exported === 'function') {
+    let data: unknown = {};
+    if (dataPath) {
+      const raw = await readFile(dataPath, 'utf-8');
+      try {
+        data = JSON.parse(raw);
+      } catch {
+        throw new Error(
+          `Failed to parse data file as JSON: ${dataPath}\n` +
+          `  Make sure the file contains valid JSON.`
+        );
+      }
+    }
+    const result = await (exported as (data: unknown) => ReactElement | Promise<ReactElement>)(data);
+    if (!isValidElement(result)) {
+      throw new Error(
+        `Default export function did not return a valid Forme element.\n` +
+        `  Got: ${typeof result}`
+      );
+    }
+    return result;
+  }
+
+  if (isValidElement(exported)) {
+    return exported;
+  }
+
+  throw new Error(
+    `Default export is not a valid Forme element.\n` +
+    `  Got: ${typeof exported}\n` +
+    `  Expected: a <Document> element or a function that returns one.`
+  );
 }
 
 async function getPreviewHtml(): Promise<string> {

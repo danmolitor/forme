@@ -537,6 +537,78 @@ describe('Edge cases', () => {
   });
 });
 
+// ─── Nesting validation ──────────────────────────────────────────────
+
+describe('Nesting validation', () => {
+  it('Row outside Table throws', () => {
+    expect(() => serialize(
+      <Document>
+        <View>
+          <Row><Cell><Text>oops</Text></Cell></Row>
+        </View>
+      </Document>
+    )).toThrow(/Row.*must be inside.*Table/);
+  });
+
+  it('Cell outside Row throws', () => {
+    expect(() => serialize(
+      <Document>
+        <Table>
+          <Cell><Text>oops</Text></Cell>
+        </Table>
+      </Document>
+    )).toThrow(/Cell.*must be inside.*Row/);
+  });
+
+  it('Row inside Table works', () => {
+    expect(() => serialize(
+      <Document>
+        <Table>
+          <Row><Cell><Text>ok</Text></Cell></Row>
+        </Table>
+      </Document>
+    )).not.toThrow();
+  });
+
+  it('Cell inside Row works', () => {
+    expect(() => serialize(
+      <Document>
+        <Table>
+          <Row><Cell><Text>ok</Text></Cell></Row>
+        </Table>
+      </Document>
+    )).not.toThrow();
+  });
+
+  it('Page inside View throws', () => {
+    expect(() => serialize(
+      <Document>
+        <View>
+          <Page><Text>oops</Text></Page>
+        </View>
+      </Document>
+    )).toThrow(/Page.*must be.*child of.*Document/);
+  });
+
+  it('Text as child of Document still works', () => {
+    expect(() => serialize(
+      <Document><Text>hello</Text></Document>
+    )).not.toThrow();
+  });
+});
+
+// ─── Style mapping: widow/orphan lines ──────────────────────────────
+
+describe('Widow/orphan style mapping', () => {
+  it('minWidowLines maps through', () => {
+    expect(mapStyle({ minWidowLines: 3 }).minWidowLines).toBe(3);
+  });
+
+  it('minOrphanLines maps through', () => {
+    expect(mapStyle({ minOrphanLines: 2 }).minOrphanLines).toBe(2);
+  });
+});
+
 // ─── Full round-trip ────────────────────────────────────────────────
 
 describe('Full round-trip', () => {

@@ -107,6 +107,14 @@
     overflow-y: auto;
   }
 
+  #error-overlay .error-timestamp {
+    position: absolute;
+    top: 4px;
+    right: 8px;
+    font-size: 10px;
+    opacity: 0.6;
+  }
+
   /* ── Status indicator ────────────────────────── */
   #status-dot {
     width: 8px;
@@ -335,7 +343,13 @@
       }
 
       if (msg.type === 'error') {
-        errorEl.textContent = msg.message;
+        const time = new Date().toLocaleTimeString();
+        errorEl.innerHTML = '';
+        const ts = document.createElement('span');
+        ts.className = 'error-timestamp';
+        ts.textContent = time;
+        errorEl.appendChild(ts);
+        errorEl.appendChild(document.createTextNode(msg.message));
         errorEl.style.display = 'block';
       }
     });

@@ -73,6 +73,8 @@ export interface Style {
   // Page behavior
   wrap?: boolean;
   breakBefore?: boolean;
+  minWidowLines?: number;
+  minOrphanLines?: number;
 }
 
 // ─── Component prop types ────────────────────────────────────────────
@@ -260,4 +262,6 @@ export interface FormeStyle {
   borderRadius?: FormeCornerValues;
   wrap?: boolean;
   breakBefore?: boolean;
+  minWidowLines?: number;
+  minOrphanLines?: number;
 }

@@ -26,6 +26,7 @@
 //!   [pdf]      — Serialize to PDF bytes
 //! ```
 
+pub mod error;
 pub mod model;
 pub mod style;
 pub mod layout;
@@ -37,6 +38,8 @@ pub mod pdf;
 #[cfg(feature = "wasm")]
 pub mod wasm;
 
+pub use error::FormeError;
+
 use model::Document;
 use font::FontContext;
 use layout::{LayoutEngine, LayoutInfo};
@@ -46,7 +49,7 @@ use pdf::PdfWriter;
 ///
 /// This is the primary entry point. Takes a document tree and returns
 /// the raw bytes of a valid PDF file.
-pub fn render(document: &Document) -> Vec<u8> {
+pub fn render(document: &Document) -> Result<Vec<u8>, FormeError> {
     let font_context = FontContext::new();
     let engine = LayoutEngine::new();
     let pages = engine.layout(document, &font_context);
@@ -58,24 +61,24 @@ pub fn render(document: &Document) -> Vec<u8> {
 ///
 /// Same as `render()` but also returns `LayoutInfo` describing the
 /// position and dimensions of every element on every page.
-pub fn render_with_layout(document: &Document) -> (Vec<u8>, LayoutInfo) {
+pub fn render_with_layout(document: &Document) -> Result<(Vec<u8>, LayoutInfo), FormeError> {
     let font_context = FontContext::new();
     let engine = LayoutEngine::new();
     let pages = engine.layout(document, &font_context);
     let layout_info = LayoutInfo::from_pages(&pages);
     let writer = PdfWriter::new();
-    let pdf = writer.write(&pages, &document.metadata, &font_context);
-    (pdf, layout_info)
+    let pdf = writer.write(&pages, &document.metadata, &font_context)?;
+    Ok((pdf, layout_info))
 }
 
 /// Render a document described as JSON to PDF bytes.
-pub fn render_json(json: &str) -> Result<Vec<u8>, serde_json::Error> {
+pub fn render_json(json: &str) -> Result<Vec<u8>, FormeError> {
     let document: Document = serde_json::from_str(json)?;
-    Ok(render(&document))
+    render(&document)
 }
 
 /// Render a document described as JSON to PDF bytes along with layout metadata.
-pub fn render_json_with_layout(json: &str) -> Result<(Vec<u8>, LayoutInfo), serde_json::Error> {
+pub fn render_json_with_layout(json: &str) -> Result<(Vec<u8>, LayoutInfo), FormeError> {
     let document: Document = serde_json::from_str(json)?;
-    Ok(render_with_layout(&document))
+    render_with_layout(&document)
 }

@@ -8,6 +8,7 @@
 use std::env;
 use std::fs;
 use std::io::{self, Read};
+use std::process;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -20,10 +21,16 @@ fn main() {
 
     // Read input
     let input = if args.len() > 1 && !args[1].starts_with('-') {
-        fs::read_to_string(&args[1]).expect("Failed to read input file")
+        fs::read_to_string(&args[1]).unwrap_or_else(|e| {
+            eprintln!("Failed to read input file '{}': {}", args[1], e);
+            process::exit(1);
+        })
     } else {
         let mut buf = String::new();
-        io::stdin().read_to_string(&mut buf).expect("Failed to read stdin");
+        io::stdin().read_to_string(&mut buf).unwrap_or_else(|e| {
+            eprintln!("Failed to read stdin: {}", e);
+            process::exit(1);
+        });
         buf
     };
 
@@ -37,16 +44,19 @@ fn main() {
     // Render
     match forme::render_json(&input) {
         Ok(pdf_bytes) => {
-            fs::write(&output_path, &pdf_bytes).expect("Failed to write PDF");
+            fs::write(&output_path, &pdf_bytes).unwrap_or_else(|e| {
+                eprintln!("Failed to write PDF to '{}': {}", output_path, e);
+                process::exit(1);
+            });
             eprintln!(
-                "✓ Written {} bytes to {}",
+                "Written {} bytes to {}",
                 pdf_bytes.len(),
                 output_path
             );
         }
         Err(e) => {
-            eprintln!("✗ Failed to parse document: {}", e);
-            std::process::exit(1);
+            eprintln!("{}", e);
+            process::exit(1);
         }
     }
 }
