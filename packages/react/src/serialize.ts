@@ -1,4 +1,4 @@
-import { type ReactElement, isValidElement, Children } from 'react';
+import { type ReactElement, isValidElement, Children, Fragment } from 'react';
 import { Document, Page, View, Text, Image, Table, Row, Cell, Fixed, PageBreak } from './components.js';
 import type {
   Style,
@@ -294,6 +294,9 @@ function flattenChildren(children: unknown): unknown[] {
   Children.forEach(children as React.ReactNode, child => {
     if (Array.isArray(child)) {
       result.push(...child.flatMap(c => flattenChildren(c)));
+    } else if (isValidElement(child) && child.type === Fragment) {
+      const fragProps = child.props as { children?: unknown };
+      result.push(...flattenChildren(fragProps.children));
     } else {
       result.push(child);
     }

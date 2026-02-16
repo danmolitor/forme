@@ -84,24 +84,22 @@ Transform in pdf serializer: `pdf_y = page_height - layout_y - element_height`
 
 3. **Font name indexing in PDF is hardcoded.** `PdfWriter::font_name_index()` maps family names to indices with a match statement. Should use the `font_objects` HashMap to dynamically resolve indices. Fix is straightforward.
 
-4. **Table cell content can silently overflow.** In `layout_table_row`, cell children are laid out with `&mut Vec::new()` as the pages target, meaning page breaks inside cells are swallowed. For v1 this is acceptable (cells should be short), but needs a real solution for cells with long text.
+4. **Table cell content can silently overflow.** In `layout_table_row`, cell children are laid out with `&mut Vec::new()` as the pages target, meaning page breaks inside cells are swallowed. **Audited behavior:** Row-level page breaks work correctly — if a whole row doesn't fit, it moves to the next page and header rows are re-drawn. But if a single cell's content exceeds the remaining page height, the overflow is silently discarded (the `Vec::new()` pages target absorbs would-be page breaks). For v1 this is acceptable since table cells should contain short content. Workaround: keep cell content brief; use multiple rows instead of tall cells.
 
 ### SHOULD FIX
 
-5. **`measure_intrinsic_width` returns hardcoded 100pt for containers.** Should recursively measure content. Affects flex row sizing when children don't have explicit widths.
+5. **Widow/orphan control in text layout is incomplete.** The page_break module has the logic, but the text layout path in `layout_text` doesn't use it — it just breaks at any line boundary.
 
-6. **Widow/orphan control in text layout is incomplete.** The page_break module has the logic, but the text layout path in `layout_text` doesn't use it — it just breaks at any line boundary.
-
-7. **`align-content` is not implemented.** Wrapped flex lines always stack from the top (`flex-start`). Properties like `center`, `space-between`, etc. for distributing lines within the cross-axis are not supported.
+6. **`align-content` is not implemented.** Wrapped flex lines always stack from the top (`flex-start`). Properties like `center`, `space-between`, etc. for distributing lines within the cross-axis are not supported.
 
 ### NICE TO HAVE (LATER)
 
-8. No Knuth-Plass line breaking (using greedy algorithm — fine for documents).
-9. No hyphenation.
-10. No BiDi text support (Arabic, Hebrew).
-11. No CSS Grid.
-12. No PDF/A compliance.
-13. No WASM build yet.
+7. No Knuth-Plass line breaking (using greedy algorithm — fine for documents).
+8. No hyphenation.
+9. No BiDi text support (Arabic, Hebrew).
+10. No CSS Grid.
+11. No PDF/A compliance.
+12. No WASM build yet.
 
 ## How the Layout Engine Works (for making changes)
 

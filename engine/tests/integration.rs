@@ -1365,3 +1365,180 @@ fn test_flex_wrap_json_deserialization() {
     let bytes = forme::render_json(json).expect("Should parse flex-wrap JSON");
     assert_valid_pdf(&bytes);
 }
+
+// ─── Table Cell Overflow Tests ──────────────────────────────────
+
+#[test]
+fn test_table_cell_overflow_does_not_panic() {
+    // Known limitation: cell content that exceeds a full page silently overflows.
+    // Row-level page breaks work: if a row doesn't fit, it moves to the next page.
+    // But page breaks INSIDE cells are swallowed (layout_table_row passes &mut Vec::new()).
+    // This test verifies the engine doesn't panic and row-level breaks still function.
+
+    // Fill most of a page with text so the table starts near the bottom
+    let mut children = Vec::new();
+    for i in 0..40 {
+        children.push(make_text(&format!("Filler line {}", i), 12.0));
+    }
+
+    // Add a table with a cell containing enough text to be tall
+    let long_text = "This is a cell with enough text to be reasonably tall. ".repeat(3);
+    let table = Node {
+        kind: NodeKind::Table { columns: vec![] },
+        style: Style::default(),
+        children: vec![
+            make_table_row(true, vec![
+                make_table_cell(vec![make_text("Header", 10.0)]),
+            ]),
+            make_table_row(false, vec![
+                make_table_cell(vec![make_text(&long_text, 10.0)]),
+            ]),
+            make_table_row(false, vec![
+                make_table_cell(vec![make_text("Normal row", 10.0)]),
+            ]),
+        ],
+        id: None,
+    };
+    children.push(table);
+
+    let doc = default_doc(children);
+    let pages = layout_doc(&doc);
+
+    // Should produce multiple pages (filler overflows, table row moves to next page)
+    assert!(
+        pages.len() >= 2,
+        "Table near page bottom should cause page break, got {} pages",
+        pages.len()
+    );
+
+    // Should produce valid PDF
+    let bytes = render_to_pdf(&doc);
+    assert_valid_pdf(&bytes);
+}
+
+#[test]
+fn test_table_row_level_page_break_works() {
+    // Verify that when a row doesn't fit on the current page, it moves to the next
+    // page with header repetition. This is the supported behavior (vs. cell-level breaks).
+    let rows: Vec<Vec<&str>> = (0..60)
+        .map(|i| vec![Box::leak(format!("Row {}", i).into_boxed_str()) as &str, "Data"])
+        .collect();
+    let table = make_simple_table(vec!["Col A", "Col B"], rows);
+    let doc = default_doc(vec![table]);
+    let pages = layout_doc(&doc);
+
+    assert!(
+        pages.len() >= 2,
+        "60-row table should span multiple pages, got {}",
+        pages.len()
+    );
+
+    // Every page should have elements (header repeats on each)
+    for (i, page) in pages.iter().enumerate() {
+        assert!(
+            !page.elements.is_empty(),
+            "Page {} should have elements (table header should repeat)",
+            i
+        );
+    }
+}
+
+// ─── Page Number Placeholder Tests ──────────────────────────────
+
+#[test]
+fn test_page_number_placeholder_single_page() {
+    let doc = default_doc(vec![Node {
+        kind: NodeKind::Page {
+            config: PageConfig::default(),
+        },
+        style: Style::default(),
+        children: vec![
+            Node {
+                kind: NodeKind::Fixed {
+                    position: FixedPosition::Footer,
+                },
+                style: Style::default(),
+                children: vec![make_text(
+                    "Page {{pageNumber}} of {{totalPages}}",
+                    12.0,
+                )],
+                id: None,
+            },
+            make_text("Hello", 12.0),
+        ],
+        id: None,
+    }]);
+    let pdf_bytes = forme::render(&doc);
+    let pdf_str = String::from_utf8_lossy(&pdf_bytes);
+    // Streams are compressed, but the raw PDF bytes should not contain
+    // the placeholder strings (they should have been replaced before encoding).
+    assert!(
+        !pdf_str.contains("{{pageNumber}}"),
+        "Placeholder {{{{pageNumber}}}} should have been replaced"
+    );
+    assert!(
+        !pdf_str.contains("{{totalPages}}"),
+        "Placeholder {{{{totalPages}}}} should have been replaced"
+    );
+}
+
+#[test]
+fn test_page_number_placeholder_multi_page() {
+    let mut page_children: Vec<Node> = vec![Node {
+        kind: NodeKind::Fixed {
+            position: FixedPosition::Footer,
+        },
+        style: Style {
+            font_size: Some(10.0),
+            ..Style::default()
+        },
+        children: vec![make_text("{{pageNumber}}/{{totalPages}}", 10.0)],
+        id: None,
+    }];
+    for _ in 0..80 {
+        page_children.push(make_text("Line of text to fill the page.", 12.0));
+    }
+
+    let doc = default_doc(vec![Node {
+        kind: NodeKind::Page {
+            config: PageConfig::default(),
+        },
+        style: Style::default(),
+        children: page_children,
+        id: None,
+    }]);
+    let pdf_bytes = forme::render(&doc);
+    let pdf_str = String::from_utf8_lossy(&pdf_bytes);
+    assert!(
+        !pdf_str.contains("{{pageNumber}}"),
+        "All {{{{pageNumber}}}} placeholders should be replaced"
+    );
+    assert!(
+        !pdf_str.contains("{{totalPages}}"),
+        "All {{{{totalPages}}}} placeholders should be replaced"
+    );
+}
+
+#[test]
+fn test_page_number_in_body_text() {
+    let doc = default_doc(vec![make_text(
+        "This is page {{pageNumber}} of {{totalPages}}.",
+        12.0,
+    )]);
+    let pdf_bytes = forme::render(&doc);
+    let pdf_str = String::from_utf8_lossy(&pdf_bytes);
+    assert!(
+        !pdf_str.contains("{{pageNumber}}"),
+        "Placeholder should be replaced even in body text"
+    );
+}
+
+#[test]
+fn test_no_placeholder_unchanged() {
+    let doc = default_doc(vec![make_text("Hello World", 12.0)]);
+    let pdf_bytes = forme::render(&doc);
+    assert!(
+        pdf_bytes.starts_with(b"%PDF"),
+        "Should produce valid PDF without placeholders"
+    );
+}

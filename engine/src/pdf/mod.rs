@@ -106,7 +106,9 @@ impl PdfWriter {
         let mut page_obj_ids: Vec<usize> = Vec::new();
 
         for (page_idx, page) in pages.iter().enumerate() {
-            let content = self.build_content_stream_for_page(page, page_idx, &builder);
+            let content = self.build_content_stream_for_page(
+                page, page_idx, &builder, page_idx + 1, pages.len(),
+            );
             let compressed = compress_to_vec_zlib(content.as_bytes(), 6);
 
             let content_obj_id = builder.objects.len();
@@ -191,13 +193,18 @@ impl PdfWriter {
         page: &LayoutPage,
         page_idx: usize,
         builder: &PdfBuilder,
+        page_number: usize,
+        total_pages: usize,
     ) -> String {
         let mut stream = String::new();
         let page_height = page.height;
         let mut element_counter = 0usize;
 
         for element in &page.elements {
-            self.write_element(&mut stream, element, page_height, builder, page_idx, &mut element_counter);
+            self.write_element(
+                &mut stream, element, page_height, builder,
+                page_idx, &mut element_counter, page_number, total_pages,
+            );
         }
 
         stream
@@ -212,6 +219,8 @@ impl PdfWriter {
         builder: &PdfBuilder,
         page_idx: usize,
         element_counter: &mut usize,
+        page_number: usize,
+        total_pages: usize,
     ) {
         match &element.draw {
             DrawCommand::None => {}
@@ -306,6 +315,12 @@ impl PdfWriter {
                         font_name, font_size, line.x, pdf_y
                     );
 
+                    // Collect raw text from glyphs, replace page number placeholders
+                    let raw_text: String = line.glyphs.iter().map(|g| g.char_value).collect();
+                    let text_after = raw_text
+                        .replace("{{pageNumber}}", &page_number.to_string())
+                        .replace("{{totalPages}}", &total_pages.to_string());
+
                     // Check if this is a custom font — use hex glyph ID encoding
                     let is_custom = font_key.as_ref()
                         .map(|k| builder.custom_font_data.contains_key(k))
@@ -314,15 +329,15 @@ impl PdfWriter {
                     if is_custom {
                         let embed_data = builder.custom_font_data.get(font_key.as_ref().unwrap()).unwrap();
                         let mut hex = String::new();
-                        for g in &line.glyphs {
-                            let gid = embed_data.char_to_gid.get(&g.char_value).copied().unwrap_or(0);
+                        for ch in text_after.chars() {
+                            let gid = embed_data.char_to_gid.get(&ch).copied().unwrap_or(0);
                             let _ = write!(hex, "{:04X}", gid);
                         }
                         let _ = write!(stream, "<{}> Tj\n", hex);
                     } else {
                         let mut text_str = String::new();
-                        for g in &line.glyphs {
-                            let b = Self::unicode_to_winansi(g.char_value).unwrap_or(b'?');
+                        for ch in text_after.chars() {
+                            let b = Self::unicode_to_winansi(ch).unwrap_or(b'?');
                             match b {
                                 b'\\' => text_str.push_str("\\\\"),
                                 b'(' => text_str.push_str("\\("),
@@ -379,7 +394,10 @@ impl PdfWriter {
         }
 
         for child in &element.children {
-            self.write_element(stream, child, page_height, builder, page_idx, element_counter);
+            self.write_element(
+                stream, child, page_height, builder,
+                page_idx, element_counter, page_number, total_pages,
+            );
         }
     }
 

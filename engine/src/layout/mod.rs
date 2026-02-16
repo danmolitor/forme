@@ -198,6 +198,20 @@ pub struct PositionedGlyph {
     pub char_value: char,
 }
 
+/// Shift a layout element and all its nested content (children, text lines)
+/// down by `dy` points. Used to reposition footer elements after layout.
+fn offset_element_y(el: &mut LayoutElement, dy: f64) {
+    el.y += dy;
+    if let DrawCommand::Text { ref mut lines, .. } = el.draw {
+        for line in lines.iter_mut() {
+            line.y += dy;
+        }
+    }
+    for child in &mut el.children {
+        offset_element_y(child, dy);
+    }
+}
+
 /// The main layout engine.
 pub struct LayoutEngine {
     text_layout: TextLayout,
@@ -1323,11 +1337,15 @@ impl LayoutEngine {
                 page.elements = combined;
             }
 
-            // Lay out footers at bottom of content area
+            // Lay out footers at bottom of content area.
+            // We lay out from y=0 (so there's plenty of room and no spurious
+            // page breaks), then shift all resulting elements down to the
+            // correct footer position.
             if !page.fixed_footer.is_empty() {
                 let mut ftr_cursor = PageCursor::new(&page.config);
                 let total_ftr: f64 = page.fixed_footer.iter().map(|(_, h)| *h).sum();
-                ftr_cursor.y = ftr_cursor.content_height - total_ftr;
+                let target_y = ftr_cursor.content_height - total_ftr;
+                // Layout from y=0
                 for (node, _h) in &page.fixed_footer {
                     let cw = ftr_cursor.content_width;
                     let cx = ftr_cursor.content_x;
@@ -1341,6 +1359,12 @@ impl LayoutEngine {
                         cw,
                         font_context,
                     );
+                }
+                // Shift all footer elements down to the target position.
+                // Elements already have content_y baked in, so we just offset
+                // by target_y (which is relative to content area top).
+                for el in &mut ftr_cursor.elements {
+                    offset_element_y(el, target_y);
                 }
                 page.elements.extend(ftr_cursor.elements);
             }
@@ -1356,4 +1380,157 @@ struct FlexItem<'a> {
     node: &'a Node,
     style: ResolvedStyle,
     base_width: f64,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::font::FontContext;
+
+    fn make_text(content: &str, font_size: f64) -> Node {
+        Node {
+            kind: NodeKind::Text { content: content.to_string() },
+            style: Style { font_size: Some(font_size), ..Default::default() },
+            children: vec![],
+            id: None,
+        }
+    }
+
+    fn make_styled_view(style: Style, children: Vec<Node>) -> Node {
+        Node {
+            kind: NodeKind::View,
+            style,
+            children,
+            id: None,
+        }
+    }
+
+    #[test]
+    fn intrinsic_width_flex_row_sums_children() {
+        let engine = LayoutEngine::new();
+        let font_context = FontContext::new();
+
+        let child1 = make_text("Hello", 14.0);
+        let child2 = make_text("World", 14.0);
+
+        let child1_style = child1.style.resolve(None, 0.0);
+        let child2_style = child2.style.resolve(None, 0.0);
+        let child1_w = engine.measure_intrinsic_width(&child1, &child1_style, &font_context);
+        let child2_w = engine.measure_intrinsic_width(&child2, &child2_style, &font_context);
+
+        let row = make_styled_view(
+            Style { flex_direction: Some(FlexDirection::Row), ..Default::default() },
+            vec![make_text("Hello", 14.0), make_text("World", 14.0)],
+        );
+        let row_style = row.style.resolve(None, 0.0);
+        let row_w = engine.measure_intrinsic_width(&row, &row_style, &font_context);
+
+        assert!(
+            (row_w - (child1_w + child2_w)).abs() < 0.01,
+            "Row intrinsic width ({}) should equal sum of children ({} + {})",
+            row_w, child1_w, child2_w
+        );
+    }
+
+    #[test]
+    fn intrinsic_width_flex_column_takes_max() {
+        let engine = LayoutEngine::new();
+        let font_context = FontContext::new();
+
+        let short = make_text("Hi", 14.0);
+        let long = make_text("Hello World", 14.0);
+
+        let short_style = short.style.resolve(None, 0.0);
+        let long_style = long.style.resolve(None, 0.0);
+        let short_w = engine.measure_intrinsic_width(&short, &short_style, &font_context);
+        let long_w = engine.measure_intrinsic_width(&long, &long_style, &font_context);
+
+        let col = make_styled_view(
+            Style { flex_direction: Some(FlexDirection::Column), ..Default::default() },
+            vec![make_text("Hi", 14.0), make_text("Hello World", 14.0)],
+        );
+        let col_style = col.style.resolve(None, 0.0);
+        let col_w = engine.measure_intrinsic_width(&col, &col_style, &font_context);
+
+        assert!(
+            (col_w - long_w).abs() < 0.01,
+            "Column intrinsic width ({}) should equal max child ({}, short was {})",
+            col_w, long_w, short_w
+        );
+    }
+
+    #[test]
+    fn intrinsic_width_nested_containers() {
+        let engine = LayoutEngine::new();
+        let font_context = FontContext::new();
+
+        let inner = make_styled_view(
+            Style { flex_direction: Some(FlexDirection::Row), ..Default::default() },
+            vec![make_text("A", 12.0), make_text("B", 12.0)],
+        );
+        let inner_style = inner.style.resolve(None, 0.0);
+        let inner_w = engine.measure_intrinsic_width(&inner, &inner_style, &font_context);
+
+        let outer = make_styled_view(
+            Style::default(),
+            vec![make_styled_view(
+                Style { flex_direction: Some(FlexDirection::Row), ..Default::default() },
+                vec![make_text("A", 12.0), make_text("B", 12.0)],
+            )],
+        );
+        let outer_style = outer.style.resolve(None, 0.0);
+        let outer_w = engine.measure_intrinsic_width(&outer, &outer_style, &font_context);
+
+        assert!(
+            (outer_w - inner_w).abs() < 0.01,
+            "Nested container ({}) should match inner container ({})",
+            outer_w, inner_w
+        );
+    }
+
+    #[test]
+    fn intrinsic_width_row_with_gap() {
+        let engine = LayoutEngine::new();
+        let font_context = FontContext::new();
+
+        let no_gap = make_styled_view(
+            Style { flex_direction: Some(FlexDirection::Row), ..Default::default() },
+            vec![make_text("A", 12.0), make_text("B", 12.0)],
+        );
+        let with_gap = make_styled_view(
+            Style { flex_direction: Some(FlexDirection::Row), gap: Some(10.0), ..Default::default() },
+            vec![make_text("A", 12.0), make_text("B", 12.0)],
+        );
+
+        let no_gap_style = no_gap.style.resolve(None, 0.0);
+        let with_gap_style = with_gap.style.resolve(None, 0.0);
+        let no_gap_w = engine.measure_intrinsic_width(&no_gap, &no_gap_style, &font_context);
+        let with_gap_w = engine.measure_intrinsic_width(&with_gap, &with_gap_style, &font_context);
+
+        assert!(
+            (with_gap_w - no_gap_w - 10.0).abs() < 0.01,
+            "Gap should add 10pt: with_gap={}, no_gap={}",
+            with_gap_w, no_gap_w
+        );
+    }
+
+    #[test]
+    fn intrinsic_width_empty_container() {
+        let engine = LayoutEngine::new();
+        let font_context = FontContext::new();
+
+        let padding = 8.0;
+        let empty = make_styled_view(
+            Style { padding: Some(Edges::uniform(padding)), ..Default::default() },
+            vec![],
+        );
+        let style = empty.style.resolve(None, 0.0);
+        let w = engine.measure_intrinsic_width(&empty, &style, &font_context);
+
+        assert!(
+            (w - padding * 2.0).abs() < 0.01,
+            "Empty container width ({}) should equal horizontal padding ({})",
+            w, padding * 2.0
+        );
+    }
 }

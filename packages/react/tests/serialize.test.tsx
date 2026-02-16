@@ -496,6 +496,45 @@ describe('Edge cases', () => {
     const kind = doc.children[0].kind as { type: 'Table'; columns: { width: unknown }[] };
     expect(kind.columns[0].width).toBe('Auto');
   });
+
+  it('Fragment children are flattened', () => {
+    const doc = serialize(
+      <Document>
+        <View>
+          <>
+            <Text>one</Text>
+            <Text>two</Text>
+          </>
+        </View>
+      </Document>
+    );
+    expect(doc.children[0].children).toHaveLength(2);
+    expect(doc.children[0].children[0].kind).toEqual({ type: 'Text', content: 'one' });
+    expect(doc.children[0].children[1].kind).toEqual({ type: 'Text', content: 'two' });
+  });
+
+  it('conditional Fragment with Table children', () => {
+    const showTable = true;
+    const doc = serialize(
+      <Document>
+        <View>
+          {showTable ? (
+            <>
+              <Table columns={[{ width: { fraction: 1 } }]}>
+                <Row><Cell><Text>data</Text></Cell></Row>
+              </Table>
+              <Text>after table</Text>
+            </>
+          ) : (
+            <Text>no table</Text>
+          )}
+        </View>
+      </Document>
+    );
+    expect(doc.children[0].children).toHaveLength(2);
+    expect((doc.children[0].children[0].kind as { type: string }).type).toBe('Table');
+    expect(doc.children[0].children[1].kind).toEqual({ type: 'Text', content: 'after table' });
+  });
 });
 
 // ─── Full round-trip ────────────────────────────────────────────────
