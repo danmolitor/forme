@@ -285,12 +285,14 @@ impl LayoutEngine {
                     }
                     cursor = PageCursor::new(config);
 
+                    let cx = cursor.content_x;
                     let cw = cursor.content_width;
                     self.layout_children(
                         &node.children,
                         &node.style,
                         &mut cursor,
                         &mut pages,
+                        cx,
                         cw,
                         None,
                         font_context,
@@ -434,11 +436,13 @@ impl LayoutEngine {
             let saved_y = cursor.y;
             cursor.y += margin.top + padding.top + border.top;
 
+            let children_x = node_x + padding.left + border.left;
             self.layout_children(
                 &node.children,
                 &node.style,
                 cursor,
                 pages,
+                children_x,
                 inner_width,
                 Some(style),
                 font_context,
@@ -458,7 +462,7 @@ impl LayoutEngine {
         style: &ResolvedStyle,
         cursor: &mut PageCursor,
         pages: &mut Vec<LayoutPage>,
-        _node_x: f64,
+        node_x: f64,
         _outer_width: f64,
         inner_width: f64,
         font_context: &FontContext,
@@ -469,11 +473,13 @@ impl LayoutEngine {
 
         cursor.y += margin.top + padding.top + border.top;
 
+        let children_x = node_x + padding.left + border.left;
         self.layout_children(
             &node.children,
             &node.style,
             cursor,
             pages,
+            children_x,
             inner_width,
             Some(style),
             font_context,
@@ -488,6 +494,7 @@ impl LayoutEngine {
         _parent_raw_style: &Style,
         cursor: &mut PageCursor,
         pages: &mut Vec<LayoutPage>,
+        content_x: f64,
         available_width: f64,
         parent_style: Option<&ResolvedStyle>,
         font_context: &FontContext,
@@ -515,7 +522,7 @@ impl LayoutEngine {
                         child,
                         cursor,
                         pages,
-                        cursor.content_x,
+                        content_x,
                         available_width,
                         parent_style,
                         font_context,
@@ -1054,10 +1061,11 @@ impl LayoutEngine {
     ) -> f64 {
         match &node.kind {
             NodeKind::Text { content } => {
+                let measure_width = available_width - style.margin.horizontal();
                 let lines = self.text_layout.break_into_lines(
                     font_context,
                     content,
-                    available_width - style.padding.horizontal(),
+                    measure_width,
                     style.font_size,
                     &style.font_family,
                     style.font_weight,
@@ -1071,7 +1079,12 @@ impl LayoutEngine {
                 height.unwrap_or(available_width * 0.75) + style.padding.vertical()
             }
             _ => {
-                let inner_width = available_width - style.padding.horizontal() - style.border_width.horizontal();
+                // Match layout_view: when width is Auto, margin reduces the outer width
+                let outer_width = match style.width {
+                    SizeConstraint::Fixed(w) => w,
+                    SizeConstraint::Auto => available_width - style.margin.horizontal(),
+                };
+                let inner_width = outer_width - style.padding.horizontal() - style.border_width.horizontal();
                 let children_height = self.measure_children_height(&node.children, inner_width, style, font_context);
                 children_height + style.padding.vertical() + style.border_width.vertical()
             }

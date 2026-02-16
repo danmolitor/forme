@@ -185,6 +185,8 @@
     const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
     pagesEl.innerHTML = '';
 
+    const dpr = window.devicePixelRatio || 1;
+
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i);
       const viewport = page.getViewport({ scale: SCALE });
@@ -193,19 +195,19 @@
       wrapper.className = 'page-wrapper';
       wrapper.dataset.pageIndex = String(i - 1);
 
-      // PDF canvas
+      // PDF canvas — scale backing store by devicePixelRatio for crisp rendering
       const pdfCanvas = document.createElement('canvas');
       pdfCanvas.className = 'pdf-canvas';
-      pdfCanvas.width = viewport.width;
-      pdfCanvas.height = viewport.height;
+      pdfCanvas.width = viewport.width * dpr;
+      pdfCanvas.height = viewport.height * dpr;
       pdfCanvas.style.width = viewport.width + 'px';
       pdfCanvas.style.height = viewport.height + 'px';
 
       // Overlay canvas
       const overlayCanvas = document.createElement('canvas');
       overlayCanvas.className = 'overlay-canvas';
-      overlayCanvas.width = viewport.width;
-      overlayCanvas.height = viewport.height;
+      overlayCanvas.width = viewport.width * dpr;
+      overlayCanvas.height = viewport.height * dpr;
       overlayCanvas.style.width = viewport.width + 'px';
       overlayCanvas.style.height = viewport.height + 'px';
 
@@ -214,7 +216,8 @@
       pagesEl.appendChild(wrapper);
 
       const ctx = pdfCanvas.getContext('2d');
-      await page.render({ canvasContext: ctx, viewport }).promise;
+      const scaledViewport = page.getViewport({ scale: SCALE * dpr });
+      await page.render({ canvasContext: ctx, viewport: scaledViewport }).promise;
     }
   }
 
@@ -234,8 +237,11 @@
     wrappers.forEach((wrapper) => {
       const overlay = wrapper.querySelector('.overlay-canvas');
       const pageIdx = parseInt(wrapper.dataset.pageIndex, 10);
+      const dpr = window.devicePixelRatio || 1;
       const ctx = overlay.getContext('2d');
       ctx.clearRect(0, 0, overlay.width, overlay.height);
+      ctx.save();
+      ctx.scale(dpr, dpr);
 
       if (!layoutData || !layoutData.pages[pageIdx]) return;
       const page = layoutData.pages[pageIdx];
@@ -284,7 +290,7 @@
         ctx.setLineDash([8, 4]);
         ctx.beginPath();
         ctx.moveTo(0, y);
-        ctx.lineTo(overlay.width, y);
+        ctx.lineTo(overlay.width / dpr, y);
         ctx.stroke();
         ctx.setLineDash([]);
 
@@ -292,6 +298,8 @@
         ctx.font = '11px system-ui';
         ctx.fillText(`page ${pageIdx + 1}`, 8, y - 4);
       }
+
+      ctx.restore();
     });
   }
 

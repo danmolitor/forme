@@ -320,8 +320,21 @@ impl PdfWriter {
                         }
                         let _ = write!(stream, "<{}> Tj\n", hex);
                     } else {
-                        let text: String = line.glyphs.iter().map(|g| g.char_value).collect();
-                        let _ = write!(stream, "({}) Tj\n", Self::escape_pdf_string(&text));
+                        let mut text_str = String::new();
+                        for g in &line.glyphs {
+                            let b = Self::unicode_to_winansi(g.char_value).unwrap_or(b'?');
+                            match b {
+                                b'\\' => text_str.push_str("\\\\"),
+                                b'(' => text_str.push_str("\\("),
+                                b')' => text_str.push_str("\\)"),
+                                0x20..=0x7E => text_str.push(b as char),
+                                _ => {
+                                    // Use octal escape for bytes outside ASCII printable range
+                                    let _ = write!(text_str, "\\{:03o}", b);
+                                }
+                            }
+                        }
+                        let _ = write!(stream, "({}) Tj\n", text_str);
                     }
                 }
 
@@ -1041,6 +1054,51 @@ impl PdfWriter {
             .replace('(', "\\(")
             .replace(')', "\\)")
     }
+
+    /// Map a Unicode codepoint to a WinAnsiEncoding byte value.
+    ///
+    /// WinAnsiEncoding is based on Windows-1252. Most codepoints in
+    /// 0x20..=0x7E and 0xA0..=0xFF map directly. The 0x80..=0x9F range
+    /// contains special mappings for smart quotes, bullets, dashes, etc.
+    fn unicode_to_winansi(ch: char) -> Option<u8> {
+        let cp = ch as u32;
+        // ASCII printable range maps directly
+        if (0x20..=0x7E).contains(&cp) || (0xA0..=0xFF).contains(&cp) {
+            return Some(cp as u8);
+        }
+        // Windows-1252 special mappings (0x80-0x9F)
+        match cp {
+            0x20AC => Some(0x80), // Euro sign
+            0x201A => Some(0x82), // Single low-9 quotation mark
+            0x0192 => Some(0x83), // Latin small letter f with hook
+            0x201E => Some(0x84), // Double low-9 quotation mark
+            0x2026 => Some(0x85), // Horizontal ellipsis
+            0x2020 => Some(0x86), // Dagger
+            0x2021 => Some(0x87), // Double dagger
+            0x02C6 => Some(0x88), // Modifier letter circumflex accent
+            0x2030 => Some(0x89), // Per mille sign
+            0x0160 => Some(0x8A), // Latin capital letter S with caron
+            0x2039 => Some(0x8B), // Single left-pointing angle quotation
+            0x0152 => Some(0x8C), // Latin capital ligature OE
+            0x017D => Some(0x8E), // Latin capital letter Z with caron
+            0x2018 => Some(0x91), // Left single quotation mark
+            0x2019 => Some(0x92), // Right single quotation mark
+            0x201C => Some(0x93), // Left double quotation mark
+            0x201D => Some(0x94), // Right double quotation mark
+            0x2022 => Some(0x95), // Bullet
+            0x2013 => Some(0x96), // En dash
+            0x2014 => Some(0x97), // Em dash
+            0x02DC => Some(0x98), // Small tilde
+            0x2122 => Some(0x99), // Trade mark sign
+            0x0161 => Some(0x9A), // Latin small letter s with caron
+            0x203A => Some(0x9B), // Single right-pointing angle quotation
+            0x0153 => Some(0x9C), // Latin small ligature oe
+            0x017E => Some(0x9E), // Latin small letter z with caron
+            0x0178 => Some(0x9F), // Latin capital letter Y with diaeresis
+            _ => None,
+        }
+    }
+
 
     /// Serialize all objects into the final PDF byte stream.
     fn serialize(&self, builder: &PdfBuilder, info_obj_id: Option<usize>) -> Vec<u8> {
