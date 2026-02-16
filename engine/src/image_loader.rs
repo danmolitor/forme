@@ -60,12 +60,22 @@ fn read_source_bytes(src: &str) -> Result<Vec<u8>, String> {
         return base64_decode(b64_data);
     }
 
-    // File path — try reading from disk
+    // File path — try reading from disk (not available in WASM)
     // Only match explicit path prefixes to avoid treating base64 strings
     // (which contain '/') as file paths.
-    if src.starts_with('/') || src.starts_with("./") || src.starts_with("../"  ) {
-        return std::fs::read(src)
-            .map_err(|e| format!("Failed to read image file '{}': {}", src, e));
+    if src.starts_with('/') || src.starts_with("./") || src.starts_with("../") {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            return std::fs::read(src)
+                .map_err(|e| format!("Failed to read image file '{}': {}", src, e));
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            return Err(format!(
+                "File path images not supported in WASM: '{}'. Use data URIs or base64.",
+                src
+            ));
+        }
     }
 
     // Try raw base64

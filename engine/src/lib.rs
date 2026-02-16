@@ -34,6 +34,9 @@ pub mod font;
 pub mod image_loader;
 pub mod pdf;
 
+#[cfg(feature = "wasm")]
+pub mod wasm;
+
 use model::Document;
 use font::FontContext;
 use layout::LayoutEngine;

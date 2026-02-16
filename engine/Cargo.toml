@@ -17,10 +17,15 @@ ttf-parser = "0.25"         # Real font metrics + subsetting
 # unicode-script = "0.5"    # Script detection for BiDi
 image = { version = "0.24", default-features = false, features = ["jpeg", "png"] }
 base64 = "0.22"
+wasm-bindgen = { version = "0.2", optional = true }
+
+[features]
+wasm = ["wasm-bindgen"]
 
 [lib]
 name = "forme"
 path = "src/lib.rs"
+crate-type = ["cdylib", "rlib"]
 
 [[bin]]
 name = "forme"
