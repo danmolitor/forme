@@ -289,6 +289,13 @@
     z-index: 1;
   }
 
+  .breadcrumb {
+    font-size: 11px;
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    margin-bottom: 2px;
+  }
+
   .inspector-header .node-label {
     font-weight: 600;
     font-size: 13px;
@@ -435,6 +442,28 @@
     margin-right: 4px;
   }
 
+  /* ── Inspector Actions ───────────────────────── */
+  .inspector-actions {
+    padding: 12px 16px;
+  }
+
+  .copy-style-btn {
+    width: 100%;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 8px 12px;
+    font-size: 12px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .copy-style-btn:hover {
+    border-color: var(--border-hover);
+    color: var(--text);
+  }
+
   /* ── Error Overlay ─────────────────────────────── */
   #error-overlay {
     display: none;
@@ -528,6 +557,7 @@
 <div id="inspector">
   <div class="inspector-header">
     <div>
+      <div class="breadcrumb" id="inspector-breadcrumb"></div>
       <div class="node-label" id="inspector-label">View</div>
       <div class="node-dims" id="inspector-dims">0 x 0 at (0, 0)</div>
     </div>
@@ -560,6 +590,7 @@
   </div>
 
   <div id="inspector-styles"></div>
+  <div class="inspector-actions" id="inspector-actions"></div>
 </div>
 
 <script type="module">
@@ -577,6 +608,7 @@
   let currentMode = 'preview'; // preview | layout | margins | breaks
   let layoutData = null;
   let selectedElement = null;
+  let selectedAncestors = [];
   let selectedPageIdx = -1;
   let inspectorOpen = false;
 
@@ -595,6 +627,8 @@
   const inspectorLabel = document.getElementById('inspector-label');
   const inspectorDims = document.getElementById('inspector-dims');
   const inspectorStyles = document.getElementById('inspector-styles');
+  const inspectorBreadcrumb = document.getElementById('inspector-breadcrumb');
+  const inspectorActions = document.getElementById('inspector-actions');
   const tooltip = document.getElementById('hover-tooltip');
 
   // ── Mode Toggle ──────────────────────────────────────────────
@@ -671,6 +705,7 @@
 
   function closeInspector() {
     selectedElement = null;
+    selectedAncestors = [];
     selectedPageIdx = -1;
     inspectorOpen = false;
     inspectorEl.classList.remove('open');
@@ -687,6 +722,15 @@
     if (!selectedElement) return;
     const el = selectedElement;
     const s = el.style;
+
+    // Breadcrumb
+    if (selectedAncestors.length > 0) {
+      inspectorBreadcrumb.textContent = selectedAncestors.join(' \u203a ');
+      inspectorBreadcrumb.style.display = '';
+    } else {
+      inspectorBreadcrumb.textContent = '';
+      inspectorBreadcrumb.style.display = 'none';
+    }
 
     // Header
     const nodeTypeColors = {
@@ -762,6 +806,20 @@
     html += renderStyleSection('Background & Border', visualProps);
 
     inspectorStyles.innerHTML = html;
+
+    // Copy Style button
+    const styleStr = buildJsxStyleString(s);
+    if (styleStr) {
+      inspectorActions.innerHTML = `<button class="copy-style-btn" id="copy-style-btn">Copy Style</button>`;
+      document.getElementById('copy-style-btn').addEventListener('click', () => {
+        navigator.clipboard.writeText(styleStr);
+        const btn = document.getElementById('copy-style-btn');
+        btn.textContent = 'Copied!';
+        setTimeout(() => { btn.textContent = 'Copy Style'; }, 1500);
+      });
+    } else {
+      inspectorActions.innerHTML = '';
+    }
   }
 
   function renderStyleSection(title, props) {
@@ -803,22 +861,91 @@
     return `${tl} ${tr} ${br} ${bl}`;
   }
 
+  // ── JSX Style Builder ────────────────────────────────────────
+  function buildJsxStyleString(s) {
+    const enumMap = {
+      'Column': 'column', 'Row': 'row',
+      'FlexStart': 'flex-start', 'FlexEnd': 'flex-end',
+      'Center': 'center', 'SpaceBetween': 'space-between',
+      'SpaceAround': 'space-around', 'SpaceEvenly': 'space-evenly',
+      'Stretch': 'stretch', 'Baseline': 'baseline',
+      'NoWrap': 'nowrap', 'Wrap': 'wrap',
+      'Normal': 'normal', 'Italic': 'italic',
+      'Left': 'left', 'Center': 'center', 'Right': 'right', 'Justify': 'justify',
+    };
+    function mapEnum(v) { return enumMap[v] || v; }
+
+    function colorEq(c, r, g, b) {
+      return c && Math.abs(c.r - r) < 0.001 && Math.abs(c.g - g) < 0.001 && Math.abs(c.b - b) < 0.001;
+    }
+
+    function edgesAllZero(e) { return e.top === 0 && e.right === 0 && e.bottom === 0 && e.left === 0; }
+    function edgesUniform(e) { return e.top === e.right && e.right === e.bottom && e.bottom === e.left; }
+    function cornersAllZero(c) { return c.top_left === 0 && c.top_right === 0 && c.bottom_right === 0 && c.bottom_left === 0; }
+    function cornersUniform(c) { return c.top_left === c.top_right && c.top_right === c.bottom_right && c.bottom_right === c.bottom_left; }
+
+    function fmtEdges(e) {
+      if (edgesUniform(e)) return String(e.top);
+      return `{ top: ${e.top}, right: ${e.right}, bottom: ${e.bottom}, left: ${e.left} }`;
+    }
+    function fmtCorners(c) {
+      if (cornersUniform(c)) return String(c.top_left);
+      return `{ topLeft: ${c.top_left}, topRight: ${c.top_right}, bottomRight: ${c.bottom_right}, bottomLeft: ${c.bottom_left} }`;
+    }
+
+    const props = [];
+
+    // Layout
+    if (s.flexDirection !== 'Column') props.push(`flexDirection: '${mapEnum(s.flexDirection)}'`);
+    if (s.justifyContent !== 'FlexStart') props.push(`justifyContent: '${mapEnum(s.justifyContent)}'`);
+    if (s.alignItems !== 'Stretch') props.push(`alignItems: '${mapEnum(s.alignItems)}'`);
+    if (s.flexWrap !== 'NoWrap') props.push(`flexWrap: '${mapEnum(s.flexWrap)}'`);
+    if (s.gap > 0) props.push(`gap: ${s.gap}`);
+
+    // Spacing
+    if (!edgesAllZero(s.margin)) props.push(`margin: ${fmtEdges(s.margin)}`);
+    if (!edgesAllZero(s.padding)) props.push(`padding: ${fmtEdges(s.padding)}`);
+    if (!edgesAllZero(s.borderWidth)) props.push(`borderWidth: ${fmtEdges(s.borderWidth)}`);
+
+    // Typography
+    if (s.fontFamily !== 'Helvetica') props.push(`fontFamily: '${s.fontFamily}'`);
+    if (s.fontSize !== 12) props.push(`fontSize: ${s.fontSize}`);
+    if (s.fontWeight !== 400) props.push(`fontWeight: ${s.fontWeight}`);
+    if (s.fontStyle !== 'Normal') props.push(`fontStyle: '${mapEnum(s.fontStyle)}'`);
+    if (s.lineHeight !== 1.4) props.push(`lineHeight: ${s.lineHeight}`);
+    if (s.textAlign !== 'Left') props.push(`textAlign: '${mapEnum(s.textAlign)}'`);
+
+    // Visual
+    if (s.opacity < 1) props.push(`opacity: ${s.opacity}`);
+    if (!colorEq(s.color, 0, 0, 0)) props.push(`color: '${colorToHex(s.color)}'`);
+    if (s.backgroundColor) props.push(`backgroundColor: '${colorToHex(s.backgroundColor)}'`);
+    if (!cornersAllZero(s.borderRadius)) props.push(`borderRadius: ${fmtCorners(s.borderRadius)}`);
+
+    if (props.length === 0) return null;
+    return `{ ${props.join(', ')} }`;
+  }
+
   // ── Hit Testing ───────────────────────────────────────────────
   function hitTest(elements, px, py) {
-    // Walk depth-first, return deepest match
+    // Walk depth-first, return deepest match with ancestor path
     let best = null;
+    let bestAncestors = [];
+    const stack = [];
     function walk(els) {
       for (const el of els) {
         if (px >= el.x && px <= el.x + el.width && py >= el.y && py <= el.y + el.height) {
           best = el;
+          bestAncestors = stack.slice();
           if (el.children && el.children.length) {
+            stack.push(el.nodeType);
             walk(el.children);
+            stack.pop();
           }
         }
       }
     }
     walk(elements);
-    return best;
+    return { element: best, ancestors: bestAncestors };
   }
 
   // ── Render PDF pages ──────────────────────────────────────────
@@ -914,8 +1041,9 @@
     const page = layoutData.pages[pageIdx];
     if (!page) return;
 
-    const hit = hitTest(page.elements, px, py);
+    const { element: hit, ancestors } = hitTest(page.elements, px, py);
     if (hit) {
+      selectedAncestors = ancestors;
       openInspector(hit, pageIdx);
     } else {
       closeInspector();
@@ -931,7 +1059,7 @@
     const page = layoutData.pages[pageIdx];
     if (!page) return;
 
-    const hit = hitTest(page.elements, px, py);
+    const { element: hit } = hitTest(page.elements, px, py);
     if (hit) {
       tooltip.textContent = `${hit.nodeType} ${fmt(hit.width)}\u00d7${fmt(hit.height)}`;
       tooltip.style.display = 'block';
