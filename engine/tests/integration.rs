@@ -26,6 +26,7 @@ fn make_text(content: &str, font_size: f64) -> Node {
         },
         children: vec![],
         id: None,
+        source_location: None,
     }
 }
 
@@ -35,6 +36,7 @@ fn make_view(children: Vec<Node>) -> Node {
         style: Style::default(),
         children,
         id: None,
+        source_location: None,
     }
 }
 
@@ -44,6 +46,7 @@ fn make_styled_view(style: Style, children: Vec<Node>) -> Node {
         style,
         children,
         id: None,
+        source_location: None,
     }
 }
 
@@ -53,6 +56,7 @@ fn make_page_break() -> Node {
         style: Style::default(),
         children: vec![],
         id: None,
+        source_location: None,
     }
 }
 
@@ -62,6 +66,7 @@ fn make_table_row(is_header: bool, cells: Vec<Node>) -> Node {
         style: Style::default(),
         children: cells,
         id: None,
+        source_location: None,
     }
 }
 
@@ -77,6 +82,7 @@ fn make_table_cell(children: Vec<Node>) -> Node {
         },
         children,
         id: None,
+        source_location: None,
     }
 }
 
@@ -276,6 +282,7 @@ fn make_simple_table(header_cells: Vec<&str>, rows: Vec<Vec<&str>>) -> Node {
         style: Style::default(),
         children,
         id: None,
+        source_location: None,
     }
 }
 
@@ -539,6 +546,7 @@ fn test_unbreakable_node_moves_to_next_page() {
             make_text("Must stay together line 5", 12.0),
         ],
         id: None,
+        source_location: None,
     };
     page_children.push(unbreakable);
 
@@ -615,6 +623,7 @@ fn render_with_custom_font(font_data: &[u8], text: &str) -> Vec<u8> {
             },
             children: vec![],
             id: None,
+            source_location: None,
         }],
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
@@ -689,6 +698,7 @@ fn test_mixed_standard_and_custom_fonts() {
                 },
                 children: vec![],
                 id: None,
+                source_location: None,
             },
             // Custom font text
             Node {
@@ -700,6 +710,7 @@ fn test_mixed_standard_and_custom_fonts() {
                 },
                 children: vec![],
                 id: None,
+                source_location: None,
             },
         ],
         metadata: Metadata::default(),
@@ -810,6 +821,7 @@ fn make_image_node(src: &str, width: Option<f64>, height: Option<f64>) -> Node {
         style: Style::default(),
         children: vec![],
         id: None,
+        source_location: None,
     }
 }
 
@@ -957,6 +969,7 @@ fn make_fixed_header(text: &str) -> Node {
         },
         children: vec![make_text(text, 10.0)],
         id: None,
+        source_location: None,
     }
 }
 
@@ -970,6 +983,7 @@ fn make_fixed_footer(text: &str) -> Node {
         },
         children: vec![make_text(text, 10.0)],
         id: None,
+        source_location: None,
     }
 }
 
@@ -1064,6 +1078,7 @@ fn test_footer_reduces_content_area() {
         },
         children: vec![make_text("Big Footer", 14.0)],
         id: None,
+        source_location: None,
     };
     let mut children_with_footer = vec![big_footer];
     for i in 0..80 {
@@ -1408,6 +1423,7 @@ fn test_table_cell_overflow_does_not_panic() {
             ]),
         ],
         id: None,
+        source_location: None,
     };
     children.push(table);
 
@@ -1507,10 +1523,12 @@ fn test_page_number_placeholder_single_page() {
                     12.0,
                 )],
                 id: None,
+                source_location: None,
             },
             make_text("Hello", 12.0),
         ],
         id: None,
+        source_location: None,
     }]);
     let pdf_bytes = forme::render(&doc).unwrap();
     let pdf_str = String::from_utf8_lossy(&pdf_bytes);
@@ -1538,6 +1556,7 @@ fn test_page_number_placeholder_multi_page() {
         },
         children: vec![make_text("{{pageNumber}}/{{totalPages}}", 10.0)],
         id: None,
+        source_location: None,
     }];
     for _ in 0..80 {
         page_children.push(make_text("Line of text to fill the page.", 12.0));
@@ -1550,6 +1569,7 @@ fn test_page_number_placeholder_multi_page() {
         style: Style::default(),
         children: page_children,
         id: None,
+        source_location: None,
     }]);
     let pdf_bytes = forme::render(&doc).unwrap();
     let pdf_str = String::from_utf8_lossy(&pdf_bytes);

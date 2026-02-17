@@ -1259,6 +1259,7 @@ mod tests {
                     children: vec![],
                     node_type: None,
                     resolved_style: None,
+                    source_location: None,
                 },
                 LayoutElement {
                     x: 54.0, y: 74.0, width: 100.0, height: 16.8,
@@ -1277,6 +1278,7 @@ mod tests {
                     children: vec![],
                     node_type: None,
                     resolved_style: None,
+                    source_location: None,
                 },
             ],
             fixed_header: vec![],
@@ -1370,6 +1372,7 @@ mod tests {
                 children: vec![],
                 node_type: None,
                 resolved_style: None,
+                source_location: None,
             }],
             fixed_header: vec![],
             fixed_footer: vec![],

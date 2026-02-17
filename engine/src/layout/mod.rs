@@ -157,6 +157,9 @@ pub struct ElementInfo {
     pub style: ElementStyleInfo,
     /// Child elements (preserves hierarchy).
     pub children: Vec<ElementInfo>,
+    /// Source code location for click-to-source.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_location: Option<SourceLocation>,
 }
 
 impl LayoutInfo {
@@ -207,6 +210,7 @@ impl LayoutInfo {
                 node_type,
                 style,
                 children: Self::build_element_tree(&elem.children),
+                source_location: elem.source_location.clone(),
             }
         }).collect()
     }
@@ -243,6 +247,8 @@ pub struct LayoutElement {
     pub node_type: Option<String>,
     /// Resolved style snapshot for inspector panel.
     pub resolved_style: Option<ResolvedStyle>,
+    /// Source code location for click-to-source in the dev inspector.
+    pub source_location: Option<SourceLocation>,
 }
 
 /// Return a human-readable name for a NodeKind variant.
@@ -486,7 +492,7 @@ impl LayoutEngine {
             }
 
             NodeKind::Text { content } => {
-                self.layout_text(content, &style, cursor, pages, x, available_width, font_context);
+                self.layout_text(content, &style, cursor, pages, x, available_width, font_context, node.source_location.as_ref());
             }
 
             NodeKind::Image { width, height, .. } => {
@@ -576,6 +582,7 @@ impl LayoutEngine {
                 children: child_elements,
                 node_type: Some(node_kind_name(&node.kind).to_string()),
                 resolved_style: Some(style.clone()),
+                source_location: node.source_location.clone(),
             };
             cursor.elements.push(rect_element);
 
@@ -1012,6 +1019,7 @@ impl LayoutEngine {
                 children: cell_children,
                 node_type: Some("TableCell".to_string()),
                 resolved_style: Some(cell_style.clone()),
+                source_location: cell.source_location.clone(),
             });
 
             cell_x += col_width;
@@ -1038,6 +1046,7 @@ impl LayoutEngine {
             children: row_children,
             node_type: Some("TableRow".to_string()),
             resolved_style: Some(row_style.clone()),
+            source_location: row.source_location.clone(),
         });
 
         cursor.y += row_height;
@@ -1052,6 +1061,7 @@ impl LayoutEngine {
         x: f64,
         available_width: f64,
         font_context: &FontContext,
+        source_location: Option<&SourceLocation>,
     ) {
         let margin = &style.margin;
         let text_x = x + margin.left;
@@ -1091,6 +1101,7 @@ impl LayoutEngine {
                         children: line_elements,
                         node_type: Some("Text".to_string()),
                         resolved_style: Some(style.clone()),
+                        source_location: source_location.cloned(),
                     });
                 }
 
@@ -1147,6 +1158,7 @@ impl LayoutEngine {
                 children: vec![],
                 node_type: Some("TextLine".to_string()),
                 resolved_style: Some(style.clone()),
+                source_location: None,
             });
 
             cursor.y += line_height;
@@ -1165,6 +1177,7 @@ impl LayoutEngine {
                 children: line_elements,
                 node_type: Some("Text".to_string()),
                 resolved_style: Some(style.clone()),
+                source_location: source_location.cloned(),
             });
         }
 
@@ -1243,6 +1256,7 @@ impl LayoutEngine {
             children: vec![],
             node_type: Some(node_kind_name(&node.kind).to_string()),
             resolved_style: Some(style.clone()),
+            source_location: node.source_location.clone(),
         });
 
         cursor.y += img_height + margin.bottom;
@@ -1577,6 +1591,7 @@ mod tests {
             style: Style { font_size: Some(font_size), ..Default::default() },
             children: vec![],
             id: None,
+            source_location: None,
         }
     }
 
@@ -1586,6 +1601,7 @@ mod tests {
             style,
             children,
             id: None,
+            source_location: None,
         }
     }
 

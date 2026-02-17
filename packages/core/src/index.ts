@@ -58,6 +58,7 @@ export interface ElementInfo {
   nodeType: string;
   style: ElementStyleInfo;
   children: ElementInfo[];
+  sourceLocation?: { file: string; line: number; column: number };
 }
 
 export interface PageInfo {

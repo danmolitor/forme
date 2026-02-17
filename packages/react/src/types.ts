@@ -184,6 +184,7 @@ export interface FormeNode {
   kind: FormeNodeKind;
   style: FormeStyle;
   children: FormeNode[];
+  sourceLocation?: { file: string; line: number; column: number };
 }
 
 export type FormeNodeKind =

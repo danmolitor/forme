@@ -50,6 +50,23 @@ function validateNesting(componentName: string, parent: ParentContext): void {
   }
 }
 
+// ─── Source location extraction ─────────────────────────────────────
+
+function extractSourceLocation(element: ReactElement): { file: string; line: number; column: number } | undefined {
+  // Check globalThis.__formeSourceMap (populated by CLI dev server's JSX shim for React 19+)
+  const map = (globalThis as any).__formeSourceMap as WeakMap<object, { file: string; line: number; column: number }> | undefined;
+  if (map) {
+    const source = map.get(element);
+    if (source) return source;
+  }
+  // Fallback to _source for React 18 and earlier
+  const s = (element as any)._source;
+  if (s && s.fileName) {
+    return { file: s.fileName, line: s.lineNumber, column: s.columnNumber };
+  }
+  return undefined;
+}
+
 // ─── Public API ──────────────────────────────────────────────────────
 
 /**
@@ -136,6 +153,7 @@ function serializePage(element: ReactElement): FormeNode {
     kind: { type: 'Page', config },
     style: {},
     children,
+    sourceLocation: extractSourceLocation(element),
   };
 }
 
@@ -212,6 +230,7 @@ function serializeChild(child: unknown, parent: ParentContext = null): FormeNode
       kind: { type: 'PageBreak' },
       style: {},
       children: [],
+      sourceLocation: extractSourceLocation(element),
     };
   }
   if (element.type === Page) {
@@ -255,6 +274,7 @@ function serializeView(element: ReactElement, _parent: ParentContext = null): Fo
     kind: { type: 'View' },
     style,
     children,
+    sourceLocation: extractSourceLocation(element),
   };
 }
 
@@ -266,6 +286,7 @@ function serializeText(element: ReactElement): FormeNode {
     kind: { type: 'Text', content },
     style: mapStyle(props.style),
     children: [],
+    sourceLocation: extractSourceLocation(element),
   };
 }
 
@@ -279,6 +300,7 @@ function serializeImage(element: ReactElement): FormeNode {
     kind,
     style: mapStyle(props.style),
     children: [],
+    sourceLocation: extractSourceLocation(element),
   };
 }
 
@@ -295,6 +317,7 @@ function serializeTable(element: ReactElement, _parent: ParentContext = null): F
     kind: { type: 'Table', columns },
     style: mapStyle(props.style),
     children,
+    sourceLocation: extractSourceLocation(element),
   };
 }
 
@@ -307,6 +330,7 @@ function serializeRow(element: ReactElement): FormeNode {
     kind: { type: 'TableRow', is_header: props.header ?? false },
     style: mapStyle(props.style),
     children,
+    sourceLocation: extractSourceLocation(element),
   };
 }
 
@@ -319,6 +343,7 @@ function serializeCell(element: ReactElement): FormeNode {
     kind: { type: 'TableCell', col_span: props.colSpan ?? 1, row_span: props.rowSpan ?? 1 },
     style: mapStyle(props.style),
     children,
+    sourceLocation: extractSourceLocation(element),
   };
 }
 
@@ -332,6 +357,7 @@ function serializeFixed(element: ReactElement): FormeNode {
     kind: { type: 'Fixed', position },
     style: mapStyle(props.style),
     children,
+    sourceLocation: extractSourceLocation(element),
   };
 }
 

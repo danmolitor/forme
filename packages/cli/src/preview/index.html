@@ -497,6 +497,50 @@
   }
   #error-overlay .error-dismiss:hover { opacity: 1; }
 
+  /* ── Editor dropdown ──────────────────────────────── */
+  #editor-select {
+    background: var(--bg);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 4px 6px;
+    font-size: 11px;
+    font-family: var(--font-sans);
+    cursor: pointer;
+    -webkit-app-region: no-drag;
+  }
+  #editor-select:hover {
+    border-color: var(--border-hover);
+    color: var(--text);
+  }
+
+  /* ── Source location in inspector ────────────────── */
+  .node-source {
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .source-path {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+  .open-editor-btn {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 1px 6px;
+    font-size: 10px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .open-editor-btn:hover {
+    border-color: var(--border-hover);
+    color: var(--text);
+  }
+
   /* ── Crossfade animation ───────────────────────── */
   .page-wrapper.fading {
     opacity: 0;
@@ -542,6 +586,17 @@
     <button id="zoom-in" title="Zoom in (Cmd +)">+</button>
     <button id="zoom-fit" title="Fit to window (Cmd 0)" style="font-size:11px; width:auto; padding: 0 8px;">Fit</button>
   </div>
+
+  <div class="toolbar-separator"></div>
+  <div class="toolbar-group">
+    <select id="editor-select" title="Editor for Open in Editor">
+      <option value="vscode">VS Code</option>
+      <option value="cursor">Cursor</option>
+      <option value="jetbrains">JetBrains</option>
+      <option value="webstorm">WebStorm</option>
+      <option value="zed">Zed</option>
+    </select>
+  </div>
 </div>
 
 <div id="error-overlay">
@@ -560,6 +615,7 @@
       <div class="breadcrumb" id="inspector-breadcrumb"></div>
       <div class="node-label" id="inspector-label">View</div>
       <div class="node-dims" id="inspector-dims">0 x 0 at (0, 0)</div>
+      <div class="node-source" id="inspector-source" style="display:none"></div>
     </div>
     <button class="close-btn" id="inspector-close">&times;</button>
   </div>
@@ -609,6 +665,7 @@
   let layoutData = null;
   let selectedElement = null;
   let selectedAncestors = [];
+  let selectedAncestorElements = [];
   let selectedPageIdx = -1;
   let inspectorOpen = false;
 
@@ -706,6 +763,7 @@
   function closeInspector() {
     selectedElement = null;
     selectedAncestors = [];
+    selectedAncestorElements = [];
     selectedPageIdx = -1;
     inspectorOpen = false;
     inspectorEl.classList.remove('open');
@@ -741,6 +799,26 @@
     const color = nodeTypeColors[el.nodeType] || '#a1a1aa';
     inspectorLabel.innerHTML = `<span style="color:${color}">${el.nodeType}</span>`;
     inspectorDims.textContent = `${fmt(el.width)} \u00d7 ${fmt(el.height)} at (${fmt(el.x)}, ${fmt(el.y)})`;
+
+    // Source location (bubble up from ancestors if element doesn't have one)
+    const sourceEl = document.getElementById('inspector-source');
+    let sl = el.sourceLocation;
+    if (!sl) {
+      for (let i = selectedAncestorElements.length - 1; i >= 0; i--) {
+        if (selectedAncestorElements[i].sourceLocation) {
+          sl = selectedAncestorElements[i].sourceLocation;
+          break;
+        }
+      }
+    }
+    if (sl) {
+      const fileName = sl.file.split('/').pop();
+      sourceEl.innerHTML = `<span class="source-path">${fileName}:${sl.line}:${sl.column}</span> <button class="open-editor-btn" id="open-editor-btn">Open</button>`;
+      sourceEl.style.display = '';
+      document.getElementById('open-editor-btn').addEventListener('click', () => openInEditor(sl));
+    } else {
+      sourceEl.style.display = 'none';
+    }
 
     // Box model
     setText('bm-margin-top', fmt(s.margin.top));
@@ -925,27 +1003,56 @@
     return `{ ${props.join(', ')} }`;
   }
 
+  // ── Editor Integration ──────────────────────────────────────────
+  const editorSelect = document.getElementById('editor-select');
+  const savedEditor = localStorage.getItem('forme-editor');
+  if (savedEditor && editorSelect.querySelector(`option[value="${savedEditor}"]`)) {
+    editorSelect.value = savedEditor;
+  }
+  editorSelect.addEventListener('change', () => {
+    localStorage.setItem('forme-editor', editorSelect.value);
+  });
+
+  const editorUrls = {
+    vscode:    (s) => `vscode://file/${s.file}:${s.line}:${s.column}`,
+    cursor:    (s) => `cursor://file/${s.file}:${s.line}:${s.column}`,
+    jetbrains: (s) => `idea://open?file=${encodeURIComponent(s.file)}&line=${s.line}&column=${s.column}`,
+    webstorm:  (s) => `webstorm://open?file=${encodeURIComponent(s.file)}&line=${s.line}&column=${s.column}`,
+    zed:       (s) => `zed://file/${s.file}:${s.line}:${s.column}`,
+  };
+
+  function openInEditor(source) {
+    const editor = editorSelect.value;
+    const url = editorUrls[editor](source);
+    window.open(url, '_blank');
+  }
+
   // ── Hit Testing ───────────────────────────────────────────────
   function hitTest(elements, px, py) {
-    // Walk depth-first, return deepest match with ancestor path
+    // Walk depth-first, return deepest match with ancestor path (names + elements)
     let best = null;
-    let bestAncestors = [];
-    const stack = [];
+    let bestAncestorNames = [];
+    let bestAncestorElements = [];
+    const nameStack = [];
+    const elemStack = [];
     function walk(els) {
       for (const el of els) {
         if (px >= el.x && px <= el.x + el.width && py >= el.y && py <= el.y + el.height) {
           best = el;
-          bestAncestors = stack.slice();
+          bestAncestorNames = nameStack.slice();
+          bestAncestorElements = elemStack.slice();
           if (el.children && el.children.length) {
-            stack.push(el.nodeType);
+            nameStack.push(el.nodeType);
+            elemStack.push(el);
             walk(el.children);
-            stack.pop();
+            nameStack.pop();
+            elemStack.pop();
           }
         }
       }
     }
     walk(elements);
-    return { element: best, ancestors: bestAncestors };
+    return { element: best, ancestors: bestAncestorNames, ancestorElements: bestAncestorElements };
   }
 
   // ── Render PDF pages ──────────────────────────────────────────
@@ -1041,9 +1148,10 @@
     const page = layoutData.pages[pageIdx];
     if (!page) return;
 
-    const { element: hit, ancestors } = hitTest(page.elements, px, py);
+    const { element: hit, ancestors, ancestorElements } = hitTest(page.elements, px, py);
     if (hit) {
       selectedAncestors = ancestors;
+      selectedAncestorElements = ancestorElements;
       openInspector(hit, pageIdx);
     } else {
       closeInspector();
@@ -1346,6 +1454,15 @@
       if (e.key === '3') { e.preventDefault(); setMode('margins'); }
       if (e.key === '4') { e.preventDefault(); setMode('breaks'); }
       if (e.key === 'Escape') { e.preventDefault(); closeInspector(); }
+      if (e.key === 'Enter' && selectedElement) {
+        let enterSl = selectedElement.sourceLocation;
+        if (!enterSl) {
+          for (let i = selectedAncestorElements.length - 1; i >= 0; i--) {
+            if (selectedAncestorElements[i].sourceLocation) { enterSl = selectedAncestorElements[i].sourceLocation; break; }
+          }
+        }
+        if (enterSl) { e.preventDefault(); openInEditor(enterSl); }
+      }
     }
 
     // Zoom shortcuts: Cmd/Ctrl + / - / 0

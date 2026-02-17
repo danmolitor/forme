@@ -131,6 +131,7 @@ impl Edges {
 
 /// A node in the document tree.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Node {
     /// What kind of node this is.
     pub kind: NodeKind,
@@ -146,6 +147,10 @@ pub struct Node {
     /// A unique identifier for this node (optional, useful for debugging).
     #[serde(default)]
     pub id: Option<String>,
+
+    /// Source code location for click-to-source in the dev inspector.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_location: Option<SourceLocation>,
 }
 
 /// The different kinds of nodes in the document tree.
@@ -241,6 +246,15 @@ pub enum FixedPosition {
     Footer,
 }
 
+/// Source code location for click-to-source in the dev server inspector.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SourceLocation {
+    pub file: String,
+    pub line: u32,
+    pub column: u32,
+}
+
 impl Node {
     /// Create a View node with children.
     pub fn view(style: Style, children: Vec<Node>) -> Self {
@@ -249,6 +263,7 @@ impl Node {
             style,
             children,
             id: None,
+            source_location: None,
         }
     }
 
@@ -259,6 +274,7 @@ impl Node {
             style,
             children: vec![],
             id: None,
+            source_location: None,
         }
     }
 
@@ -269,6 +285,7 @@ impl Node {
             style,
             children,
             id: None,
+            source_location: None,
         }
     }
 
