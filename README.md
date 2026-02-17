@@ -37,6 +37,56 @@ Input (JSON / React reconciler output)
 
 ## Usage
 
+### JSX (recommended)
+
+Write documents with React-like JSX components:
+
+```tsx
+import { Document, Page, View, Text, Table, Row, Cell, Fixed } from '@forme/react';
+
+export default (
+  <Document title="Invoice" author="Acme Corp">
+    <Page size="A4" margin={54}>
+      <Fixed position="header">
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', padding: 12, backgroundColor: '#1e293b' }}>
+          <Text style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>Acme Corp</Text>
+          <Text style={{ fontSize: 10, color: '#94a3b8' }}>Invoice #2024-001</Text>
+        </View>
+      </Fixed>
+
+      <Text style={{ fontSize: 24, fontWeight: 700 }}>Invoice</Text>
+
+      <Table columns={[{ width: { fraction: 0.6 } }, { width: { fraction: 0.2 } }, { width: { fraction: 0.2 } }]}>
+        <Row header style={{ backgroundColor: '#f1f5f9' }}>
+          <Cell style={{ padding: 8 }}><Text style={{ fontSize: 10, fontWeight: 700 }}>Item</Text></Cell>
+          <Cell style={{ padding: 8 }}><Text style={{ fontSize: 10, fontWeight: 700 }}>Qty</Text></Cell>
+          <Cell style={{ padding: 8 }}><Text style={{ fontSize: 10, fontWeight: 700 }}>Price</Text></Cell>
+        </Row>
+        <Row>
+          <Cell style={{ padding: 8 }}><Text style={{ fontSize: 10 }}>Widget</Text></Cell>
+          <Cell style={{ padding: 8 }}><Text style={{ fontSize: 10 }}>5</Text></Cell>
+          <Cell style={{ padding: 8 }}><Text style={{ fontSize: 10 }}>$50.00</Text></Cell>
+        </Row>
+      </Table>
+    </Page>
+  </Document>
+);
+```
+
+Build and preview:
+
+```bash
+# Live preview with hot reload and click-to-inspect
+forme dev invoice.tsx
+
+# Build to PDF
+forme build invoice.tsx -o invoice.pdf
+```
+
+### JSON CLI
+
+For scripting or non-JS environments, pass a JSON document tree directly:
+
 ```bash
 # Generate an example invoice
 forme --example > invoice.json
@@ -108,37 +158,52 @@ Documents are JSON trees of nodes. Each node has a `kind`, optional `style`, and
 | Binary dependencies | Node.js | Chrome | None |
 | Output size (invoice) | ~45KB | ~120KB | ~12KB |
 
+## Dev Server
+
+`forme dev` starts a live preview server with:
+
+- **Hot reload** — edit your `.tsx` file, PDF updates instantly
+- **Layout mode** — colored outlines showing element boundaries by type
+- **Click-to-inspect** — click any element to see its computed styles, box model, and position
+- **Margins mode** — page margins and element spacing visualized
+- **Breaks mode** — page break points marked with coordinates
+- **Zoom** — Cmd+scroll or toolbar buttons, zoom-to-fit on load
+
+Keyboard shortcuts: `1`-`4` toggle modes, `Cmd +/-` zoom, `Escape` closes inspector.
+
 ## Building
 
 ```bash
-cargo build --release
+# Engine only
+cd engine && cargo build --release
+cd engine && cargo test
 
-# Run tests
-cargo test
-
-# Build for WASM (for browser/Node.js integration)
-wasm-pack build --target nodejs
+# Full pipeline (engine → WASM → JS packages)
+cd packages/core && npm run build    # Rust → WASM + TypeScript wrapper
+cd packages/cli && npm run build     # CLI + preview UI
 ```
 
 ## Roadmap
 
 - [x] Core document model
 - [x] Style resolution with inheritance
-- [x] Page-aware flexbox (column + row)
+- [x] Page-aware flexbox (column + row + wrap)
 - [x] Text layout with line breaking
 - [x] Table layout with header repetition on page break
 - [x] PDF 1.7 serialization
 - [x] Widow/orphan control
-- [ ] Custom font embedding (TrueType/OpenType via ttf-parser)
-- [ ] Image embedding (JPEG/PNG)
+- [x] Custom font embedding (TrueType/OpenType via ttf-parser)
+- [x] Image embedding (JPEG/PNG from files and data URIs)
+- [x] WASM build (`@forme/core`)
+- [x] React JSX components (`@forme/react`)
+- [x] CLI with `dev` and `build` commands
+- [x] Dev server with live preview and click-to-inspect
+- [x] Dynamic page numbers (`{{pageNumber}}` / `{{totalPages}}`)
 - [ ] CSS Grid layout
 - [ ] Bidirectional text (Arabic, Hebrew)
 - [ ] Knuth-Plass line breaking
 - [ ] Hyphenation
 - [ ] PDF/A compliance
-- [ ] WASM build for browser preview
-- [ ] React reconciler (@forme/react)
-- [ ] Node.js SDK (@forme/sdk)
 
 ## License
 
