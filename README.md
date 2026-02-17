@@ -11,11 +11,11 @@ Every PDF renderer you've used does the same thing wrong: it lays content out on
 - Headers don't repeat when tables span pages
 - Content gets "mashed together" after a page split
 
-These bugs have been open in react-pdf for 7 years. They're not bugs — they're an architectural flaw. You can't fix page breaks by slicing an infinite canvas. The slicing is the problem.
+These bugs have been open in react-pdf for 7 years. They're not bugs, they're an architectural flaw. You can't fix page breaks by slicing an infinite canvas. The slicing is the problem.
 
 ## The Solution
 
-Forme never creates an infinite canvas. **The page is the fundamental unit of layout.** Every layout decision — every flex calculation, every line break, every table row placement — is made with the page boundary as a hard constraint.
+Forme never creates an infinite canvas. **The page is the fundamental unit of layout.** Every layout decision, every flex calculation, every line break, every table row placement, is made with the page boundary as a hard constraint.
 
 When a flex container splits across pages, both fragments get their own independent flex layout pass. When a table crosses a page boundary, header rows are automatically repeated. When text breaks across pages, widow and orphan rules are respected.
 
@@ -162,12 +162,12 @@ Documents are JSON trees of nodes. Each node has a `kind`, optional `style`, and
 
 `forme dev` starts a live preview server with:
 
-- **Hot reload** — edit your `.tsx` file, PDF updates instantly
-- **Layout mode** — colored outlines showing element boundaries by type
-- **Click-to-inspect** — click any element to see its computed styles, box model, and position
-- **Margins mode** — page margins and element spacing visualized
-- **Breaks mode** — page break points marked with coordinates
-- **Zoom** — Cmd+scroll or toolbar buttons, zoom-to-fit on load
+- **Hot reload** -edit your `.tsx` file, PDF updates instantly
+- **Layout mode** -colored outlines showing element boundaries by type
+- **Click-to-inspect** -click any element to see its computed styles, box model, and position
+- **Margins mode** -page margins and element spacing visualized
+- **Breaks mode** -page break points marked with coordinates
+- **Zoom** -Cmd+scroll or toolbar buttons, zoom-to-fit on load
 
 Keyboard shortcuts: `1`-`4` toggle modes, `Cmd +/-` zoom, `Escape` closes inspector.
 
