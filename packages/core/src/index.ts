@@ -59,6 +59,7 @@ export interface ElementInfo {
   style: ElementStyleInfo;
   children: ElementInfo[];
   sourceLocation?: { file: string; line: number; column: number };
+  textContent?: string;
 }
 
 export interface PageInfo {

@@ -17,6 +17,7 @@
     --accent: #3b82f6;
     --accent-hover: #2563eb;
     --inspector-width: 320px;
+    --left-sidebar-width: 280px;
     --toolbar-height: 44px;
     --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
     --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
@@ -32,7 +33,7 @@
     height: 100vh;
   }
 
-  /* ── Toolbar ─────────────────────────────────── */
+  /* -- Toolbar ----------------------------------------- */
   #toolbar {
     position: fixed;
     top: 0;
@@ -74,7 +75,7 @@
     flex-shrink: 0;
   }
 
-  /* ── Segmented Control ────────────────────────── */
+  /* -- Segmented Control -------------------------------- */
   .segmented-control {
     display: flex;
     background: var(--bg);
@@ -118,7 +119,7 @@
     opacity: 0.6;
   }
 
-  /* ── Toolbar meta ──────────────────────────────── */
+  /* -- Toolbar meta ------------------------------------ */
   .toolbar-spacer { flex: 1; }
 
   .badge {
@@ -137,7 +138,7 @@
   .badge.render-time { color: #4ade80; }
   .badge.page-count { color: var(--text-muted); }
 
-  /* ── Zoom controls ─────────────────────────────── */
+  /* -- Zoom controls ----------------------------------- */
   .zoom-controls {
     display: flex;
     align-items: center;
@@ -175,7 +176,7 @@
     user-select: none;
   }
 
-  /* ── Status dot ────────────────────────────────── */
+  /* -- Status dot -------------------------------------- */
   .status-dot {
     width: 6px;
     height: 6px;
@@ -186,7 +187,232 @@
   .status-dot.connected { background: #4ade80; }
   .status-dot.disconnected { background: #ef4444; }
 
-  /* ── Canvas Container ──────────────────────────── */
+  /* -- Toolbar button (Tree toggle, page size) --------- */
+  .toolbar-btn {
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    -webkit-app-region: no-drag;
+    white-space: nowrap;
+  }
+  .toolbar-btn:hover {
+    background: var(--surface-2);
+    color: var(--text);
+    border-color: var(--border-hover);
+  }
+  .toolbar-btn.active {
+    background: var(--surface-2);
+    color: var(--text);
+    border-color: var(--accent);
+  }
+
+  /* -- Page size select -------------------------------- */
+  #page-size-select {
+    background: var(--bg);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 4px 6px;
+    font-size: 11px;
+    font-family: var(--font-sans);
+    cursor: pointer;
+    -webkit-app-region: no-drag;
+  }
+  #page-size-select:hover {
+    border-color: var(--border-hover);
+    color: var(--text);
+  }
+  .custom-size-inputs {
+    display: none;
+    align-items: center;
+    gap: 4px;
+    -webkit-app-region: no-drag;
+  }
+  .custom-size-inputs.visible { display: flex; }
+  .custom-size-inputs input {
+    width: 52px;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 3px 6px;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    text-align: center;
+  }
+  .custom-size-inputs input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .custom-size-inputs span {
+    color: var(--text-dim);
+    font-size: 10px;
+  }
+
+  /* -- Left Sidebar ------------------------------------ */
+  #left-sidebar {
+    position: fixed;
+    top: var(--toolbar-height);
+    left: 0;
+    bottom: 0;
+    width: var(--left-sidebar-width);
+    background: #111113;
+    border-right: 1px solid var(--border);
+    z-index: 150;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease-out;
+    display: flex;
+    flex-direction: column;
+    font-size: 12px;
+    font-family: var(--font-mono);
+  }
+  #left-sidebar.open {
+    transform: translateX(0);
+  }
+
+  .sidebar-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .sidebar-tab {
+    flex: 1;
+    padding: 8px 12px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-dim);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    text-align: center;
+    transition: color 0.15s;
+    border-bottom: 2px solid transparent;
+  }
+  .sidebar-tab:hover { color: var(--text-muted); }
+  .sidebar-tab.active {
+    color: var(--text);
+    border-bottom-color: var(--accent);
+  }
+
+  .sidebar-panel {
+    flex: 1;
+    overflow-y: auto;
+    display: none;
+  }
+  .sidebar-panel.active { display: flex; flex-direction: column; }
+
+  /* -- Component Tree ---------------------------------- */
+  #component-tree {
+    padding: 4px 0;
+  }
+  .tree-node {
+    display: flex;
+    align-items: center;
+    padding: 2px 8px 2px 0;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.1s;
+    user-select: none;
+  }
+  .tree-node:hover { background: #1c1c1e; }
+  .tree-node.selected { background: #1e3a5f; color: #fff; }
+  .tree-node .arrow {
+    width: 16px;
+    flex-shrink: 0;
+    text-align: center;
+    font-size: 10px;
+    color: var(--text-dim);
+    cursor: pointer;
+  }
+  .tree-node .arrow.has-children { color: var(--text-muted); }
+  .tree-node .node-label {
+    font-size: 12px;
+  }
+  .tree-node .text-preview {
+    color: var(--text-dim);
+    margin-left: 6px;
+    font-size: 11px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 140px;
+  }
+  .tree-node .dim-label {
+    color: var(--text-dim);
+    margin-left: 6px;
+    font-size: 10px;
+  }
+  .tree-children { display: none; }
+  .tree-children.expanded { display: block; }
+
+  /* -- Data Editor ------------------------------------- */
+  #data-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  .data-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .data-save-btn {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 4px 12px;
+    font-size: 11px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .data-save-btn:hover {
+    border-color: var(--border-hover);
+    color: var(--text);
+  }
+  .data-feedback {
+    font-size: 11px;
+    color: #4ade80;
+  }
+  #data-editor {
+    flex: 1;
+    width: 100%;
+    background: var(--bg);
+    color: #e4e4e7;
+    border: none;
+    padding: 12px;
+    font-size: 12px;
+    font-family: var(--font-mono);
+    resize: none;
+    outline: none;
+    line-height: 1.5;
+    tab-size: 2;
+  }
+  #data-editor.error {
+    border-top: 2px solid #ef4444;
+  }
+  .data-error {
+    display: none;
+    padding: 6px 12px;
+    font-size: 11px;
+    color: #fca5a5;
+    background: #1c0a0a;
+    border-top: 1px solid #3f1111;
+    flex-shrink: 0;
+  }
+  .data-error.visible { display: block; }
+
+  /* -- Canvas Container -------------------------------- */
   #canvas-container {
     position: fixed;
     top: var(--toolbar-height);
@@ -194,11 +420,14 @@
     right: 0;
     bottom: 0;
     overflow: auto;
-    transition: margin-right 0.2s ease-out;
+    transition: margin-left 0.2s ease-out, margin-right 0.2s ease-out;
   }
 
   #canvas-container.inspector-open {
     margin-right: var(--inspector-width);
+  }
+  #canvas-container.sidebar-open {
+    margin-left: var(--left-sidebar-width);
   }
 
   #pages {
@@ -240,7 +469,7 @@
     cursor: default;
   }
 
-  /* ── Hover tooltip ─────────────────────────────── */
+  /* -- Hover tooltip ----------------------------------- */
   #hover-tooltip {
     position: fixed;
     z-index: 300;
@@ -257,7 +486,7 @@
     box-shadow: 0 4px 12px rgba(0,0,0,0.4);
   }
 
-  /* ── Inspector Panel ───────────────────────────── */
+  /* -- Inspector Panel --------------------------------- */
   #inspector {
     position: fixed;
     top: var(--toolbar-height);
@@ -322,7 +551,7 @@
     color: var(--text);
   }
 
-  /* ── Box Model Diagram ─────────────────────────── */
+  /* -- Box Model Diagram ------------------------------- */
   .box-model {
     padding: 16px;
     border-bottom: 1px solid var(--border);
@@ -399,7 +628,7 @@
   .box-label.border-label { color: #60a5fa; }
   .box-label.padding-label { color: #4ade80; }
 
-  /* ── Computed Styles ───────────────────────────── */
+  /* -- Computed Styles --------------------------------- */
   .style-section {
     padding: 12px 16px;
     border-bottom: 1px solid var(--border);
@@ -442,7 +671,7 @@
     margin-right: 4px;
   }
 
-  /* ── Inspector Actions ───────────────────────── */
+  /* -- Inspector Actions ------------------------------- */
   .inspector-actions {
     padding: 12px 16px;
   }
@@ -464,7 +693,7 @@
     color: var(--text);
   }
 
-  /* ── Error Overlay ─────────────────────────────── */
+  /* -- Error Overlay ----------------------------------- */
   #error-overlay {
     display: none;
     position: fixed;
@@ -497,7 +726,7 @@
   }
   #error-overlay .error-dismiss:hover { opacity: 1; }
 
-  /* ── Editor dropdown ──────────────────────────────── */
+  /* -- Editor dropdown --------------------------------- */
   #editor-select {
     background: var(--bg);
     color: var(--text-muted);
@@ -514,7 +743,7 @@
     color: var(--text);
   }
 
-  /* ── Source location in inspector ────────────────── */
+  /* -- Source location in inspector -------------------- */
   .node-source {
     margin-top: 4px;
     display: flex;
@@ -541,7 +770,7 @@
     color: var(--text);
   }
 
-  /* ── Crossfade animation ───────────────────────── */
+  /* -- Crossfade animation ----------------------------- */
   .page-wrapper.fading {
     opacity: 0;
     transition: opacity 0.15s ease;
@@ -562,11 +791,36 @@
 
   <div class="toolbar-separator"></div>
 
+  <button class="toolbar-btn" id="tree-toggle" title="Toggle component tree (T)">Tree</button>
+
+  <div class="toolbar-separator"></div>
+
   <div class="segmented-control" id="mode-control">
     <button data-mode="preview" class="active">Preview <span class="shortcut">1</span></button>
     <button data-mode="layout">Layout <span class="shortcut">2</span></button>
     <button data-mode="margins">Margins <span class="shortcut">3</span></button>
     <button data-mode="breaks">Breaks <span class="shortcut">4</span></button>
+  </div>
+
+  <div class="toolbar-separator"></div>
+
+  <div class="toolbar-group">
+    <select id="page-size-select" title="Page size override">
+      <option value="default">Default</option>
+      <option value="letter">Letter (612 x 792)</option>
+      <option value="a4">A4 (595 x 842)</option>
+      <option value="legal">Legal (612 x 1008)</option>
+      <option value="tabloid">Tabloid (792 x 1224)</option>
+      <option value="a3">A3 (842 x 1191)</option>
+      <option value="a5">A5 (420 x 595)</option>
+      <option value="custom">Custom...</option>
+    </select>
+    <div class="custom-size-inputs" id="custom-size-inputs">
+      <input type="number" id="custom-width" placeholder="W" value="612" min="72" max="4000">
+      <span>x</span>
+      <input type="number" id="custom-height" placeholder="H" value="792" min="72" max="4000">
+      <span>pt</span>
+    </div>
   </div>
 
   <div class="toolbar-spacer"></div>
@@ -601,6 +855,26 @@
 
 <div id="error-overlay">
   <button class="error-dismiss" id="error-dismiss">&times;</button>
+</div>
+
+<div id="left-sidebar">
+  <div class="sidebar-tabs" id="sidebar-tabs">
+    <button class="sidebar-tab active" data-tab="components">Components</button>
+    <button class="sidebar-tab" data-tab="data" id="data-tab-btn" style="display:none">Data</button>
+  </div>
+  <div class="sidebar-panel active" id="components-panel">
+    <div id="component-tree"></div>
+  </div>
+  <div class="sidebar-panel" id="data-panel-container">
+    <div id="data-panel">
+      <div class="data-toolbar">
+        <button class="data-save-btn" id="data-save-btn">Save</button>
+        <span class="data-feedback" id="data-feedback"></span>
+      </div>
+      <textarea id="data-editor" spellcheck="false"></textarea>
+      <div class="data-error" id="data-error"></div>
+    </div>
+  </div>
 </div>
 
 <div id="canvas-container">
@@ -650,14 +924,14 @@
 </div>
 
 <script type="module">
-  // ── PDF.js Setup ──────────────────────────────────────────────
+  // -- PDF.js Setup ------------------------------------------------
   const PDFJS_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.9.155/pdf.min.mjs';
   const PDFJS_WORKER_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.9.155/pdf.worker.min.mjs';
 
   const pdfjsLib = await import(PDFJS_CDN);
   pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_CDN;
 
-  // ── State ─────────────────────────────────────────────────────
+  // -- State -------------------------------------------------------
   const ZOOM_LEVELS = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
   let currentZoomIndex = 3; // 100%
   let currentZoom = 1.0;
@@ -667,9 +941,14 @@
   let selectedAncestors = [];
   let selectedAncestorElements = [];
   let selectedPageIdx = -1;
+  let selectedPath = null; // index path like [0, 2, 1]
   let inspectorOpen = false;
+  let sidebarOpen = localStorage.getItem('forme-sidebar') !== 'false';
+  let activeTab = 'components';
+  let hasDataFile = false;
+  let wsRef = null;
 
-  // ── DOM refs ──────────────────────────────────────────────────
+  // -- DOM refs ----------------------------------------------------
   const pagesEl = document.getElementById('pages');
   const containerEl = document.getElementById('canvas-container');
   const errorEl = document.getElementById('error-overlay');
@@ -687,8 +966,46 @@
   const inspectorBreadcrumb = document.getElementById('inspector-breadcrumb');
   const inspectorActions = document.getElementById('inspector-actions');
   const tooltip = document.getElementById('hover-tooltip');
+  const leftSidebar = document.getElementById('left-sidebar');
+  const treeToggle = document.getElementById('tree-toggle');
+  const componentTree = document.getElementById('component-tree');
+  const sidebarTabs = document.getElementById('sidebar-tabs');
+  const dataTabBtn = document.getElementById('data-tab-btn');
+  const componentsPanel = document.getElementById('components-panel');
+  const dataPanelContainer = document.getElementById('data-panel-container');
+  const dataEditor = document.getElementById('data-editor');
+  const dataError = document.getElementById('data-error');
+  const dataSaveBtn = document.getElementById('data-save-btn');
+  const dataFeedback = document.getElementById('data-feedback');
 
-  // ── Mode Toggle ──────────────────────────────────────────────
+  // -- Left Sidebar Toggle -----------------------------------------
+  function setSidebarOpen(open) {
+    sidebarOpen = open;
+    leftSidebar.classList.toggle('open', open);
+    containerEl.classList.toggle('sidebar-open', open);
+    treeToggle.classList.toggle('active', open);
+    localStorage.setItem('forme-sidebar', String(open));
+  }
+
+  treeToggle.addEventListener('click', () => setSidebarOpen(!sidebarOpen));
+  setSidebarOpen(sidebarOpen);
+
+  // -- Sidebar Tabs ------------------------------------------------
+  function setActiveTab(tab) {
+    activeTab = tab;
+    sidebarTabs.querySelectorAll('.sidebar-tab').forEach(t => {
+      t.classList.toggle('active', t.dataset.tab === tab);
+    });
+    componentsPanel.classList.toggle('active', tab === 'components');
+    dataPanelContainer.classList.toggle('active', tab === 'data');
+  }
+
+  sidebarTabs.addEventListener('click', (e) => {
+    const tab = e.target.closest('.sidebar-tab');
+    if (tab && tab.dataset.tab) setActiveTab(tab.dataset.tab);
+  });
+
+  // -- Mode Toggle -------------------------------------------------
   function setMode(mode) {
     currentMode = mode;
     modeControl.querySelectorAll('button').forEach(btn => {
@@ -702,10 +1019,79 @@
     if (btn && btn.dataset.mode) setMode(btn.dataset.mode);
   });
 
-  // ── Zoom ──────────────────────────────────────────────────────
+  // -- Page Size Switcher ------------------------------------------
+  const PAGE_SIZES = {
+    letter: { width: 612, height: 792 },
+    a4:     { width: 595, height: 842 },
+    legal:  { width: 612, height: 1008 },
+    tabloid:{ width: 792, height: 1224 },
+    a3:     { width: 842, height: 1191 },
+    a5:     { width: 420, height: 595 },
+  };
+
+  const pageSizeSelect = document.getElementById('page-size-select');
+  const customSizeInputs = document.getElementById('custom-size-inputs');
+  const customWidthInput = document.getElementById('custom-width');
+  const customHeightInput = document.getElementById('custom-height');
+
+  // Restore from localStorage
+  const savedPageSize = localStorage.getItem('forme-pagesize');
+  if (savedPageSize) {
+    pageSizeSelect.value = savedPageSize;
+    if (savedPageSize === 'custom') {
+      customSizeInputs.classList.add('visible');
+      const savedW = localStorage.getItem('forme-pagesize-w');
+      const savedH = localStorage.getItem('forme-pagesize-h');
+      if (savedW) customWidthInput.value = savedW;
+      if (savedH) customHeightInput.value = savedH;
+    }
+  }
+
+  pageSizeSelect.addEventListener('change', () => {
+    const val = pageSizeSelect.value;
+    localStorage.setItem('forme-pagesize', val);
+    customSizeInputs.classList.toggle('visible', val === 'custom');
+
+    if (val === 'default') {
+      sendWs({ type: 'clearPageSize' });
+    } else if (val === 'custom') {
+      applyCustomSize();
+    } else if (PAGE_SIZES[val]) {
+      const { width, height } = PAGE_SIZES[val];
+      sendWs({ type: 'setPageSize', width, height });
+    }
+  });
+
+  function applyCustomSize() {
+    const w = parseInt(customWidthInput.value, 10);
+    const h = parseInt(customHeightInput.value, 10);
+    if (w > 0 && h > 0) {
+      localStorage.setItem('forme-pagesize-w', String(w));
+      localStorage.setItem('forme-pagesize-h', String(h));
+      sendWs({ type: 'setPageSize', width: w, height: h });
+    }
+  }
+
+  customWidthInput.addEventListener('change', applyCustomSize);
+  customHeightInput.addEventListener('change', applyCustomSize);
+  customWidthInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') applyCustomSize(); });
+  customHeightInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') applyCustomSize(); });
+
+  // Re-send page size override on reconnect
+  function resendPageSizeOverride() {
+    const val = pageSizeSelect.value;
+    if (val === 'default') return;
+    if (val === 'custom') {
+      applyCustomSize();
+    } else if (PAGE_SIZES[val]) {
+      const { width, height } = PAGE_SIZES[val];
+      sendWs({ type: 'setPageSize', width, height });
+    }
+  }
+
+  // -- Zoom --------------------------------------------------------
   function setZoom(level) {
     currentZoom = level;
-    // Find closest zoom index
     let closest = 0;
     let minDist = Infinity;
     ZOOM_LEVELS.forEach((z, i) => {
@@ -735,12 +1121,11 @@
   function zoomToFit() {
     if (!layoutData || !layoutData.pages.length) return;
     const page = layoutData.pages[0];
-    const availW = containerEl.clientWidth - 80; // padding
+    const availW = containerEl.clientWidth - 80;
     const availH = containerEl.clientHeight - 100;
     const fitW = availW / page.width;
     const fitH = availH / page.height;
     const fit = Math.min(fitW, fitH, 2.0);
-    // Snap to nearest zoom level or use exact
     setZoom(Math.round(fit * 100) / 100);
     reRenderPages();
   }
@@ -749,7 +1134,7 @@
   document.getElementById('zoom-out').addEventListener('click', zoomOut);
   document.getElementById('zoom-fit').addEventListener('click', zoomToFit);
 
-  // ── Inspector ─────────────────────────────────────────────────
+  // -- Inspector ---------------------------------------------------
   function openInspector(element, pageIdx) {
     selectedElement = element;
     selectedPageIdx = pageIdx;
@@ -765,9 +1150,11 @@
     selectedAncestors = [];
     selectedAncestorElements = [];
     selectedPageIdx = -1;
+    selectedPath = null;
     inspectorOpen = false;
     inspectorEl.classList.remove('open');
     containerEl.classList.remove('inspector-open');
+    updateTreeSelection(null);
     drawOverlays();
   }
 
@@ -783,7 +1170,7 @@
 
     // Breadcrumb
     if (selectedAncestors.length > 0) {
-      inspectorBreadcrumb.textContent = selectedAncestors.join(' \u203a ');
+      inspectorBreadcrumb.textContent = selectedAncestors.join(' > ');
       inspectorBreadcrumb.style.display = '';
     } else {
       inspectorBreadcrumb.textContent = '';
@@ -841,7 +1228,6 @@
     // Computed styles
     let html = '';
 
-    // Layout section
     const layoutProps = [];
     if (s.flexDirection !== 'Column') layoutProps.push(['flex-direction', s.flexDirection]);
     if (s.justifyContent !== 'FlexStart') layoutProps.push(['justify-content', s.justifyContent]);
@@ -852,7 +1238,6 @@
       html += renderStyleSection('Layout', layoutProps);
     }
 
-    // Spacing section
     const spacingProps = [];
     const marginStr = edgesShorthand(s.margin);
     const paddingStr = edgesShorthand(s.padding);
@@ -864,7 +1249,6 @@
       html += renderStyleSection('Spacing', spacingProps);
     }
 
-    // Typography section
     const typoProps = [];
     typoProps.push(['font-family', s.fontFamily]);
     typoProps.push(['font-size', fmt(s.fontSize) + 'pt']);
@@ -874,7 +1258,6 @@
     if (s.textAlign !== 'Left') typoProps.push(['text-align', s.textAlign]);
     html += renderStyleSection('Typography', typoProps);
 
-    // Visual section
     const visualProps = [];
     visualProps.push(['color', colorHtml(s.color)]);
     if (s.backgroundColor) visualProps.push(['background', colorHtml(s.backgroundColor)]);
@@ -909,7 +1292,7 @@
     return html;
   }
 
-  // ── Helpers ───────────────────────────────────────────────────
+  // -- Helpers -----------------------------------------------------
   function setText(id, text) { document.getElementById(id).textContent = text; }
   function fmt(n) { return Number.isInteger(n) ? String(n) : n.toFixed(1).replace(/\.0$/, ''); }
 
@@ -939,7 +1322,7 @@
     return `${tl} ${tr} ${br} ${bl}`;
   }
 
-  // ── JSX Style Builder ────────────────────────────────────────
+  // -- JSX Style Builder -------------------------------------------
   function buildJsxStyleString(s) {
     const enumMap = {
       'Column': 'column', 'Row': 'row',
@@ -949,7 +1332,7 @@
       'Stretch': 'stretch', 'Baseline': 'baseline',
       'NoWrap': 'nowrap', 'Wrap': 'wrap',
       'Normal': 'normal', 'Italic': 'italic',
-      'Left': 'left', 'Center': 'center', 'Right': 'right', 'Justify': 'justify',
+      'Left': 'left', 'Right': 'right', 'Justify': 'justify',
     };
     function mapEnum(v) { return enumMap[v] || v; }
 
@@ -973,19 +1356,16 @@
 
     const props = [];
 
-    // Layout
     if (s.flexDirection !== 'Column') props.push(`flexDirection: '${mapEnum(s.flexDirection)}'`);
     if (s.justifyContent !== 'FlexStart') props.push(`justifyContent: '${mapEnum(s.justifyContent)}'`);
     if (s.alignItems !== 'Stretch') props.push(`alignItems: '${mapEnum(s.alignItems)}'`);
     if (s.flexWrap !== 'NoWrap') props.push(`flexWrap: '${mapEnum(s.flexWrap)}'`);
     if (s.gap > 0) props.push(`gap: ${s.gap}`);
 
-    // Spacing
     if (!edgesAllZero(s.margin)) props.push(`margin: ${fmtEdges(s.margin)}`);
     if (!edgesAllZero(s.padding)) props.push(`padding: ${fmtEdges(s.padding)}`);
     if (!edgesAllZero(s.borderWidth)) props.push(`borderWidth: ${fmtEdges(s.borderWidth)}`);
 
-    // Typography
     if (s.fontFamily !== 'Helvetica') props.push(`fontFamily: '${s.fontFamily}'`);
     if (s.fontSize !== 12) props.push(`fontSize: ${s.fontSize}`);
     if (s.fontWeight !== 400) props.push(`fontWeight: ${s.fontWeight}`);
@@ -993,7 +1373,6 @@
     if (s.lineHeight !== 1.4) props.push(`lineHeight: ${s.lineHeight}`);
     if (s.textAlign !== 'Left') props.push(`textAlign: '${mapEnum(s.textAlign)}'`);
 
-    // Visual
     if (s.opacity < 1) props.push(`opacity: ${s.opacity}`);
     if (!colorEq(s.color, 0, 0, 0)) props.push(`color: '${colorToHex(s.color)}'`);
     if (s.backgroundColor) props.push(`backgroundColor: '${colorToHex(s.backgroundColor)}'`);
@@ -1003,7 +1382,7 @@
     return `{ ${props.join(', ')} }`;
   }
 
-  // ── Editor Integration ──────────────────────────────────────────
+  // -- Editor Integration ------------------------------------------
   const editorSelect = document.getElementById('editor-select');
   const savedEditor = localStorage.getItem('forme-editor');
   if (savedEditor && editorSelect.querySelector(`option[value="${savedEditor}"]`)) {
@@ -1027,9 +1406,287 @@
     window.open(url, '_blank');
   }
 
-  // ── Hit Testing ───────────────────────────────────────────────
+  // -- Component Tree ----------------------------------------------
+  const NODE_TYPE_COLORS = {
+    View: '#3b82f6',
+    Text: '#eab308',
+    TextLine: '#eab308',
+    Image: '#a855f7',
+    Table: '#22c55e',
+    TableRow: '#10b981',
+    TableCell: '#34d399',
+    FixedHeader: '#ef4444',
+    FixedFooter: '#ef4444',
+    Page: '#a1a1aa',
+    Rect: '#6b7280',
+    None: '#6b7280',
+  };
+
+  function renderComponentTree() {
+    if (!layoutData) {
+      componentTree.innerHTML = '<div style="padding:12px;color:var(--text-dim)">No layout data</div>';
+      return;
+    }
+
+    let html = '';
+    for (let pi = 0; pi < layoutData.pages.length; pi++) {
+      const page = layoutData.pages[pi];
+      html += renderTreeNode({
+        nodeType: 'Page',
+        width: page.width,
+        height: page.height,
+        children: page.elements,
+      }, [pi], 0, true);
+    }
+    componentTree.innerHTML = html;
+
+    // Restore expanded state from defaults
+    componentTree.querySelectorAll('.tree-children').forEach(el => {
+      const depth = parseInt(el.dataset.depth, 10);
+      if (depth < 2) {
+        el.classList.add('expanded');
+        const arrow = el.previousElementSibling?.querySelector('.arrow');
+        if (arrow && arrow.classList.contains('has-children')) {
+          arrow.textContent = '\u25BE';
+        }
+      }
+    });
+
+    // Restore selection
+    if (selectedPath) {
+      updateTreeSelection(selectedPath);
+    }
+  }
+
+  function renderTreeNode(el, path, depth, isExpanded) {
+    const pathStr = JSON.stringify(path);
+    const hasChildren = el.children && el.children.length > 0;
+    const color = NODE_TYPE_COLORS[el.nodeType] || '#6b7280';
+    const indent = depth * 16;
+
+    let extra = '';
+    if (el.nodeType === 'TextLine' && el.textContent) {
+      const preview = el.textContent.length > 30
+        ? el.textContent.substring(0, 30) + '...'
+        : el.textContent;
+      const escaped = preview.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+      extra = `<span class="text-preview">"${escaped}"</span>`;
+    } else if (el.nodeType === 'Page' && el.width) {
+      extra = `<span class="dim-label">${fmt(el.width)} x ${fmt(el.height)}</span>`;
+    }
+
+    const arrowChar = hasChildren ? (isExpanded ? '\u25BE' : '\u25B8') : '';
+    const arrowClass = hasChildren ? 'arrow has-children' : 'arrow';
+
+    let html = `<div class="tree-node" data-path='${pathStr}' style="padding-left:${indent + 4}px">`;
+    html += `<span class="${arrowClass}" data-toggle='${pathStr}'>${arrowChar}</span>`;
+    html += `<span class="node-label" style="color:${color}">${el.nodeType}</span>`;
+    html += extra;
+    html += `</div>`;
+
+    if (hasChildren) {
+      html += `<div class="tree-children" data-depth="${depth}" data-path='${pathStr}'>`;
+      for (let ci = 0; ci < el.children.length; ci++) {
+        const childPath = [...path, ci];
+        html += renderTreeNode(el.children[ci], childPath, depth + 1, false);
+      }
+      html += `</div>`;
+    }
+
+    return html;
+  }
+
+  // Tree click handlers (delegated)
+  componentTree.addEventListener('click', (e) => {
+    // Toggle expand/collapse
+    const arrow = e.target.closest('.arrow.has-children');
+    if (arrow) {
+      const pathStr = arrow.dataset.toggle;
+      const children = componentTree.querySelector(`.tree-children[data-path='${pathStr}']`);
+      if (children) {
+        const isExpanded = children.classList.toggle('expanded');
+        arrow.textContent = isExpanded ? '\u25BE' : '\u25B8';
+      }
+      return;
+    }
+
+    // Select node
+    const node = e.target.closest('.tree-node');
+    if (node) {
+      const path = JSON.parse(node.dataset.path);
+      selectByPath(path);
+    }
+  });
+
+  // Tree hover handlers (delegated)
+  componentTree.addEventListener('mouseover', (e) => {
+    const node = e.target.closest('.tree-node');
+    if (!node) return;
+    const path = JSON.parse(node.dataset.path);
+    const resolved = resolveElementByPath(path);
+    if (resolved) {
+      drawOverlays(resolved.element, resolved.pageIdx);
+    }
+  });
+
+  componentTree.addEventListener('mouseleave', () => {
+    drawOverlays();
+  });
+
+  function selectByPath(path) {
+    selectedPath = path;
+    const resolved = resolveElementByPath(path);
+    if (!resolved) return;
+
+    const { element, pageIdx, ancestors, ancestorElements } = resolved;
+    selectedAncestors = ancestors;
+    selectedAncestorElements = ancestorElements;
+    openInspector(element, pageIdx);
+    updateTreeSelection(path);
+
+    // Scroll PDF to show element
+    scrollToElement(element, pageIdx);
+  }
+
+  function resolveElementByPath(path) {
+    if (!layoutData || !path || path.length === 0) return null;
+
+    const pageIdx = path[0];
+    const page = layoutData.pages[pageIdx];
+    if (!page) return null;
+
+    if (path.length === 1) {
+      // Page-level selection
+      return {
+        element: { nodeType: 'Page', x: 0, y: 0, width: page.width, height: page.height,
+                   style: page.elements[0]?.style || {}, children: page.elements },
+        pageIdx,
+        ancestors: [],
+        ancestorElements: [],
+      };
+    }
+
+    let current = page.elements;
+    let element = null;
+    const ancestors = ['Page'];
+    const ancestorElements = [];
+
+    for (let i = 1; i < path.length; i++) {
+      const idx = path[i];
+      if (!current || idx >= current.length) return null;
+      element = current[idx];
+      if (i < path.length - 1) {
+        ancestors.push(element.nodeType);
+        ancestorElements.push(element);
+        current = element.children;
+      }
+    }
+
+    return element ? { element, pageIdx, ancestors, ancestorElements } : null;
+  }
+
+  function findPathForElement(pageIdx, target) {
+    if (!layoutData) return null;
+    const page = layoutData.pages[pageIdx];
+    if (!page) return null;
+
+    function walk(elements, pathSoFar) {
+      for (let i = 0; i < elements.length; i++) {
+        const el = elements[i];
+        if (el === target) return [...pathSoFar, i];
+        if (el.children && el.children.length) {
+          const found = walk(el.children, [...pathSoFar, i]);
+          if (found) return found;
+        }
+      }
+      return null;
+    }
+
+    return walk(page.elements, [pageIdx]);
+  }
+
+  function updateTreeSelection(path) {
+    // Clear previous selection
+    componentTree.querySelectorAll('.tree-node.selected').forEach(n => n.classList.remove('selected'));
+
+    if (!path) return;
+
+    const pathStr = JSON.stringify(path);
+    const node = componentTree.querySelector(`.tree-node[data-path='${pathStr}']`);
+    if (node) {
+      node.classList.add('selected');
+
+      // Expand parent tree nodes to make this visible
+      let parent = node.parentElement;
+      while (parent && parent !== componentTree) {
+        if (parent.classList.contains('tree-children')) {
+          parent.classList.add('expanded');
+          const arrow = parent.previousElementSibling?.querySelector('.arrow');
+          if (arrow && arrow.classList.contains('has-children')) {
+            arrow.textContent = '\u25BE';
+          }
+        }
+        parent = parent.parentElement;
+      }
+
+      // Scroll tree to show the node
+      node.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  }
+
+  function scrollToElement(element, pageIdx) {
+    const wrapper = pagesEl.querySelector(`.page-wrapper[data-page-index="${pageIdx}"]`);
+    if (!wrapper) return;
+
+    const wrapperRect = wrapper.getBoundingClientRect();
+    const containerRect = containerEl.getBoundingClientRect();
+    const elementTop = wrapperRect.top - containerRect.top + containerEl.scrollTop + element.y * currentZoom;
+
+    // Only scroll if element is not visible
+    const viewTop = containerEl.scrollTop;
+    const viewBottom = viewTop + containerEl.clientHeight;
+    if (elementTop < viewTop || elementTop > viewBottom - 50) {
+      containerEl.scrollTo({ top: elementTop - 100, behavior: 'smooth' });
+    }
+  }
+
+  // -- Data Editor -------------------------------------------------
+  let dataDebounceTimer = null;
+
+  dataEditor.addEventListener('input', () => {
+    if (dataDebounceTimer) clearTimeout(dataDebounceTimer);
+    dataDebounceTimer = setTimeout(() => {
+      const content = dataEditor.value;
+      try {
+        const parsed = JSON.parse(content);
+        dataEditor.classList.remove('error');
+        dataError.classList.remove('visible');
+        dataError.textContent = '';
+        sendWs({ type: 'updateData', data: parsed });
+      } catch (err) {
+        dataEditor.classList.add('error');
+        dataError.textContent = `Invalid JSON: ${err.message}`;
+        dataError.classList.add('visible');
+      }
+    }, 500);
+  });
+
+  dataSaveBtn.addEventListener('click', () => {
+    const content = dataEditor.value;
+    try {
+      JSON.parse(content); // validate
+      sendWs({ type: 'saveData', content });
+      dataFeedback.textContent = 'Saved!';
+      setTimeout(() => { dataFeedback.textContent = ''; }, 2000);
+    } catch (err) {
+      dataEditor.classList.add('error');
+      dataError.textContent = `Invalid JSON: ${err.message}`;
+      dataError.classList.add('visible');
+    }
+  });
+
+  // -- Hit Testing -------------------------------------------------
   function hitTest(elements, px, py) {
-    // Walk depth-first, return deepest match with ancestor path (names + elements)
     let best = null;
     let bestAncestorNames = [];
     let bestAncestorElements = [];
@@ -1055,7 +1712,7 @@
     return { element: best, ancestors: bestAncestorNames, ancestorElements: bestAncestorElements };
   }
 
-  // ── Render PDF pages ──────────────────────────────────────────
+  // -- Render PDF pages --------------------------------------------
   let currentPdfDoc = null;
 
   async function renderPdfPages() {
@@ -1072,7 +1729,6 @@
     const pdf = currentPdfDoc;
     const dpr = window.devicePixelRatio || 1;
 
-    // Preserve scroll position
     const scrollTop = containerEl.scrollTop;
 
     pagesEl.innerHTML = '';
@@ -1088,7 +1744,6 @@
       wrapper.className = 'page-wrapper';
       wrapper.dataset.pageIndex = String(i - 1);
 
-      // PDF canvas
       const pdfCanvas = document.createElement('canvas');
       pdfCanvas.className = 'pdf-canvas';
       pdfCanvas.width = viewport.width * dpr;
@@ -1096,7 +1751,6 @@
       pdfCanvas.style.width = viewport.width + 'px';
       pdfCanvas.style.height = viewport.height + 'px';
 
-      // Overlay canvas
       const overlayCanvas = document.createElement('canvas');
       overlayCanvas.className = 'overlay-canvas';
       overlayCanvas.width = viewport.width * dpr;
@@ -1104,7 +1758,6 @@
       overlayCanvas.style.width = viewport.width + 'px';
       overlayCanvas.style.height = viewport.height + 'px';
 
-      // Hit-test layer
       const hitLayer = document.createElement('div');
       hitLayer.className = 'hit-layer';
       hitLayer.dataset.pageIndex = String(i - 1);
@@ -1118,7 +1771,6 @@
       const scaledViewport = page.getViewport({ scale: currentZoom * dpr });
       await page.render({ canvasContext: ctx, viewport: scaledViewport }).promise;
 
-      // Attach mouse events
       hitLayer.addEventListener('click', onCanvasClick);
       hitLayer.addEventListener('mousemove', onCanvasHover);
       hitLayer.addEventListener('mouseleave', () => {
@@ -1127,9 +1779,7 @@
       });
     }
 
-    // Restore scroll
     containerEl.scrollTop = scrollTop;
-
     drawOverlays();
   }
 
@@ -1153,6 +1803,13 @@
       selectedAncestors = ancestors;
       selectedAncestorElements = ancestorElements;
       openInspector(hit, pageIdx);
+
+      // Sync tree selection
+      const path = findPathForElement(pageIdx, hit);
+      if (path) {
+        selectedPath = path;
+        updateTreeSelection(path);
+      }
     } else {
       closeInspector();
     }
@@ -1174,7 +1831,6 @@
       tooltip.style.left = (e.clientX + 12) + 'px';
       tooltip.style.top = (e.clientY + 12) + 'px';
 
-      // Draw hover highlight
       drawOverlays(hit, pageIdx);
     } else {
       tooltip.style.display = 'none';
@@ -1182,30 +1838,18 @@
     }
   }
 
-  // ── Fetch Layout ──────────────────────────────────────────────
+  // -- Fetch Layout ------------------------------------------------
   async function fetchLayout() {
     try {
       const resp = await fetch('/layout');
       if (resp.ok) {
         layoutData = await resp.json();
+        renderComponentTree();
       }
     } catch { /* ignore */ }
   }
 
-  // ── Draw Debug Overlays ───────────────────────────────────────
-  const NODE_TYPE_COLORS = {
-    View: '#3b82f6',
-    Text: '#eab308',
-    Image: '#a855f7',
-    Table: '#22c55e',
-    TableRow: '#10b981',
-    TableCell: '#34d399',
-    FixedHeader: '#ef4444',
-    FixedFooter: '#ef4444',
-    Rect: '#6b7280',
-    None: '#6b7280',
-  };
-
+  // -- Draw Debug Overlays -----------------------------------------
   function drawOverlays(hoverElement, hoverPageIdx) {
     const wrappers = pagesEl.querySelectorAll('.page-wrapper');
     wrappers.forEach((wrapper) => {
@@ -1220,26 +1864,21 @@
       if (!layoutData || !layoutData.pages[pageIdx]) { ctx.restore(); return; }
       const page = layoutData.pages[pageIdx];
 
-      // Layout mode: colored outlines by nodeType
       if (currentMode === 'layout') {
         drawLayoutOverlay(ctx, page.elements);
       }
 
-      // Margins mode
       if (currentMode === 'margins') {
         drawMarginsOverlay(ctx, page);
       }
 
-      // Breaks mode
       if (currentMode === 'breaks') {
         drawBreaksOverlay(ctx, page, pageIdx);
       }
 
-      // Hover highlight (layout mode)
+      // Hover highlight
       if (hoverElement && hoverPageIdx === pageIdx) {
         const color = NODE_TYPE_COLORS[hoverElement.nodeType] || '#a1a1aa';
-        ctx.fillStyle = color.replace(')', ', 0.08)').replace('rgb', 'rgba').replace('#', '');
-        // Use hex with alpha
         ctx.fillStyle = hexToRgba(color, 0.1);
         ctx.fillRect(
           hoverElement.x * currentZoom,
@@ -1269,7 +1908,6 @@
           selectedElement.height * currentZoom
         );
 
-        // Margin visualization
         if (inspectorOpen && selectedElement.style) {
           const s = selectedElement.style;
           const m = s.margin;
@@ -1279,16 +1917,11 @@
           const eh = selectedElement.height * currentZoom;
 
           ctx.fillStyle = 'rgba(251, 146, 60, 0.1)';
-          // Top margin
           if (m.top > 0) ctx.fillRect(ex, ey - m.top * currentZoom, ew, m.top * currentZoom);
-          // Bottom margin
           if (m.bottom > 0) ctx.fillRect(ex, ey + eh, ew, m.bottom * currentZoom);
-          // Left margin
           if (m.left > 0) ctx.fillRect(ex - m.left * currentZoom, ey, m.left * currentZoom, eh);
-          // Right margin
           if (m.right > 0) ctx.fillRect(ex + ew, ey, m.right * currentZoom, eh);
 
-          // Padding visualization
           const p = s.padding;
           const bw = s.borderWidth;
           ctx.fillStyle = 'rgba(74, 222, 128, 0.1)';
@@ -1296,13 +1929,9 @@
           const innerY = ey + bw.top * currentZoom;
           const innerW = ew - (bw.left + bw.right) * currentZoom;
           const innerH = eh - (bw.top + bw.bottom) * currentZoom;
-          // Top padding
           if (p.top > 0) ctx.fillRect(innerX, innerY, innerW, p.top * currentZoom);
-          // Bottom padding
           if (p.bottom > 0) ctx.fillRect(innerX, innerY + innerH - p.bottom * currentZoom, innerW, p.bottom * currentZoom);
-          // Left padding
           if (p.left > 0) ctx.fillRect(innerX, innerY + p.top * currentZoom, p.left * currentZoom, innerH - (p.top + p.bottom) * currentZoom);
-          // Right padding
           if (p.right > 0) ctx.fillRect(innerX + innerW - p.right * currentZoom, innerY + p.top * currentZoom, p.right * currentZoom, innerH - (p.top + p.bottom) * currentZoom);
         }
       }
@@ -1322,7 +1951,6 @@
         el.width * currentZoom,
         el.height * currentZoom
       );
-      // Recurse into children
       if (el.children && el.children.length) {
         drawLayoutOverlay(ctx, el.children);
       }
@@ -1330,7 +1958,6 @@
   }
 
   function drawMarginsOverlay(ctx, page) {
-    // Page margin boundaries
     ctx.strokeStyle = 'rgba(59, 130, 246, 0.5)';
     ctx.lineWidth = 1;
     ctx.setLineDash([6, 4]);
@@ -1342,7 +1969,6 @@
     );
     ctx.setLineDash([]);
 
-    // Margin strips (tinted areas outside content)
     ctx.fillStyle = 'rgba(59, 130, 246, 0.05)';
     const pw = page.width * currentZoom;
     const ph = page.height * currentZoom;
@@ -1350,16 +1976,11 @@
     const cy = page.contentY * currentZoom;
     const cw = page.contentWidth * currentZoom;
     const ch = page.contentHeight * currentZoom;
-    // Top
     ctx.fillRect(0, 0, pw, cy);
-    // Bottom
     ctx.fillRect(0, cy + ch, pw, ph - cy - ch);
-    // Left
     ctx.fillRect(0, cy, cx, ch);
-    // Right
     ctx.fillRect(cx + cw, cy, pw - cx - cw, ch);
 
-    // Element margin/padding visualization
     drawElementSpacing(ctx, page.elements);
   }
 
@@ -1369,7 +1990,6 @@
         const m = el.style.margin;
         const p = el.style.padding;
 
-        // Margin areas (orange tint)
         if (m.top > 0 || m.bottom > 0 || m.left > 0 || m.right > 0) {
           ctx.fillStyle = 'rgba(251, 146, 60, 0.08)';
           const ex = el.x * currentZoom;
@@ -1382,7 +2002,6 @@
           if (m.right > 0) ctx.fillRect(ex + ew, ey, m.right * currentZoom, eh);
         }
 
-        // Padding areas (green tint)
         if (p.top > 0 || p.bottom > 0 || p.left > 0 || p.right > 0) {
           ctx.fillStyle = 'rgba(74, 222, 128, 0.08)';
           const bw = el.style.borderWidth;
@@ -1414,13 +2033,11 @@
       ctx.stroke();
       ctx.setLineDash([]);
 
-      // Y-coordinate label
       ctx.fillStyle = '#ef4444';
       ctx.font = '10px ' + getComputedStyle(document.body).fontFamily;
       ctx.fillText(`break at y=${fmt(page.contentY)}`, 8 * currentZoom, y - 4);
     }
 
-    // Show page number label
     ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
     ctx.font = `bold ${12 * currentZoom}px ${getComputedStyle(document.body).fontFamily}`;
     ctx.fillText(
@@ -1437,7 +2054,14 @@
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   }
 
-  // ── Full reload cycle ─────────────────────────────────────────
+  // -- WebSocket helpers -------------------------------------------
+  function sendWs(msg) {
+    if (wsRef && wsRef.readyState === WebSocket.OPEN) {
+      wsRef.send(JSON.stringify(msg));
+    }
+  }
+
+  // -- Full reload cycle -------------------------------------------
   async function reload() {
     errorEl.style.display = 'none';
     await renderPdfPages();
@@ -1445,15 +2069,18 @@
     drawOverlays();
   }
 
-  // ── Keyboard shortcuts ────────────────────────────────────────
+  // -- Keyboard shortcuts ------------------------------------------
   document.addEventListener('keydown', (e) => {
-    // Mode shortcuts: 1-4
+    // Don't intercept when typing in data editor
+    if (e.target === dataEditor) return;
+
     if (!e.metaKey && !e.ctrlKey && !e.altKey) {
       if (e.key === '1') { e.preventDefault(); setMode('preview'); }
       if (e.key === '2') { e.preventDefault(); setMode('layout'); }
       if (e.key === '3') { e.preventDefault(); setMode('margins'); }
       if (e.key === '4') { e.preventDefault(); setMode('breaks'); }
       if (e.key === 'Escape') { e.preventDefault(); closeInspector(); }
+      if (e.key === 't' || e.key === 'T') { e.preventDefault(); setSidebarOpen(!sidebarOpen); }
       if (e.key === 'Enter' && selectedElement) {
         let enterSl = selectedElement.sourceLocation;
         if (!enterSl) {
@@ -1465,7 +2092,6 @@
       }
     }
 
-    // Zoom shortcuts: Cmd/Ctrl + / - / 0
     if (e.metaKey || e.ctrlKey) {
       if (e.key === '=' || e.key === '+') { e.preventDefault(); zoomIn(); }
       if (e.key === '-') { e.preventDefault(); zoomOut(); }
@@ -1473,7 +2099,6 @@
     }
   });
 
-  // Cmd/Ctrl + scroll to zoom
   containerEl.addEventListener('wheel', (e) => {
     if (e.metaKey || e.ctrlKey) {
       e.preventDefault();
@@ -1482,22 +2107,38 @@
     }
   }, { passive: false });
 
-  // ── WebSocket ─────────────────────────────────────────────────
+  // -- WebSocket ---------------------------------------------------
   function connectWs() {
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
     const ws = new WebSocket(`${protocol}//${location.host}`);
+    wsRef = ws;
 
     ws.addEventListener('open', () => {
       statusDot.className = 'status-dot connected';
+      // Re-send page size override on reconnect
+      resendPageSizeOverride();
     });
 
     ws.addEventListener('close', () => {
       statusDot.className = 'status-dot disconnected';
+      wsRef = null;
       setTimeout(connectWs, 1000);
     });
 
     ws.addEventListener('message', async (event) => {
       const msg = JSON.parse(event.data);
+
+      if (msg.type === 'init') {
+        hasDataFile = msg.hasData;
+        dataTabBtn.style.display = hasDataFile ? '' : 'none';
+        if (hasDataFile && msg.dataContent) {
+          dataEditor.value = msg.dataContent;
+        }
+        // Apply server-side page size override if reconnecting
+        if (msg.pageSizeOverride) {
+          // Server already has override; UI should already match via localStorage
+        }
+      }
 
       if (msg.type === 'reload') {
         if (msg.renderTime) {
@@ -1505,6 +2146,8 @@
           renderBadge.style.display = 'inline-flex';
         }
         await reload();
+        // Auto-zoom to fit after page size changes
+        setTimeout(zoomToFit, 300);
       }
 
       if (msg.type === 'error') {
@@ -1512,13 +2155,22 @@
         errorEl.appendChild(document.createTextNode(msg.message));
         errorEl.style.display = 'block';
       }
+
+      if (msg.type === 'dataUpdate') {
+        // File changed on disk; update editor if not focused
+        if (document.activeElement !== dataEditor) {
+          dataEditor.value = msg.content;
+          dataEditor.classList.remove('error');
+          dataError.classList.remove('visible');
+          dataError.textContent = '';
+        }
+      }
     });
   }
 
-  // ── Init ──────────────────────────────────────────────────────
+  // -- Init --------------------------------------------------------
   connectWs();
   reload().then(() => {
-    // Zoom to fit after initial render
     setTimeout(zoomToFit, 100);
   }).catch(() => {});
 </script>

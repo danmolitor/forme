@@ -7,7 +7,7 @@ import { WebSocketServer, type WebSocket } from 'ws';
 import open from 'open';
 import { isValidElement, type ReactElement } from 'react';
 import { bundleFile, BUNDLE_DIR } from './bundle.js';
-import { renderDocumentWithLayout, type LayoutInfo } from '@forme/core';
+import { renderPdfWithLayout, type LayoutInfo } from '@forme/core';
 
 export interface DevOptions {
   port: number;
@@ -25,6 +25,11 @@ export function startDevServer(inputPath: string, options: DevOptions): void {
   let lastRenderTime = 0;
   let lastError: string | null = null;
   let firstRender = true;
+
+  // Override state
+  let pageSizeOverride: { width: number; height: number } | null = null;
+  let inMemoryData: unknown = null;
+  let useInMemoryData = false;
 
   // ── HTTP Server ──────────────────────────────────────────────
 
@@ -73,9 +78,58 @@ export function startDevServer(inputPath: string, options: DevOptions): void {
   const wss = new WebSocketServer({ server });
   const clients = new Set<WebSocket>();
 
-  wss.on('connection', (ws: WebSocket) => {
+  wss.on('connection', async (ws: WebSocket) => {
     clients.add(ws);
     ws.on('close', () => clients.delete(ws));
+
+    // Send init message with data and page size state
+    let dataContent: string | null = null;
+    if (dataPath) {
+      try {
+        dataContent = await readFile(dataPath, 'utf-8');
+      } catch { /* ignore */ }
+    }
+    const initMsg: Record<string, unknown> = {
+      type: 'init',
+      hasData: !!dataPath,
+      dataContent,
+      pageSizeOverride,
+    };
+    if (ws.readyState === ws.OPEN) {
+      ws.send(JSON.stringify(initMsg));
+    }
+
+    ws.on('message', (raw: Buffer) => {
+      let msg: Record<string, unknown>;
+      try {
+        msg = JSON.parse(raw.toString());
+      } catch {
+        return;
+      }
+
+      if (msg.type === 'setPageSize') {
+        pageSizeOverride = { width: msg.width as number, height: msg.height as number };
+        triggerRebuild();
+      }
+
+      if (msg.type === 'clearPageSize') {
+        pageSizeOverride = null;
+        triggerRebuild();
+      }
+
+      if (msg.type === 'updateData') {
+        inMemoryData = msg.data;
+        useInMemoryData = true;
+        triggerRebuild();
+      }
+
+      if (msg.type === 'saveData' && dataPath) {
+        const content = msg.content as string;
+        writeFile(dataPath, content, 'utf-8').catch((err) => {
+          console.error(`Failed to save data file: ${err}`);
+        });
+      }
+    });
   });
 
   function broadcast(message: object): void {
@@ -112,9 +166,37 @@ export function startDevServer(inputPath: string, options: DevOptions): void {
         await unlink(tmpFile).catch(() => {});
       }
 
-      const element = await resolveElement(mod, dataPath);
+      const overrideData = useInMemoryData ? inMemoryData : undefined;
+      const element = await resolveElement(mod, dataPath, overrideData);
 
-      const { pdf, layout } = await renderDocumentWithLayout(element);
+      // Serialize JSX to document JSON, apply overrides, then render
+      const { serialize } = await import('@forme/react');
+      const doc = serialize(element) as unknown as Record<string, unknown>;
+
+      // Apply page size override
+      if (pageSizeOverride) {
+        const { width, height } = pageSizeOverride;
+        const customSize = { Custom: { width, height } };
+
+        // Override defaultPage size
+        if (doc.defaultPage && typeof doc.defaultPage === 'object') {
+          (doc.defaultPage as Record<string, unknown>).size = customSize;
+        }
+
+        // Override each Page node's config size
+        if (Array.isArray(doc.children)) {
+          for (const child of doc.children) {
+            if (child && typeof child === 'object' && child.kind && typeof child.kind === 'object') {
+              const kind = child.kind as Record<string, unknown>;
+              if (kind.type === 'Page' && kind.config && typeof kind.config === 'object') {
+                (kind.config as Record<string, unknown>).size = customSize;
+              }
+            }
+          }
+        }
+      }
+
+      const { pdf, layout } = await renderPdfWithLayout(JSON.stringify(doc));
 
       // Skip if a newer build started
       if (buildId !== buildCounter) return;
@@ -151,11 +233,23 @@ export function startDevServer(inputPath: string, options: DevOptions): void {
 
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-  const watchPaths = [absoluteInput, ...(dataPath ? [dataPath] : [])];
-  const watcher = watch(watchPaths, { ignoreInitial: true });
-  watcher.on('change', () => {
+  function triggerRebuild(): void {
     if (debounceTimer) clearTimeout(debounceTimer);
     debounceTimer = setTimeout(rebuild, 100);
+  }
+
+  const watchPaths = [absoluteInput, ...(dataPath ? [dataPath] : [])];
+  const watcher = watch(watchPaths, { ignoreInitial: true });
+  watcher.on('change', (changedPath: string) => {
+    // If data file changed on disk, reset in-memory override and push new content
+    if (dataPath && resolve(changedPath) === dataPath) {
+      useInMemoryData = false;
+      inMemoryData = null;
+      readFile(dataPath, 'utf-8').then((content) => {
+        broadcast({ type: 'dataUpdate', content });
+      }).catch(() => {});
+    }
+    triggerRebuild();
   });
 
   // ── Graceful shutdown ───────────────────────────────────────
@@ -179,6 +273,7 @@ export function startDevServer(inputPath: string, options: DevOptions): void {
 async function resolveElement(
   mod: Record<string, unknown>,
   dataPath?: string,
+  overrideData?: unknown,
 ): Promise<ReactElement> {
   const exported = mod.default;
 
@@ -196,7 +291,9 @@ async function resolveElement(
 
   if (typeof exported === 'function') {
     let data: unknown = {};
-    if (dataPath) {
+    if (overrideData !== undefined) {
+      data = overrideData;
+    } else if (dataPath) {
       const raw = await readFile(dataPath, 'utf-8');
       try {
         data = JSON.parse(raw);

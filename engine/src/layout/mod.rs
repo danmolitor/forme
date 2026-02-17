@@ -160,6 +160,9 @@ pub struct ElementInfo {
     /// Source code location for click-to-source.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source_location: Option<SourceLocation>,
+    /// Text content extracted from TextLine draw commands (for component tree).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text_content: Option<String>,
 }
 
 impl LayoutInfo {
@@ -197,6 +200,15 @@ impl LayoutInfo {
                 DrawCommand::Image { .. } => "Image",
                 DrawCommand::ImagePlaceholder => "ImagePlaceholder",
             };
+            let text_content = match &elem.draw {
+                DrawCommand::Text { lines, .. } => {
+                    let text: String = lines.iter()
+                        .flat_map(|line| line.glyphs.iter().map(|g| g.char_value))
+                        .collect();
+                    if text.is_empty() { None } else { Some(text) }
+                },
+                _ => None,
+            };
             let node_type = elem.node_type.clone().unwrap_or_else(|| kind.to_string());
             let style = elem.resolved_style.as_ref()
                 .map(ElementStyleInfo::from_resolved)
@@ -211,6 +223,7 @@ impl LayoutInfo {
                 style,
                 children: Self::build_element_tree(&elem.children),
                 source_location: elem.source_location.clone(),
+                text_content,
             }
         }).collect()
     }
