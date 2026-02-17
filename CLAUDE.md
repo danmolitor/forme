@@ -10,32 +10,51 @@ Forme is a **page-native PDF rendering engine** written in Rust. It takes a tree
 forme/
 ├── CLAUDE.md               # You are here
 ├── README.md               # Product readme
-└── engine/                 # Rust rendering engine
-    ├── Cargo.toml          # Only deps: serde, serde_json, miniz_oxide
-    ├── src/
-    │   ├── lib.rs          # Public API: render() and render_json()
-    │   ├── main.rs         # CLI binary + example invoice JSON
-    │   ├── model/mod.rs    # Document tree: Node, NodeKind, PageConfig, Edges
-    │   ├── style/mod.rs    # CSS-like styles, resolution with inheritance
-    │   ├── layout/
-    │   │   ├── mod.rs      # THE CORE: page-aware layout engine
-    │   │   ├── flex.rs     # Flex grow/shrink/wrap distribution helpers
-    │   │   └── page_break.rs # Break decision logic (split/move/place)
-    │   ├── text/mod.rs     # Line breaking + text measurement
-    │   ├── font/mod.rs     # Font registry (14 standard PDF fonts)
-    │   └── pdf/mod.rs      # PDF 1.7 serializer (from scratch)
-    └── tests/
-        └── integration.rs  # Full pipeline tests
+├── engine/                 # Rust rendering engine
+│   ├── Cargo.toml          # Deps: serde, serde_json, miniz_oxide, ttf-parser
+│   ├── src/
+│   │   ├── lib.rs          # Public API: render(), render_json(), render_with_layout()
+│   │   ├── main.rs         # CLI binary + example invoice JSON
+│   │   ├── model/mod.rs    # Document tree: Node, NodeKind, PageConfig, Edges
+│   │   ├── style/mod.rs    # CSS-like styles, resolution with inheritance
+│   │   ├── layout/
+│   │   │   ├── mod.rs      # THE CORE: page-aware layout engine + element nesting
+│   │   │   ├── flex.rs     # Flex grow/shrink/wrap distribution helpers
+│   │   │   └── page_break.rs # Break decision logic (split/move/place)
+│   │   ├── text/mod.rs     # Line breaking + text measurement
+│   │   ├── font/mod.rs     # Font registry + custom font subsetting
+│   │   ├── image_loader/   # JPEG/PNG decoding from file paths and data URIs
+│   │   └── pdf/mod.rs      # PDF 1.7 serializer (from scratch)
+│   └── tests/
+│       └── integration.rs  # Full pipeline tests
+└── packages/
+    ├── core/               # WASM bridge: compiles engine to WebAssembly
+    │   ├── src/index.ts    # JS API: renderDocument(), renderDocumentWithLayout()
+    │   └── build.sh        # wasm-pack build + wasm-opt
+    ├── react/              # JSX component library: <Document>, <Page>, <View>, etc.
+    │   └── src/index.tsx   # Components + serialize() to JSON document tree
+    └── cli/                # `forme dev` and `forme build` commands
+        ├── src/dev.ts      # Dev server with live reload, PDF + layout endpoints
+        ├── src/preview/    # Browser UI: preview, overlays, click-to-inspect
+        └── package.json    # Build: tsc + copy preview assets to dist/
 ```
 
 ## Build & Test
 
 ```bash
+# Engine only
 cd engine
 cargo build
 cargo test
 cargo run -- --example > invoice.json    # dump example invoice
 cargo run -- invoice.json -o output.pdf  # render to PDF
+
+# Full pipeline (engine → WASM → packages)
+cd packages/core && npm run build        # Rust → WASM + TS wrapper
+cd packages/cli && npm run build         # TS → JS + copy preview HTML
+
+# Dev server (live preview at http://localhost:4242)
+node packages/cli/dist/index.js dev test-preview.tsx
 ```
 
 ## Architecture (data flow)
@@ -99,7 +118,6 @@ Transform in pdf serializer: `pdf_y = page_height - layout_y - element_height`
 9. No BiDi text support (Arabic, Hebrew).
 10. No CSS Grid.
 11. No PDF/A compliance.
-12. No WASM build yet.
 
 ## How the Layout Engine Works (for making changes)
 
@@ -127,11 +145,30 @@ fn layout_node(&self, node, cursor, pages, x, available_width, parent_style) {
 - `finalize()`: produces a LayoutPage from current state
 - `new_page()`: creates fresh page, carries over fixed elements
 
+### Element Nesting (Snapshot-and-Collect Pattern)
+Layout elements form a hierarchy that mirrors the document tree. This is critical for the dev server's click-to-inspect (depth-first hit-testing). The pattern used in layout functions:
+
+1. Save `snapshot = cursor.elements.len()` before laying out children
+2. Lay out children normally (they push to `cursor.elements`)
+3. After layout, `drain(snapshot..)` to collect child elements
+4. Create the parent element with `children: child_elements`
+5. Push the parent onto `cursor.elements`
+
+This is used in:
+- **`layout_view`** (non-breakable path): View rect wraps its children
+- **`layout_table_row`**: Row wraps Cells, each Cell wraps its content
+- **`layout_text`**: Text container wraps TextLine elements (flushes on page breaks)
+
+**Not** used in `layout_breakable_view` (no wrapper) or `layout_flex_row` (items are laid out individually via `layout_view` which handles its own nesting).
+
+The PDF serializer (`write_element`) and layout overlay (`drawLayoutOverlay`) both recurse into `element.children`. Any new layout function that creates a container element must use this pattern to maintain the hierarchy.
+
 **Adding a new node type:**
 1. Add variant to `NodeKind` in `model/mod.rs`
 2. Add match arm in `layout_node` in `layout/mod.rs`
 3. Write the layout function (measure height → check fit → place or split)
-4. Add drawing in `write_element` in `pdf/mod.rs` if it has visual output
+4. If it's a container, use snapshot-and-collect to nest children
+5. Add drawing in `write_element` in `pdf/mod.rs` if it has visual output
 
 ## Testing Strategy
 
@@ -146,13 +183,12 @@ When making layout changes, always test with:
 
 ## Dependencies
 
-Current (minimal):
+Engine (Rust):
 - `serde` + `serde_json`: JSON deserialization of document tree
 - `miniz_oxide`: DEFLATE compression for PDF content streams
+- `ttf-parser`: Font file parsing for real glyph metrics and subsetting
 
 To add:
-- `ttf-parser`: Font file parsing for real metrics and subsetting
-- `image`: Image decoding (JPEG/PNG) for embedding
 - `unicode-linebreak`: UAX#14 line break algorithm (proper Unicode line breaking)
 
 ## Code Style
