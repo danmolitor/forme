@@ -63,7 +63,85 @@ pub struct PageInfo {
     pub elements: Vec<ElementInfo>,
 }
 
-/// Layout metadata for a single positioned element.
+/// Serializable subset of ResolvedStyle for the inspector panel.
+/// Excludes SizeConstraint (which doesn't derive Serialize).
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ElementStyleInfo {
+    pub margin: Edges,
+    pub padding: Edges,
+    pub border_width: Edges,
+    pub flex_direction: FlexDirection,
+    pub justify_content: JustifyContent,
+    pub align_items: AlignItems,
+    pub flex_wrap: FlexWrap,
+    pub gap: f64,
+    pub font_family: String,
+    pub font_size: f64,
+    pub font_weight: u32,
+    pub font_style: FontStyle,
+    pub line_height: f64,
+    pub text_align: TextAlign,
+    pub color: Color,
+    pub background_color: Option<Color>,
+    pub border_color: EdgeValues<Color>,
+    pub border_radius: CornerValues,
+    pub opacity: f64,
+}
+
+impl ElementStyleInfo {
+    fn from_resolved(style: &ResolvedStyle) -> Self {
+        ElementStyleInfo {
+            margin: style.margin,
+            padding: style.padding,
+            border_width: style.border_width,
+            flex_direction: style.flex_direction,
+            justify_content: style.justify_content,
+            align_items: style.align_items,
+            flex_wrap: style.flex_wrap,
+            gap: style.gap,
+            font_family: style.font_family.clone(),
+            font_size: style.font_size,
+            font_weight: style.font_weight,
+            font_style: style.font_style,
+            line_height: style.line_height,
+            text_align: style.text_align,
+            color: style.color,
+            background_color: style.background_color,
+            border_color: style.border_color,
+            border_radius: style.border_radius,
+            opacity: style.opacity,
+        }
+    }
+}
+
+impl Default for ElementStyleInfo {
+    fn default() -> Self {
+        ElementStyleInfo {
+            margin: Edges::default(),
+            padding: Edges::default(),
+            border_width: Edges::default(),
+            flex_direction: FlexDirection::default(),
+            justify_content: JustifyContent::default(),
+            align_items: AlignItems::default(),
+            flex_wrap: FlexWrap::default(),
+            gap: 0.0,
+            font_family: "Helvetica".to_string(),
+            font_size: 12.0,
+            font_weight: 400,
+            font_style: FontStyle::default(),
+            line_height: 1.4,
+            text_align: TextAlign::default(),
+            color: Color::BLACK,
+            background_color: None,
+            border_color: EdgeValues::uniform(Color::BLACK),
+            border_radius: CornerValues::uniform(0.0),
+            opacity: 1.0,
+        }
+    }
+}
+
+/// Layout metadata for a single positioned element (hierarchical).
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ElementInfo {
@@ -71,7 +149,14 @@ pub struct ElementInfo {
     pub y: f64,
     pub width: f64,
     pub height: f64,
+    /// DrawCommand-based kind (Rect, Text, Image, etc.) for backward compat.
     pub kind: String,
+    /// Logical node type (View, Text, Image, TableRow, etc.).
+    pub node_type: String,
+    /// Resolved style snapshot for the inspector panel.
+    pub style: ElementStyleInfo,
+    /// Child elements (preserves hierarchy).
+    pub children: Vec<ElementInfo>,
 }
 
 impl LayoutInfo {
@@ -85,8 +170,7 @@ impl LayoutInfo {
                 let content_width = page_w - page.config.margin.horizontal();
                 let content_height = page_h - page.config.margin.vertical();
 
-                let mut elements = Vec::new();
-                Self::flatten_elements(&page.elements, &mut elements);
+                let elements = Self::build_element_tree(&page.elements);
 
                 PageInfo {
                     width: page_w,
@@ -101,8 +185,8 @@ impl LayoutInfo {
         }
     }
 
-    fn flatten_elements(elems: &[LayoutElement], out: &mut Vec<ElementInfo>) {
-        for elem in elems {
+    fn build_element_tree(elems: &[LayoutElement]) -> Vec<ElementInfo> {
+        elems.iter().map(|elem| {
             let kind = match &elem.draw {
                 DrawCommand::None => "None",
                 DrawCommand::Rect { .. } => "Rect",
@@ -110,17 +194,21 @@ impl LayoutInfo {
                 DrawCommand::Image { .. } => "Image",
                 DrawCommand::ImagePlaceholder => "ImagePlaceholder",
             };
-            out.push(ElementInfo {
+            let node_type = elem.node_type.clone().unwrap_or_else(|| kind.to_string());
+            let style = elem.resolved_style.as_ref()
+                .map(ElementStyleInfo::from_resolved)
+                .unwrap_or_default();
+            ElementInfo {
                 x: elem.x,
                 y: elem.y,
                 width: elem.width,
                 height: elem.height,
                 kind: kind.to_string(),
-            });
-            if !elem.children.is_empty() {
-                Self::flatten_elements(&elem.children, out);
+                node_type,
+                style,
+                children: Self::build_element_tree(&elem.children),
             }
-        }
+        }).collect()
     }
 }
 
@@ -151,6 +239,26 @@ pub struct LayoutElement {
     pub draw: DrawCommand,
     /// Child elements (positioned relative to page, not parent).
     pub children: Vec<LayoutElement>,
+    /// Logical node type for dev tools (e.g. "View", "Text", "Image").
+    pub node_type: Option<String>,
+    /// Resolved style snapshot for inspector panel.
+    pub resolved_style: Option<ResolvedStyle>,
+}
+
+/// Return a human-readable name for a NodeKind variant.
+fn node_kind_name(kind: &NodeKind) -> &'static str {
+    match kind {
+        NodeKind::View => "View",
+        NodeKind::Text { .. } => "Text",
+        NodeKind::Image { .. } => "Image",
+        NodeKind::Table { .. } => "Table",
+        NodeKind::TableRow { .. } => "TableRow",
+        NodeKind::TableCell { .. } => "TableCell",
+        NodeKind::Fixed { position: FixedPosition::Header } => "FixedHeader",
+        NodeKind::Fixed { position: FixedPosition::Footer } => "FixedFooter",
+        NodeKind::Page { .. } => "Page",
+        NodeKind::PageBreak => "PageBreak",
+    }
 }
 
 /// What to actually draw for this element.
@@ -432,20 +540,9 @@ impl LayoutEngine {
                 *cursor = cursor.new_page();
             }
 
-            let rect_element = LayoutElement {
-                x: node_x,
-                y: cursor.content_y + cursor.y + margin.top,
-                width: outer_width,
-                height: total_height,
-                draw: DrawCommand::Rect {
-                    background: style.background_color,
-                    border_width: style.border_width.clone(),
-                    border_color: style.border_color,
-                    border_radius: style.border_radius,
-                },
-                children: vec![],
-            };
-            cursor.elements.push(rect_element);
+            // Snapshot-and-collect: lay out children first, then wrap in parent
+            let rect_y = cursor.content_y + cursor.y + margin.top;
+            let snapshot = cursor.elements.len();
 
             let saved_y = cursor.y;
             cursor.y += margin.top + padding.top + border.top;
@@ -461,6 +558,26 @@ impl LayoutEngine {
                 Some(style),
                 font_context,
             );
+
+            // Collect child elements that were pushed during layout
+            let child_elements: Vec<LayoutElement> = cursor.elements.drain(snapshot..).collect();
+
+            let rect_element = LayoutElement {
+                x: node_x,
+                y: rect_y,
+                width: outer_width,
+                height: total_height,
+                draw: DrawCommand::Rect {
+                    background: style.background_color,
+                    border_width: style.border_width.clone(),
+                    border_color: style.border_color,
+                    border_radius: style.border_radius,
+                },
+                children: child_elements,
+                node_type: Some(node_kind_name(&node.kind).to_string()),
+                resolved_style: Some(style.clone()),
+            };
+            cursor.elements.push(rect_element);
 
             cursor.y = saved_y + total_height + margin.vertical();
         } else {
@@ -833,23 +950,11 @@ impl LayoutEngine {
         let row_style = row.style.resolve(Some(parent_style), col_widths.iter().sum());
 
         let row_height = self.measure_table_row_height(row, col_widths, parent_style, font_context);
+        let row_y = cursor.content_y + cursor.y;
+        let total_width: f64 = col_widths.iter().sum();
 
-        if let Some(bg) = row_style.background_color {
-            let total_width: f64 = col_widths.iter().sum();
-            cursor.elements.push(LayoutElement {
-                x: start_x,
-                y: cursor.content_y + cursor.y,
-                width: total_width,
-                height: row_height,
-                draw: DrawCommand::Rect {
-                    background: Some(bg),
-                    border_width: Edges::default(),
-                    border_color: EdgeValues::uniform(Color::BLACK),
-                    border_radius: CornerValues::uniform(0.0),
-                },
-                children: vec![],
-            });
-        }
+        // Snapshot before laying out cells — we'll collect them as row children
+        let row_snapshot = cursor.elements.len();
 
         let mut cell_x = start_x;
         for (i, cell) in row.children.iter().enumerate() {
@@ -857,24 +962,8 @@ impl LayoutEngine {
 
             let cell_style = cell.style.resolve(Some(&row_style), col_width);
 
-            if cell_style.background_color.is_some()
-                || cell_style.border_width.horizontal() > 0.0
-                || cell_style.border_width.vertical() > 0.0
-            {
-                cursor.elements.push(LayoutElement {
-                    x: cell_x,
-                    y: cursor.content_y + cursor.y,
-                    width: col_width,
-                    height: row_height,
-                    draw: DrawCommand::Rect {
-                        background: cell_style.background_color,
-                        border_width: cell_style.border_width,
-                        border_color: cell_style.border_color,
-                        border_radius: cell_style.border_radius,
-                    },
-                    children: vec![],
-                });
-            }
+            // Snapshot before cell content — we'll collect as cell children
+            let cell_snapshot = cursor.elements.len();
 
             let inner_width = col_width
                 - cell_style.padding.horizontal()
@@ -897,8 +986,59 @@ impl LayoutEngine {
             }
 
             cursor.y = saved_y;
+
+            // Collect cell content elements
+            let cell_children: Vec<LayoutElement> = cursor.elements.drain(cell_snapshot..).collect();
+
+            // Always push a cell element (with or without visual styling) to preserve hierarchy
+            cursor.elements.push(LayoutElement {
+                x: cell_x,
+                y: row_y,
+                width: col_width,
+                height: row_height,
+                draw: if cell_style.background_color.is_some()
+                    || cell_style.border_width.horizontal() > 0.0
+                    || cell_style.border_width.vertical() > 0.0
+                {
+                    DrawCommand::Rect {
+                        background: cell_style.background_color,
+                        border_width: cell_style.border_width,
+                        border_color: cell_style.border_color,
+                        border_radius: cell_style.border_radius,
+                    }
+                } else {
+                    DrawCommand::None
+                },
+                children: cell_children,
+                node_type: Some("TableCell".to_string()),
+                resolved_style: Some(cell_style.clone()),
+            });
+
             cell_x += col_width;
         }
+
+        // Collect all cell elements as row children
+        let row_children: Vec<LayoutElement> = cursor.elements.drain(row_snapshot..).collect();
+
+        cursor.elements.push(LayoutElement {
+            x: start_x,
+            y: row_y,
+            width: total_width,
+            height: row_height,
+            draw: if let Some(bg) = row_style.background_color {
+                DrawCommand::Rect {
+                    background: Some(bg),
+                    border_width: Edges::default(),
+                    border_color: EdgeValues::uniform(Color::BLACK),
+                    border_radius: CornerValues::uniform(0.0),
+                }
+            } else {
+                DrawCommand::None
+            },
+            children: row_children,
+            node_type: Some("TableRow".to_string()),
+            resolved_style: Some(row_style.clone()),
+        });
 
         cursor.y += row_height;
     }
@@ -932,10 +1072,34 @@ impl LayoutEngine {
 
         let line_height = style.font_size * style.line_height;
 
+        // Snapshot-and-collect: accumulate line elements, wrap in parent
+        let mut snapshot = cursor.elements.len();
+        let mut container_start_y = cursor.content_y + cursor.y;
+
         for line in &lines {
             if line_height > cursor.remaining_height() {
+                // Flush accumulated lines into a Text container on this page
+                let line_elements: Vec<LayoutElement> = cursor.elements.drain(snapshot..).collect();
+                if !line_elements.is_empty() {
+                    let container_height = cursor.content_y + cursor.y - container_start_y;
+                    cursor.elements.push(LayoutElement {
+                        x: text_x,
+                        y: container_start_y,
+                        width: text_width,
+                        height: container_height,
+                        draw: DrawCommand::None,
+                        children: line_elements,
+                        node_type: Some("Text".to_string()),
+                        resolved_style: Some(style.clone()),
+                    });
+                }
+
                 pages.push(cursor.finalize());
                 *cursor = cursor.new_page();
+
+                // Reset snapshot for new page
+                snapshot = cursor.elements.len();
+                container_start_y = cursor.content_y + cursor.y;
             }
 
             let line_x = match style.text_align {
@@ -981,9 +1145,27 @@ impl LayoutEngine {
                     color: style.color,
                 },
                 children: vec![],
+                node_type: Some("TextLine".to_string()),
+                resolved_style: Some(style.clone()),
             });
 
             cursor.y += line_height;
+        }
+
+        // Wrap remaining lines into a Text container
+        let line_elements: Vec<LayoutElement> = cursor.elements.drain(snapshot..).collect();
+        if !line_elements.is_empty() {
+            let container_height = cursor.content_y + cursor.y - container_start_y;
+            cursor.elements.push(LayoutElement {
+                x: text_x,
+                y: container_start_y,
+                width: text_width,
+                height: container_height,
+                draw: DrawCommand::None,
+                children: line_elements,
+                node_type: Some("Text".to_string()),
+                resolved_style: Some(style.clone()),
+            });
         }
 
         cursor.y += margin.bottom;
@@ -1059,6 +1241,8 @@ impl LayoutEngine {
             height: img_height,
             draw,
             children: vec![],
+            node_type: Some(node_kind_name(&node.kind).to_string()),
+            resolved_style: Some(style.clone()),
         });
 
         cursor.y += img_height + margin.bottom;

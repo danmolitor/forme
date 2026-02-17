@@ -7,7 +7,7 @@
     "forme": "./dist/index.js"
   },
   "scripts": {
-    "build": "tsc && cp -r src/preview dist/preview",
+    "build": "tsc && rm -rf dist/preview && cp -r src/preview dist/preview",
     "test": "vitest run"
   },
   "dependencies": {

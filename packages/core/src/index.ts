@@ -6,12 +6,58 @@ import type { ReactElement } from 'react';
 
 // ── Layout metadata types ──────────────────────────────────────────
 
+export interface Color {
+  r: number;
+  g: number;
+  b: number;
+  a: number;
+}
+
+export interface EdgeValues<T> {
+  top: T;
+  right: T;
+  bottom: T;
+  left: T;
+}
+
+export interface CornerValues {
+  top_left: number;
+  top_right: number;
+  bottom_right: number;
+  bottom_left: number;
+}
+
+export interface ElementStyleInfo {
+  margin: EdgeValues<number>;
+  padding: EdgeValues<number>;
+  borderWidth: EdgeValues<number>;
+  flexDirection: string;
+  justifyContent: string;
+  alignItems: string;
+  flexWrap: string;
+  gap: number;
+  fontFamily: string;
+  fontSize: number;
+  fontWeight: number;
+  fontStyle: string;
+  lineHeight: number;
+  textAlign: string;
+  color: Color;
+  backgroundColor: Color | null;
+  borderColor: EdgeValues<Color>;
+  borderRadius: CornerValues;
+  opacity: number;
+}
+
 export interface ElementInfo {
   x: number;
   y: number;
   width: number;
   height: number;
   kind: string;
+  nodeType: string;
+  style: ElementStyleInfo;
+  children: ElementInfo[];
 }
 
 export interface PageInfo {

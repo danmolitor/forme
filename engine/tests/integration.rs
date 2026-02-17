@@ -233,9 +233,15 @@ fn test_flex_column_is_default() {
     let pages = layout_doc(&doc);
     assert_eq!(pages.len(), 1);
 
-    // Elements should be stacked vertically, so they have different Y positions
-    // (At minimum, there should be multiple elements)
-    assert!(pages[0].elements.len() >= 2);
+    // The container view is a single top-level element with nested children.
+    // Children (text elements) should be stacked vertically inside the container.
+    assert!(!pages[0].elements.is_empty());
+    let container = &pages[0].elements[0];
+    assert!(
+        container.children.len() >= 2,
+        "Container should have at least 2 child elements, got {}",
+        container.children.len()
+    );
 }
 
 // ─── Table Tests ────────────────────────────────────────────────
@@ -1151,13 +1157,17 @@ fn test_flex_wrap_items_wrap_to_second_line() {
     let pages = layout_doc(&doc);
     assert_eq!(pages.len(), 1);
 
-    // Check that items are at different Y positions (wrapped to multiple lines)
-    let y_positions: Vec<f64> = pages[0]
-        .elements
-        .iter()
-        .filter(|e| matches!(e.draw, forme::layout::DrawCommand::Rect { .. }))
-        .map(|e| e.y)
-        .collect();
+    // Collect Y positions from all elements recursively (items are now nested)
+    fn collect_rect_ys(elements: &[forme::layout::LayoutElement], ys: &mut Vec<f64>) {
+        for e in elements {
+            if matches!(e.draw, forme::layout::DrawCommand::Rect { .. }) {
+                ys.push(e.y);
+            }
+            collect_rect_ys(&e.children, ys);
+        }
+    }
+    let mut y_positions = Vec::new();
+    collect_rect_ys(&pages[0].elements, &mut y_positions);
 
     // Should have at least 2 distinct Y positions (2 wrap lines)
     let mut unique_ys: Vec<f64> = y_positions.clone();
