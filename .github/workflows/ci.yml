@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  engine:
+    name: Rust Engine
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Run tests
+        working-directory: engine
+        run: cargo test
+      - name: Check formatting
+        working-directory: engine
+        run: cargo fmt --check
+      - name: Clippy
+        working-directory: engine
+        run: cargo clippy -- -D warnings
+
+  packages:
+    name: TypeScript Packages
+    runs-on: ubuntu-latest
+    needs: engine
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+      - name: Install dependencies
+        run: npm install
+      - name: Build WASM
+        working-directory: packages/core
+        run: npm run build
+      - name: Test React package
+        working-directory: packages/react
+        run: npm test
+      - name: Build CLI
+        working-directory: packages/cli
+        run: npm run build

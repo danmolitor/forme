@@ -49,7 +49,15 @@ export interface Style {
 
   // Box model
   padding?: number | Edges;
+  paddingTop?: number;
+  paddingRight?: number;
+  paddingBottom?: number;
+  paddingLeft?: number;
   margin?: number | Edges;
+  marginTop?: number;
+  marginRight?: number;
+  marginBottom?: number;
+  marginLeft?: number;
 
   // Typography
   fontSize?: number;

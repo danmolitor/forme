@@ -1,0 +1,78 @@
+{
+  "title": "Annual Performance Review",
+  "subtitle": "Fiscal Year 2025 Results and Strategic Outlook",
+  "author": "Rachel Torres",
+  "department": "Strategy & Operations",
+  "company": "Cascadia Holdings",
+  "date": "January 28, 2026",
+  "classification": "Internal - Confidential",
+  "keyMetrics": [
+    { "value": "$142M", "label": "Total Revenue" },
+    { "value": "+18%", "label": "Year-over-Year Growth" },
+    { "value": "94.2%", "label": "Customer Retention" }
+  ],
+  "sections": [
+    {
+      "title": "Executive Summary",
+      "paragraphs": [
+        "Fiscal year 2025 marked a period of sustained growth for Cascadia Holdings, with consolidated revenue reaching $142 million, an 18% increase over the prior year. This growth was driven primarily by expansion in the Pacific Northwest and Southeast regions, along with strong adoption of our enterprise product line.",
+        "Customer retention remained above target at 94.2%, reflecting continued investment in support infrastructure and product reliability. Net new customer acquisition grew 22% year-over-year, with particular strength in the mid-market segment where our competitive positioning improved substantially.",
+        "Operating margins expanded by 2.3 percentage points to 31.4%, driven by economies of scale in our fulfillment operations and a disciplined approach to headcount growth. We ended the fiscal year with 847 full-time employees across 12 offices.",
+        "Looking ahead, we see significant opportunity in international expansion and adjacent product categories. The strategic priorities outlined in this report reflect our commitment to sustainable growth while maintaining the operational excellence that has defined our trajectory."
+      ]
+    },
+    {
+      "title": "Revenue by Region",
+      "intro": "The following table summarizes quarterly revenue (in millions) by operating region for fiscal year 2025. The Pacific Northwest remains our strongest market, while the Southeast showed the highest growth rate at 34% year-over-year.",
+      "tableData": [
+        { "region": "Pacific Northwest", "q1": "$12.4M", "q2": "$13.1M", "q3": "$14.2M", "q4": "$15.8M" },
+        { "region": "Northern California", "q1": "$8.7M", "q2": "$9.2M", "q3": "$9.8M", "q4": "$10.1M" },
+        { "region": "Southern California", "q1": "$6.3M", "q2": "$6.8M", "q3": "$7.1M", "q4": "$7.5M" },
+        { "region": "Southeast", "q1": "$3.2M", "q2": "$4.1M", "q3": "$4.8M", "q4": "$5.6M" },
+        { "region": "Mountain West", "q1": "$2.1M", "q2": "$2.4M", "q3": "$2.7M", "q4": "$3.0M" },
+        { "region": "Northeast", "q1": "$1.8M", "q2": "$2.0M", "q3": "$2.3M", "q4": "$2.6M" },
+        { "region": "Midwest", "q1": "$0.9M", "q2": "$1.1M", "q3": "$1.3M", "q4": "$1.5M" }
+      ]
+    },
+    {
+      "title": "Visual Analysis",
+      "intro": "The charts below illustrate key trends in regional performance, market share distribution, and quarterly growth trajectory. These visualizations highlight the geographic diversification of our revenue base and the consistent upward trend in overall business performance."
+    },
+    {
+      "title": "Recommendations",
+      "intro": "Based on the analysis presented in this report, the strategy team recommends the following initiatives for fiscal year 2026. Each recommendation includes a priority level and estimated implementation timeline.",
+      "items": [
+        {
+          "title": "Accelerate Southeast Expansion",
+          "description": "The Southeast region demonstrated 34% growth in FY2025 with minimal marketing investment. We recommend opening a regional office in Atlanta and increasing the sales team by 8 headcount to capitalize on this momentum. Initial market analysis suggests a total addressable market of $180M in the Southeast corridor.",
+          "priority": "High",
+          "timeline": "Q1 2026"
+        },
+        {
+          "title": "Launch Enterprise Tier",
+          "description": "Mid-market customers represent 62% of new revenue. A dedicated enterprise tier with custom SLAs, dedicated support, and advanced analytics would unlock expansion revenue from our 200 largest accounts. Target pricing of $50K-150K annually per account.",
+          "priority": "High",
+          "timeline": "Q2 2026"
+        },
+        {
+          "title": "International Pilot Program",
+          "description": "Evaluate expansion into Canada and the UK through a pilot program with 10-15 customers in each market. This would validate demand before committing to full international infrastructure. Estimated investment of $2.4M for a 6-month pilot including localization, compliance, and a small local team.",
+          "priority": "Medium",
+          "timeline": "Q3 2026"
+        },
+        {
+          "title": "Supply Chain Optimization",
+          "description": "Our fulfillment costs grew 12% faster than revenue in Q3-Q4. Implement predictive inventory management and negotiate consolidated shipping agreements to reduce per-unit fulfillment cost by an estimated 15-20%. This initiative alone could improve operating margin by 1.5 percentage points.",
+          "priority": "Medium",
+          "timeline": "Q2 2026"
+        },
+        {
+          "title": "Customer Success Platform",
+          "description": "Invest in a dedicated customer success platform to proactively identify at-risk accounts and expansion opportunities. Current churn analysis is manual and reactive. An automated system could improve retention by an estimated 1-2 percentage points, representing $2-4M in preserved annual revenue.",
+          "priority": "Low",
+          "timeline": "Q4 2026"
+        }
+      ]
+    }
+  ]
+}

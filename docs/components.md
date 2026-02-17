@@ -1,0 +1,331 @@
+# Components
+
+Forme provides 10 components for building PDF documents. All components are imported from `@forme/react`.
+
+```tsx
+import { Document, Page, View, Text, Image, Table, Row, Cell, Fixed, PageBreak } from '@forme/react';
+```
+
+---
+
+## Document
+
+Root container for every Forme document. All other components must be descendants of `<Document>`.
+
+### Props
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `title` | `string` | - | PDF metadata title |
+| `author` | `string` | - | PDF metadata author |
+| `subject` | `string` | - | PDF metadata subject |
+| `creator` | `string` | - | PDF metadata creator application |
+
+### Example
+
+```tsx
+<Document title="Quarterly Report" author="Acme Corp">
+  <Page size="A4" margin={54}>
+    <Text>Hello World</Text>
+  </Page>
+</Document>
+```
+
+Every Forme document starts with `<Document>`. If no `<Page>` children are provided, content uses the default page configuration (Letter size, 54pt margins).
+
+---
+
+## Page
+
+Defines a page boundary with explicit size and margin configuration. Content inside each `<Page>` is laid out independently.
+
+### Props
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `size` | `"A4"` \| `"Letter"` \| `"Legal"` \| `"A3"` \| `"A5"` \| `"Tabloid"` \| `{ width, height }` | `"Letter"` | Page dimensions. Custom sizes are in points (72 points = 1 inch). |
+| `margin` | `number` \| `{ top, right, bottom, left }` | `54` | Page margins in points. A single number applies to all sides. |
+
+### Example
+
+```tsx
+{/* Standard Letter page with 1-inch margins */}
+<Page size="Letter" margin={72}>
+  <Text>US Letter</Text>
+</Page>
+
+{/* Custom 4x6 shipping label */}
+<Page size={{ width: 288, height: 432 }} margin={16}>
+  <Text>Shipping Label</Text>
+</Page>
+
+{/* A4 with different margins per side */}
+<Page size="A4" margin={{ top: 72, right: 54, bottom: 72, left: 54 }}>
+  <Text>A4 with asymmetric margins</Text>
+</Page>
+```
+
+Content that exceeds the page height automatically flows to additional pages with the same size and margins.
+
+---
+
+## View
+
+A flex container, analogous to an HTML `<div>`. Defaults to column layout.
+
+### Props
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `style` | `Style` | - | CSS-like style properties |
+| `wrap` | `boolean` | `true` | Whether this container can break across pages. Set to `false` to keep all children on the same page. |
+
+### Example
+
+```tsx
+{/* Row layout with gap */}
+<View style={{ flexDirection: 'row', gap: 12 }}>
+  <Text>Left</Text>
+  <Text>Right</Text>
+</View>
+
+{/* Card that stays on one page */}
+<View wrap={false} style={{ padding: 16, backgroundColor: '#f8fafc', borderRadius: 8 }}>
+  <Text style={{ fontWeight: 700 }}>Important Card</Text>
+  <Text>This content will not split across pages.</Text>
+</View>
+```
+
+Views use flexbox column layout by default. All flex properties (`flexDirection`, `justifyContent`, `alignItems`, `flexWrap`, `gap`, `flexGrow`, `flexShrink`) are supported.
+
+---
+
+## Text
+
+Renders text content with font properties, colors, and alignment.
+
+### Props
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `style` | `Style` | - | Typography and color styles |
+| `children` | `string \| number` | - | Text content. Nested `<Text>` children are concatenated. |
+
+### Example
+
+```tsx
+{/* Heading */}
+<Text style={{ fontSize: 24, fontWeight: 700, color: '#1e293b' }}>
+  Invoice #2024-001
+</Text>
+
+{/* Body text with line height */}
+<Text style={{ fontSize: 10, lineHeight: 1.6, color: '#475569' }}>
+  Payment is due within 30 days of the invoice date. Late payments
+  are subject to a 1.5% monthly finance charge.
+</Text>
+
+{/* Dynamic page numbers */}
+<Text style={{ fontSize: 9, textAlign: 'center' }}>
+  Page {'{{pageNumber}}'} of {'{{totalPages}}'}
+</Text>
+```
+
+Text wraps automatically based on the available width. Use `{{pageNumber}}` and `{{totalPages}}` placeholders for dynamic page numbering.
+
+---
+
+## Image
+
+Embeds a JPEG or PNG image. Aspect ratio is preserved when only one dimension is specified.
+
+### Props
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `src` | `string` | (required) | Image source: base64 data URI (`data:image/png;base64,...`) or file path |
+| `width` | `number` | - | Display width in points |
+| `height` | `number` | - | Display height in points |
+| `style` | `Style` | - | Additional style properties (margin, etc.) |
+
+### Example
+
+```tsx
+{/* From file path */}
+<Image src="./logo.png" width={120} />
+
+{/* From data URI with both dimensions */}
+<Image src="data:image/png;base64,iVBOR..." width={200} height={100} />
+
+{/* With margin */}
+<Image src="./photo.jpg" width={300} style={{ marginBottom: 16 }} />
+```
+
+If only `width` is provided, height is calculated from the image's aspect ratio (and vice versa). Both JPEG and PNG formats are supported, including PNG transparency.
+
+---
+
+## Table
+
+Table container with column definitions. Children should be `<Row>` elements.
+
+### Props
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `columns` | `ColumnDef[]` | - | Column width definitions |
+| `style` | `Style` | - | Style properties for the table container |
+
+### Column width types
+
+| Type | Example | Description |
+|------|---------|-------------|
+| `{ fraction: number }` | `{ fraction: 0.5 }` | Proportional width (0.5 = 50% of table width) |
+| `{ fixed: number }` | `{ fixed: 100 }` | Fixed width in points |
+| `"auto"` | `"auto"` | Size to content |
+
+### Example
+
+```tsx
+<Table columns={[
+  { width: { fraction: 0.5 } },
+  { width: { fraction: 0.2 } },
+  { width: { fraction: 0.15 } },
+  { width: { fraction: 0.15 } }
+]}>
+  <Row header style={{ backgroundColor: '#1e293b' }}>
+    <Cell style={{ padding: 8 }}><Text style={{ color: '#fff', fontWeight: 700 }}>Item</Text></Cell>
+    <Cell style={{ padding: 8 }}><Text style={{ color: '#fff', fontWeight: 700 }}>Qty</Text></Cell>
+    <Cell style={{ padding: 8 }}><Text style={{ color: '#fff', fontWeight: 700 }}>Price</Text></Cell>
+    <Cell style={{ padding: 8 }}><Text style={{ color: '#fff', fontWeight: 700 }}>Total</Text></Cell>
+  </Row>
+  <Row>
+    <Cell style={{ padding: 8 }}><Text>Widget</Text></Cell>
+    <Cell style={{ padding: 8 }}><Text>5</Text></Cell>
+    <Cell style={{ padding: 8 }}><Text>$10.00</Text></Cell>
+    <Cell style={{ padding: 8 }}><Text>$50.00</Text></Cell>
+  </Row>
+</Table>
+```
+
+Tables automatically break across pages between rows. Header rows (marked with `header`) are repeated at the top of each continuation page.
+
+---
+
+## Row
+
+A table row. Must be a direct child of `<Table>`.
+
+### Props
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `header` | `boolean` | `false` | Whether this is a header row. Header rows repeat on every page when a table spans multiple pages. |
+| `style` | `Style` | - | Style properties (e.g., `backgroundColor` for alternating rows) |
+
+### Example
+
+```tsx
+{/* Header row that repeats on page breaks */}
+<Row header style={{ backgroundColor: '#f1f5f9' }}>
+  <Cell><Text style={{ fontWeight: 700 }}>Name</Text></Cell>
+  <Cell><Text style={{ fontWeight: 700 }}>Value</Text></Cell>
+</Row>
+
+{/* Alternating row colors */}
+<Row style={{ backgroundColor: '#ffffff' }}>
+  <Cell><Text>Row 1</Text></Cell>
+  <Cell><Text>Value 1</Text></Cell>
+</Row>
+<Row style={{ backgroundColor: '#f8fafc' }}>
+  <Cell><Text>Row 2</Text></Cell>
+  <Cell><Text>Value 2</Text></Cell>
+</Row>
+```
+
+---
+
+## Cell
+
+A table cell inside a `<Row>`.
+
+### Props
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `colSpan` | `number` | `1` | Number of columns this cell spans |
+| `rowSpan` | `number` | `1` | Number of rows this cell spans |
+| `style` | `Style` | - | Style properties (padding, background, etc.) |
+
+### Example
+
+```tsx
+{/* Standard cell */}
+<Cell style={{ padding: 8 }}>
+  <Text>Cell content</Text>
+</Cell>
+
+{/* Spanning two columns */}
+<Cell colSpan={2} style={{ padding: 8, backgroundColor: '#f1f5f9' }}>
+  <Text>This spans two columns</Text>
+</Cell>
+```
+
+Cells can contain any Forme element, not just Text.
+
+---
+
+## Fixed
+
+An element that repeats on every page as a header or footer. Reduces the available content area on each page.
+
+### Props
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `position` | `"header"` \| `"footer"` | (required) | Whether to place at the top or bottom of each page |
+| `style` | `Style` | - | Style properties |
+
+### Example
+
+```tsx
+<Page size="Letter" margin={54}>
+  <Fixed position="header">
+    <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingBottom: 8, borderWidth: { top: 0, right: 0, bottom: 1, left: 0 }, borderColor: '#e2e8f0' }}>
+      <Text style={{ fontSize: 10, fontWeight: 700 }}>Acme Corp</Text>
+      <Text style={{ fontSize: 10, color: '#64748b' }}>Confidential</Text>
+    </View>
+  </Fixed>
+
+  <Fixed position="footer">
+    <Text style={{ fontSize: 9, textAlign: 'center', color: '#94a3b8' }}>
+      Page {'{{pageNumber}}'} of {'{{totalPages}}'}
+    </Text>
+  </Fixed>
+
+  {/* Page content goes here */}
+  <Text>This content area is reduced by the header and footer heights.</Text>
+</Page>
+```
+
+Use `{{pageNumber}}` and `{{totalPages}}` placeholders inside Fixed elements for automatic page numbering.
+
+---
+
+## PageBreak
+
+Forces content after this element to start on a new page.
+
+### Props
+
+None.
+
+### Example
+
+```tsx
+<Text>This is on page 1.</Text>
+<PageBreak />
+<Text>This is on page 2.</Text>
+```
+
+PageBreak is useful for separating document sections (e.g., cover page from content, or chapters from each other).

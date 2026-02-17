@@ -1,0 +1,158 @@
+# Page Breaks
+
+Forme's layout engine is page-native. Every layout decision, from flex calculations to text wrapping, is made with the page boundary as a hard constraint. This page explains how content flows across pages and how to control that behavior.
+
+## Automatic page breaks
+
+When content exceeds the available space on a page, Forme automatically moves it to a new page. This happens at natural boundaries:
+
+- **Between children** of a View container
+- **Between rows** of a Table
+- **Between lines** of a Text block
+
+```tsx
+<Page size="Letter" margin={54}>
+  {/* If these items don't all fit on one page, they flow to the next */}
+  <View>
+    <Text>Item 1</Text>
+    <Text>Item 2</Text>
+    {/* ...more items... */}
+    <Text>Item 50</Text>
+  </View>
+</Page>
+```
+
+You do not need to calculate page heights or manually manage pagination. The engine handles it.
+
+## Manual page breaks
+
+Use `<PageBreak />` to force content onto a new page:
+
+```tsx
+<Text style={{ fontSize: 24, fontWeight: 700 }}>Chapter 1</Text>
+<Text>Chapter content...</Text>
+
+<PageBreak />
+
+<Text style={{ fontSize: 24, fontWeight: 700 }}>Chapter 2</Text>
+<Text>Next chapter starts on a fresh page.</Text>
+```
+
+You can also use the `breakBefore` style property:
+
+```tsx
+<View style={{ breakBefore: true }}>
+  <Text style={{ fontSize: 24, fontWeight: 700 }}>Chapter 2</Text>
+</View>
+```
+
+## Non-breakable elements
+
+Set `wrap={false}` on a View to prevent it from splitting across pages. If the element doesn't fit on the current page, it moves entirely to the next page.
+
+```tsx
+<View wrap={false} style={{ padding: 16, backgroundColor: '#f8fafc', borderRadius: 8 }}>
+  <Text style={{ fontWeight: 700 }}>Key Finding</Text>
+  <Text>This card and all its content will always appear on the same page.</Text>
+  <Text>If it doesn't fit in the remaining space, the whole card moves to the next page.</Text>
+</View>
+```
+
+This is useful for cards, summary blocks, and other elements where splitting would look wrong.
+
+## Fixed headers and footers
+
+Use `<Fixed>` to repeat content on every page. Fixed elements reduce the available content area.
+
+```tsx
+<Page size="Letter" margin={54}>
+  <Fixed position="header">
+    <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingBottom: 8, borderWidth: { top: 0, right: 0, bottom: 1, left: 0 }, borderColor: '#e2e8f0' }}>
+      <Text style={{ fontSize: 10, fontWeight: 700 }}>Acme Corp</Text>
+      <Text style={{ fontSize: 10, color: '#94a3b8' }}>Annual Report 2025</Text>
+    </View>
+  </Fixed>
+
+  <Fixed position="footer">
+    <View style={{ paddingTop: 8, borderWidth: { top: 1, right: 0, bottom: 0, left: 0 }, borderColor: '#e2e8f0' }}>
+      <Text style={{ fontSize: 9, textAlign: 'center', color: '#94a3b8' }}>
+        Page {'{{pageNumber}}'} of {'{{totalPages}}'}
+      </Text>
+    </View>
+  </Fixed>
+
+  {/* Content area is reduced by header and footer height */}
+  <Text>Document content here...</Text>
+</Page>
+```
+
+Fixed elements appear in the page margin area (between the page edge and the content boundary). They are drawn on every page that the parent `<Page>` produces.
+
+## Dynamic page numbers
+
+Use these placeholders in any `<Text>` element:
+
+| Placeholder | Description |
+|-------------|-------------|
+| `{{pageNumber}}` | Current page number (1-based) |
+| `{{totalPages}}` | Total number of pages in the document |
+
+```tsx
+<Text>Page {'{{pageNumber}}'} of {'{{totalPages}}'}</Text>
+```
+
+Page numbers are resolved after the full layout pass, so `{{totalPages}}` is always accurate. These are commonly used inside `<Fixed>` elements but work anywhere.
+
+## Table header repetition
+
+When a table spans multiple pages, header rows (marked with `header`) are automatically repeated at the top of each continuation page.
+
+```tsx
+<Table columns={[{ width: { fraction: 0.6 } }, { width: { fraction: 0.4 } }]}>
+  <Row header style={{ backgroundColor: '#1e293b' }}>
+    <Cell style={{ padding: 8 }}><Text style={{ color: '#fff', fontWeight: 700 }}>Product</Text></Cell>
+    <Cell style={{ padding: 8 }}><Text style={{ color: '#fff', fontWeight: 700 }}>Revenue</Text></Cell>
+  </Row>
+  {/* If these 100 rows span 3 pages, the header appears on all 3 */}
+  {data.map((row, i) => (
+    <Row key={i}>
+      <Cell style={{ padding: 8 }}><Text>{row.product}</Text></Cell>
+      <Cell style={{ padding: 8 }}><Text>{row.revenue}</Text></Cell>
+    </Row>
+  ))}
+</Table>
+```
+
+No configuration needed. Mark a row as `header` and it repeats automatically.
+
+## Flex layout across page breaks
+
+This is the core differentiator from other PDF tools. When a flex container splits across pages, Forme runs independent flex calculations for each page fragment.
+
+Consider a row layout with three items where the container splits after the second item:
+
+```tsx
+<View style={{ flexDirection: 'row', gap: 12, flexWrap: 'wrap' }}>
+  <View style={{ flexGrow: 1 }}><Text>Item 1</Text></View>
+  <View style={{ flexGrow: 1 }}><Text>Item 2</Text></View>
+  <View style={{ flexGrow: 1 }}><Text>Item 3</Text></View>
+</View>
+```
+
+In Forme, each page fragment gets its own flex pass. Items on page 1 fill that page's width correctly, and items on page 2 fill that page's width correctly.
+
+In tools that use the infinite-canvas-then-slice approach, flex runs once on the full container, then the result is sliced. This produces incorrect widths on both pages because the flex math assumed all items were on one line.
+
+## How it differs from react-pdf
+
+react-pdf lays out content on an infinite vertical canvas and then slices it into pages. This causes several problems:
+
+1. **Flex breaks on page boundaries.** A flex row that gets sliced has its distribution calculated for the full container, then cut in half. Both halves have wrong proportions.
+
+2. **Tables break mid-row.** Without page-aware row placement, a table row can be sliced between its top and bottom border.
+
+3. **No header repetition.** Since the table is just a set of rectangles on an infinite canvas, there is no concept of "repeat this row at the top of each page."
+
+4. **No post-split adjustment.** After slicing, there is no second layout pass to fix the fragments. What you see is the result of a single layout pass on the wrong dimensions.
+
+Forme avoids all of these problems because the page is the fundamental unit of layout. Every decision is made with the page boundary in mind from the start.

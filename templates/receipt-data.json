@@ -1,0 +1,24 @@
+{
+  "receiptNumber": "R-84291",
+  "date": "February 14, 2026",
+  "taxRate": 0.0875,
+  "store": {
+    "name": "Golden Gate Provisions",
+    "address": "742 Valencia Street",
+    "cityStateZip": "San Francisco, CA 94110",
+    "phone": "(415) 555-0198",
+    "website": "www.goldengateprovisions.com"
+  },
+  "items": [
+    { "name": "Organic Sourdough Loaf", "price": 7.50, "quantity": 2 },
+    { "name": "Heirloom Tomatoes (1 lb)", "price": 5.99, "quantity": 1 },
+    { "name": "Local Wildflower Honey (12 oz)", "price": 12.00, "quantity": 1 },
+    { "name": "Free-Range Eggs (dozen)", "price": 8.50, "quantity": 1 },
+    { "name": "Artisan Cheddar (8 oz)", "price": 9.75, "quantity": 1 },
+    { "name": "Cold Brew Coffee (16 oz)", "price": 6.50, "quantity": 2 },
+    { "name": "Mixed Greens Salad Kit", "price": 7.25, "quantity": 1 },
+    { "name": "Sparkling Water (6-pack)", "price": 5.99, "quantity": 1 }
+  ],
+  "paymentMethod": "Visa",
+  "cardLastFour": "4821"
+}

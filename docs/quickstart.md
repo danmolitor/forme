@@ -1,0 +1,134 @@
+# Quick Start
+
+Your first PDF in 60 seconds.
+
+## 1. Install
+
+```bash
+npm install forme @forme/react @forme/core
+```
+
+## 2. Create a file
+
+Create `invoice.tsx`:
+
+```tsx
+import { Document, Page, View, Text } from '@forme/react';
+
+export default (
+  <Document title="My First Invoice">
+    <Page size="Letter" margin={54}>
+      <Text style={{ fontSize: 28, fontWeight: 700, color: '#1e293b' }}>Invoice</Text>
+
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 24 }}>
+        <View>
+          <Text style={{ fontSize: 10, color: '#64748b' }}>Bill To</Text>
+          <Text style={{ fontSize: 12, fontWeight: 700, marginTop: 4 }}>Jane Smith</Text>
+          <Text style={{ fontSize: 10, color: '#475569' }}>Acme Corp</Text>
+        </View>
+        <View style={{ alignItems: 'flex-end' }}>
+          <Text style={{ fontSize: 10, color: '#64748b' }}>Invoice #001</Text>
+          <Text style={{ fontSize: 10, color: '#64748b', marginTop: 4 }}>Due: March 1, 2026</Text>
+        </View>
+      </View>
+
+      <View style={{ marginTop: 32, padding: 12, backgroundColor: '#f8fafc', borderRadius: 4 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          <Text style={{ fontSize: 10 }}>Website Redesign</Text>
+          <Text style={{ fontSize: 10, fontWeight: 700 }}>$3,500.00</Text>
+        </View>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
+          <Text style={{ fontSize: 10 }}>Hosting (12 months)</Text>
+          <Text style={{ fontSize: 10, fontWeight: 700 }}>$600.00</Text>
+        </View>
+      </View>
+
+      <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 16 }}>
+        <View style={{ padding: 12, backgroundColor: '#1e293b', borderRadius: 4 }}>
+          <Text style={{ fontSize: 14, fontWeight: 700, color: '#ffffff' }}>Total: $4,100.00</Text>
+        </View>
+      </View>
+    </Page>
+  </Document>
+);
+```
+
+## 3. Preview in the browser
+
+```bash
+npx forme dev invoice.tsx
+```
+
+Open [http://localhost:4242](http://localhost:4242). You will see your invoice rendered as a PDF in the browser with live reload. Edit `invoice.tsx` and the preview updates instantly.
+
+Use the toolbar to toggle debug overlays:
+- **Layout mode** shows element boundaries
+- **Margins mode** visualizes spacing
+- **Breaks mode** marks page break points
+
+Click any element to inspect its computed styles and box model.
+
+## 4. Build to PDF
+
+```bash
+npx forme build invoice.tsx -o invoice.pdf
+```
+
+This writes a valid PDF file. Open it in any PDF viewer.
+
+## 5. Use in your app
+
+For programmatic use, call `renderDocument()` directly:
+
+```tsx
+import { Document, Page, Text } from '@forme/react';
+import { renderDocument } from '@forme/core';
+
+const pdfBytes = await renderDocument(
+  <Document>
+    <Page size="Letter" margin={36}>
+      <Text>Hello from Forme</Text>
+    </Page>
+  </Document>
+);
+
+// pdfBytes is a Uint8Array
+// Save to file, return from an API, attach to an email, etc.
+```
+
+### With dynamic data
+
+Export a function instead of a static element:
+
+```tsx
+import { Document, Page, View, Text } from '@forme/react';
+
+export default function Invoice(data: any) {
+  return (
+    <Document>
+      <Page size="Letter" margin={54}>
+        <Text style={{ fontSize: 24, fontWeight: 700 }}>{data.title}</Text>
+        {data.items.map((item: any, i: number) => (
+          <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
+            <Text style={{ fontSize: 10 }}>{item.name}</Text>
+            <Text style={{ fontSize: 10 }}>${item.price.toFixed(2)}</Text>
+          </View>
+        ))}
+      </Page>
+    </Document>
+  );
+}
+```
+
+Then pass data via the `--data` flag:
+
+```bash
+npx forme build invoice.tsx --data data.json -o invoice.pdf
+```
+
+## Next steps
+
+- [Components reference](./components.md) for all available components and props
+- [Styles reference](./styles.md) for every supported style property
+- [Page breaks](./page-breaks.md) for controlling how content flows across pages
+- [Templates](https://github.com/user/forme/tree/main/templates) for production-ready examples

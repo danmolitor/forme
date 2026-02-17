@@ -1,0 +1,222 @@
+# Replacing Puppeteer
+
+If you are using Puppeteer (or Playwright) to generate PDFs from HTML, Forme can simplify your pipeline and improve performance. This guide covers the before/after comparison and when Puppeteer is still the right choice.
+
+## The Puppeteer pipeline
+
+A typical Puppeteer PDF generation setup looks like this:
+
+```js
+const puppeteer = require('puppeteer');
+const express = require('express');
+const app = express();
+
+app.post('/generate-pdf', async (req, res) => {
+  let browser;
+  try {
+    // 1. Launch a headless Chrome instance
+    browser = await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    });
+
+    // 2. Create a new page
+    const page = await browser.newPage();
+
+    // 3. Build an HTML string with your data
+    const html = `
+      <html>
+        <head>
+          <style>
+            body { font-family: Arial; margin: 40px; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            @media print { .no-break { page-break-inside: avoid; } }
+          </style>
+        </head>
+        <body>
+          <h1>Invoice #${req.body.invoiceNumber}</h1>
+          <table>
+            <tr><th>Item</th><th>Price</th></tr>
+            ${req.body.items.map(i => `<tr><td>${i.name}</td><td>$${i.price}</td></tr>`).join('')}
+          </table>
+        </body>
+      </html>
+    `;
+
+    // 4. Set the HTML content
+    await page.setContent(html, { waitUntil: 'networkidle0' });
+
+    // 5. Generate the PDF
+    const pdf = await page.pdf({
+      format: 'Letter',
+      margin: { top: '0.5in', right: '0.5in', bottom: '0.5in', left: '0.5in' },
+      printBackground: true,
+    });
+
+    // 6. Return the PDF
+    res.contentType('application/pdf');
+    res.send(pdf);
+  } finally {
+    // 7. Clean up the browser
+    if (browser) await browser.close();
+  }
+});
+```
+
+This approach has several costs:
+
+- **Chrome dependency.** You need Chromium installed in your environment. Docker images with Chromium are 400MB+.
+- **Startup time.** Launching Chrome takes 500ms-2s. Even with browser pooling, each page creation adds latency.
+- **Memory.** Each Chrome process uses 50-200MB of RAM. Under load, memory pressure causes crashes.
+- **Page break fragility.** CSS `page-break-inside: avoid` is a suggestion, not a guarantee. Chrome sometimes ignores it, especially with complex layouts.
+- **No repeating headers.** There is no CSS mechanism to repeat table headers on every page. Chrome's `thead` repetition is inconsistent.
+- **Security surface.** Running a headless browser in production introduces a class of vulnerabilities (navigation to malicious URLs, resource exhaustion, sandbox escapes).
+
+## The Forme equivalent
+
+```tsx
+import { Document, Page, View, Text, Table, Row, Cell } from '@forme/react';
+import { renderDocument } from '@forme/core';
+
+app.post('/generate-pdf', async (req, res) => {
+  const pdf = await renderDocument(
+    <Document>
+      <Page size="Letter" margin={36}>
+        <Text style={{ fontSize: 24, fontWeight: 700 }}>
+          Invoice #{req.body.invoiceNumber}
+        </Text>
+        <Table columns={[{ width: { fraction: 0.6 } }, { width: { fraction: 0.4 } }]}>
+          <Row header style={{ backgroundColor: '#f1f5f9' }}>
+            <Cell style={{ padding: 8 }}><Text style={{ fontWeight: 700 }}>Item</Text></Cell>
+            <Cell style={{ padding: 8 }}><Text style={{ fontWeight: 700 }}>Price</Text></Cell>
+          </Row>
+          {req.body.items.map((item, i) => (
+            <Row key={i}>
+              <Cell style={{ padding: 8 }}><Text>{item.name}</Text></Cell>
+              <Cell style={{ padding: 8 }}><Text>${item.price}</Text></Cell>
+            </Row>
+          ))}
+        </Table>
+      </Page>
+    </Document>
+  );
+
+  res.contentType('application/pdf');
+  res.send(Buffer.from(pdf));
+});
+```
+
+No browser. No subprocess. No cleanup. The `renderDocument()` call runs a WASM module in-process and returns PDF bytes.
+
+## Performance comparison
+
+| Metric | Puppeteer | Forme |
+|--------|-----------|-------|
+| Simple invoice | ~1-3 seconds | ~5-15 milliseconds |
+| Memory per render | 50-200MB (Chrome process) | ~2-5MB (WASM) |
+| Docker image size | 400MB+ (with Chromium) | Same as your Node.js base image |
+| Concurrent renders | Limited by Chrome processes | Limited by CPU cores |
+| Cold start (serverless) | 3-10 seconds | <100 milliseconds |
+| Dependencies | Chromium binary | None (WASM) |
+
+For serverless environments (AWS Lambda, Vercel, Cloudflare Workers), the difference is dramatic. Puppeteer's cold start is measured in seconds. Forme's cold start is the time it takes to load a WASM module.
+
+## Step-by-step migration
+
+### 1. Install Forme
+
+```bash
+npm install @forme/react @forme/core
+```
+
+### 2. Convert your HTML template to JSX
+
+Map your HTML structure to Forme components:
+
+| HTML | Forme |
+|------|-------|
+| `<div>` | `<View>` |
+| `<p>`, `<span>`, `<h1>` | `<Text>` with appropriate styles |
+| `<table>` | `<Table>` + `<Row>` + `<Cell>` |
+| `<img>` | `<Image>` |
+| CSS classes | Inline `style` objects |
+
+### 3. Replace the render call
+
+**Before:**
+```js
+const browser = await puppeteer.launch();
+const page = await browser.newPage();
+await page.setContent(html);
+const pdf = await page.pdf({ format: 'Letter' });
+await browser.close();
+```
+
+**After:**
+```tsx
+const pdf = await renderDocument(<MyDocument data={data} />);
+```
+
+### 4. Remove Puppeteer dependencies
+
+```bash
+npm uninstall puppeteer
+```
+
+Remove any Chromium-related Dockerfile steps, browser pool management code, and Chrome process monitoring.
+
+## When Puppeteer is still the right choice
+
+Forme is not a drop-in replacement for every Puppeteer use case. Keep Puppeteer if:
+
+1. **You are rendering existing HTML/CSS you do not control.** If you receive HTML from a CMS, email template system, or third-party API and need to convert it to PDF, Puppeteer renders arbitrary HTML. Forme requires you to rewrite the template in JSX.
+
+2. **You need full CSS support.** Forme supports a subset of CSS (flexbox, basic typography, borders, backgrounds). If your templates rely on CSS Grid, CSS animations, `position: absolute`, or other advanced CSS features, Puppeteer handles all of them.
+
+3. **You need SVG rendering.** Forme does not render SVG. If your PDFs contain charts from D3, Chart.js, or other SVG-based libraries, Puppeteer renders them natively.
+
+4. **You need JavaScript execution.** If your template includes client-side JavaScript that modifies the DOM before rendering (e.g., charting libraries, dynamic calculations), Puppeteer executes it. Forme templates are static at render time.
+
+5. **You need screenshots, not PDFs.** Puppeteer captures screenshots of web pages. Forme only produces PDFs.
+
+## Common patterns
+
+### Conditional page breaks
+
+**Puppeteer:** `@media print { .section { page-break-before: always; } }` (unreliable)
+
+**Forme:**
+```tsx
+<PageBreak />
+{/* or */}
+<View style={{ breakBefore: true }}>
+  <Text>New section</Text>
+</View>
+```
+
+### Repeating headers
+
+**Puppeteer:** Use `<thead>` and hope Chrome repeats it (it often does not)
+
+**Forme:**
+```tsx
+<Row header>
+  <Cell><Text>Column Header</Text></Cell>
+</Row>
+```
+
+Header rows repeat on every page, guaranteed.
+
+### Page numbers
+
+**Puppeteer:** CSS `@page { @bottom-center { content: counter(page); } }` (limited styling)
+
+**Forme:**
+```tsx
+<Fixed position="footer">
+  <Text>Page {'{{pageNumber}}'} of {'{{totalPages}}'}</Text>
+</Fixed>
+```
+
+Full styling control over the page number element.

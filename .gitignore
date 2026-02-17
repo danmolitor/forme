@@ -1,4 +1,29 @@
+# Rust
+engine/target/
+
+# WASM build output
+packages/core/pkg/
+
+# Node
 node_modules/
+dist/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
 .idea/
-task.txt
-test-preview.tsx
+*.swp
+*.swo
+
+# Environment
+.env
+.env.*
+
+# Scratch files
+test-*.tsx
+test-*.json
+/tmp/
+*.pdf

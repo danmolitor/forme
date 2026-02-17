@@ -467,9 +467,25 @@ export function mapStyle(style?: Style): FormeStyle {
   if (style.maxWidth !== undefined) result.maxWidth = mapDimension(style.maxWidth);
   if (style.maxHeight !== undefined) result.maxHeight = mapDimension(style.maxHeight);
 
-  // Edges
-  if (style.padding !== undefined) result.padding = expandEdges(style.padding);
-  if (style.margin !== undefined) result.margin = expandEdges(style.margin);
+  // Edges (individual properties override the shorthand)
+  if (style.padding !== undefined || style.paddingTop !== undefined || style.paddingRight !== undefined || style.paddingBottom !== undefined || style.paddingLeft !== undefined) {
+    const base = style.padding !== undefined ? expandEdges(style.padding) : { top: 0, right: 0, bottom: 0, left: 0 };
+    result.padding = {
+      top: style.paddingTop ?? base.top,
+      right: style.paddingRight ?? base.right,
+      bottom: style.paddingBottom ?? base.bottom,
+      left: style.paddingLeft ?? base.left,
+    };
+  }
+  if (style.margin !== undefined || style.marginTop !== undefined || style.marginRight !== undefined || style.marginBottom !== undefined || style.marginLeft !== undefined) {
+    const base = style.margin !== undefined ? expandEdges(style.margin) : { top: 0, right: 0, bottom: 0, left: 0 };
+    result.margin = {
+      top: style.marginTop ?? base.top,
+      right: style.marginRight ?? base.right,
+      bottom: style.marginBottom ?? base.bottom,
+      left: style.marginLeft ?? base.left,
+    };
+  }
 
   // Flex
   if (style.flexDirection !== undefined) result.flexDirection = FLEX_DIRECTION_MAP[style.flexDirection];
