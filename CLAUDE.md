@@ -108,6 +108,18 @@ Transform in pdf serializer: `pdf_y = page_height - layout_y - element_height`
 ### Fixed Height Containers
 `SizeConstraint::Fixed(h)` is respected in both `layout_view` (for the container's own Rect height) and `measure_node_height` (so parent containers measure children correctly). When a fixed height is set, it takes precedence over computed children height.
 
+### Column justify-content + align-items
+`layout_children` column branch applies `justify-content` (vertical distribution) and `align-items` (horizontal alignment) as post-layout adjustments. Requires a fixed parent height for justify-content to have slack to distribute. Supports all standard values: `flex-start`, `flex-end`, `center`, `space-between`, `space-around`, `space-evenly`. `align-items` supports `flex-start`, `flex-end`, `center`, and `stretch` (default).
+
+### Flex Min-Content Width
+During flex shrink in `layout_flex_row`, items cannot be compressed below their min-content width (the widest unbreakable word in text nodes). This prevents short words from wrapping inside flex children. Computed by `measure_min_content_width` which delegates to `TextLayout::measure_widest_word` for text nodes.
+
+### Absolute Positioning
+`position: 'absolute'` places children relative to their parent's content box, not the page. `top`, `right`, `bottom`, `left` are offsets from the parent's padding edge. Implemented via `parent_box_x` / `parent_box_y` saved at the start of `layout_children`.
+
+### Per-Run Text Decoration
+In multi-style text (`TextRun`), decorations like `line-through` and `underline` are applied per-glyph-group in the PDF serializer, not per-line. Each `PositionedGlyph` carries its own `text_decoration` field. This means `<Text>$42.00<Text style={{textDecoration: 'line-through'}}> $56.00</Text></Text>` only strikes through the second span.
+
 ## Known Issues & Limitations (Current State)
 
 1. No Knuth-Plass line breaking (using greedy algorithm — fine for documents).

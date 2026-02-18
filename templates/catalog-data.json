@@ -1,0 +1,151 @@
+{
+  "company": {
+    "name": "Forme Supply Co.",
+    "tagline": "Curated essentials for the modern workspace"
+  },
+  "categories": [
+    {
+      "name": "Desk Accessories",
+      "products": [
+        {
+          "name": "Walnut Monitor Stand",
+          "url": "https://example.com/products/walnut-monitor-stand",
+          "price": 89.00,
+          "originalPrice": 119.00,
+          "description": "Solid walnut construction with cable management slots. Elevates your screen to ergonomic height.",
+          "badge": "SALE",
+          "color": "#8B5E3C"
+        },
+        {
+          "name": "Brass Desk Lamp",
+          "url": "https://example.com/products/brass-desk-lamp",
+          "price": 145.00,
+          "description": "Adjustable arm with warm LED. Brushed brass finish that develops a natural patina over time.",
+          "color": "#B8860B"
+        },
+        {
+          "name": "Leather Desk Mat",
+          "url": "https://example.com/products/leather-desk-mat",
+          "price": 65.00,
+          "description": "Full-grain vegetable-tanned leather. Provides a smooth surface for writing and mouse tracking.",
+          "badge": "NEW",
+          "color": "#654321"
+        },
+        {
+          "name": "Concrete Pen Holder",
+          "url": "https://example.com/products/concrete-pen-holder",
+          "price": 34.00,
+          "description": "Hand-poured concrete with cork base. Holds up to twelve pens and pencils upright.",
+          "color": "#A9A9A9"
+        }
+      ]
+    },
+    {
+      "name": "Organization",
+      "products": [
+        {
+          "name": "Stackable Filing Trays",
+          "url": "https://example.com/products/stackable-filing-trays",
+          "price": 42.00,
+          "originalPrice": 56.00,
+          "description": "Powder-coated steel with felt pads. Set of three trays that stack or stand alone.",
+          "badge": "SALE",
+          "color": "#2F4F4F"
+        },
+        {
+          "name": "Cork Pinboard",
+          "url": "https://example.com/products/cork-pinboard",
+          "price": 38.00,
+          "description": "Self-healing Portuguese cork in a maple frame. Mounts horizontally or vertically.",
+          "color": "#D2A679"
+        },
+        {
+          "name": "Magnetic Cable Clips",
+          "url": "https://example.com/products/magnetic-cable-clips",
+          "price": 18.00,
+          "description": "Silicone-wrapped neodymium magnets. Keeps charging cables tidy and within reach.",
+          "badge": "NEW",
+          "color": "#4A4A4A"
+        },
+        {
+          "name": "Bamboo Drawer Dividers",
+          "url": "https://example.com/products/bamboo-drawer-dividers",
+          "price": 28.00,
+          "description": "Adjustable spring-loaded dividers that fit drawers from twelve to twenty inches wide.",
+          "color": "#C4A35A"
+        }
+      ]
+    },
+    {
+      "name": "Writing Instruments",
+      "products": [
+        {
+          "name": "Titanium Ballpoint Pen",
+          "url": "https://example.com/products/titanium-ballpoint-pen",
+          "price": 72.00,
+          "description": "CNC-machined titanium body with ceramic ball tip. Accepts standard Parker-style refills.",
+          "color": "#708090"
+        },
+        {
+          "name": "Fountain Pen Starter Set",
+          "url": "https://example.com/products/fountain-pen-starter-set",
+          "price": 55.00,
+          "originalPrice": 68.00,
+          "description": "Includes pen body, converter, and three ink cartridges. Medium nib suitable for everyday writing.",
+          "badge": "SALE",
+          "color": "#1B3F5C"
+        },
+        {
+          "name": "Mechanical Pencil 0.5mm",
+          "url": "https://example.com/products/mechanical-pencil",
+          "price": 24.00,
+          "description": "Weighted brass barrel with retractable tip. Built-in sharpener under the cap eraser.",
+          "color": "#CD853F"
+        },
+        {
+          "name": "Archival Ink Set",
+          "url": "https://example.com/products/archival-ink-set",
+          "price": 36.00,
+          "description": "Five bottles of fade-resistant, waterproof ink. Colors include black, blue, sepia, green, and red.",
+          "badge": "NEW",
+          "color": "#2E2E2E"
+        }
+      ]
+    },
+    {
+      "name": "Notebooks & Paper",
+      "products": [
+        {
+          "name": "Linen Hardcover Journal",
+          "url": "https://example.com/products/linen-hardcover-journal",
+          "price": 32.00,
+          "description": "192 pages of acid-free, fountain-pen-friendly paper. Lay-flat binding with ribbon bookmark.",
+          "color": "#5B7065"
+        },
+        {
+          "name": "Graph Paper Pad",
+          "url": "https://example.com/products/graph-paper-pad",
+          "price": 14.00,
+          "description": "Five-millimeter grid on eighty-pound stock. Micro-perforated for clean tear-out.",
+          "color": "#87CEEB"
+        },
+        {
+          "name": "Dotted Notebook 3-Pack",
+          "url": "https://example.com/products/dotted-notebook-3pack",
+          "price": 22.00,
+          "originalPrice": 30.00,
+          "description": "Soft-cover notebooks with five-millimeter dot grid. Ideal for bullet journaling and sketches.",
+          "badge": "SALE",
+          "color": "#D4A574"
+        },
+        {
+          "name": "Premium Sticky Notes",
+          "url": "https://example.com/products/premium-sticky-notes",
+          "price": 12.00,
+          "description": "Repositionable adhesive on heavyweight stock. Six pads in warm neutral tones.",
+          "color": "#F0E68C"
+        }
+      ]
+    }
+  ]
+}

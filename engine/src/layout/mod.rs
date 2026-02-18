@@ -97,6 +97,16 @@ pub struct ElementStyleInfo {
     pub border_color: EdgeValues<Color>,
     pub border_radius: CornerValues,
     pub opacity: f64,
+    // Positioning
+    pub position: Position,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub top: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub right: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bottom: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub left: Option<f64>,
 }
 
 impl ElementStyleInfo {
@@ -122,6 +132,11 @@ impl ElementStyleInfo {
             border_color: style.border_color,
             border_radius: style.border_radius,
             opacity: style.opacity,
+            position: style.position,
+            top: style.top,
+            right: style.right,
+            bottom: style.bottom,
+            left: style.left,
         }
     }
 }
@@ -149,6 +164,11 @@ impl Default for ElementStyleInfo {
             border_color: EdgeValues::uniform(Color::BLACK),
             border_radius: CornerValues::uniform(0.0),
             opacity: 1.0,
+            position: Position::default(),
+            top: None,
+            right: None,
+            bottom: None,
+            left: None,
         }
     }
 }

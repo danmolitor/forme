@@ -1228,6 +1228,18 @@
     // Computed styles
     let html = '';
 
+    const posProps = [];
+    if (s.position && s.position !== 'Relative') {
+      posProps.push(['position', s.position.toLowerCase()]);
+      if (s.top != null) posProps.push(['top', fmt(s.top) + 'pt']);
+      if (s.right != null) posProps.push(['right', fmt(s.right) + 'pt']);
+      if (s.bottom != null) posProps.push(['bottom', fmt(s.bottom) + 'pt']);
+      if (s.left != null) posProps.push(['left', fmt(s.left) + 'pt']);
+    }
+    if (posProps.length) {
+      html += renderStyleSection('Positioning', posProps);
+    }
+
     const layoutProps = [];
     if (s.flexDirection !== 'Column') layoutProps.push(['flex-direction', s.flexDirection]);
     if (s.justifyContent !== 'FlexStart') layoutProps.push(['justify-content', s.justifyContent]);

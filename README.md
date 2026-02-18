@@ -54,6 +54,8 @@ Live preview with debug overlays. Click any element to inspect its computed styl
 - **Flex wrap + align-content**: Flex containers wrap across pages correctly. `align-content` distributes wrapped lines (`center`, `space-between`, `space-around`, `space-evenly`, `flex-end`, `stretch`).
 - **Widow/orphan control**: Text paragraphs never leave a single orphan line at the bottom of a page or a single widow line at the top. Configurable via `minWidowLines` and `minOrphanLines`.
 - **Table overflow**: Table cells with content taller than a page are preserved across page breaks, not silently clipped.
+- **Absolute positioning**: `position: 'absolute'` with `top`, `right`, `bottom`, `left` relative to the parent View.
+- **Column flex**: `justifyContent` and `alignItems` work in both row and column directions.
 - **SVG**: Inline SVG rendering with support for `rect`, `circle`, `ellipse`, `line`, `polyline`, `polygon`, and `path` elements.
 - **Custom fonts**: TrueType font embedding with automatic subsetting.
 - **Images**: JPEG and PNG with transparency support.
@@ -91,6 +93,7 @@ Live preview with debug overlays. Click any element to inspect its computed styl
 
 See the [templates/](./templates) directory for production-ready examples:
 - Invoice
+- Product Catalog
 - Receipt
 - Report
 - Shipping Label

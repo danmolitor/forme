@@ -29,13 +29,19 @@ function ProductCard({ product }: { product: any }) {
 
   return (
     <View style={{ flexBasis: '48%', flexGrow: 0, flexShrink: 0, padding: 12, borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 6, marginBottom: 10 }} wrap={false}>
-      {/* Color swatch + product name + badge row */}
+      {/* Badge — absolutely positioned top-right */}
+      {product.badge && (
+        <View style={{ position: 'absolute', top: -18, right: -18 }}>
+          <Badge label={product.badge} />
+        </View>
+      )}
+
+      {/* Color swatch + product name row */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
         <ColorSwatch color={product.color} />
         <Text href={product.url} style={{ fontSize: 10, fontWeight: 700, color: '#2563eb', textDecoration: 'underline', flexGrow: 1 }}>
           {product.name}
         </Text>
-        {product.badge && <Badge label={product.badge} />}
       </View>
 
       {/* Price */}
