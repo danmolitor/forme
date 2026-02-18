@@ -399,6 +399,8 @@ pub struct PositionedGlyph {
     pub href: Option<String>,
     /// Per-glyph text decoration (for runs with different decorations).
     pub text_decoration: TextDecoration,
+    /// Letter spacing applied to this glyph.
+    pub letter_spacing: f64,
 }
 
 /// Shift a layout element and all its nested content (children, text lines)
@@ -1694,6 +1696,7 @@ impl LayoutEngine {
                         color: Some(style.color),
                         href: href.map(|s| s.to_string()),
                         text_decoration: style.text_decoration,
+                        letter_spacing: style.letter_spacing,
                     }
                 })
                 .collect();
@@ -1889,6 +1892,7 @@ impl LayoutEngine {
                     color: Some(sc.color),
                     href: sc.href.clone(),
                     text_decoration: sc.text_decoration,
+                    letter_spacing: sc.letter_spacing,
                 })
                 .collect();
 

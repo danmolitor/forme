@@ -27,36 +27,38 @@ export default function ShippingLabel(data: any) {
         </View>
 
         {/* Barcode Placeholder */}
-        <View style={{ alignItems: 'center', marginBottom: 8, padding: 8 }}>
-          <View style={{ flexDirection: 'row', gap: 2, marginBottom: 8 }}>
-            {/* Simulate barcode with thin rectangles */}
-            <View style={{ width: 2, height: 40, backgroundColor: '#0f172a' }} />
-            <View style={{ width: 1, height: 40, backgroundColor: '#0f172a' }} />
-            <View style={{ width: 3, height: 40, backgroundColor: '#0f172a' }} />
-            <View style={{ width: 1, height: 40, backgroundColor: '#0f172a' }} />
-            <View style={{ width: 2, height: 40, backgroundColor: '#0f172a' }} />
-            <View style={{ width: 3, height: 40, backgroundColor: '#0f172a' }} />
-            <View style={{ width: 1, height: 40, backgroundColor: '#0f172a' }} />
-            <View style={{ width: 2, height: 40, backgroundColor: '#0f172a' }} />
-            <View style={{ width: 1, height: 40, backgroundColor: '#0f172a' }} />
-            <View style={{ width: 3, height: 40, backgroundColor: '#0f172a' }} />
-            <View style={{ width: 2, height: 40, backgroundColor: '#0f172a' }} />
-            <View style={{ width: 1, height: 40, backgroundColor: '#0f172a' }} />
-            <View style={{ width: 3, height: 40, backgroundColor: '#0f172a' }} />
-            <View style={{ width: 1, height: 40, backgroundColor: '#0f172a' }} />
-            <View style={{ width: 2, height: 40, backgroundColor: '#0f172a' }} />
-            <View style={{ width: 1, height: 40, backgroundColor: '#0f172a' }} />
-            <View style={{ width: 3, height: 40, backgroundColor: '#0f172a' }} />
-            <View style={{ width: 2, height: 40, backgroundColor: '#0f172a' }} />
-            <View style={{ width: 1, height: 40, backgroundColor: '#0f172a' }} />
-            <View style={{ width: 2, height: 40, backgroundColor: '#0f172a' }} />
-            <View style={{ width: 3, height: 40, backgroundColor: '#0f172a' }} />
-            <View style={{ width: 1, height: 40, backgroundColor: '#0f172a' }} />
-            <View style={{ width: 2, height: 40, backgroundColor: '#0f172a' }} />
-            <View style={{ width: 1, height: 40, backgroundColor: '#0f172a' }} />
-            <View style={{ width: 3, height: 40, backgroundColor: '#0f172a' }} />
+        <View style={{ marginBottom: 8, padding: 8 }}>
+          <View style={{ alignItems: 'center', marginBottom: 8 }}>
+            <View style={{ flexDirection: 'row', gap: 2 }}>
+              {/* Simulate barcode with thin rectangles */}
+              <View style={{ width: 2, height: 40, backgroundColor: '#0f172a' }} />
+              <View style={{ width: 1, height: 40, backgroundColor: '#0f172a' }} />
+              <View style={{ width: 3, height: 40, backgroundColor: '#0f172a' }} />
+              <View style={{ width: 1, height: 40, backgroundColor: '#0f172a' }} />
+              <View style={{ width: 2, height: 40, backgroundColor: '#0f172a' }} />
+              <View style={{ width: 3, height: 40, backgroundColor: '#0f172a' }} />
+              <View style={{ width: 1, height: 40, backgroundColor: '#0f172a' }} />
+              <View style={{ width: 2, height: 40, backgroundColor: '#0f172a' }} />
+              <View style={{ width: 1, height: 40, backgroundColor: '#0f172a' }} />
+              <View style={{ width: 3, height: 40, backgroundColor: '#0f172a' }} />
+              <View style={{ width: 2, height: 40, backgroundColor: '#0f172a' }} />
+              <View style={{ width: 1, height: 40, backgroundColor: '#0f172a' }} />
+              <View style={{ width: 3, height: 40, backgroundColor: '#0f172a' }} />
+              <View style={{ width: 1, height: 40, backgroundColor: '#0f172a' }} />
+              <View style={{ width: 2, height: 40, backgroundColor: '#0f172a' }} />
+              <View style={{ width: 1, height: 40, backgroundColor: '#0f172a' }} />
+              <View style={{ width: 3, height: 40, backgroundColor: '#0f172a' }} />
+              <View style={{ width: 2, height: 40, backgroundColor: '#0f172a' }} />
+              <View style={{ width: 1, height: 40, backgroundColor: '#0f172a' }} />
+              <View style={{ width: 2, height: 40, backgroundColor: '#0f172a' }} />
+              <View style={{ width: 3, height: 40, backgroundColor: '#0f172a' }} />
+              <View style={{ width: 1, height: 40, backgroundColor: '#0f172a' }} />
+              <View style={{ width: 2, height: 40, backgroundColor: '#0f172a' }} />
+              <View style={{ width: 1, height: 40, backgroundColor: '#0f172a' }} />
+              <View style={{ width: 3, height: 40, backgroundColor: '#0f172a' }} />
+            </View>
           </View>
-          <Text style={{ fontSize: 10, fontWeight: 700, color: '#0f172a', letterSpacing: 2 }}>{data.tracking}</Text>
+          <Text style={{ fontSize: 10, fontWeight: 700, color: '#0f172a', letterSpacing: 2, textAlign: 'center' }}>{data.tracking}</Text>
         </View>
 
         {/* Divider */}

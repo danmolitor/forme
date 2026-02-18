@@ -437,12 +437,13 @@ impl PdfWriter {
                         let dy = pdf_y - tm_y;
                         let _ = writeln!(
                             stream,
-                            "{:.3} {:.3} {:.3} rg\n/{} {:.1} Tf\n{:.2} {:.2} Td",
+                            "{:.3} {:.3} {:.3} rg\n/{} {:.1} Tf\n{:.2} Tc\n{:.2} {:.2} Td",
                             glyph_color.r,
                             glyph_color.g,
                             glyph_color.b,
                             font_name,
                             first.font_size,
+                            first.letter_spacing,
                             dx,
                             dy
                         );
@@ -1721,6 +1722,7 @@ mod tests {
                                 color: None,
                                 href: None,
                                 text_decoration: TextDecoration::None,
+                                letter_spacing: 0.0,
                             }],
                         }],
                         color: Color::BLACK,
@@ -1755,6 +1757,7 @@ mod tests {
                                 color: None,
                                 href: None,
                                 text_decoration: TextDecoration::None,
+                                letter_spacing: 0.0,
                             }],
                         }],
                         color: Color::BLACK,
@@ -1900,6 +1903,7 @@ mod tests {
                             color: None,
                             href: None,
                             text_decoration: TextDecoration::None,
+                            letter_spacing: 0.0,
                         }],
                     }],
                     color: Color::BLACK,
