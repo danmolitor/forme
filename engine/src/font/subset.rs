@@ -315,7 +315,7 @@ fn rebuild_glyf(
         new_glyf.extend_from_slice(&new_glyph);
 
         // Pad to 4-byte boundary (required for loca to work correctly)
-        while new_glyf.len() % 4 != 0 {
+        while !new_glyf.len().is_multiple_of(4) {
             new_glyf.push(0);
         }
     }

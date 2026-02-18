@@ -22,6 +22,12 @@ pub struct BrokenLine {
 
 pub struct TextLayout;
 
+impl Default for TextLayout {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TextLayout {
     pub fn new() -> Self {
         Self
@@ -32,6 +38,7 @@ impl TextLayout {
     /// Uses a greedy line-breaking algorithm. The Knuth-Plass algorithm
     /// would produce better results (fewer rivers, more even spacing)
     /// but is significantly more complex. We'll upgrade later.
+    #[allow(clippy::too_many_arguments)]
     pub fn break_into_lines(
         &self,
         font_context: &FontContext,
@@ -97,7 +104,7 @@ impl TextLayout {
                         let line_chars: Vec<char> = chars[line_start..break_at].to_vec();
                         lines.push(self.make_line(&line_chars, &char_widths[line_start..break_at]));
 
-                        line_start = if chars[bp] == ' ' { bp + 1 } else { bp + 1 };
+                        line_start = bp + 1;
                         line_width = char_widths[line_start..=i].iter().sum();
                         last_break_point = None;
                         continue;
@@ -151,6 +158,7 @@ impl TextLayout {
     }
 
     /// Measure individual character widths using real font metrics.
+    #[allow(clippy::too_many_arguments)]
     fn measure_chars(
         &self,
         font_context: &FontContext,
@@ -171,6 +179,7 @@ impl TextLayout {
     }
 
     /// Measure the width of a string on a single line.
+    #[allow(clippy::too_many_arguments)]
     pub fn measure_width(
         &self,
         font_context: &FontContext,

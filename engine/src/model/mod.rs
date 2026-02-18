@@ -70,21 +70,19 @@ fn default_true() -> bool {
 }
 
 /// Standard page sizes in points.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
 pub enum PageSize {
+    #[default]
     A4,
     A3,
     A5,
     Letter,
     Legal,
     Tabloid,
-    Custom { width: f64, height: f64 },
-}
-
-impl Default for PageSize {
-    fn default() -> Self {
-        PageSize::A4
-    }
+    Custom {
+        width: f64,
+        height: f64,
+    },
 }
 
 impl PageSize {

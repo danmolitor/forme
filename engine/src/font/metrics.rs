@@ -21,7 +21,7 @@ impl StandardFontMetrics {
     /// Get the advance width of a character in points.
     pub fn char_width(&self, ch: char, font_size: f64) -> f64 {
         let code = ch as u32;
-        let w = if code >= 32 && code <= 255 {
+        let w = if (32..=255).contains(&code) {
             let idx = (code - 32) as usize;
             let w = self.widths[idx];
             if w > 0 {

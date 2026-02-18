@@ -73,6 +73,12 @@ struct PdfObject {
     data: Vec<u8>,
 }
 
+impl Default for PdfWriter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PdfWriter {
     pub fn new() -> Self {
         Self
@@ -239,6 +245,7 @@ impl PdfWriter {
     }
 
     /// Write a single layout element as PDF operators.
+    #[allow(clippy::too_many_arguments)]
     fn write_element(
         &self,
         stream: &mut String,
@@ -266,15 +273,15 @@ impl PdfWriter {
 
                 if let Some(bg) = background {
                     if bg.a > 0.0 {
-                        let _ = write!(stream, "q\n{:.3} {:.3} {:.3} rg\n", bg.r, bg.g, bg.b);
+                        let _ = writeln!(stream, "q\n{:.3} {:.3} {:.3} rg", bg.r, bg.g, bg.b);
 
                         if border_radius.top_left > 0.0 {
                             self.write_rounded_rect(stream, x, y, w, h, border_radius);
                         } else {
-                            let _ = write!(stream, "{:.2} {:.2} {:.2} {:.2} re\n", x, y, w, h);
+                            let _ = writeln!(stream, "{:.2} {:.2} {:.2} {:.2} re", x, y, w, h);
                         }
 
-                        let _ = write!(stream, "f\nQ\n");
+                        let _ = writeln!(stream, "f\nQ");
                     }
                 }
 
@@ -285,19 +292,19 @@ impl PdfWriter {
                         && (bw.bottom - bw.left).abs() < 0.001
                     {
                         let bc = &border_color.top;
-                        let _ = write!(
+                        let _ = writeln!(
                             stream,
-                            "q\n{:.3} {:.3} {:.3} RG\n{:.2} w\n",
+                            "q\n{:.3} {:.3} {:.3} RG\n{:.2} w",
                             bc.r, bc.g, bc.b, bw.top
                         );
 
                         if border_radius.top_left > 0.0 {
                             self.write_rounded_rect(stream, x, y, w, h, border_radius);
                         } else {
-                            let _ = write!(stream, "{:.2} {:.2} {:.2} {:.2} re\n", x, y, w, h);
+                            let _ = writeln!(stream, "{:.2} {:.2} {:.2} {:.2} re", x, y, w, h);
                         }
 
-                        let _ = write!(stream, "S\nQ\n");
+                        let _ = writeln!(stream, "S\nQ");
                     } else {
                         self.write_border_sides(stream, x, y, w, h, bw, border_color);
                     }
@@ -305,9 +312,9 @@ impl PdfWriter {
             }
 
             DrawCommand::Text { lines, color } => {
-                let _ = write!(
+                let _ = writeln!(
                     stream,
-                    "BT\n{:.3} {:.3} {:.3} rg\n",
+                    "BT\n{:.3} {:.3} {:.3} rg",
                     color.r, color.g, color.b
                 );
 
@@ -340,9 +347,9 @@ impl PdfWriter {
 
                     let pdf_y = page_height - line.y;
 
-                    let _ = write!(
+                    let _ = writeln!(
                         stream,
-                        "/{} {:.1} Tf\n{:.2} {:.2} Td\n",
+                        "/{} {:.1} Tf\n{:.2} {:.2} Td",
                         font_name, font_size, line.x, pdf_y
                     );
 
@@ -368,7 +375,7 @@ impl PdfWriter {
                             Some(d) => d,
                             None => {
                                 // Fallback: write empty text operator
-                                let _ = write!(stream, "<> Tj\n");
+                                let _ = writeln!(stream, "<> Tj");
                                 continue;
                             }
                         };
@@ -377,7 +384,7 @@ impl PdfWriter {
                             let gid = embed_data.char_to_gid.get(&ch).copied().unwrap_or(0);
                             let _ = write!(hex, "{:04X}", gid);
                         }
-                        let _ = write!(stream, "<{}> Tj\n", hex);
+                        let _ = writeln!(stream, "<{}> Tj", hex);
                     } else {
                         let mut text_str = String::new();
                         for ch in text_after.chars() {
@@ -393,11 +400,11 @@ impl PdfWriter {
                                 }
                             }
                         }
-                        let _ = write!(stream, "({}) Tj\n", text_str);
+                        let _ = writeln!(stream, "({}) Tj", text_str);
                     }
                 }
 
-                let _ = write!(stream, "ET\n");
+                let _ = writeln!(stream, "ET");
             }
 
             DrawCommand::Image { .. } => {
@@ -467,13 +474,13 @@ impl PdfWriter {
         let br = r.bottom_right.min(w / 2.0).min(h / 2.0);
         let bl = r.bottom_left.min(w / 2.0).min(h / 2.0);
 
-        let _ = write!(stream, "{:.2} {:.2} m\n", x + bl, y);
+        let _ = writeln!(stream, "{:.2} {:.2} m", x + bl, y);
 
-        let _ = write!(stream, "{:.2} {:.2} l\n", x + w - br, y);
+        let _ = writeln!(stream, "{:.2} {:.2} l", x + w - br, y);
         if br > 0.0 {
-            let _ = write!(
+            let _ = writeln!(
                 stream,
-                "{:.2} {:.2} {:.2} {:.2} {:.2} {:.2} c\n",
+                "{:.2} {:.2} {:.2} {:.2} {:.2} {:.2} c",
                 x + w - br + br * k,
                 y,
                 x + w,
@@ -483,11 +490,11 @@ impl PdfWriter {
             );
         }
 
-        let _ = write!(stream, "{:.2} {:.2} l\n", x + w, y + h - tr);
+        let _ = writeln!(stream, "{:.2} {:.2} l", x + w, y + h - tr);
         if tr > 0.0 {
-            let _ = write!(
+            let _ = writeln!(
                 stream,
-                "{:.2} {:.2} {:.2} {:.2} {:.2} {:.2} c\n",
+                "{:.2} {:.2} {:.2} {:.2} {:.2} {:.2} c",
                 x + w,
                 y + h - tr + tr * k,
                 x + w - tr + tr * k,
@@ -497,11 +504,11 @@ impl PdfWriter {
             );
         }
 
-        let _ = write!(stream, "{:.2} {:.2} l\n", x + tl, y + h);
+        let _ = writeln!(stream, "{:.2} {:.2} l", x + tl, y + h);
         if tl > 0.0 {
-            let _ = write!(
+            let _ = writeln!(
                 stream,
-                "{:.2} {:.2} {:.2} {:.2} {:.2} {:.2} c\n",
+                "{:.2} {:.2} {:.2} {:.2} {:.2} {:.2} c",
                 x + tl - tl * k,
                 y + h,
                 x,
@@ -511,11 +518,11 @@ impl PdfWriter {
             );
         }
 
-        let _ = write!(stream, "{:.2} {:.2} l\n", x, y + bl);
+        let _ = writeln!(stream, "{:.2} {:.2} l", x, y + bl);
         if bl > 0.0 {
-            let _ = write!(
+            let _ = writeln!(
                 stream,
-                "{:.2} {:.2} {:.2} {:.2} {:.2} {:.2} c\n",
+                "{:.2} {:.2} {:.2} {:.2} {:.2} {:.2} c",
                 x,
                 y + bl - bl * k,
                 x + bl - bl * k,
@@ -525,9 +532,10 @@ impl PdfWriter {
             );
         }
 
-        let _ = write!(stream, "h\n");
+        let _ = writeln!(stream, "h");
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn write_border_sides(
         &self,
         stream: &mut String,
@@ -1033,7 +1041,7 @@ impl PdfWriter {
         let mut entries: Vec<(u16, u32)> = Vec::new();
         let mut seen_gids: HashSet<u16> = HashSet::new();
 
-        for (_, &gid) in char_to_gid {
+        for &gid in char_to_gid.values() {
             if seen_gids.contains(&gid) {
                 continue;
             }
@@ -1066,33 +1074,33 @@ impl PdfWriter {
         gid_to_unicode.sort_by_key(|(gid, _)| *gid);
 
         let mut cmap = String::new();
-        let _ = write!(cmap, "/CIDInit /ProcSet findresource begin\n");
-        let _ = write!(cmap, "12 dict begin\n");
-        let _ = write!(cmap, "begincmap\n");
-        let _ = write!(cmap, "/CIDSystemInfo\n");
-        let _ = write!(
+        let _ = writeln!(cmap, "/CIDInit /ProcSet findresource begin");
+        let _ = writeln!(cmap, "12 dict begin");
+        let _ = writeln!(cmap, "begincmap");
+        let _ = writeln!(cmap, "/CIDSystemInfo");
+        let _ = writeln!(
             cmap,
-            "<< /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def\n"
+            "<< /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def"
         );
-        let _ = write!(cmap, "/CMapName /{}-UTF16 def\n", font_name);
-        let _ = write!(cmap, "/CMapType 2 def\n");
-        let _ = write!(cmap, "1 begincodespacerange\n");
-        let _ = write!(cmap, "<0000> <FFFF>\n");
-        let _ = write!(cmap, "endcodespacerange\n");
+        let _ = writeln!(cmap, "/CMapName /{}-UTF16 def", font_name);
+        let _ = writeln!(cmap, "/CMapType 2 def");
+        let _ = writeln!(cmap, "1 begincodespacerange");
+        let _ = writeln!(cmap, "<0000> <FFFF>");
+        let _ = writeln!(cmap, "endcodespacerange");
 
         // PDF spec limits beginbfchar to 100 entries per block
         for chunk in gid_to_unicode.chunks(100) {
-            let _ = write!(cmap, "{} beginbfchar\n", chunk.len());
+            let _ = writeln!(cmap, "{} beginbfchar", chunk.len());
             for &(gid, unicode) in chunk {
-                let _ = write!(cmap, "<{:04X}> <{:04X}>\n", gid, unicode);
+                let _ = writeln!(cmap, "<{:04X}> <{:04X}>", gid, unicode);
             }
-            let _ = write!(cmap, "endbfchar\n");
+            let _ = writeln!(cmap, "endbfchar");
         }
 
-        let _ = write!(cmap, "endcmap\n");
-        let _ = write!(cmap, "CMapName currentdict /CMap defineresource pop\n");
-        let _ = write!(cmap, "end\n");
-        let _ = write!(cmap, "end\n");
+        let _ = writeln!(cmap, "endcmap");
+        let _ = writeln!(cmap, "CMapName currentdict /CMap defineresource pop");
+        let _ = writeln!(cmap, "end");
+        let _ = writeln!(cmap, "end");
 
         cmap
     }
@@ -1227,10 +1235,10 @@ impl PdfWriter {
         }
 
         let xref_offset = output.len();
-        let _ = write!(output, "xref\n0 {}\n", builder.objects.len());
-        let _ = write!(output, "0000000000 65535 f \n");
-        for i in 1..builder.objects.len() {
-            let _ = write!(output, "{:010} 00000 n \n", offsets[i]);
+        let _ = writeln!(output, "xref\n0 {}", builder.objects.len());
+        let _ = writeln!(output, "0000000000 65535 f ");
+        for offset in offsets.iter().skip(1) {
+            let _ = writeln!(output, "{:010} 00000 n ", offset);
         }
 
         let _ = write!(
@@ -1241,7 +1249,7 @@ impl PdfWriter {
         if let Some(info_id) = info_obj_id {
             let _ = write!(output, " /Info {} 0 R", info_id);
         }
-        let _ = write!(output, " >>\nstartxref\n{}\n%%EOF\n", xref_offset);
+        let _ = writeln!(output, " >>\nstartxref\n{}\n%%EOF", xref_offset);
 
         output
     }

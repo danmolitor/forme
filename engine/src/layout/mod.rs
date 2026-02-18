@@ -420,6 +420,12 @@ impl PageCursor {
     }
 }
 
+impl Default for LayoutEngine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl LayoutEngine {
     pub fn new() -> Self {
         Self {
@@ -474,6 +480,7 @@ impl LayoutEngine {
         pages
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn layout_node(
         &self,
         node: &Node,
@@ -575,6 +582,7 @@ impl LayoutEngine {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn layout_view(
         &self,
         node: &Node,
@@ -638,7 +646,7 @@ impl LayoutEngine {
                 height: total_height,
                 draw: DrawCommand::Rect {
                     background: style.background_color,
-                    border_width: style.border_width.clone(),
+                    border_width: style.border_width,
                     border_color: style.border_color,
                     border_radius: style.border_radius,
                 },
@@ -664,6 +672,7 @@ impl LayoutEngine {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn layout_breakable_view(
         &self,
         node: &Node,
@@ -696,6 +705,7 @@ impl LayoutEngine {
         cursor.y += padding.bottom + border.bottom + margin.bottom;
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn layout_children(
         &self,
         children: &[Node],
@@ -753,6 +763,7 @@ impl LayoutEngine {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn layout_flex_row(
         &self,
         children: &[Node],
@@ -939,6 +950,7 @@ impl LayoutEngine {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn layout_table(
         &self,
         node: &Node,
@@ -1130,6 +1142,7 @@ impl LayoutEngine {
         cursor.y += row_height;
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn layout_text(
         &self,
         content: &str,
@@ -1262,6 +1275,7 @@ impl LayoutEngine {
         cursor.y += margin.bottom;
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn layout_image(
         &self,
         node: &Node,
@@ -1599,7 +1613,7 @@ impl LayoutEngine {
         widths
     }
 
-    fn inject_fixed_elements(&self, pages: &mut Vec<LayoutPage>, font_context: &FontContext) {
+    fn inject_fixed_elements(&self, pages: &mut [LayoutPage], font_context: &FontContext) {
         for page in pages.iter_mut() {
             if page.fixed_header.is_empty() && page.fixed_footer.is_empty() {
                 continue;

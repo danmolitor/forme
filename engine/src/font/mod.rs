@@ -145,6 +145,12 @@ impl StandardFont {
     }
 }
 
+impl Default for FontRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FontRegistry {
     pub fn new() -> Self {
         let mut fonts = HashMap::new();
@@ -244,6 +250,12 @@ impl FontRegistry {
 /// Provides text measurement with real glyph metrics.
 pub struct FontContext {
     registry: FontRegistry,
+}
+
+impl Default for FontContext {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl FontContext {
