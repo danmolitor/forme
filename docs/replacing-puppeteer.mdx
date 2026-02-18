@@ -120,7 +120,7 @@ No browser. No subprocess. No cleanup. The `renderDocument()` call runs a WASM m
 | Memory per render | 50-200MB (Chrome process) | ~2-5MB (WASM) |
 | Docker image size | 400MB+ (with Chromium) | Same as your Node.js base image |
 | Concurrent renders | Limited by Chrome processes | Limited by CPU cores |
-| Cold start (serverless) | 3-10 seconds | <100 milliseconds |
+| Cold start (serverless) | 3-10 seconds | Under 100 milliseconds |
 | Dependencies | Chromium binary | None (WASM) |
 
 For serverless environments (AWS Lambda, Vercel, Cloudflare Workers), the difference is dramatic. Puppeteer's cold start is measured in seconds. Forme's cold start is the time it takes to load a WASM module.
