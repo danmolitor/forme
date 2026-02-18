@@ -110,15 +110,13 @@ export async function renderPdfWithLayout(json: string): Promise<RenderWithLayou
 }
 
 export async function renderDocument(element: ReactElement): Promise<Uint8Array> {
-  const reactPkg = '@forme/react';
-  const { serialize } = await import(/* webpackIgnore: true */ reactPkg);
+  const { serialize } = await import('@forme/react');
   const json = JSON.stringify(serialize(element));
   return renderPdf(json);
 }
 
 export async function renderDocumentWithLayout(element: ReactElement): Promise<RenderWithLayoutResult> {
-  const reactPkg = '@forme/react';
-  const { serialize } = await import(/* webpackIgnore: true */ reactPkg);
+  const { serialize } = await import('@forme/react');
   const json = JSON.stringify(serialize(element));
   return renderPdfWithLayout(json);
 }
