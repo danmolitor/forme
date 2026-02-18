@@ -1278,6 +1278,14 @@
     if (radiusStr !== '0') visualProps.push(['border-radius', radiusStr]);
     html += renderStyleSection('Background & Border', visualProps);
 
+    // Link & Bookmark info
+    const linkProps = [];
+    if (el.href) linkProps.push(['href', escapeHtml(el.href)]);
+    if (el.bookmark) linkProps.push(['bookmark', escapeHtml(el.bookmark)]);
+    if (linkProps.length) {
+      html += renderStyleSection('Link & Bookmark', linkProps);
+    }
+
     inspectorStyles.innerHTML = html;
 
     // Copy Style button
@@ -1307,6 +1315,7 @@
   // -- Helpers -----------------------------------------------------
   function setText(id, text) { document.getElementById(id).textContent = text; }
   function fmt(n) { return Number.isInteger(n) ? String(n) : n.toFixed(1).replace(/\.0$/, ''); }
+  function escapeHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
   function colorToHex(c) {
     if (!c) return 'transparent';
@@ -1697,6 +1706,53 @@
     }
   });
 
+  // -- Link Following -----------------------------------------------
+  /// Walk the hit element and its ancestors to find the nearest href.
+  function findHrefInChain(element, ancestorElements) {
+    if (element && element.href) return element.href;
+    for (let i = ancestorElements.length - 1; i >= 0; i--) {
+      if (ancestorElements[i].href) return ancestorElements[i].href;
+    }
+    return null;
+  }
+
+  /// Search all pages for an element with a matching bookmark title.
+  /// Returns { element, pageIdx } or null.
+  function findBookmarkTarget(title) {
+    if (!layoutData) return null;
+    for (let pi = 0; pi < layoutData.pages.length; pi++) {
+      const found = findBookmarkInElements(layoutData.pages[pi].elements, pi, title);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  function findBookmarkInElements(elements, pageIdx, title) {
+    for (const el of elements) {
+      if (el.bookmark === title) return { element: el, pageIdx };
+      if (el.children && el.children.length) {
+        const found = findBookmarkInElements(el.children, pageIdx, title);
+        if (found) return found;
+      }
+    }
+    return null;
+  }
+
+  function followHref(href) {
+    if (href.startsWith('#')) {
+      const anchor = href.slice(1);
+      const target = findBookmarkTarget(anchor);
+      if (target) {
+        scrollToElement(target.element, target.pageIdx);
+        // Also select the target in the inspector
+        const path = findPathForElement(target.pageIdx, target.element);
+        if (path) selectByPath(path);
+      }
+    } else {
+      window.open(href, '_blank');
+    }
+  }
+
   // -- Hit Testing -------------------------------------------------
   function hitTest(elements, px, py) {
     let best = null;
@@ -1786,7 +1842,8 @@
 
       hitLayer.addEventListener('click', onCanvasClick);
       hitLayer.addEventListener('mousemove', onCanvasHover);
-      hitLayer.addEventListener('mouseleave', () => {
+      hitLayer.addEventListener('mouseleave', (e) => {
+        e.currentTarget.style.cursor = '';
         tooltip.style.display = 'none';
         drawOverlays();
       });
@@ -1813,6 +1870,15 @@
 
     const { element: hit, ancestors, ancestorElements } = hitTest(page.elements, px, py);
     if (hit) {
+      // Cmd/Ctrl+click follows links
+      if ((e.metaKey || e.ctrlKey) && hit) {
+        const href = findHrefInChain(hit, ancestorElements);
+        if (href) {
+          followHref(href);
+          return;
+        }
+      }
+
       selectedAncestors = ancestors;
       selectedAncestorElements = ancestorElements;
       openInspector(hit, pageIdx);
@@ -1829,6 +1895,29 @@
   }
 
   function onCanvasHover(e) {
+    const hitLayer = e.currentTarget;
+
+    // Cmd/Ctrl held: show pointer cursor over linked elements
+    if ((e.metaKey || e.ctrlKey) && layoutData) {
+      const { pageIdx, px, py } = getPageCoords(e);
+      const page = layoutData.pages[pageIdx];
+      if (page) {
+        const { element: hit, ancestorElements } = hitTest(page.elements, px, py);
+        const href = hit ? findHrefInChain(hit, ancestorElements) : null;
+        if (href) {
+          hitLayer.style.cursor = 'pointer';
+          tooltip.textContent = href.startsWith('#') ? `Go to: ${href.slice(1)}` : href;
+          tooltip.style.display = 'block';
+          tooltip.style.left = (e.clientX + 12) + 'px';
+          tooltip.style.top = (e.clientY + 12) + 'px';
+          drawOverlays(hit, pageIdx);
+          return;
+        }
+      }
+    }
+
+    hitLayer.style.cursor = '';
+
     if (currentMode !== 'layout' || !layoutData) {
       tooltip.style.display = 'none';
       return;
