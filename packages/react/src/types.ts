@@ -113,6 +113,7 @@ export interface ViewProps {
   style?: Style;
   wrap?: boolean;
   bookmark?: string;
+  href?: string;
   children?: ReactNode;
 }
 
@@ -212,6 +213,7 @@ export interface FormeNode {
   style: FormeStyle;
   children: FormeNode[];
   bookmark?: string;
+  href?: string;
   sourceLocation?: { file: string; line: number; column: number };
 }
 

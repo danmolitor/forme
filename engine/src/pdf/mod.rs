@@ -140,10 +140,16 @@ impl PdfWriter {
         // Register images as XObject PDF objects
         self.register_images(&mut builder, pages);
 
-        // Build page objects and content streams
+        // Two-pass page processing:
+        // Pass 1: Build content streams, page objects, collect bookmarks + annotations
+        // Pass 2: Create annotation objects (needs full bookmark list for internal links)
         let mut page_obj_ids: Vec<usize> = Vec::new();
         let mut all_bookmarks: Vec<PdfBookmark> = Vec::new();
+        let mut per_page_content_obj_ids: Vec<usize> = Vec::new();
+        let mut per_page_annotations: Vec<Vec<LinkAnnotation>> = Vec::new();
+        let mut per_page_resources: Vec<String> = Vec::new();
 
+        // Pass 1: content streams, page objects (without /Annots), bookmarks
         for (page_idx, page) in pages.iter().enumerate() {
             let content = self.build_content_stream_for_page(
                 page,
@@ -167,36 +173,21 @@ impl PdfWriter {
                 id: content_obj_id,
                 data: content_data,
             });
+            per_page_content_obj_ids.push(content_obj_id);
 
-            // Collect link annotations for this page
+            // Collect link annotations (deferred creation until pass 2)
             let mut annotations: Vec<LinkAnnotation> = Vec::new();
             Self::collect_link_annotations(&page.elements, page.height, &mut annotations);
+            per_page_annotations.push(annotations);
 
-            // Create annotation PDF objects
-            let mut annot_obj_ids: Vec<usize> = Vec::new();
-            for annot in &annotations {
-                let annot_obj_id = builder.objects.len();
-                let rect = format!(
-                    "[{:.2} {:.2} {:.2} {:.2}]",
-                    annot.x,
-                    annot.y,
-                    annot.x + annot.width,
-                    annot.y + annot.height
-                );
-                let annot_dict = format!(
-                    "<< /Type /Annot /Subtype /Link /Rect {} /Border [0 0 0] \
-                     /A << /Type /Action /S /URI /URI ({}) >> >>",
-                    rect,
-                    Self::escape_pdf_string(&annot.href)
-                );
-                builder.objects.push(PdfObject {
-                    id: annot_obj_id,
-                    data: annot_dict.into_bytes(),
-                });
-                annot_obj_ids.push(annot_obj_id);
-            }
-
+            // Reserve page object (placeholder — filled in pass 2)
             let page_obj_id = builder.objects.len();
+            builder.objects.push(PdfObject {
+                id: page_obj_id,
+                data: vec![],
+            });
+
+            // Build resource dict for this page
             let font_resources = self.build_font_resource_dict(&builder.font_objects);
             let xobject_resources = self.build_xobject_resource_dict(page_idx, &builder);
             let resources = if xobject_resources.is_empty() {
@@ -207,6 +198,58 @@ impl PdfWriter {
                     font_resources, xobject_resources
                 )
             };
+            per_page_resources.push(resources);
+
+            // Collect bookmarks (needs page_obj_id)
+            Self::collect_bookmarks(&page.elements, page.height, page_obj_id, &mut all_bookmarks);
+
+            page_obj_ids.push(page_obj_id);
+        }
+
+        // Pass 2: create annotation objects and fill in page dicts
+        for (page_idx, annotations) in per_page_annotations.iter().enumerate() {
+            let mut annot_obj_ids: Vec<usize> = Vec::new();
+            for annot in annotations {
+                let rect = format!(
+                    "[{:.2} {:.2} {:.2} {:.2}]",
+                    annot.x,
+                    annot.y,
+                    annot.x + annot.width,
+                    annot.y + annot.height
+                );
+
+                if let Some(anchor) = annot.href.strip_prefix('#') {
+                    // Internal link: find matching bookmark by title
+                    if let Some(bm) = all_bookmarks.iter().find(|b| b.title == anchor) {
+                        let annot_obj_id = builder.objects.len();
+                        let annot_dict = format!(
+                            "<< /Type /Annot /Subtype /Link /Rect {} /Border [0 0 0] \
+                             /A << /S /GoTo /D [{} 0 R /XYZ 0 {:.2} null] >> >>",
+                            rect, bm.page_obj_id, bm.y_pdf
+                        );
+                        builder.objects.push(PdfObject {
+                            id: annot_obj_id,
+                            data: annot_dict.into_bytes(),
+                        });
+                        annot_obj_ids.push(annot_obj_id);
+                    }
+                    // No matching bookmark: skip silently
+                } else {
+                    // External link
+                    let annot_obj_id = builder.objects.len();
+                    let annot_dict = format!(
+                        "<< /Type /Annot /Subtype /Link /Rect {} /Border [0 0 0] \
+                         /A << /Type /Action /S /URI /URI ({}) >> >>",
+                        rect,
+                        Self::escape_pdf_string(&annot.href)
+                    );
+                    builder.objects.push(PdfObject {
+                        id: annot_obj_id,
+                        data: annot_dict.into_bytes(),
+                    });
+                    annot_obj_ids.push(annot_obj_id);
+                }
+            }
 
             let annots_str = if annot_obj_ids.is_empty() {
                 String::new()
@@ -219,20 +262,18 @@ impl PdfWriter {
                 format!(" /Annots [{}]", refs)
             };
 
+            let page_obj_id = page_obj_ids[page_idx];
+            let content_obj_id = per_page_content_obj_ids[page_idx];
             let page_dict = format!(
                 "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {:.2} {:.2}] \
                  /Contents {} 0 R /Resources << {} >>{} >>",
-                page.width, page.height, content_obj_id, resources, annots_str
+                pages[page_idx].width,
+                pages[page_idx].height,
+                content_obj_id,
+                per_page_resources[page_idx],
+                annots_str
             );
-            builder.objects.push(PdfObject {
-                id: page_obj_id,
-                data: page_dict.into_bytes(),
-            });
-
-            // Collect bookmarks for this page
-            Self::collect_bookmarks(&page.elements, page.height, page_obj_id, &mut all_bookmarks);
-
-            page_obj_ids.push(page_obj_id);
+            builder.objects[page_obj_id].data = page_dict.into_bytes();
         }
 
         // Build outline tree if bookmarks exist
@@ -1391,6 +1432,8 @@ impl PdfWriter {
     }
 
     /// Collect link annotations from layout elements recursively.
+    /// When an element has an href, its rect covers all children, so we skip
+    /// recursing into children to avoid duplicate annotations.
     fn collect_link_annotations(
         elements: &[LayoutElement],
         page_height: f64,
@@ -1407,6 +1450,8 @@ impl PdfWriter {
                         height: element.height,
                         href: href.clone(),
                     });
+                    // Don't recurse — parent annotation covers children
+                    continue;
                 }
             }
             Self::collect_link_annotations(&element.children, page_height, annotations);

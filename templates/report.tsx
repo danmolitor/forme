@@ -44,7 +44,7 @@ export default function Report(data: any) {
         {/* Table of Contents */}
         <Text style={{ fontSize: 20, fontWeight: 700, color: '#0f172a', marginBottom: 16 }}>Table of Contents</Text>
         {data.sections.map((section: any, i: number) => (
-          <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingTop: 6, paddingBottom: 6, borderWidth: { top: 0, right: 0, bottom: 1, left: 0 }, borderColor: '#f1f5f9' }}>
+          <View key={i} href={`#${section.title}`} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingTop: 6, paddingBottom: 6, borderWidth: { top: 0, right: 0, bottom: 1, left: 0 }, borderColor: '#f1f5f9' }}>
             <Text style={{ fontSize: 10, color: '#334155' }}>{i + 1}. {section.title}</Text>
           </View>
         ))}
@@ -52,7 +52,7 @@ export default function Report(data: any) {
         <PageBreak />
 
         {/* Executive Summary */}
-        <Text style={{ fontSize: 20, fontWeight: 700, color: '#0f172a', marginBottom: 12 }}>1. {data.sections[0].title}</Text>
+        <Text bookmark={data.sections[0].title} style={{ fontSize: 20, fontWeight: 700, color: '#0f172a', marginBottom: 12 }}>1. {data.sections[0].title}</Text>
         {data.sections[0].paragraphs.map((p: string, i: number) => (
           <Text key={i} style={{ fontSize: 10, color: '#334155', lineHeight: 1.6, marginBottom: 12 }}>{p}</Text>
         ))}
@@ -72,7 +72,7 @@ export default function Report(data: any) {
         <PageBreak />
 
         {/* Data Section */}
-        <Text style={{ fontSize: 20, fontWeight: 700, color: '#0f172a', marginBottom: 12 }}>2. {data.sections[1].title}</Text>
+        <Text bookmark={data.sections[1].title} style={{ fontSize: 20, fontWeight: 700, color: '#0f172a', marginBottom: 12 }}>2. {data.sections[1].title}</Text>
         <Text style={{ fontSize: 10, color: '#334155', lineHeight: 1.6, marginBottom: 16 }}>{data.sections[1].intro}</Text>
 
         <Table columns={[
@@ -103,7 +103,7 @@ export default function Report(data: any) {
         <PageBreak />
 
         {/* Visual Analysis (Chart Placeholders) */}
-        <Text style={{ fontSize: 20, fontWeight: 700, color: '#0f172a', marginBottom: 12 }}>3. {data.sections[2].title}</Text>
+        <Text bookmark={data.sections[2].title} style={{ fontSize: 20, fontWeight: 700, color: '#0f172a', marginBottom: 12 }}>3. {data.sections[2].title}</Text>
         <Text style={{ fontSize: 10, color: '#334155', lineHeight: 1.6, marginBottom: 16 }}>{data.sections[2].intro}</Text>
 
         <View style={{ flexDirection: 'row', gap: 16, marginBottom: 24 }}>
@@ -129,7 +129,7 @@ export default function Report(data: any) {
         <PageBreak />
 
         {/* Recommendations */}
-        <Text style={{ fontSize: 20, fontWeight: 700, color: '#0f172a', marginBottom: 12 }}>4. {data.sections[3].title}</Text>
+        <Text bookmark={data.sections[3].title} style={{ fontSize: 20, fontWeight: 700, color: '#0f172a', marginBottom: 12 }}>4. {data.sections[3].title}</Text>
         <Text style={{ fontSize: 10, color: '#334155', lineHeight: 1.6, marginBottom: 16 }}>{data.sections[3].intro}</Text>
 
         {data.sections[3].items.map((item: any, i: number) => (

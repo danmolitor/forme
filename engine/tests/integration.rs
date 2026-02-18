@@ -30,6 +30,7 @@ fn make_text(content: &str, font_size: f64) -> Node {
         id: None,
         source_location: None,
         bookmark: None,
+        href: None,
     }
 }
 
@@ -41,6 +42,7 @@ fn make_view(children: Vec<Node>) -> Node {
         id: None,
         source_location: None,
         bookmark: None,
+        href: None,
     }
 }
 
@@ -52,6 +54,7 @@ fn make_styled_view(style: Style, children: Vec<Node>) -> Node {
         id: None,
         source_location: None,
         bookmark: None,
+        href: None,
     }
 }
 
@@ -63,6 +66,7 @@ fn make_page_break() -> Node {
         id: None,
         source_location: None,
         bookmark: None,
+        href: None,
     }
 }
 
@@ -74,6 +78,7 @@ fn make_table_row(is_header: bool, cells: Vec<Node>) -> Node {
         id: None,
         source_location: None,
         bookmark: None,
+        href: None,
     }
 }
 
@@ -91,6 +96,7 @@ fn make_table_cell(children: Vec<Node>) -> Node {
         id: None,
         source_location: None,
         bookmark: None,
+        href: None,
     }
 }
 
@@ -281,6 +287,7 @@ fn make_simple_table(header_cells: Vec<&str>, rows: Vec<Vec<&str>>) -> Node {
         id: None,
         source_location: None,
         bookmark: None,
+        href: None,
     }
 }
 
@@ -552,6 +559,7 @@ fn test_unbreakable_node_moves_to_next_page() {
         id: None,
         source_location: None,
         bookmark: None,
+        href: None,
     };
     page_children.push(unbreakable);
 
@@ -636,6 +644,7 @@ fn render_with_custom_font(font_data: &[u8], text: &str) -> Vec<u8> {
             id: None,
             source_location: None,
             bookmark: None,
+            href: None,
         }],
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
@@ -748,6 +757,7 @@ fn test_mixed_standard_and_custom_fonts() {
                 id: None,
                 source_location: None,
                 bookmark: None,
+                href: None,
             },
             // Custom font text
             Node {
@@ -765,6 +775,7 @@ fn test_mixed_standard_and_custom_fonts() {
                 id: None,
                 source_location: None,
                 bookmark: None,
+                href: None,
             },
         ],
         metadata: Metadata::default(),
@@ -887,6 +898,7 @@ fn make_image_node(src: &str, width: Option<f64>, height: Option<f64>) -> Node {
         id: None,
         source_location: None,
         bookmark: None,
+        href: None,
     }
 }
 
@@ -1067,6 +1079,7 @@ fn make_fixed_header(text: &str) -> Node {
         id: None,
         source_location: None,
         bookmark: None,
+        href: None,
     }
 }
 
@@ -1084,6 +1097,7 @@ fn make_fixed_footer(text: &str) -> Node {
         id: None,
         source_location: None,
         bookmark: None,
+        href: None,
     }
 }
 
@@ -1193,6 +1207,7 @@ fn test_footer_reduces_content_area() {
         id: None,
         source_location: None,
         bookmark: None,
+        href: None,
     };
     let mut children_with_footer = vec![big_footer];
     for i in 0..80 {
@@ -1556,6 +1571,7 @@ fn test_table_cell_overflow_does_not_panic() {
         id: None,
         source_location: None,
         bookmark: None,
+        href: None,
     };
     children.push(table);
 
@@ -1667,12 +1683,14 @@ fn test_page_number_placeholder_single_page() {
                 id: None,
                 source_location: None,
                 bookmark: None,
+                href: None,
             },
             make_text("Hello", 12.0),
         ],
         id: None,
         source_location: None,
         bookmark: None,
+        href: None,
     }]);
     let pdf_bytes = forme::render(&doc).unwrap();
     let pdf_str = String::from_utf8_lossy(&pdf_bytes);
@@ -1702,6 +1720,7 @@ fn test_page_number_placeholder_multi_page() {
         id: None,
         source_location: None,
         bookmark: None,
+        href: None,
     }];
     for _ in 0..80 {
         page_children.push(make_text("Line of text to fill the page.", 12.0));
@@ -1716,6 +1735,7 @@ fn test_page_number_placeholder_multi_page() {
         id: None,
         source_location: None,
         bookmark: None,
+        href: None,
     }]);
     let pdf_bytes = forme::render(&doc).unwrap();
     let pdf_str = String::from_utf8_lossy(&pdf_bytes);
@@ -1771,6 +1791,7 @@ fn test_text_with_href_produces_link_annotation() {
         id: None,
         source_location: None,
         bookmark: None,
+        href: None,
     }]);
     let bytes = render_to_pdf(&doc);
     assert_valid_pdf(&bytes);
@@ -1816,6 +1837,7 @@ fn test_multiple_links_on_same_page() {
             id: None,
             source_location: None,
             bookmark: None,
+            href: None,
         },
         Node {
             kind: NodeKind::Text {
@@ -1828,6 +1850,7 @@ fn test_multiple_links_on_same_page() {
             id: None,
             source_location: None,
             bookmark: None,
+            href: None,
         },
     ]);
     let bytes = render_to_pdf(&doc);
@@ -1893,6 +1916,7 @@ fn test_text_runs_render_valid_pdf() {
         id: None,
         source_location: None,
         bookmark: None,
+        href: None,
     }]);
     let bytes = render_to_pdf(&doc);
     assert_valid_pdf(&bytes);
@@ -1928,6 +1952,7 @@ fn test_text_runs_with_href_per_run() {
         id: None,
         source_location: None,
         bookmark: None,
+        href: None,
     }]);
     let bytes = render_to_pdf(&doc);
     assert_valid_pdf(&bytes);
@@ -1966,6 +1991,7 @@ fn test_bookmarks_produce_outlines() {
             id: None,
             source_location: None,
             bookmark: Some("Chapter 1".to_string()),
+            href: None,
         },
         make_text("Content for chapter 1", 12.0),
         Node {
@@ -1975,6 +2001,7 @@ fn test_bookmarks_produce_outlines() {
             id: None,
             source_location: None,
             bookmark: Some("Chapter 2".to_string()),
+            href: None,
         },
         make_text("Content for chapter 2", 12.0),
     ]);
@@ -2045,6 +2072,7 @@ fn test_bookmarks_on_breakable_view() {
         id: None,
         source_location: None,
         bookmark: Some("Breakable Chapter".to_string()),
+        href: None,
     };
     let doc = default_doc(vec![bookmarked_view]);
     let pages = layout_doc(&doc);
@@ -2086,6 +2114,7 @@ fn test_multiple_bookmarked_views_mixed_sizes() {
             id: None,
             source_location: None,
             bookmark: Some(name),
+            href: None,
         });
     }
     let doc = default_doc(doc_children);
@@ -2130,6 +2159,7 @@ fn test_absolute_position_does_not_affect_flow() {
                 id: None,
                 source_location: None,
                 bookmark: None,
+                href: None,
             },
             make_text("After absolute", 12.0),
         ],
@@ -2185,6 +2215,7 @@ fn test_svg_basic_rect() {
         id: None,
         source_location: None,
         bookmark: None,
+        href: None,
     }]);
     let pages = layout_doc(&doc);
     assert_eq!(pages.len(), 1);
@@ -2208,6 +2239,7 @@ fn test_svg_circle_and_path() {
         id: None,
         source_location: None,
         bookmark: None,
+        href: None,
     }]);
     let bytes = render_to_pdf(&doc);
     assert_valid_pdf(&bytes);
@@ -2252,6 +2284,7 @@ fn test_svg_page_break() {
         id: None,
         source_location: None,
         bookmark: None,
+        href: None,
     });
     let doc = default_doc(children);
     let pages = layout_doc(&doc);
@@ -2277,6 +2310,7 @@ fn test_empty_svg_content() {
         id: None,
         source_location: None,
         bookmark: None,
+        href: None,
     }]);
     let bytes = render_to_pdf(&doc);
     assert_valid_pdf(&bytes);
@@ -2311,6 +2345,7 @@ fn test_orphan_control_moves_paragraph_to_next_page() {
         id: None,
         source_location: None,
         bookmark: None,
+        href: None,
     });
 
     let doc = default_doc(children);
@@ -2349,6 +2384,7 @@ fn test_widow_control_adjusts_split_point() {
         id: None,
         source_location: None,
         bookmark: None,
+        href: None,
     };
     children.push(paragraph);
 
@@ -2387,6 +2423,7 @@ fn test_widow_orphan_with_custom_settings() {
         id: None,
         source_location: None,
         bookmark: None,
+        href: None,
     });
 
     let doc = default_doc(children);
@@ -2614,6 +2651,7 @@ fn test_table_cell_overflow_preserves_content() {
         id: None,
         source_location: None,
         bookmark: None,
+        href: None,
     };
 
     let doc = default_doc(vec![table]);
@@ -2663,6 +2701,7 @@ fn test_table_cell_overflow_near_page_bottom() {
         id: None,
         source_location: None,
         bookmark: None,
+        href: None,
     };
     children.push(table);
 
@@ -2676,4 +2715,240 @@ fn test_table_cell_overflow_near_page_bottom() {
 
     let bytes = render_to_pdf(&doc);
     assert_valid_pdf(&bytes);
+}
+
+// ─── Internal Link (Anchor) Tests ───────────────────────────────
+
+#[test]
+fn test_internal_link_produces_goto_annotation() {
+    // A text with href="#Chapter 1" linking to a bookmarked view
+    let doc = default_doc(vec![
+        Node {
+            kind: NodeKind::Text {
+                content: "Go to Chapter 1".to_string(),
+                href: Some("#Chapter 1".to_string()),
+                runs: vec![],
+            },
+            style: Style::default(),
+            children: vec![],
+            id: None,
+            source_location: None,
+            bookmark: None,
+            href: None,
+        },
+        make_page_break(),
+        Node {
+            kind: NodeKind::View,
+            style: Style::default(),
+            children: vec![make_text("Chapter 1 content", 12.0)],
+            id: None,
+            source_location: None,
+            bookmark: Some("Chapter 1".to_string()),
+            href: None,
+        },
+    ]);
+    let bytes = render_to_pdf(&doc);
+    assert_valid_pdf(&bytes);
+    let text = String::from_utf8_lossy(&bytes);
+    assert!(
+        text.contains("/S /GoTo"),
+        "Internal link should produce /GoTo action"
+    );
+    assert!(
+        !text.contains("/S /URI"),
+        "Internal link should not produce /URI action"
+    );
+}
+
+#[test]
+fn test_external_link_still_produces_uri() {
+    // Ensure external links are unaffected by the internal link feature
+    let doc = default_doc(vec![
+        Node {
+            kind: NodeKind::Text {
+                content: "Visit site".to_string(),
+                href: Some("https://example.com".to_string()),
+                runs: vec![],
+            },
+            style: Style::default(),
+            children: vec![],
+            id: None,
+            source_location: None,
+            bookmark: None,
+            href: None,
+        },
+        Node {
+            kind: NodeKind::View,
+            style: Style::default(),
+            children: vec![make_text("Some section", 12.0)],
+            id: None,
+            source_location: None,
+            bookmark: Some("Some section".to_string()),
+            href: None,
+        },
+    ]);
+    let bytes = render_to_pdf(&doc);
+    assert_valid_pdf(&bytes);
+    let text = String::from_utf8_lossy(&bytes);
+    assert!(
+        text.contains("/S /URI"),
+        "External link should produce /URI action"
+    );
+    assert!(
+        !text.contains("/S /GoTo"),
+        "External link should not produce /GoTo action"
+    );
+}
+
+#[test]
+fn test_internal_link_no_matching_bookmark_skipped() {
+    // An internal link pointing to a nonexistent bookmark should be silently skipped
+    let doc = default_doc(vec![Node {
+        kind: NodeKind::Text {
+            content: "Go to nowhere".to_string(),
+            href: Some("#Nonexistent".to_string()),
+            runs: vec![],
+        },
+        style: Style::default(),
+        children: vec![],
+        id: None,
+        source_location: None,
+        bookmark: None,
+        href: None,
+    }]);
+    let bytes = render_to_pdf(&doc);
+    assert_valid_pdf(&bytes);
+    let text = String::from_utf8_lossy(&bytes);
+    assert!(
+        !text.contains("/Annots"),
+        "Missing bookmark target should produce no annotation"
+    );
+    assert!(
+        !text.contains("/S /GoTo"),
+        "Missing bookmark target should not produce /GoTo"
+    );
+}
+
+#[test]
+fn test_multiple_internal_links_to_multiple_bookmarks() {
+    // Two internal links on page 1 pointing to two bookmarked sections on page 2
+    let doc = default_doc(vec![
+        Node {
+            kind: NodeKind::Text {
+                content: "Go to A".to_string(),
+                href: Some("#Section A".to_string()),
+                runs: vec![],
+            },
+            style: Style::default(),
+            children: vec![],
+            id: None,
+            source_location: None,
+            bookmark: None,
+            href: None,
+        },
+        Node {
+            kind: NodeKind::Text {
+                content: "Go to B".to_string(),
+                href: Some("#Section B".to_string()),
+                runs: vec![],
+            },
+            style: Style::default(),
+            children: vec![],
+            id: None,
+            source_location: None,
+            bookmark: None,
+            href: None,
+        },
+        make_page_break(),
+        Node {
+            kind: NodeKind::View,
+            style: Style::default(),
+            children: vec![make_text("Content A", 12.0)],
+            id: None,
+            source_location: None,
+            bookmark: Some("Section A".to_string()),
+            href: None,
+        },
+        Node {
+            kind: NodeKind::View,
+            style: Style::default(),
+            children: vec![make_text("Content B", 12.0)],
+            id: None,
+            source_location: None,
+            bookmark: Some("Section B".to_string()),
+            href: None,
+        },
+    ]);
+    let bytes = render_to_pdf(&doc);
+    assert_valid_pdf(&bytes);
+    let text = String::from_utf8_lossy(&bytes);
+    let goto_count = text.matches("/S /GoTo").count();
+    assert_eq!(
+        goto_count, 2,
+        "Should have 2 /GoTo annotations, got {}",
+        goto_count
+    );
+}
+
+#[test]
+fn test_view_href_produces_link_annotation() {
+    // A View with href should produce a link annotation
+    let doc = default_doc(vec![
+        Node {
+            kind: NodeKind::View,
+            style: Style {
+                height: Some(Dimension::Pt(30.0)),
+                ..Default::default()
+            },
+            children: vec![make_text("TOC entry", 10.0)],
+            id: None,
+            source_location: None,
+            bookmark: None,
+            href: Some("#Target".to_string()),
+        },
+        make_page_break(),
+        Node {
+            kind: NodeKind::View,
+            style: Style::default(),
+            children: vec![make_text("Target content", 12.0)],
+            id: None,
+            source_location: None,
+            bookmark: Some("Target".to_string()),
+            href: None,
+        },
+    ]);
+    let bytes = render_to_pdf(&doc);
+    assert_valid_pdf(&bytes);
+    let text = String::from_utf8_lossy(&bytes);
+    assert!(
+        text.contains("/S /GoTo"),
+        "View with internal href should produce /GoTo annotation"
+    );
+}
+
+#[test]
+fn test_internal_link_json_deserialization() {
+    let json = r##"{
+        "children": [
+            {
+                "kind": { "type": "Text", "content": "Jump to section", "href": "#my-section" },
+                "style": {}
+            },
+            { "kind": { "type": "PageBreak" } },
+            {
+                "kind": { "type": "View" },
+                "bookmark": "my-section",
+                "children": [
+                    { "kind": { "type": "Text", "content": "Section content" } }
+                ]
+            }
+        ]
+    }"##;
+    let bytes = forme::render_json(json).expect("Should parse internal link JSON");
+    assert_valid_pdf(&bytes);
+    let text = String::from_utf8_lossy(&bytes);
+    assert!(
+        text.contains("/S /GoTo"),
+        "JSON internal link should produce /GoTo"
+    );
 }

@@ -762,7 +762,7 @@ impl LayoutEngine {
                 node_type: Some(node_kind_name(&node.kind).to_string()),
                 resolved_style: Some(style.clone()),
                 source_location: node.source_location.clone(),
-                href: None,
+                href: node.href.clone(),
                 bookmark: node.bookmark.clone(),
             };
             cursor.elements.push(rect_element);
@@ -2601,6 +2601,7 @@ mod tests {
             id: None,
             source_location: None,
             bookmark: None,
+            href: None,
         }
     }
 
@@ -2612,6 +2613,7 @@ mod tests {
             id: None,
             source_location: None,
             bookmark: None,
+            href: None,
         }
     }
 

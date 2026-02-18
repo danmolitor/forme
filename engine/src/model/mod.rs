@@ -163,6 +163,10 @@ pub struct Node {
     /// Bookmark title for this node (creates a PDF outline entry).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bookmark: Option<String>,
+
+    /// Optional hyperlink URL for this node (creates a PDF link annotation).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub href: Option<String>,
 }
 
 /// The different kinds of nodes in the document tree.
@@ -315,6 +319,7 @@ impl Node {
             id: None,
             source_location: None,
             bookmark: None,
+            href: None,
         }
     }
 
@@ -331,6 +336,7 @@ impl Node {
             id: None,
             source_location: None,
             bookmark: None,
+            href: None,
         }
     }
 
@@ -343,6 +349,7 @@ impl Node {
             id: None,
             source_location: None,
             bookmark: None,
+            href: None,
         }
     }
 

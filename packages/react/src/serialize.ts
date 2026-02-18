@@ -266,7 +266,7 @@ function serializeChild(child: unknown, parent: ParentContext = null): FormeNode
 }
 
 function serializeView(element: ReactElement, _parent: ParentContext = null): FormeNode {
-  const props = element.props as { style?: Style; wrap?: boolean; bookmark?: string; children?: unknown };
+  const props = element.props as { style?: Style; wrap?: boolean; bookmark?: string; href?: string; children?: unknown };
   const style = mapStyle(props.style);
   if (props.wrap !== undefined) {
     style.wrap = props.wrap;
@@ -281,6 +281,7 @@ function serializeView(element: ReactElement, _parent: ParentContext = null): Fo
     sourceLocation: extractSourceLocation(element),
   };
   if (props.bookmark) node.bookmark = props.bookmark;
+  if (props.href) node.href = props.href;
 
   return node;
 }
