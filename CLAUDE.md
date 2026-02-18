@@ -97,19 +97,13 @@ Transform in pdf serializer: `pdf_y = page_height - layout_y - element_height`
 
 ### MUST FIX BEFORE V1
 
-1. **Text measurement is fake.** `text/mod.rs` uses hardcoded proportional width estimates (e.g., "m" = 0.72 × font_size). This produces roughly correct line breaks for Helvetica but will be wrong for any other font. **Fix:** Add `ttf-parser` dependency, load actual font files, read the `hmtx` table for real glyph advance widths.
-
-2. **No custom font embedding.** Only the 14 standard PDF fonts (Helvetica, Times, Courier) work. Custom fonts need: TrueType parsing, glyph subsetting (only embed used glyphs), CIDFont/CMap PDF embedding tables. **Fix:** Use `ttf-parser` for parsing. Write the subsetting and PDF embedding code in `font/mod.rs` and `pdf/mod.rs`. Budget 2-3 weeks.
-
-3. **Font name indexing in PDF is hardcoded.** `PdfWriter::font_name_index()` maps family names to indices with a match statement. Should use the `font_objects` HashMap to dynamically resolve indices. Fix is straightforward.
-
-4. **Table cell content can silently overflow.** In `layout_table_row`, cell children are laid out with `&mut Vec::new()` as the pages target, meaning page breaks inside cells are swallowed. **Audited behavior:** Row-level page breaks work correctly — if a whole row doesn't fit, it moves to the next page and header rows are re-drawn. But if a single cell's content exceeds the remaining page height, the overflow is silently discarded (the `Vec::new()` pages target absorbs would-be page breaks). For v1 this is acceptable since table cells should contain short content. Workaround: keep cell content brief; use multiple rows instead of tall cells.
+1. **Table cell content can silently overflow.** In `layout_table_row`, cell children are laid out with `&mut Vec::new()` as the pages target, meaning page breaks inside cells are swallowed. **Audited behavior:** Row-level page breaks work correctly — if a whole row doesn't fit, it moves to the next page and header rows are re-drawn. But if a single cell's content exceeds the remaining page height, the overflow is silently discarded (the `Vec::new()` pages target absorbs would-be page breaks). For v1 this is acceptable since table cells should contain short content. Workaround: keep cell content brief; use multiple rows instead of tall cells.
 
 ### SHOULD FIX
 
-5. **Widow/orphan control in text layout is incomplete.** The page_break module has the logic, but the text layout path in `layout_text` doesn't use it — it just breaks at any line boundary.
+2. **Widow/orphan control in text layout is incomplete.** The page_break module has the logic, but the text layout path in `layout_text` doesn't use it — it just breaks at any line boundary.
 
-6. **`align-content` is not implemented.** Wrapped flex lines always stack from the top (`flex-start`). Properties like `center`, `space-between`, etc. for distributing lines within the cross-axis are not supported.
+3. **`align-content` is not implemented.** Wrapped flex lines always stack from the top (`flex-start`). Properties like `center`, `space-between`, etc. for distributing lines within the cross-axis are not supported.
 
 ### NICE TO HAVE (LATER)
 
