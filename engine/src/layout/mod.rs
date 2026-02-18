@@ -377,6 +377,8 @@ pub struct PositionedGlyph {
     pub color: Option<Color>,
     /// Per-glyph href (for inline links within runs).
     pub href: Option<String>,
+    /// Per-glyph text decoration (for runs with different decorations).
+    pub text_decoration: TextDecoration,
 }
 
 /// Shift a layout element and all its nested content (children, text lines)
@@ -390,6 +392,20 @@ fn offset_element_y(el: &mut LayoutElement, dy: f64) {
     }
     for child in &mut el.children {
         offset_element_y(child, dy);
+    }
+}
+
+/// Shift a layout element and all its nested content horizontally by `dx` points.
+#[allow(dead_code)]
+fn offset_element_x(el: &mut LayoutElement, dx: f64) {
+    el.x += dx;
+    if let DrawCommand::Text { ref mut lines, .. } = el.draw {
+        for line in lines.iter_mut() {
+            line.x += dx;
+        }
+    }
+    for child in &mut el.children {
+        offset_element_x(child, dx);
     }
 }
 
@@ -806,6 +822,10 @@ impl LayoutEngine {
         parent_style: Option<&ResolvedStyle>,
         font_context: &FontContext,
     ) {
+        // Save parent content box position for absolute children
+        let parent_box_y = cursor.content_y + cursor.y;
+        let parent_box_x = content_x;
+
         // Separate absolute vs flow children
         let (flow_children, abs_children): (Vec<&Node>, Vec<&Node>) = children
             .iter()
@@ -827,19 +847,110 @@ impl LayoutEngine {
                     flow_children
                 };
 
+                let justify = parent_style
+                    .map(|s| s.justify_content)
+                    .unwrap_or(JustifyContent::FlexStart);
+                let align = parent_style
+                    .map(|s| s.align_items)
+                    .unwrap_or(AlignItems::Stretch);
+
+                let start_y = cursor.y;
+                let initial_pages = pages.len();
+
+                // Track each child's element range for align-items adjustment
+                let mut child_ranges: Vec<(usize, usize)> = Vec::new();
+
                 for (i, child) in items.iter().enumerate() {
                     if i > 0 {
                         cursor.y += row_gap;
                     }
+                    let child_start = cursor.elements.len();
+
+                    // For align-items Center/FlexEnd, measure child width and adjust x
+                    let (child_x, child_w) =
+                        if !matches!(align, AlignItems::Stretch | AlignItems::FlexStart) {
+                            let child_style =
+                                child.style.resolve(parent_style, available_width);
+                            let intrinsic =
+                                self.measure_intrinsic_width(child, &child_style, font_context);
+                            let w = match child_style.width {
+                                SizeConstraint::Fixed(fw) => fw,
+                                SizeConstraint::Auto => intrinsic,
+                            };
+                            match align {
+                                AlignItems::Center => {
+                                    (content_x + (available_width - w) / 2.0, w)
+                                }
+                                AlignItems::FlexEnd => {
+                                    (content_x + available_width - w, w)
+                                }
+                                _ => (content_x, available_width),
+                            }
+                        } else {
+                            (content_x, available_width)
+                        };
+
                     self.layout_node(
                         child,
                         cursor,
                         pages,
-                        content_x,
-                        available_width,
+                        child_x,
+                        child_w,
                         parent_style,
                         font_context,
                     );
+
+                    child_ranges.push((child_start, cursor.elements.len()));
+                }
+
+                // justify-content: redistribute children vertically when parent has fixed height
+                let needs_justify = !matches!(justify, JustifyContent::FlexStart)
+                    && pages.len() == initial_pages;
+                if needs_justify {
+                    if let Some(ps) = parent_style {
+                        if let SizeConstraint::Fixed(container_h) = ps.height {
+                            let inner_h = container_h
+                                - ps.padding.vertical()
+                                - ps.border_width.vertical();
+                            let children_total = cursor.y - start_y;
+                            let slack = inner_h - children_total;
+                            if slack > 0.0 {
+                                let n = child_ranges.len();
+                                let offsets: Vec<f64> = match justify {
+                                    JustifyContent::FlexEnd => vec![slack; n],
+                                    JustifyContent::Center => vec![slack / 2.0; n],
+                                    JustifyContent::SpaceBetween => {
+                                        if n <= 1 {
+                                            vec![0.0; n]
+                                        } else {
+                                            let per_gap = slack / (n - 1) as f64;
+                                            (0..n).map(|i| i as f64 * per_gap).collect()
+                                        }
+                                    }
+                                    JustifyContent::SpaceAround => {
+                                        let space = slack / n as f64;
+                                        (0..n)
+                                            .map(|i| space / 2.0 + i as f64 * space)
+                                            .collect()
+                                    }
+                                    JustifyContent::SpaceEvenly => {
+                                        let space = slack / (n + 1) as f64;
+                                        (0..n).map(|i| (i + 1) as f64 * space).collect()
+                                    }
+                                    JustifyContent::FlexStart => vec![0.0; n],
+                                };
+                                for (i, &(start, end)) in child_ranges.iter().enumerate() {
+                                    let dy = offsets[i];
+                                    if dy.abs() > 0.001 {
+                                        for j in start..end {
+                                            offset_element_y(&mut cursor.elements[j], dy);
+                                        }
+                                    }
+                                }
+                                cursor.y += *offsets.last().unwrap_or(&0.0);
+                            }
+                        }
+                    }
                 }
             }
 
@@ -885,21 +996,29 @@ impl LayoutEngine {
 
             // Determine position relative to parent content box
             let abs_x = if let Some(l) = abs_style.left {
-                content_x + l
+                parent_box_x + l
             } else if let Some(r) = abs_style.right {
-                content_x + available_width - r - child_width
+                parent_box_x + available_width - r - child_width
             } else {
-                content_x
+                parent_box_x
             };
 
-            let parent_content_y = cursor.content_y;
+            // Compute parent inner height for bottom positioning
+            let parent_inner_height = parent_style
+                .and_then(|ps| match ps.height {
+                    SizeConstraint::Fixed(h) => {
+                        Some(h - ps.padding.vertical() - ps.border_width.vertical())
+                    }
+                    SizeConstraint::Auto => None,
+                })
+                .unwrap_or_else(|| cursor.content_y + cursor.y - parent_box_y);
+
             let abs_y = if let Some(t) = abs_style.top {
-                parent_content_y + t
+                parent_box_y + t
             } else if let Some(b) = abs_style.bottom {
-                // Bottom relative to the page content area
-                parent_content_y + cursor.content_height - b - child_height
+                parent_box_y + parent_inner_height - b - child_height
             } else {
-                parent_content_y
+                parent_box_y
             };
 
             // Lay out the absolute child into a temporary cursor
@@ -945,20 +1064,27 @@ impl LayoutEngine {
             .unwrap_or(FlexWrap::NoWrap);
 
         // Phase 1: resolve styles and measure base widths for all items
+        // flex_basis takes precedence over width for flex items (per CSS spec)
         let items: Vec<FlexItem> = children
             .iter()
             .map(|child| {
                 let style = child.style.resolve(parent_style, available_width);
-                let base_width = match style.width {
+                let base_width = match style.flex_basis {
                     SizeConstraint::Fixed(w) => w,
-                    SizeConstraint::Auto => {
-                        self.measure_intrinsic_width(child, &style, font_context)
-                    }
+                    SizeConstraint::Auto => match style.width {
+                        SizeConstraint::Fixed(w) => w,
+                        SizeConstraint::Auto => {
+                            self.measure_intrinsic_width(child, &style, font_context)
+                        }
+                    },
                 };
+                let min_content_width =
+                    self.measure_min_content_width(child, &style, font_context);
                 FlexItem {
                     node: child,
                     style,
                     base_width,
+                    min_content_width,
                 }
             })
             .collect();
@@ -1021,7 +1147,8 @@ impl LayoutEngine {
                     for (j, item) in line_items.iter().enumerate() {
                         let factor = (item.style.flex_shrink * item.base_width) / total_shrink;
                         let w = item.base_width + remaining * factor;
-                        final_widths[line.start + j] = w.max(item.style.min_width);
+                        let floor = item.style.min_width.max(item.min_content_width);
+                        final_widths[line.start + j] = w.max(floor);
                     }
                 }
             }
@@ -1546,6 +1673,7 @@ impl LayoutEngine {
                         char_value: *ch,
                         color: Some(style.color),
                         href: href.map(|s| s.to_string()),
+                        text_decoration: style.text_decoration,
                     }
                 })
                 .collect();
@@ -1740,6 +1868,7 @@ impl LayoutEngine {
                     char_value: sc.ch,
                     color: Some(sc.color),
                     href: sc.href.clone(),
+                    text_decoration: sc.text_decoration,
                 })
                 .collect();
 
@@ -2035,16 +2164,23 @@ impl LayoutEngine {
         match direction {
             FlexDirection::Row | FlexDirection::RowReverse => {
                 // Measure base widths for all children
+                // flex_basis takes precedence over width (matching layout_flex_row)
+                let styles: Vec<ResolvedStyle> = children
+                    .iter()
+                    .map(|child| child.style.resolve(Some(parent_style), available_width))
+                    .collect();
+
                 let base_widths: Vec<f64> = children
                     .iter()
-                    .map(|child| {
-                        let child_style = child.style.resolve(Some(parent_style), available_width);
-                        match child_style.width {
+                    .zip(&styles)
+                    .map(|(child, style)| match style.flex_basis {
+                        SizeConstraint::Fixed(w) => w,
+                        SizeConstraint::Auto => match style.width {
                             SizeConstraint::Fixed(w) => w,
                             SizeConstraint::Auto => {
-                                self.measure_intrinsic_width(child, &child_style, font_context)
+                                self.measure_intrinsic_width(child, style, font_context)
                             }
-                        }
+                        },
                     })
                     .collect();
 
@@ -2060,14 +2196,54 @@ impl LayoutEngine {
                     }
                 };
 
+                // Apply flex grow/shrink to get final widths (matching layout_flex_row)
+                let mut final_widths = base_widths.clone();
+                for line in &lines {
+                    let line_count = line.end - line.start;
+                    let line_gap = column_gap * (line_count as f64 - 1.0).max(0.0);
+                    let distributable = available_width - line_gap;
+                    let total_base: f64 =
+                        base_widths[line.start..line.end].iter().sum();
+                    let remaining = distributable - total_base;
+
+                    if remaining > 0.0 {
+                        let total_grow: f64 = styles[line.start..line.end]
+                            .iter()
+                            .map(|s| s.flex_grow)
+                            .sum();
+                        if total_grow > 0.0 {
+                            for (j, s) in styles[line.start..line.end].iter().enumerate() {
+                                final_widths[line.start + j] = base_widths[line.start + j]
+                                    + remaining * (s.flex_grow / total_grow);
+                            }
+                        }
+                    } else if remaining < 0.0 {
+                        let total_shrink: f64 = styles[line.start..line.end]
+                            .iter()
+                            .enumerate()
+                            .map(|(j, s)| s.flex_shrink * base_widths[line.start + j])
+                            .sum();
+                        if total_shrink > 0.0 {
+                            for (j, s) in styles[line.start..line.end].iter().enumerate() {
+                                let factor = (s.flex_shrink * base_widths[line.start + j])
+                                    / total_shrink;
+                                let w = base_widths[line.start + j] + remaining * factor;
+                                final_widths[line.start + j] = w.max(s.min_width);
+                            }
+                        }
+                    }
+                }
+
                 let mut total = 0.0;
                 for (i, line) in lines.iter().enumerate() {
                     let line_height: f64 = children[line.start..line.end]
                         .iter()
-                        .zip(&base_widths[line.start..line.end])
-                        .map(|(child, &bw)| {
-                            let child_style = child.style.resolve(Some(parent_style), bw);
-                            self.measure_node_height(child, bw, &child_style, font_context)
+                        .enumerate()
+                        .map(|(j, child)| {
+                            let fw = final_widths[line.start + j];
+                            let child_style =
+                                child.style.resolve(Some(parent_style), fw);
+                            self.measure_node_height(child, fw, &child_style, font_context)
                                 + child_style.margin.vertical()
                         })
                         .fold(0.0f64, f64::max);
@@ -2119,7 +2295,9 @@ impl LayoutEngine {
                     style.font_size,
                     style.letter_spacing,
                 );
-                text_width + style.padding.horizontal() + style.margin.horizontal()
+                // Add tiny epsilon to prevent exact-boundary line wrapping when
+                // this width is later used as max_width for line breaking
+                text_width + 0.01 + style.padding.horizontal() + style.margin.horizontal()
             }
             NodeKind::Image { width, .. } => {
                 width.unwrap_or(100.0) + style.padding.horizontal() + style.margin.horizontal()
@@ -2149,6 +2327,74 @@ impl LayoutEngine {
                         }
                     }
                     total
+                        + style.padding.horizontal()
+                        + style.margin.horizontal()
+                        + style.border_width.horizontal()
+                }
+            }
+        }
+    }
+
+    /// Measure the min-content width of a node — the minimum width needed
+    /// to render without breaking unbreakable words. For Text nodes this is
+    /// the widest single word; for containers it's the max of children.
+    fn measure_min_content_width(
+        &self,
+        node: &Node,
+        style: &ResolvedStyle,
+        font_context: &FontContext,
+    ) -> f64 {
+        match &node.kind {
+            NodeKind::Text { content, runs, .. } => {
+                let word_width = if !runs.is_empty() {
+                    // For styled runs, measure each run's widest word
+                    runs.iter()
+                        .map(|run| {
+                            let run_style = run.style.resolve(Some(style), 0.0);
+                            self.text_layout.measure_widest_word(
+                                font_context,
+                                &run.content,
+                                run_style.font_size,
+                                &run_style.font_family,
+                                run_style.font_weight,
+                                run_style.font_style,
+                                run_style.letter_spacing,
+                            )
+                        })
+                        .fold(0.0f64, f64::max)
+                } else {
+                    self.text_layout.measure_widest_word(
+                        font_context,
+                        content,
+                        style.font_size,
+                        &style.font_family,
+                        style.font_weight,
+                        style.font_style,
+                        style.letter_spacing,
+                    )
+                };
+                word_width + style.padding.horizontal() + style.margin.horizontal()
+            }
+            NodeKind::Image { width, .. } => {
+                width.unwrap_or(0.0) + style.padding.horizontal() + style.margin.horizontal()
+            }
+            NodeKind::Svg { width, .. } => {
+                *width + style.padding.horizontal() + style.margin.horizontal()
+            }
+            _ => {
+                if node.children.is_empty() {
+                    style.padding.horizontal()
+                        + style.margin.horizontal()
+                        + style.border_width.horizontal()
+                } else {
+                    let mut max_child_min = 0.0f64;
+                    for child in &node.children {
+                        let child_style = child.style.resolve(Some(style), 0.0);
+                        let child_min =
+                            self.measure_min_content_width(child, &child_style, font_context);
+                        max_child_min = max_child_min.max(child_min);
+                    }
+                    max_child_min
                         + style.padding.horizontal()
                         + style.margin.horizontal()
                         + style.border_width.horizontal()
@@ -2308,6 +2554,7 @@ struct FlexItem<'a> {
     node: &'a Node,
     style: ResolvedStyle,
     base_width: f64,
+    min_content_width: f64,
 }
 
 #[cfg(test)]
@@ -2499,6 +2746,236 @@ mod tests {
             "Empty container width ({}) should equal horizontal padding ({})",
             w,
             padding * 2.0
+        );
+    }
+
+    // ── Fix 1: min-content width prevents text wrapping in flex shrink ──
+
+    #[test]
+    fn flex_shrink_respects_min_content_width() {
+        // A flex row with a short-text child ("SALE") and a large sibling.
+        // The shrink algorithm should not compress the short-text child below
+        // the width of the word "SALE".
+        let engine = LayoutEngine::new();
+        let font_context = FontContext::new();
+
+        let sale_text = make_text("SALE", 12.0);
+        let sale_style = sale_text.style.resolve(None, 0.0);
+        let sale_word_width = engine.measure_min_content_width(&sale_text, &sale_style, &font_context);
+        assert!(sale_word_width > 0.0, "SALE should have non-zero min-content width");
+
+        // Row with 100pt available; child1 wants 80pt, child2 (SALE) wants 60pt.
+        // Total = 140pt, overflow = 40pt. Without floor, SALE would shrink below word width.
+        let container = make_styled_view(
+            Style {
+                flex_direction: Some(FlexDirection::Row),
+                width: Some(Dimension::Pt(100.0)),
+                ..Default::default()
+            },
+            vec![
+                make_styled_view(
+                    Style {
+                        width: Some(Dimension::Pt(80.0)),
+                        flex_shrink: Some(1.0),
+                        ..Default::default()
+                    },
+                    vec![],
+                ),
+                make_styled_view(
+                    Style {
+                        width: Some(Dimension::Pt(60.0)),
+                        flex_shrink: Some(1.0),
+                        ..Default::default()
+                    },
+                    vec![make_text("SALE", 12.0)],
+                ),
+            ],
+        );
+
+        let doc = Document {
+            children: vec![Node::page(PageConfig::default(), Style::default(), vec![container])],
+            metadata: Default::default(),
+            default_page: PageConfig::default(),
+        };
+
+        let pages = engine.layout(&doc, &font_context);
+        assert!(!pages.is_empty());
+
+        // The SALE child (second flex item) should not be narrower than its min-content width
+        // Walk the layout tree: Page -> View (container) -> second child
+        let page = &pages[0];
+        // Find the container (the View with children)
+        let container_el = page.elements.iter().find(|e| e.children.len() == 2);
+        assert!(container_el.is_some(), "Should find container with 2 children");
+        let sale_child = &container_el.unwrap().children[1];
+        assert!(
+            sale_child.width >= sale_word_width - 0.01,
+            "SALE child width ({}) should be >= min-content width ({})",
+            sale_child.width,
+            sale_word_width
+        );
+    }
+
+    // ── Fix 2: column justify-content and align-items ──
+
+    #[test]
+    fn column_justify_content_center() {
+        // A column container with fixed height 200pt and a single child of ~20pt.
+        // With justify-content: center, the child should be roughly centered vertically.
+        let engine = LayoutEngine::new();
+        let font_context = FontContext::new();
+
+        let container = make_styled_view(
+            Style {
+                flex_direction: Some(FlexDirection::Column),
+                height: Some(Dimension::Pt(200.0)),
+                justify_content: Some(JustifyContent::Center),
+                ..Default::default()
+            },
+            vec![make_text("Centered", 12.0)],
+        );
+
+        let doc = Document {
+            children: vec![Node::page(PageConfig::default(), Style::default(), vec![container])],
+            metadata: Default::default(),
+            default_page: PageConfig::default(),
+        };
+
+        let pages = engine.layout(&doc, &font_context);
+        let page = &pages[0];
+
+        // The container should have one child, and that child should be
+        // offset roughly to the vertical center
+        let container_el = page.elements.iter().find(|e| !e.children.is_empty());
+        assert!(container_el.is_some(), "Should find container with children");
+        let container_el = container_el.unwrap();
+        let child = &container_el.children[0];
+
+        // Child y should be container.y + roughly (200 - child_height) / 2
+        let child_offset = child.y - container_el.y;
+        let expected_offset = (200.0 - child.height) / 2.0;
+        assert!(
+            (child_offset - expected_offset).abs() < 2.0,
+            "Child offset ({}) should be near center ({})",
+            child_offset,
+            expected_offset
+        );
+    }
+
+    #[test]
+    fn column_align_items_center() {
+        // A column container with a narrow text child.
+        // With align-items: center, the child should be horizontally centered.
+        let engine = LayoutEngine::new();
+        let font_context = FontContext::new();
+
+        let container = make_styled_view(
+            Style {
+                flex_direction: Some(FlexDirection::Column),
+                width: Some(Dimension::Pt(300.0)),
+                align_items: Some(AlignItems::Center),
+                ..Default::default()
+            },
+            vec![make_text("Hi", 12.0)],
+        );
+
+        let doc = Document {
+            children: vec![Node::page(PageConfig::default(), Style::default(), vec![container])],
+            metadata: Default::default(),
+            default_page: PageConfig::default(),
+        };
+
+        let pages = engine.layout(&doc, &font_context);
+        let page = &pages[0];
+
+        let container_el = page.elements.iter().find(|e| !e.children.is_empty());
+        assert!(container_el.is_some());
+        let container_el = container_el.unwrap();
+        let child = &container_el.children[0];
+
+        // Child should be centered within the 300pt container
+        let child_center = child.x + child.width / 2.0;
+        let container_center = container_el.x + container_el.width / 2.0;
+        assert!(
+            (child_center - container_center).abs() < 2.0,
+            "Child center ({}) should be near container center ({})",
+            child_center,
+            container_center
+        );
+    }
+
+    // ── Fix 3: absolute positioning relative to parent ──
+
+    #[test]
+    fn absolute_child_positioned_relative_to_parent() {
+        // A parent View at some offset with an absolute child using top: 10, left: 10.
+        // The absolute child should be at parent + 10, not page + 10.
+        let engine = LayoutEngine::new();
+        let font_context = FontContext::new();
+
+        let parent = make_styled_view(
+            Style {
+                margin: Some(Edges {
+                    top: 50.0,
+                    left: 50.0,
+                    ..Default::default()
+                }),
+                width: Some(Dimension::Pt(200.0)),
+                height: Some(Dimension::Pt(200.0)),
+                ..Default::default()
+            },
+            vec![make_styled_view(
+                Style {
+                    position: Some(crate::model::Position::Absolute),
+                    top: Some(10.0),
+                    left: Some(10.0),
+                    width: Some(Dimension::Pt(50.0)),
+                    height: Some(Dimension::Pt(50.0)),
+                    ..Default::default()
+                },
+                vec![],
+            )],
+        );
+
+        let doc = Document {
+            children: vec![Node::page(PageConfig::default(), Style::default(), vec![parent])],
+            metadata: Default::default(),
+            default_page: PageConfig::default(),
+        };
+
+        let pages = engine.layout(&doc, &font_context);
+        let page = &pages[0];
+
+        // Find the parent container (has the absolute child inside it or as sibling)
+        // Absolute children are added to cursor.elements, so they'll be inside the parent
+        let parent_el = page
+            .elements
+            .iter()
+            .find(|e| e.width > 190.0 && e.width < 210.0);
+        assert!(parent_el.is_some(), "Should find the 200x200 parent");
+        let parent_el = parent_el.unwrap();
+
+        // The absolute child should be at parent.x + 10, parent.y + 10
+        let abs_child = parent_el
+            .children
+            .iter()
+            .find(|e| e.width > 45.0 && e.width < 55.0);
+        assert!(abs_child.is_some(), "Should find 50x50 absolute child");
+        let abs_child = abs_child.unwrap();
+
+        let expected_x = parent_el.x + 10.0;
+        let expected_y = parent_el.y + 10.0;
+        assert!(
+            (abs_child.x - expected_x).abs() < 1.0,
+            "Absolute child x ({}) should be parent.x + 10 ({})",
+            abs_child.x,
+            expected_x
+        );
+        assert!(
+            (abs_child.y - expected_y).abs() < 1.0,
+            "Absolute child y ({}) should be parent.y + 10 ({})",
+            abs_child.y,
+            expected_y
         );
     }
 }

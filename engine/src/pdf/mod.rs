@@ -405,7 +405,14 @@ impl PdfWriter {
 
                     let _ = writeln!(stream, "BT");
 
+                    // Track current text matrix position for relative Td moves
+                    let mut tm_x = 0.0_f64;
+                    let mut tm_y = 0.0_f64;
                     let mut x_cursor = line.x;
+
+                    // Track group spans for per-group text decoration
+                    let mut group_spans: Vec<(f64, f64, TextDecoration, Color)> = Vec::new();
+
                     for group in &groups {
                         let first = &group[0];
                         let glyph_color = first.color.unwrap_or(*color);
@@ -425,6 +432,9 @@ impl PdfWriter {
                         };
                         let font_name = format!("F{}", idx);
 
+                        // Td is relative to current text matrix position
+                        let dx = x_cursor - tm_x;
+                        let dy = pdf_y - tm_y;
                         let _ = writeln!(
                             stream,
                             "{:.3} {:.3} {:.3} rg\n/{} {:.1} Tf\n{:.2} {:.2} Td",
@@ -433,9 +443,11 @@ impl PdfWriter {
                             glyph_color.b,
                             font_name,
                             first.font_size,
-                            x_cursor,
-                            pdf_y
+                            dx,
+                            dy
                         );
+                        tm_x = x_cursor;
+                        tm_y = pdf_y;
 
                         // Collect raw text from group, replace page number placeholders
                         let raw_text: String = group.iter().map(|g| g.char_value).collect();
@@ -473,41 +485,76 @@ impl PdfWriter {
                             let _ = writeln!(stream, "({}) Tj", text_str);
                         }
 
+                        // Record span for per-group text decoration
+                        let group_start_x = x_cursor;
+
                         // Advance x_cursor past this group
                         if let Some(last) = group.last() {
                             x_cursor = line.x + last.x_offset;
                             // Estimate last char width from font_size
                             x_cursor += last.font_size * 0.5;
                         }
+
+                        // Check if this group has text decoration
+                        let group_dec = first.text_decoration;
+                        if !matches!(group_dec, TextDecoration::None) {
+                            group_spans.push((group_start_x, x_cursor, group_dec, glyph_color));
+                        }
                     }
 
                     let _ = writeln!(stream, "ET");
 
-                    // Draw underline if text_decoration is Underline
-                    if matches!(text_decoration, TextDecoration::Underline) {
-                        let underline_y = pdf_y - 1.5;
-                        let _ =
-                            write!(
-                            stream,
-                            "q\n{:.3} {:.3} {:.3} RG\n0.5 w\n{:.2} {:.2} m\n{:.2} {:.2} l\nS\nQ\n",
-                            color.r, color.g, color.b,
-                            line.x, underline_y,
-                            line.x + line.width, underline_y
-                        );
+                    // Draw per-group text decorations
+                    for (span_x, span_end_x, dec, dec_color) in &group_spans {
+                        match dec {
+                            TextDecoration::Underline => {
+                                let underline_y = pdf_y - 1.5;
+                                let _ = write!(
+                                    stream,
+                                    "q\n{:.3} {:.3} {:.3} RG\n0.5 w\n{:.2} {:.2} m\n{:.2} {:.2} l\nS\nQ\n",
+                                    dec_color.r, dec_color.g, dec_color.b,
+                                    span_x, underline_y,
+                                    span_end_x, underline_y
+                                );
+                            }
+                            TextDecoration::LineThrough => {
+                                let first_size = line.glyphs.first().map(|g| g.font_size).unwrap_or(12.0);
+                                let strikethrough_y = pdf_y + first_size * 0.3;
+                                let _ = write!(
+                                    stream,
+                                    "q\n{:.3} {:.3} {:.3} RG\n0.5 w\n{:.2} {:.2} m\n{:.2} {:.2} l\nS\nQ\n",
+                                    dec_color.r, dec_color.g, dec_color.b,
+                                    span_x, strikethrough_y,
+                                    span_end_x, strikethrough_y
+                                );
+                            }
+                            TextDecoration::None => {}
+                        }
                     }
 
-                    // Draw line-through if text_decoration is LineThrough
-                    if matches!(text_decoration, TextDecoration::LineThrough) {
-                        let first_size = line.glyphs.first().map(|g| g.font_size).unwrap_or(12.0);
-                        let strikethrough_y = pdf_y + first_size * 0.3;
-                        let _ =
-                            write!(
-                            stream,
-                            "q\n{:.3} {:.3} {:.3} RG\n0.5 w\n{:.2} {:.2} m\n{:.2} {:.2} l\nS\nQ\n",
-                            color.r, color.g, color.b,
-                            line.x, strikethrough_y,
-                            line.x + line.width, strikethrough_y
-                        );
+                    // Also handle whole-line decoration from parent style
+                    if group_spans.is_empty() {
+                        if matches!(text_decoration, TextDecoration::Underline) {
+                            let underline_y = pdf_y - 1.5;
+                            let _ = write!(
+                                stream,
+                                "q\n{:.3} {:.3} {:.3} RG\n0.5 w\n{:.2} {:.2} m\n{:.2} {:.2} l\nS\nQ\n",
+                                color.r, color.g, color.b,
+                                line.x, underline_y,
+                                line.x + line.width, underline_y
+                            );
+                        }
+                        if matches!(text_decoration, TextDecoration::LineThrough) {
+                            let first_size = line.glyphs.first().map(|g| g.font_size).unwrap_or(12.0);
+                            let strikethrough_y = pdf_y + first_size * 0.3;
+                            let _ = write!(
+                                stream,
+                                "q\n{:.3} {:.3} {:.3} RG\n0.5 w\n{:.2} {:.2} m\n{:.2} {:.2} l\nS\nQ\n",
+                                color.r, color.g, color.b,
+                                line.x, strikethrough_y,
+                                line.x + line.width, strikethrough_y
+                            );
+                        }
                     }
                 }
             }
@@ -1673,6 +1720,7 @@ mod tests {
                                 char_value: 'A',
                                 color: None,
                                 href: None,
+                                text_decoration: TextDecoration::None,
                             }],
                         }],
                         color: Color::BLACK,
@@ -1706,6 +1754,7 @@ mod tests {
                                 char_value: 'A',
                                 color: None,
                                 href: None,
+                                text_decoration: TextDecoration::None,
                             }],
                         }],
                         color: Color::BLACK,
@@ -1850,6 +1899,7 @@ mod tests {
                             char_value: 'H',
                             color: None,
                             href: None,
+                            text_decoration: TextDecoration::None,
                         }],
                     }],
                     color: Color::BLACK,

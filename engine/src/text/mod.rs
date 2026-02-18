@@ -305,6 +305,34 @@ impl TextLayout {
         }
     }
 
+    /// Measure the widest single word in a string (min-content width).
+    /// Splits on whitespace and returns the maximum word width.
+    #[allow(clippy::too_many_arguments)]
+    pub fn measure_widest_word(
+        &self,
+        font_context: &FontContext,
+        text: &str,
+        font_size: f64,
+        font_family: &str,
+        font_weight: u32,
+        font_style: FontStyle,
+        letter_spacing: f64,
+    ) -> f64 {
+        text.split_whitespace()
+            .map(|word| {
+                self.measure_width(
+                    font_context,
+                    word,
+                    font_size,
+                    font_family,
+                    font_weight,
+                    font_style,
+                    letter_spacing,
+                )
+            })
+            .fold(0.0f64, f64::max)
+    }
+
     /// Measure the width of a string on a single line.
     #[allow(clippy::too_many_arguments)]
     pub fn measure_width(

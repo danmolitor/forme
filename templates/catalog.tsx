@@ -18,7 +18,7 @@ function ColorSwatch({ color }: { color: string }) {
 function Badge({ label }: { label: string }) {
   const bg = label === 'SALE' ? '#dc2626' : '#2563eb';
   return (
-    <View style={{ position: 'absolute', top: -4, right: -4, backgroundColor: bg, borderRadius: 3, padding: { top: 2, right: 6, bottom: 2, left: 6 } }}>
+    <View style={{ backgroundColor: bg, borderRadius: 3, textAlign: 'center', padding: { top: 2, right: 6, bottom: 2, left: 6 } }}>
       <Text style={{ fontSize: 7, fontWeight: 700, color: '#ffffff', letterSpacing: 0.5 }}>{label}</Text>
     </View>
   );
@@ -29,15 +29,13 @@ function ProductCard({ product }: { product: any }) {
 
   return (
     <View style={{ flexBasis: '48%', flexGrow: 0, flexShrink: 0, padding: 12, borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 6, marginBottom: 10 }} wrap={false}>
-      {/* Badge overlay */}
-      {product.badge && <Badge label={product.badge} />}
-
-      {/* Color swatch + product name row */}
+      {/* Color swatch + product name + badge row */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
         <ColorSwatch color={product.color} />
-        <Text href={product.url} style={{ fontSize: 10, fontWeight: 700, color: '#2563eb', textDecoration: 'underline' }}>
+        <Text href={product.url} style={{ fontSize: 10, fontWeight: 700, color: '#2563eb', textDecoration: 'underline', flexGrow: 1 }}>
           {product.name}
         </Text>
+        {product.badge && <Badge label={product.badge} />}
       </View>
 
       {/* Price */}
