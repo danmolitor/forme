@@ -5,7 +5,7 @@
 //! Uses real font metrics from the FontContext for accurate character widths.
 
 use crate::font::FontContext;
-use crate::style::FontStyle;
+use crate::style::{Color, FontStyle, TextDecoration};
 
 /// A line of text after line-breaking.
 #[derive(Debug, Clone)]
@@ -17,6 +17,28 @@ pub struct BrokenLine {
     /// X position of each character relative to line start.
     pub char_positions: Vec<f64>,
     /// Total width of the line.
+    pub width: f64,
+}
+
+/// A styled character for multi-style line breaking.
+#[derive(Debug, Clone)]
+pub struct StyledChar {
+    pub ch: char,
+    pub font_family: String,
+    pub font_size: f64,
+    pub font_weight: u32,
+    pub font_style: FontStyle,
+    pub color: Color,
+    pub href: Option<String>,
+    pub text_decoration: TextDecoration,
+    pub letter_spacing: f64,
+}
+
+/// A line of text from multi-style (runs) line breaking.
+#[derive(Debug, Clone)]
+pub struct RunBrokenLine {
+    pub chars: Vec<StyledChar>,
+    pub char_positions: Vec<f64>,
     pub width: f64,
 }
 
@@ -176,6 +198,111 @@ impl TextLayout {
                     + letter_spacing
             })
             .collect()
+    }
+
+    /// Break multi-style text (runs) into lines that fit within `max_width`.
+    pub fn break_runs_into_lines(
+        &self,
+        font_context: &FontContext,
+        chars: &[StyledChar],
+        max_width: f64,
+    ) -> Vec<RunBrokenLine> {
+        if chars.is_empty() {
+            return vec![RunBrokenLine {
+                chars: vec![],
+                char_positions: vec![],
+                width: 0.0,
+            }];
+        }
+
+        // Measure each character width using its own font/style
+        let char_widths: Vec<f64> = chars
+            .iter()
+            .map(|sc| {
+                let italic = matches!(sc.font_style, FontStyle::Italic | FontStyle::Oblique);
+                font_context.char_width(
+                    sc.ch,
+                    &sc.font_family,
+                    sc.font_weight,
+                    italic,
+                    sc.font_size,
+                ) + sc.letter_spacing
+            })
+            .collect();
+
+        let mut lines = Vec::new();
+        let mut line_start = 0;
+        let mut line_width = 0.0;
+        let mut last_break_point: Option<usize> = None;
+
+        for (i, sc) in chars.iter().enumerate() {
+            let char_width = char_widths[i];
+
+            if sc.ch == ' ' || sc.ch == '-' || sc.ch == '\t' {
+                last_break_point = Some(i);
+            }
+
+            if sc.ch == '\n' {
+                lines.push(self.make_run_line(&chars[line_start..i], &char_widths[line_start..i]));
+                line_start = i + 1;
+                line_width = 0.0;
+                last_break_point = None;
+                continue;
+            }
+
+            if line_width + char_width > max_width && line_start < i {
+                if let Some(bp) = last_break_point {
+                    if bp >= line_start {
+                        let break_at = if chars[bp].ch == ' ' { bp } else { bp + 1 };
+                        lines.push(self.make_run_line(
+                            &chars[line_start..break_at],
+                            &char_widths[line_start..break_at],
+                        ));
+                        line_start = bp + 1;
+                        line_width = char_widths[line_start..=i].iter().sum();
+                        last_break_point = None;
+                        continue;
+                    }
+                }
+
+                lines.push(self.make_run_line(&chars[line_start..i], &char_widths[line_start..i]));
+                line_start = i;
+                line_width = char_width;
+                last_break_point = None;
+                continue;
+            }
+
+            line_width += char_width;
+        }
+
+        if line_start < chars.len() {
+            lines.push(self.make_run_line(&chars[line_start..], &char_widths[line_start..]));
+        }
+
+        lines
+    }
+
+    fn make_run_line(&self, chars: &[StyledChar], widths: &[f64]) -> RunBrokenLine {
+        let mut positions = Vec::with_capacity(chars.len());
+        let mut x = 0.0;
+        for &w in widths {
+            positions.push(x);
+            x += w;
+        }
+
+        // Trim trailing spaces from width calculation
+        let mut effective_width = x;
+        let mut i = chars.len();
+        while i > 0 && chars[i - 1].ch == ' ' {
+            i -= 1;
+            effective_width -= widths[i];
+        }
+
+        RunBrokenLine {
+            chars: chars.to_vec(),
+            char_positions: positions,
+            width: effective_width,
+        }
     }
 
     /// Measure the width of a string on a single line.

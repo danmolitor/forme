@@ -2281,3 +2281,399 @@ fn test_empty_svg_content() {
     let bytes = render_to_pdf(&doc);
     assert_valid_pdf(&bytes);
 }
+
+// ─── Widow/Orphan Control Tests ─────────────────────────────────
+
+#[test]
+fn test_orphan_control_moves_paragraph_to_next_page() {
+    // Fill most of a page so only 1 line can fit, then add a 5-line paragraph.
+    // With min_orphan_lines=2 (default), only 1 line fitting → MoveToNextPage.
+    let mut children = Vec::new();
+    // A4 content height ~734pt. At 12pt font * 1.4 line height = 16.8pt/line.
+    // 43 lines fills most of the page.
+    for i in 0..43 {
+        children.push(make_text(&format!("Filler line {}", i), 12.0));
+    }
+    // Add a single text node that will break into 5+ lines
+    let long_text = "This is a paragraph with enough words to create multiple lines when rendered into the available page width. ";
+    let repeated = long_text.repeat(3);
+    children.push(Node {
+        kind: NodeKind::Text {
+            content: repeated,
+            href: None,
+            runs: vec![],
+        },
+        style: Style {
+            font_size: Some(12.0),
+            ..Default::default()
+        },
+        children: vec![],
+        id: None,
+        source_location: None,
+        bookmark: None,
+    });
+
+    let doc = default_doc(children);
+    let pages = layout_doc(&doc);
+    assert!(
+        pages.len() >= 2,
+        "Orphan control should push paragraph to next page, got {} pages",
+        pages.len()
+    );
+    let bytes = render_to_pdf(&doc);
+    assert_valid_pdf(&bytes);
+}
+
+#[test]
+fn test_widow_control_adjusts_split_point() {
+    // Fill most of a page so only 3 lines can fit from a 4-line paragraph.
+    // With min_widow_lines=2, leaving 1 on next page → pull one back to 2+2.
+    let mut children = Vec::new();
+    for i in 0..40 {
+        children.push(make_text(&format!("Filler line {}", i), 12.0));
+    }
+
+    // A 4-child breakable view. Each child is one text node (~1 line).
+    let paragraph = Node {
+        kind: NodeKind::View,
+        style: Style {
+            wrap: Some(true),
+            ..Default::default()
+        },
+        children: vec![
+            make_text("Paragraph line 1", 12.0),
+            make_text("Paragraph line 2", 12.0),
+            make_text("Paragraph line 3", 12.0),
+            make_text("Paragraph line 4", 12.0),
+        ],
+        id: None,
+        source_location: None,
+        bookmark: None,
+    };
+    children.push(paragraph);
+
+    let doc = default_doc(children);
+    let pages = layout_doc(&doc);
+    assert!(
+        pages.len() >= 2,
+        "Should overflow to at least 2 pages, got {}",
+        pages.len()
+    );
+    let bytes = render_to_pdf(&doc);
+    assert_valid_pdf(&bytes);
+}
+
+#[test]
+fn test_widow_orphan_with_custom_settings() {
+    // Test with min_widow_lines=1 and min_orphan_lines=1
+    let mut children = Vec::new();
+    for i in 0..43 {
+        children.push(make_text(&format!("Filler {}", i), 12.0));
+    }
+    let text = "Line one. Line two. Line three.";
+    children.push(Node {
+        kind: NodeKind::Text {
+            content: text.to_string(),
+            href: None,
+            runs: vec![],
+        },
+        style: Style {
+            font_size: Some(12.0),
+            min_widow_lines: Some(1),
+            min_orphan_lines: Some(1),
+            ..Default::default()
+        },
+        children: vec![],
+        id: None,
+        source_location: None,
+        bookmark: None,
+    });
+
+    let doc = default_doc(children);
+    let bytes = render_to_pdf(&doc);
+    assert_valid_pdf(&bytes);
+}
+
+// ─── Align-Content Tests ────────────────────────────────────────
+
+#[test]
+fn test_align_content_center() {
+    // Fixed-height container with 2 wrapped lines, align-content: center
+    let mut items = Vec::new();
+    for i in 0..4 {
+        items.push(make_styled_view(
+            Style {
+                width: Some(Dimension::Pt(200.0)),
+                ..Default::default()
+            },
+            vec![make_text(&format!("Item {}", i), 12.0)],
+        ));
+    }
+    // 4 items × 200pt; available ~487pt → 2 per line → 2 lines
+    // Container height 300pt, lines ~16.8pt each → lots of slack
+    let container = make_styled_view(
+        Style {
+            flex_direction: Some(FlexDirection::Row),
+            flex_wrap: Some(FlexWrap::Wrap),
+            height: Some(Dimension::Pt(300.0)),
+            align_content: Some(AlignContent::Center),
+            ..Default::default()
+        },
+        items,
+    );
+    let doc = default_doc(vec![container]);
+    let pages = layout_doc(&doc);
+    assert_eq!(pages.len(), 1);
+
+    // Verify lines are centered: the flex items (children of the container)
+    // should be offset from the top, not at y=0 within the container.
+    fn find_min_y(elems: &[forme::layout::LayoutElement]) -> f64 {
+        let mut min_y = f64::MAX;
+        for e in elems {
+            if matches!(e.draw, forme::layout::DrawCommand::Rect { .. }) {
+                min_y = min_y.min(e.y);
+            }
+            let child_min = find_min_y(&e.children);
+            min_y = min_y.min(child_min);
+        }
+        min_y
+    }
+    // The first top-level element is the flex container at y=54 (margin).
+    // Look at its children (the flex items) which should be centered within.
+    let container_elem = &pages[0].elements[0];
+    let items_min_y = find_min_y(&container_elem.children);
+    // With centering, items should be well below the container top (54pt margin)
+    assert!(
+        items_min_y > 100.0,
+        "With align-content: center, flex items should be offset from top, got items_min_y={}",
+        items_min_y
+    );
+
+    let bytes = render_to_pdf(&doc);
+    assert_valid_pdf(&bytes);
+}
+
+#[test]
+fn test_align_content_space_between() {
+    // 3 wrapped lines in fixed-height container, space-between
+    let mut items = Vec::new();
+    for i in 0..6 {
+        items.push(make_styled_view(
+            Style {
+                width: Some(Dimension::Pt(200.0)),
+                ..Default::default()
+            },
+            vec![make_text(&format!("SB {}", i), 12.0)],
+        ));
+    }
+    // 6 items × 200pt → 2 per line → 3 lines
+    let container = make_styled_view(
+        Style {
+            flex_direction: Some(FlexDirection::Row),
+            flex_wrap: Some(FlexWrap::Wrap),
+            height: Some(Dimension::Pt(400.0)),
+            align_content: Some(AlignContent::SpaceBetween),
+            ..Default::default()
+        },
+        items,
+    );
+    let doc = default_doc(vec![container]);
+    let pages = layout_doc(&doc);
+    assert_eq!(pages.len(), 1);
+
+    let bytes = render_to_pdf(&doc);
+    assert_valid_pdf(&bytes);
+}
+
+#[test]
+fn test_align_content_flex_end() {
+    let mut items = Vec::new();
+    for i in 0..4 {
+        items.push(make_styled_view(
+            Style {
+                width: Some(Dimension::Pt(200.0)),
+                ..Default::default()
+            },
+            vec![make_text(&format!("FE {}", i), 12.0)],
+        ));
+    }
+    let container = make_styled_view(
+        Style {
+            flex_direction: Some(FlexDirection::Row),
+            flex_wrap: Some(FlexWrap::Wrap),
+            height: Some(Dimension::Pt(300.0)),
+            align_content: Some(AlignContent::FlexEnd),
+            ..Default::default()
+        },
+        items,
+    );
+    let doc = default_doc(vec![container]);
+    let pages = layout_doc(&doc);
+    assert_eq!(pages.len(), 1);
+
+    let bytes = render_to_pdf(&doc);
+    assert_valid_pdf(&bytes);
+}
+
+#[test]
+fn test_align_content_no_effect_without_fixed_height() {
+    // Without a fixed height, align-content has no effect
+    let mut items = Vec::new();
+    for i in 0..4 {
+        items.push(make_styled_view(
+            Style {
+                width: Some(Dimension::Pt(200.0)),
+                ..Default::default()
+            },
+            vec![make_text(&format!("NH {}", i), 12.0)],
+        ));
+    }
+    let container = make_styled_view(
+        Style {
+            flex_direction: Some(FlexDirection::Row),
+            flex_wrap: Some(FlexWrap::Wrap),
+            align_content: Some(AlignContent::Center),
+            ..Default::default()
+        },
+        items,
+    );
+    let doc = default_doc(vec![container]);
+    let pages = layout_doc(&doc);
+    assert_eq!(pages.len(), 1);
+
+    let bytes = render_to_pdf(&doc);
+    assert_valid_pdf(&bytes);
+}
+
+#[test]
+fn test_align_content_json_deserialization() {
+    let json = r#"{
+        "children": [
+            {
+                "kind": { "type": "View" },
+                "style": {
+                    "flexDirection": "Row",
+                    "flexWrap": "Wrap",
+                    "height": { "Pt": 300 },
+                    "alignContent": "Center"
+                },
+                "children": [
+                    {
+                        "kind": { "type": "View" },
+                        "style": { "width": { "Pt": 200 } },
+                        "children": [
+                            { "kind": { "type": "Text", "content": "A" }, "style": {} }
+                        ]
+                    },
+                    {
+                        "kind": { "type": "View" },
+                        "style": { "width": { "Pt": 200 } },
+                        "children": [
+                            { "kind": { "type": "Text", "content": "B" }, "style": {} }
+                        ]
+                    },
+                    {
+                        "kind": { "type": "View" },
+                        "style": { "width": { "Pt": 200 } },
+                        "children": [
+                            { "kind": { "type": "Text", "content": "C" }, "style": {} }
+                        ]
+                    }
+                ]
+            }
+        ]
+    }"#;
+    let bytes = forme::render_json(json).expect("Should parse align-content JSON");
+    assert_valid_pdf(&bytes);
+}
+
+// ─── Table Cell Overflow Fix Tests ──────────────────────────────
+
+#[test]
+fn test_table_cell_overflow_preserves_content() {
+    // A table with a cell containing enough text to overflow the page.
+    // Content should be preserved on subsequent pages.
+    let very_long_text = "This is a very long cell content that should overflow. ".repeat(20);
+    let table = Node {
+        kind: NodeKind::Table { columns: vec![] },
+        style: Style::default(),
+        children: vec![
+            make_table_row(
+                true,
+                vec![make_table_cell(vec![make_text("Header", 10.0)])],
+            ),
+            make_table_row(
+                false,
+                vec![make_table_cell(vec![make_text(&very_long_text, 10.0)])],
+            ),
+            make_table_row(
+                false,
+                vec![make_table_cell(vec![make_text("After overflow", 10.0)])],
+            ),
+        ],
+        id: None,
+        source_location: None,
+        bookmark: None,
+    };
+
+    let doc = default_doc(vec![table]);
+    let pages = layout_doc(&doc);
+
+    // Should produce a valid PDF without panicking
+    let bytes = render_to_pdf(&doc);
+    assert_valid_pdf(&bytes);
+
+    assert!(
+        !pages.is_empty(),
+        "Table with overflow cell should produce at least 1 page"
+    );
+}
+
+#[test]
+fn test_table_cell_overflow_near_page_bottom() {
+    // Fill most of a page, then add a table with a tall cell
+    let mut children = Vec::new();
+    for i in 0..35 {
+        children.push(make_text(&format!("Filler {}", i), 12.0));
+    }
+
+    // Cell content must exceed a full page height (~734pt) to trigger
+    // page breaks inside the cell. At 10pt font, ~14pt line height,
+    // ~44 chars/line → 200 repeats ≈ 73 lines ≈ 1022pt of text.
+    let tall_cell_text = "Tall cell line. ".repeat(200);
+    let table = Node {
+        kind: NodeKind::Table { columns: vec![] },
+        style: Style::default(),
+        children: vec![
+            make_table_row(
+                true,
+                vec![
+                    make_table_cell(vec![make_text("Col A", 10.0)]),
+                    make_table_cell(vec![make_text("Col B", 10.0)]),
+                ],
+            ),
+            make_table_row(
+                false,
+                vec![
+                    make_table_cell(vec![make_text(&tall_cell_text, 10.0)]),
+                    make_table_cell(vec![make_text("Short", 10.0)]),
+                ],
+            ),
+        ],
+        id: None,
+        source_location: None,
+        bookmark: None,
+    };
+    children.push(table);
+
+    let doc = default_doc(children);
+    let pages = layout_doc(&doc);
+    assert!(
+        pages.len() >= 2,
+        "Table with tall cell near page bottom should create multiple pages, got {}",
+        pages.len()
+    );
+
+    let bytes = render_to_pdf(&doc);
+    assert_valid_pdf(&bytes);
+}

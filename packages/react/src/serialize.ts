@@ -1,11 +1,12 @@
 import { type ReactElement, isValidElement, Children, Fragment } from 'react';
-import { Document, Page, View, Text, Image, Table, Row, Cell, Fixed, PageBreak } from './components.js';
+import { Document, Page, View, Text, Image, Table, Row, Cell, Fixed, Svg, PageBreak } from './components.js';
 import type {
   Style,
   Edges,
   Corners,
   EdgeColors,
   ColumnDef,
+  TextRun,
   FormeDocument,
   FormeNode,
   FormeNodeKind,
@@ -225,6 +226,9 @@ function serializeChild(child: unknown, parent: ParentContext = null): FormeNode
   if (element.type === Fixed) {
     return serializeFixed(element);
   }
+  if (element.type === Svg) {
+    return serializeSvg(element);
+  }
   if (element.type === PageBreak) {
     return {
       kind: { type: 'PageBreak' },
@@ -262,7 +266,7 @@ function serializeChild(child: unknown, parent: ParentContext = null): FormeNode
 }
 
 function serializeView(element: ReactElement, _parent: ParentContext = null): FormeNode {
-  const props = element.props as { style?: Style; wrap?: boolean; children?: unknown };
+  const props = element.props as { style?: Style; wrap?: boolean; bookmark?: string; children?: unknown };
   const style = mapStyle(props.style);
   if (props.wrap !== undefined) {
     style.wrap = props.wrap;
@@ -270,24 +274,60 @@ function serializeView(element: ReactElement, _parent: ParentContext = null): Fo
   const childElements = flattenChildren(props.children);
   const children = serializeChildren(childElements, 'View');
 
-  return {
+  const node: FormeNode = {
     kind: { type: 'View' },
     style,
     children,
     sourceLocation: extractSourceLocation(element),
   };
+  if (props.bookmark) node.bookmark = props.bookmark;
+
+  return node;
 }
 
 function serializeText(element: ReactElement): FormeNode {
-  const props = element.props as { style?: Style; children?: unknown };
-  const content = flattenTextContent(props.children);
+  const props = element.props as { style?: Style; href?: string; bookmark?: string; children?: unknown };
+  const childElements = flattenChildren(props.children);
 
-  return {
-    kind: { type: 'Text', content },
+  // Check if any child is a <Text> element (inline runs)
+  const hasTextChild = childElements.some(
+    c => isValidElement(c) && c.type === Text
+  );
+
+  const kind: FormeNodeKind & { type: 'Text' } = { type: 'Text', content: '' };
+
+  if (hasTextChild) {
+    // Build runs from children
+    const runs: TextRun[] = [];
+    for (const child of childElements) {
+      if (typeof child === 'string' || typeof child === 'number') {
+        runs.push({ content: String(child) });
+      } else if (isValidElement(child) && child.type === Text) {
+        const childProps = child.props as { style?: Style; href?: string; children?: unknown };
+        const run: TextRun = {
+          content: flattenTextContent(childProps.children),
+        };
+        if (childProps.style) run.style = mapStyle(childProps.style);
+        if (childProps.href) run.href = childProps.href;
+        runs.push(run);
+      }
+    }
+    kind.runs = runs;
+  } else {
+    kind.content = flattenTextContent(props.children);
+  }
+
+  if (props.href) kind.href = props.href;
+
+  const node: FormeNode = {
+    kind,
     style: mapStyle(props.style),
     children: [],
     sourceLocation: extractSourceLocation(element),
   };
+  if (props.bookmark) node.bookmark = props.bookmark;
+
+  return node;
 }
 
 function serializeImage(element: ReactElement): FormeNode {
@@ -348,15 +388,36 @@ function serializeCell(element: ReactElement): FormeNode {
 }
 
 function serializeFixed(element: ReactElement): FormeNode {
-  const props = element.props as { position: 'header' | 'footer'; style?: Style; children?: unknown };
+  const props = element.props as { position: 'header' | 'footer'; style?: Style; bookmark?: string; children?: unknown };
   const position = props.position === 'header' ? 'Header' as const : 'Footer' as const;
   const childElements = flattenChildren(props.children);
   const children = serializeChildren(childElements, 'Fixed');
 
-  return {
+  const node: FormeNode = {
     kind: { type: 'Fixed', position },
     style: mapStyle(props.style),
     children,
+    sourceLocation: extractSourceLocation(element),
+  };
+  if (props.bookmark) node.bookmark = props.bookmark;
+
+  return node;
+}
+
+function serializeSvg(element: ReactElement): FormeNode {
+  const props = element.props as { width: number; height: number; viewBox?: string; content: string; style?: Style };
+  const kind: FormeNodeKind = {
+    type: 'Svg',
+    width: props.width,
+    height: props.height,
+    content: props.content,
+  };
+  if (props.viewBox) (kind as { view_box?: string }).view_box = props.viewBox;
+
+  return {
+    kind,
+    style: mapStyle(props.style),
+    children: [],
     sourceLocation: extractSourceLocation(element),
   };
 }
@@ -454,6 +515,16 @@ const FLEX_WRAP_MAP: Record<string, string> = {
   'wrap-reverse': 'WrapReverse',
 };
 
+const ALIGN_CONTENT_MAP: Record<string, string> = {
+  'flex-start': 'FlexStart',
+  'flex-end': 'FlexEnd',
+  'center': 'Center',
+  'space-between': 'SpaceBetween',
+  'space-around': 'SpaceAround',
+  'space-evenly': 'SpaceEvenly',
+  'stretch': 'Stretch',
+};
+
 const FONT_STYLE_MAP: Record<string, string> = {
   'normal': 'Normal',
   'italic': 'Italic',
@@ -519,6 +590,7 @@ export function mapStyle(style?: Style): FormeStyle {
   if (style.alignItems !== undefined) result.alignItems = ALIGN_ITEMS_MAP[style.alignItems];
   if (style.alignSelf !== undefined) result.alignSelf = ALIGN_ITEMS_MAP[style.alignSelf];
   if (style.flexWrap !== undefined) result.flexWrap = FLEX_WRAP_MAP[style.flexWrap];
+  if (style.alignContent !== undefined) result.alignContent = ALIGN_CONTENT_MAP[style.alignContent];
   if (style.flexGrow !== undefined) result.flexGrow = style.flexGrow;
   if (style.flexShrink !== undefined) result.flexShrink = style.flexShrink;
   if (style.flexBasis !== undefined) result.flexBasis = mapDimension(style.flexBasis);
@@ -562,6 +634,15 @@ export function mapStyle(style?: Style): FormeStyle {
     }
   }
   if (style.borderRadius !== undefined) result.borderRadius = expandCorners(style.borderRadius);
+
+  // Positioning
+  if (style.position !== undefined) {
+    result.position = style.position === 'absolute' ? 'Absolute' : 'Relative';
+  }
+  if (style.top !== undefined) result.top = style.top;
+  if (style.right !== undefined) result.right = style.right;
+  if (style.bottom !== undefined) result.bottom = style.bottom;
+  if (style.left !== undefined) result.left = style.left;
 
   // Page behavior
   if (style.wrap !== undefined) result.wrap = style.wrap;

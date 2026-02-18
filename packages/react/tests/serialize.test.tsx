@@ -443,10 +443,26 @@ describe('Edge cases', () => {
     expect(doc.children[0].children[0].kind).toEqual({ type: 'Text', content: '42' });
   });
 
-  it('Text flattens nested children', () => {
+  it('Text with nested Text produces runs', () => {
     const doc = serialize(
       <Document>
         <Text>Hello <Text>world</Text></Text>
+      </Document>
+    );
+    expect(doc.children[0].kind).toEqual({
+      type: 'Text',
+      content: '',
+      runs: [
+        { content: 'Hello ' },
+        { content: 'world' },
+      ],
+    });
+  });
+
+  it('Text without nested Text still flattens to content', () => {
+    const doc = serialize(
+      <Document>
+        <Text>Hello world</Text>
       </Document>
     );
     expect(doc.children[0].kind).toEqual({ type: 'Text', content: 'Hello world' });

@@ -7,7 +7,7 @@
 //! We don't try to implement all of CSS. We implement the parts that matter
 //! for PDF documents, and we implement them correctly.
 
-use crate::model::Edges;
+use crate::model::{Edges, Position};
 use serde::{Deserialize, Serialize};
 
 /// The complete set of style properties for a node.
@@ -51,6 +51,8 @@ pub struct Style {
     /// Whether flex items wrap to new lines.
     #[serde(default)]
     pub flex_wrap: Option<FlexWrap>,
+    /// How to distribute space between flex lines on the cross axis.
+    pub align_content: Option<AlignContent>,
     /// Flex grow factor.
     pub flex_grow: Option<f64>,
     /// Flex shrink factor.
@@ -99,6 +101,18 @@ pub struct Style {
     pub border_color: Option<EdgeValues<Color>>,
     /// Border radius (uniform or per-corner).
     pub border_radius: Option<CornerValues>,
+
+    // ── Positioning ─────────────────────────────────────────────
+    /// Positioning mode (relative or absolute).
+    pub position: Option<Position>,
+    /// Top offset (for absolute positioning).
+    pub top: Option<f64>,
+    /// Right offset (for absolute positioning).
+    pub right: Option<f64>,
+    /// Bottom offset (for absolute positioning).
+    pub bottom: Option<f64>,
+    /// Left offset (for absolute positioning).
+    pub left: Option<f64>,
 
     // ── Page Behavior ──────────────────────────────────────────
     /// Whether this node can be broken across pages.
@@ -177,6 +191,18 @@ pub enum FlexWrap {
     NoWrap,
     Wrap,
     WrapReverse,
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
+pub enum AlignContent {
+    #[default]
+    FlexStart,
+    FlexEnd,
+    Center,
+    SpaceBetween,
+    SpaceAround,
+    SpaceEvenly,
+    Stretch,
 }
 
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
@@ -338,6 +364,7 @@ pub struct ResolvedStyle {
     pub align_items: AlignItems,
     pub align_self: Option<AlignItems>,
     pub flex_wrap: FlexWrap,
+    pub align_content: AlignContent,
     pub flex_grow: f64,
     pub flex_shrink: f64,
     pub flex_basis: SizeConstraint,
@@ -353,6 +380,7 @@ pub struct ResolvedStyle {
     pub line_height: f64,
     pub text_align: TextAlign,
     pub letter_spacing: f64,
+    pub text_decoration: TextDecoration,
 
     // Visual
     pub color: Color,
@@ -361,6 +389,13 @@ pub struct ResolvedStyle {
     pub border_width: Edges,
     pub border_color: EdgeValues<Color>,
     pub border_radius: CornerValues,
+
+    // Positioning
+    pub position: Position,
+    pub top: Option<f64>,
+    pub right: Option<f64>,
+    pub bottom: Option<f64>,
+    pub left: Option<f64>,
 
     // Page behavior
     pub breakable: bool,
@@ -427,6 +462,7 @@ impl Style {
             align_items: self.align_items.unwrap_or_default(),
             align_self: self.align_self,
             flex_wrap: self.flex_wrap.unwrap_or_default(),
+            align_content: self.align_content.unwrap_or_default(),
             flex_grow: self.flex_grow.unwrap_or(0.0),
             flex_shrink: self.flex_shrink.unwrap_or(1.0),
             flex_basis: self
@@ -456,6 +492,9 @@ impl Style {
                 .text_align
                 .unwrap_or(parent.map(|p| p.text_align).unwrap_or_default()),
             letter_spacing: self.letter_spacing.unwrap_or(0.0),
+            text_decoration: self
+                .text_decoration
+                .unwrap_or(parent.map(|p| p.text_decoration).unwrap_or_default()),
 
             color: self.color.unwrap_or(parent_color),
             background_color: self.background_color,
@@ -475,6 +514,12 @@ impl Style {
                 .border_color
                 .unwrap_or(EdgeValues::uniform(Color::BLACK)),
             border_radius: self.border_radius.unwrap_or(CornerValues::uniform(0.0)),
+
+            position: self.position.unwrap_or_default(),
+            top: self.top,
+            right: self.right,
+            bottom: self.bottom,
+            left: self.left,
 
             breakable: self.wrap.unwrap_or(true),
             break_before: self.break_before.unwrap_or(false),

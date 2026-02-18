@@ -8,6 +8,7 @@ import type {
   RowProps,
   CellProps,
   FixedProps,
+  SvgProps,
 } from './types.js';
 
 /**
@@ -206,6 +207,25 @@ export function Cell(_props: CellProps): null {
  * ```
  */
 export function Fixed(_props: FixedProps): null {
+  return null;
+}
+
+/**
+ * An SVG element. Renders basic SVG shapes (rect, circle, ellipse, line, path, polygon, polyline) to PDF.
+ *
+ * @param props.width - Display width in points
+ * @param props.height - Display height in points
+ * @param props.viewBox - SVG viewBox string (e.g., "0 0 100 100")
+ * @param props.content - SVG markup string (the inner content, not the outer <svg> tag)
+ * @param props.style - Additional style properties (margin, etc.)
+ *
+ * @example
+ * ```tsx
+ * <Svg width={100} height={100} viewBox="0 0 100 100"
+ *   content='<rect x="10" y="10" width="80" height="80" fill="blue"/>' />
+ * ```
+ */
+export function Svg(_props: SvgProps): null {
   return null;
 }
 

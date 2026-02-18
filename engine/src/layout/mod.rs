@@ -84,6 +84,7 @@ pub struct ElementStyleInfo {
     pub justify_content: JustifyContent,
     pub align_items: AlignItems,
     pub flex_wrap: FlexWrap,
+    pub align_content: AlignContent,
     pub gap: f64,
     pub font_family: String,
     pub font_size: f64,
@@ -108,6 +109,7 @@ impl ElementStyleInfo {
             justify_content: style.justify_content,
             align_items: style.align_items,
             flex_wrap: style.flex_wrap,
+            align_content: style.align_content,
             gap: style.gap,
             font_family: style.font_family.clone(),
             font_size: style.font_size,
@@ -134,6 +136,7 @@ impl Default for ElementStyleInfo {
             justify_content: JustifyContent::default(),
             align_items: AlignItems::default(),
             flex_wrap: FlexWrap::default(),
+            align_content: AlignContent::default(),
             gap: 0.0,
             font_family: "Helvetica".to_string(),
             font_size: 12.0,
@@ -669,7 +672,10 @@ impl LayoutEngine {
 
         let children_height =
             self.measure_children_height(&node.children, inner_width, style, font_context);
-        let total_height = children_height + padding.vertical() + border.vertical();
+        let total_height = match style.height {
+            SizeConstraint::Fixed(h) => h,
+            SizeConstraint::Auto => children_height + padding.vertical() + border.vertical(),
+        };
 
         let node_x = x + margin.left;
 
@@ -843,6 +849,7 @@ impl LayoutEngine {
                     &flow_owned,
                     cursor,
                     pages,
+                    content_x,
                     available_width,
                     parent_style,
                     column_gap,
@@ -922,6 +929,7 @@ impl LayoutEngine {
         children: &[Node],
         cursor: &mut PageCursor,
         pages: &mut Vec<LayoutPage>,
+        content_x: f64,
         available_width: f64,
         parent_style: Option<&ResolvedStyle>,
         column_gap: f64,
@@ -981,6 +989,10 @@ impl LayoutEngine {
 
         // We need mutable final_widths per line, so collect into a vec
         let mut final_widths: Vec<f64> = items.iter().map(|i| i.base_width).collect();
+
+        let initial_pages_count = pages.len();
+        let flex_start_y = cursor.y;
+        let mut line_infos: Vec<(usize, usize, f64)> = Vec::new();
 
         for (line_idx, line) in lines.iter().enumerate() {
             let line_items = &items[line.start..line.end];
@@ -1063,7 +1075,8 @@ impl LayoutEngine {
                 }
             };
 
-            let mut x = cursor.content_x + start_offset;
+            let line_elem_start = cursor.elements.len();
+            let mut x = content_x + start_offset;
 
             for (j, item) in line_items.iter().enumerate() {
                 if j > 0 {
@@ -1100,6 +1113,66 @@ impl LayoutEngine {
             }
 
             cursor.y = row_start_y + line_height;
+            line_infos.push((line_elem_start, cursor.elements.len(), line_height));
+        }
+
+        // Apply align-content redistribution for wrapped flex lines
+        if pages.len() == initial_pages_count && !line_infos.is_empty() {
+            let align_content = parent_style
+                .map(|s| s.align_content)
+                .unwrap_or_default();
+            if !matches!(align_content, AlignContent::FlexStart)
+                && !matches!(flex_wrap, FlexWrap::NoWrap)
+            {
+                if let Some(parent) = parent_style {
+                    if let SizeConstraint::Fixed(container_h) = parent.height {
+                        let inner_h = container_h
+                            - parent.padding.vertical()
+                            - parent.border_width.vertical();
+                        let total_used = cursor.y - flex_start_y;
+                        let slack = inner_h - total_used;
+                        if slack > 0.0 {
+                            let n = line_infos.len();
+                            let offsets: Vec<f64> = match align_content {
+                                AlignContent::FlexEnd => vec![slack; n],
+                                AlignContent::Center => vec![slack / 2.0; n],
+                                AlignContent::SpaceBetween => {
+                                    if n <= 1 {
+                                        vec![0.0; n]
+                                    } else {
+                                        let per_gap = slack / (n - 1) as f64;
+                                        (0..n).map(|i| i as f64 * per_gap).collect()
+                                    }
+                                }
+                                AlignContent::SpaceAround => {
+                                    let space = slack / n as f64;
+                                    (0..n)
+                                        .map(|i| space / 2.0 + i as f64 * space)
+                                        .collect()
+                                }
+                                AlignContent::SpaceEvenly => {
+                                    let space = slack / (n + 1) as f64;
+                                    (0..n).map(|i| (i + 1) as f64 * space).collect()
+                                }
+                                AlignContent::Stretch => {
+                                    let extra = slack / n as f64;
+                                    (0..n).map(|i| i as f64 * extra).collect()
+                                }
+                                AlignContent::FlexStart => vec![0.0; n],
+                            };
+                            for (i, &(start, end, _)) in line_infos.iter().enumerate() {
+                                let dy = offsets[i];
+                                if dy.abs() > 0.001 {
+                                    for j in start..end {
+                                        offset_element_y(&mut cursor.elements[j], dy);
+                                    }
+                                }
+                            }
+                            cursor.y += *offsets.last().unwrap_or(&0.0);
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -1149,6 +1222,7 @@ impl LayoutEngine {
                 cursor,
                 cell_x_start,
                 font_context,
+                pages,
             );
         }
 
@@ -1169,6 +1243,7 @@ impl LayoutEngine {
                         cursor,
                         cell_x_start,
                         font_context,
+                        pages,
                     );
                 }
             }
@@ -1180,6 +1255,7 @@ impl LayoutEngine {
                 cursor,
                 cell_x_start,
                 font_context,
+                pages,
             );
         }
 
@@ -1194,6 +1270,7 @@ impl LayoutEngine {
         cursor: &mut PageCursor,
         start_x: f64,
         font_context: &FontContext,
+        pages: &mut Vec<LayoutPage>,
     ) {
         let row_style = row
             .style
@@ -1206,6 +1283,7 @@ impl LayoutEngine {
         // Snapshot before laying out cells — we'll collect them as row children
         let row_snapshot = cursor.elements.len();
 
+        let mut all_overflow_pages: Vec<LayoutPage> = Vec::new();
         let mut cell_x = start_x;
         for (i, cell) in row.children.iter().enumerate() {
             let col_width = col_widths.get(i).copied().unwrap_or(0.0);
@@ -1222,16 +1300,29 @@ impl LayoutEngine {
             let saved_y = cursor.y;
             cursor.y += cell_style.padding.top + cell_style.border_width.top;
 
+            // Save cursor state in case cell content triggers page breaks
+            let cursor_before_cell = cursor.clone();
+            let mut cell_pages: Vec<LayoutPage> = Vec::new();
             for child in &cell.children {
                 self.layout_node(
                     child,
                     cursor,
-                    &mut Vec::new(),
+                    &mut cell_pages,
                     content_x,
                     inner_width,
                     Some(&cell_style),
                     font_context,
                 );
+            }
+
+            // If cell content triggered page breaks, collect overflow and restore cursor
+            if !cell_pages.is_empty() {
+                let post_break_elements = std::mem::take(&mut cursor.elements);
+                if let Some(last_page) = cell_pages.last_mut() {
+                    last_page.elements.extend(post_break_elements);
+                }
+                all_overflow_pages.extend(cell_pages);
+                *cursor = cursor_before_cell;
             }
 
             cursor.y = saved_y;
@@ -1296,6 +1387,9 @@ impl LayoutEngine {
             bookmark: row.bookmark.clone(),
         });
 
+        // Append any overflow pages from cells that exceeded page height
+        pages.extend(all_overflow_pages);
+
         cursor.y += row_height;
     }
 
@@ -1351,13 +1445,52 @@ impl LayoutEngine {
 
         let line_height = style.font_size * style.line_height;
 
+        // Widow/orphan control: decide how to break before placing lines
+        let line_heights: Vec<f64> = vec![line_height; lines.len()];
+        let decision = page_break::decide_break(
+            cursor.remaining_height(),
+            &line_heights,
+            true,
+            style.min_orphan_lines as usize,
+            style.min_widow_lines as usize,
+        );
+
         // Snapshot-and-collect: accumulate line elements, wrap in parent
         let mut snapshot = cursor.elements.len();
         let mut container_start_y = cursor.content_y + cursor.y;
         let mut is_first_element = true;
 
-        for line in &lines {
-            if line_height > cursor.remaining_height() {
+        // Handle move-to-next-page decision (orphan control)
+        if matches!(decision, page_break::BreakDecision::MoveToNextPage) {
+            pages.push(cursor.finalize());
+            *cursor = cursor.new_page();
+            snapshot = cursor.elements.len();
+            container_start_y = cursor.content_y + cursor.y;
+        }
+
+        // For split decisions, track the widow/orphan-adjusted first break point
+        let forced_break_at = match decision {
+            page_break::BreakDecision::Split {
+                items_on_current_page,
+            } => Some(items_on_current_page),
+            _ => None,
+        };
+        let mut first_break_done = false;
+
+        for (line_idx, line) in lines.iter().enumerate() {
+            // Widow/orphan-controlled first break, then normal overflow checks
+            let needs_break = if let Some(break_at) = forced_break_at {
+                if !first_break_done && line_idx == break_at {
+                    true
+                } else {
+                    line_height > cursor.remaining_height()
+                }
+            } else {
+                line_height > cursor.remaining_height()
+            };
+
+            if needs_break {
+                first_break_done = true;
                 // Flush accumulated lines into a Text container on this page
                 let line_elements: Vec<LayoutElement> = cursor.elements.drain(snapshot..).collect();
                 if !line_elements.is_empty() {
@@ -1514,12 +1647,48 @@ impl LayoutEngine {
 
         let line_height = style.font_size * style.line_height;
 
+        // Widow/orphan control for text runs
+        let line_heights: Vec<f64> = vec![line_height; broken_lines.len()];
+        let decision = page_break::decide_break(
+            cursor.remaining_height(),
+            &line_heights,
+            true,
+            style.min_orphan_lines as usize,
+            style.min_widow_lines as usize,
+        );
+
         let mut snapshot = cursor.elements.len();
         let mut container_start_y = cursor.content_y + cursor.y;
         let mut is_first_element = true;
 
-        for run_line in &broken_lines {
-            if line_height > cursor.remaining_height() {
+        if matches!(decision, page_break::BreakDecision::MoveToNextPage) {
+            pages.push(cursor.finalize());
+            *cursor = cursor.new_page();
+            snapshot = cursor.elements.len();
+            container_start_y = cursor.content_y + cursor.y;
+        }
+
+        let forced_break_at = match decision {
+            page_break::BreakDecision::Split {
+                items_on_current_page,
+            } => Some(items_on_current_page),
+            _ => None,
+        };
+        let mut first_break_done = false;
+
+        for (line_idx, run_line) in broken_lines.iter().enumerate() {
+            let needs_break = if let Some(break_at) = forced_break_at {
+                if !first_break_done && line_idx == break_at {
+                    true
+                } else {
+                    line_height > cursor.remaining_height()
+                }
+            } else {
+                line_height > cursor.remaining_height()
+            };
+
+            if needs_break {
+                first_break_done = true;
                 let line_elements: Vec<LayoutElement> = cursor.elements.drain(snapshot..).collect();
                 if !line_elements.is_empty() {
                     let container_height = cursor.content_y + cursor.y - container_start_y;
@@ -1834,6 +2003,10 @@ impl LayoutEngine {
             }
             NodeKind::Svg { height, .. } => *height + style.margin.vertical(),
             _ => {
+                // If a fixed height is specified, use it directly
+                if let SizeConstraint::Fixed(h) = style.height {
+                    return h;
+                }
                 // Match layout_view: when width is Auto, margin reduces the outer width
                 let outer_width = match style.width {
                     SizeConstraint::Fixed(w) => w,

@@ -33,6 +33,7 @@ pub mod layout;
 pub mod model;
 pub mod pdf;
 pub mod style;
+pub mod svg;
 pub mod text;
 
 #[cfg(feature = "wasm")]

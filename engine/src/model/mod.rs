@@ -159,6 +159,10 @@ pub struct Node {
     /// Source code location for click-to-source in the dev inspector.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source_location: Option<SourceLocation>,
+
+    /// Bookmark title for this node (creates a PDF outline entry).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bookmark: Option<String>,
 }
 
 /// The different kinds of nodes in the document tree.
@@ -175,7 +179,15 @@ pub enum NodeKind {
     View,
 
     /// A text node with string content.
-    Text { content: String },
+    Text {
+        content: String,
+        /// Optional hyperlink URL.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        href: Option<String>,
+        /// Inline styled runs. When non-empty, `content` is ignored.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        runs: Vec<TextRun>,
+    },
 
     /// An image node.
     Image {
@@ -220,6 +232,38 @@ pub enum NodeKind {
 
     /// An explicit page break.
     PageBreak,
+
+    /// An SVG element rendered as vector graphics.
+    Svg {
+        /// Display width in points.
+        width: f64,
+        /// Display height in points.
+        height: f64,
+        /// Optional viewBox (e.g. "0 0 100 100").
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        view_box: Option<String>,
+        /// SVG markup content (the inner XML).
+        content: String,
+    },
+}
+
+/// An inline styled run within a Text node.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TextRun {
+    pub content: String,
+    #[serde(default)]
+    pub style: crate::style::Style,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub href: Option<String>,
+}
+
+/// Positioning mode for a node.
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
+pub enum Position {
+    #[default]
+    Relative,
+    Absolute,
 }
 
 fn default_one() -> u32 {
@@ -270,6 +314,7 @@ impl Node {
             children,
             id: None,
             source_location: None,
+            bookmark: None,
         }
     }
 
@@ -278,11 +323,14 @@ impl Node {
         Self {
             kind: NodeKind::Text {
                 content: content.to_string(),
+                href: None,
+                runs: vec![],
             },
             style,
             children: vec![],
             id: None,
             source_location: None,
+            bookmark: None,
         }
     }
 
@@ -294,6 +342,7 @@ impl Node {
             children,
             id: None,
             source_location: None,
+            bookmark: None,
         }
     }
 
@@ -305,6 +354,7 @@ impl Node {
             }
             NodeKind::TableRow { .. } => true,
             NodeKind::Image { .. } => false,
+            NodeKind::Svg { .. } => false,
             NodeKind::PageBreak => false,
             NodeKind::Fixed { .. } => false,
             NodeKind::Page { .. } => true,

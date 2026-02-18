@@ -35,8 +35,25 @@ use crate::font::subset::subset_ttf;
 use crate::font::{FontContext, FontData, FontKey};
 use crate::layout::*;
 use crate::model::*;
-use crate::style::{Color, FontStyle};
+use crate::style::{Color, FontStyle, TextDecoration};
+use crate::svg::SvgCommand;
 use miniz_oxide::deflate::compress_to_vec_zlib;
+
+/// A link annotation to be added to a page.
+struct LinkAnnotation {
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+    href: String,
+}
+
+/// A bookmark entry for the PDF outline tree.
+struct PdfBookmark {
+    title: String,
+    page_obj_id: usize,
+    y_pdf: f64,
+}
 
 pub struct PdfWriter;
 
@@ -125,6 +142,7 @@ impl PdfWriter {
 
         // Build page objects and content streams
         let mut page_obj_ids: Vec<usize> = Vec::new();
+        let mut all_bookmarks: Vec<PdfBookmark> = Vec::new();
 
         for (page_idx, page) in pages.iter().enumerate() {
             let content = self.build_content_stream_for_page(
@@ -150,6 +168,34 @@ impl PdfWriter {
                 data: content_data,
             });
 
+            // Collect link annotations for this page
+            let mut annotations: Vec<LinkAnnotation> = Vec::new();
+            Self::collect_link_annotations(&page.elements, page.height, &mut annotations);
+
+            // Create annotation PDF objects
+            let mut annot_obj_ids: Vec<usize> = Vec::new();
+            for annot in &annotations {
+                let annot_obj_id = builder.objects.len();
+                let rect = format!(
+                    "[{:.2} {:.2} {:.2} {:.2}]",
+                    annot.x,
+                    annot.y,
+                    annot.x + annot.width,
+                    annot.y + annot.height
+                );
+                let annot_dict = format!(
+                    "<< /Type /Annot /Subtype /Link /Rect {} /Border [0 0 0] \
+                     /A << /Type /Action /S /URI /URI ({}) >> >>",
+                    rect,
+                    Self::escape_pdf_string(&annot.href)
+                );
+                builder.objects.push(PdfObject {
+                    id: annot_obj_id,
+                    data: annot_dict.into_bytes(),
+                });
+                annot_obj_ids.push(annot_obj_id);
+            }
+
             let page_obj_id = builder.objects.len();
             let font_resources = self.build_font_resource_dict(&builder.font_objects);
             let xobject_resources = self.build_xobject_resource_dict(page_idx, &builder);
@@ -161,20 +207,51 @@ impl PdfWriter {
                     font_resources, xobject_resources
                 )
             };
+
+            let annots_str = if annot_obj_ids.is_empty() {
+                String::new()
+            } else {
+                let refs: String = annot_obj_ids
+                    .iter()
+                    .map(|id| format!("{} 0 R", id))
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                format!(" /Annots [{}]", refs)
+            };
+
             let page_dict = format!(
                 "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {:.2} {:.2}] \
-                 /Contents {} 0 R /Resources << {} >> >>",
-                page.width, page.height, content_obj_id, resources
+                 /Contents {} 0 R /Resources << {} >>{} >>",
+                page.width, page.height, content_obj_id, resources, annots_str
             );
             builder.objects.push(PdfObject {
                 id: page_obj_id,
                 data: page_dict.into_bytes(),
             });
+
+            // Collect bookmarks for this page
+            Self::collect_bookmarks(&page.elements, page.height, page_obj_id, &mut all_bookmarks);
+
             page_obj_ids.push(page_obj_id);
         }
 
+        // Build outline tree if bookmarks exist
+        let outlines_obj_id = if !all_bookmarks.is_empty() {
+            Some(self.write_outline_tree(&mut builder, &all_bookmarks))
+        } else {
+            None
+        };
+
         // Write Catalog (object 1)
-        builder.objects[1].data = b"<< /Type /Catalog /Pages 2 0 R >>".to_vec();
+        let catalog = if let Some(outlines_id) = outlines_obj_id {
+            format!(
+                "<< /Type /Catalog /Pages 2 0 R /Outlines {} 0 R /PageMode /UseOutlines >>",
+                outlines_id
+            )
+        } else {
+            "<< /Type /Catalog /Pages 2 0 R >>".to_string()
+        };
+        builder.objects[1].data = catalog.into_bytes();
 
         // Write Pages tree (object 2)
         let kids: String = page_obj_ids
@@ -311,100 +388,128 @@ impl PdfWriter {
                 }
             }
 
-            DrawCommand::Text { lines, color } => {
-                let _ = writeln!(
-                    stream,
-                    "BT\n{:.3} {:.3} {:.3} rg",
-                    color.r, color.g, color.b
-                );
-
+            DrawCommand::Text {
+                lines,
+                color,
+                text_decoration,
+            } => {
                 for line in lines {
-                    // Determine font resource name from glyph weight/style
-                    let (font_name, font_key) = if !line.glyphs.is_empty() {
-                        let g = &line.glyphs[0];
-                        let idx = self.font_index(
-                            &g.font_family,
-                            g.font_weight,
-                            g.font_style,
-                            &builder.font_objects,
-                        );
-                        let italic = matches!(g.font_style, FontStyle::Italic | FontStyle::Oblique);
-                        let key = FontKey {
-                            family: g.font_family.clone(),
-                            weight: if g.font_weight >= 600 { 700 } else { 400 },
-                            italic,
-                        };
-                        (format!("F{}", idx), Some(key))
-                    } else {
-                        ("F0".to_string(), None)
-                    };
+                    if line.glyphs.is_empty() {
+                        continue;
+                    }
 
-                    let font_size = if !line.glyphs.is_empty() {
-                        line.glyphs[0].font_size
-                    } else {
-                        12.0
-                    };
-
+                    // Group consecutive glyphs by (font_family, font_weight, font_style, font_size, color)
+                    // to support multi-font text runs
+                    let groups = Self::group_glyphs_by_style(&line.glyphs);
                     let pdf_y = page_height - line.y;
 
-                    let _ = writeln!(
-                        stream,
-                        "/{} {:.1} Tf\n{:.2} {:.2} Td",
-                        font_name, font_size, line.x, pdf_y
-                    );
+                    let _ = writeln!(stream, "BT");
 
-                    // Collect raw text from glyphs, replace page number placeholders
-                    let raw_text: String = line.glyphs.iter().map(|g| g.char_value).collect();
-                    let text_after = raw_text
-                        .replace("{{pageNumber}}", &page_number.to_string())
-                        .replace("{{totalPages}}", &total_pages.to_string());
+                    let mut x_cursor = line.x;
+                    for group in &groups {
+                        let first = &group[0];
+                        let glyph_color = first.color.unwrap_or(*color);
 
-                    // Check if this is a custom font — use hex glyph ID encoding
-                    let is_custom = font_key
-                        .as_ref()
-                        .map(|k| builder.custom_font_data.contains_key(k))
-                        .unwrap_or(false);
-
-                    if is_custom {
-                        let embed_data = if let Some(ref key) = font_key {
-                            builder.custom_font_data.get(key)
-                        } else {
-                            None
+                        let idx = self.font_index(
+                            &first.font_family,
+                            first.font_weight,
+                            first.font_style,
+                            &builder.font_objects,
+                        );
+                        let italic =
+                            matches!(first.font_style, FontStyle::Italic | FontStyle::Oblique);
+                        let font_key = FontKey {
+                            family: first.font_family.clone(),
+                            weight: if first.font_weight >= 600 { 700 } else { 400 },
+                            italic,
                         };
-                        let embed_data = match embed_data {
-                            Some(d) => d,
-                            None => {
-                                // Fallback: write empty text operator
+                        let font_name = format!("F{}", idx);
+
+                        let _ = writeln!(
+                            stream,
+                            "{:.3} {:.3} {:.3} rg\n/{} {:.1} Tf\n{:.2} {:.2} Td",
+                            glyph_color.r,
+                            glyph_color.g,
+                            glyph_color.b,
+                            font_name,
+                            first.font_size,
+                            x_cursor,
+                            pdf_y
+                        );
+
+                        // Collect raw text from group, replace page number placeholders
+                        let raw_text: String = group.iter().map(|g| g.char_value).collect();
+                        let text_after = raw_text
+                            .replace("{{pageNumber}}", &page_number.to_string())
+                            .replace("{{totalPages}}", &total_pages.to_string());
+
+                        let is_custom = builder.custom_font_data.contains_key(&font_key);
+
+                        if is_custom {
+                            if let Some(embed_data) = builder.custom_font_data.get(&font_key) {
+                                let mut hex = String::new();
+                                for ch in text_after.chars() {
+                                    let gid = embed_data.char_to_gid.get(&ch).copied().unwrap_or(0);
+                                    let _ = write!(hex, "{:04X}", gid);
+                                }
+                                let _ = writeln!(stream, "<{}> Tj", hex);
+                            } else {
                                 let _ = writeln!(stream, "<> Tj");
-                                continue;
                             }
-                        };
-                        let mut hex = String::new();
-                        for ch in text_after.chars() {
-                            let gid = embed_data.char_to_gid.get(&ch).copied().unwrap_or(0);
-                            let _ = write!(hex, "{:04X}", gid);
-                        }
-                        let _ = writeln!(stream, "<{}> Tj", hex);
-                    } else {
-                        let mut text_str = String::new();
-                        for ch in text_after.chars() {
-                            let b = Self::unicode_to_winansi(ch).unwrap_or(b'?');
-                            match b {
-                                b'\\' => text_str.push_str("\\\\"),
-                                b'(' => text_str.push_str("\\("),
-                                b')' => text_str.push_str("\\)"),
-                                0x20..=0x7E => text_str.push(b as char),
-                                _ => {
-                                    // Use octal escape for bytes outside ASCII printable range
-                                    let _ = write!(text_str, "\\{:03o}", b);
+                        } else {
+                            let mut text_str = String::new();
+                            for ch in text_after.chars() {
+                                let b = Self::unicode_to_winansi(ch).unwrap_or(b'?');
+                                match b {
+                                    b'\\' => text_str.push_str("\\\\"),
+                                    b'(' => text_str.push_str("\\("),
+                                    b')' => text_str.push_str("\\)"),
+                                    0x20..=0x7E => text_str.push(b as char),
+                                    _ => {
+                                        let _ = write!(text_str, "\\{:03o}", b);
+                                    }
                                 }
                             }
+                            let _ = writeln!(stream, "({}) Tj", text_str);
                         }
-                        let _ = writeln!(stream, "({}) Tj", text_str);
+
+                        // Advance x_cursor past this group
+                        if let Some(last) = group.last() {
+                            x_cursor = line.x + last.x_offset;
+                            // Estimate last char width from font_size
+                            x_cursor += last.font_size * 0.5;
+                        }
+                    }
+
+                    let _ = writeln!(stream, "ET");
+
+                    // Draw underline if text_decoration is Underline
+                    if matches!(text_decoration, TextDecoration::Underline) {
+                        let underline_y = pdf_y - 1.5;
+                        let _ =
+                            write!(
+                            stream,
+                            "q\n{:.3} {:.3} {:.3} RG\n0.5 w\n{:.2} {:.2} m\n{:.2} {:.2} l\nS\nQ\n",
+                            color.r, color.g, color.b,
+                            line.x, underline_y,
+                            line.x + line.width, underline_y
+                        );
+                    }
+
+                    // Draw line-through if text_decoration is LineThrough
+                    if matches!(text_decoration, TextDecoration::LineThrough) {
+                        let first_size = line.glyphs.first().map(|g| g.font_size).unwrap_or(12.0);
+                        let strikethrough_y = pdf_y + first_size * 0.3;
+                        let _ =
+                            write!(
+                            stream,
+                            "q\n{:.3} {:.3} {:.3} RG\n0.5 w\n{:.2} {:.2} m\n{:.2} {:.2} l\nS\nQ\n",
+                            color.r, color.g, color.b,
+                            line.x, strikethrough_y,
+                            line.x + line.width, strikethrough_y
+                        );
                     }
                 }
-
-                let _ = writeln!(stream, "ET");
             }
 
             DrawCommand::Image { .. } => {
@@ -440,6 +545,34 @@ impl PdfWriter {
                     "q\n0.9 0.9 0.9 rg\n{:.2} {:.2} {:.2} {:.2} re\nf\nQ\n",
                     x, y, element.width, element.height
                 );
+                return;
+            }
+
+            DrawCommand::Svg {
+                commands,
+                width: svg_w,
+                height: svg_h,
+            } => {
+                let x = element.x;
+                let y = page_height - element.y - element.height;
+
+                // Save state, translate to position, flip Y for SVG coordinate system
+                let _ = writeln!(stream, "q");
+                let _ = writeln!(stream, "1 0 0 1 {:.2} {:.2} cm", x, y);
+
+                // Scale from viewBox to target size (if viewBox differs from target)
+                if *svg_w > 0.0 && *svg_h > 0.0 {
+                    let sx = element.width / svg_w;
+                    let sy = element.height / svg_h;
+                    let _ = writeln!(stream, "{:.4} 0 0 {:.4} 0 0 cm", sx, sy);
+                }
+
+                // Flip Y: SVG has Y increasing down, we need PDF Y increasing up
+                let _ = writeln!(stream, "1 0 0 -1 0 {:.2} cm", svg_h);
+
+                Self::write_svg_commands(stream, commands);
+
+                let _ = writeln!(stream, "Q");
                 return;
             }
         }
@@ -1166,6 +1299,200 @@ impl PdfWriter {
         0
     }
 
+    /// Group consecutive glyphs by (font_family, font_weight, font_style, font_size, color)
+    /// for multi-font text run rendering.
+    fn group_glyphs_by_style(glyphs: &[PositionedGlyph]) -> Vec<Vec<&PositionedGlyph>> {
+        if glyphs.is_empty() {
+            return vec![];
+        }
+
+        let mut groups: Vec<Vec<&PositionedGlyph>> = Vec::new();
+        let mut current_group: Vec<&PositionedGlyph> = vec![&glyphs[0]];
+
+        for glyph in &glyphs[1..] {
+            let prev = current_group.last().unwrap();
+            let same_style = glyph.font_family == prev.font_family
+                && glyph.font_weight == prev.font_weight
+                && std::mem::discriminant(&glyph.font_style)
+                    == std::mem::discriminant(&prev.font_style)
+                && (glyph.font_size - prev.font_size).abs() < 0.01
+                && Self::colors_equal(&glyph.color, &prev.color);
+
+            if same_style {
+                current_group.push(glyph);
+            } else {
+                groups.push(current_group);
+                current_group = vec![glyph];
+            }
+        }
+        groups.push(current_group);
+        groups
+    }
+
+    fn colors_equal(a: &Option<Color>, b: &Option<Color>) -> bool {
+        match (a, b) {
+            (None, None) => true,
+            (Some(ca), Some(cb)) => {
+                (ca.r - cb.r).abs() < 0.001
+                    && (ca.g - cb.g).abs() < 0.001
+                    && (ca.b - cb.b).abs() < 0.001
+                    && (ca.a - cb.a).abs() < 0.001
+            }
+            _ => false,
+        }
+    }
+
+    /// Collect link annotations from layout elements recursively.
+    fn collect_link_annotations(
+        elements: &[LayoutElement],
+        page_height: f64,
+        annotations: &mut Vec<LinkAnnotation>,
+    ) {
+        for element in elements {
+            if let Some(ref href) = element.href {
+                if !href.is_empty() {
+                    let pdf_y = page_height - element.y - element.height;
+                    annotations.push(LinkAnnotation {
+                        x: element.x,
+                        y: pdf_y,
+                        width: element.width,
+                        height: element.height,
+                        href: href.clone(),
+                    });
+                }
+            }
+            Self::collect_link_annotations(&element.children, page_height, annotations);
+        }
+    }
+
+    /// Collect bookmarks from layout elements.
+    fn collect_bookmarks(
+        elements: &[LayoutElement],
+        page_height: f64,
+        page_obj_id: usize,
+        bookmarks: &mut Vec<PdfBookmark>,
+    ) {
+        for element in elements {
+            if let Some(ref title) = element.bookmark {
+                let y_pdf = page_height - element.y;
+                bookmarks.push(PdfBookmark {
+                    title: title.clone(),
+                    page_obj_id,
+                    y_pdf,
+                });
+            }
+            Self::collect_bookmarks(&element.children, page_height, page_obj_id, bookmarks);
+        }
+    }
+
+    /// Build the PDF outline tree from bookmark entries.
+    /// Returns the object ID of the /Outlines dictionary.
+    fn write_outline_tree(&self, builder: &mut PdfBuilder, bookmarks: &[PdfBookmark]) -> usize {
+        // Reserve the Outlines dictionary object
+        let outlines_id = builder.objects.len();
+        builder.objects.push(PdfObject {
+            id: outlines_id,
+            data: vec![],
+        });
+
+        // Create outline item objects
+        let mut item_ids: Vec<usize> = Vec::new();
+        for _bm in bookmarks {
+            let item_id = builder.objects.len();
+            builder.objects.push(PdfObject {
+                id: item_id,
+                data: vec![],
+            });
+            item_ids.push(item_id);
+        }
+
+        // Fill in outline items with /Prev, /Next, /Parent, /Dest
+        for (i, (bm, &item_id)) in bookmarks.iter().zip(item_ids.iter()).enumerate() {
+            let mut dict = format!(
+                "<< /Title ({}) /Parent {} 0 R /Dest [{} 0 R /XYZ 0 {:.2} null]",
+                Self::escape_pdf_string(&bm.title),
+                outlines_id,
+                bm.page_obj_id,
+                bm.y_pdf,
+            );
+            if i > 0 {
+                let _ = write!(dict, " /Prev {} 0 R", item_ids[i - 1]);
+            }
+            if i + 1 < item_ids.len() {
+                let _ = write!(dict, " /Next {} 0 R", item_ids[i + 1]);
+            }
+            dict.push_str(" >>");
+            builder.objects[item_id].data = dict.into_bytes();
+        }
+
+        // Fill in Outlines dictionary
+        let first_id = item_ids.first().copied().unwrap_or(0);
+        let last_id = item_ids.last().copied().unwrap_or(0);
+        let outlines_dict = format!(
+            "<< /Type /Outlines /First {} 0 R /Last {} 0 R /Count {} >>",
+            first_id,
+            last_id,
+            bookmarks.len()
+        );
+        builder.objects[outlines_id].data = outlines_dict.into_bytes();
+
+        outlines_id
+    }
+
+    /// Write SVG drawing commands to a PDF content stream.
+    fn write_svg_commands(stream: &mut String, commands: &[SvgCommand]) {
+        for cmd in commands {
+            match cmd {
+                SvgCommand::MoveTo(x, y) => {
+                    let _ = writeln!(stream, "{:.2} {:.2} m", x, y);
+                }
+                SvgCommand::LineTo(x, y) => {
+                    let _ = writeln!(stream, "{:.2} {:.2} l", x, y);
+                }
+                SvgCommand::CurveTo(x1, y1, x2, y2, x3, y3) => {
+                    let _ = writeln!(
+                        stream,
+                        "{:.2} {:.2} {:.2} {:.2} {:.2} {:.2} c",
+                        x1, y1, x2, y2, x3, y3
+                    );
+                }
+                SvgCommand::ClosePath => {
+                    let _ = writeln!(stream, "h");
+                }
+                SvgCommand::SetFill(r, g, b) => {
+                    let _ = writeln!(stream, "{:.3} {:.3} {:.3} rg", r, g, b);
+                }
+                SvgCommand::SetFillNone => {
+                    // No-op in PDF; handled by fill/stroke selection
+                }
+                SvgCommand::SetStroke(r, g, b) => {
+                    let _ = writeln!(stream, "{:.3} {:.3} {:.3} RG", r, g, b);
+                }
+                SvgCommand::SetStrokeNone => {
+                    // No-op in PDF
+                }
+                SvgCommand::SetStrokeWidth(w) => {
+                    let _ = writeln!(stream, "{:.2} w", w);
+                }
+                SvgCommand::Fill => {
+                    let _ = writeln!(stream, "f");
+                }
+                SvgCommand::Stroke => {
+                    let _ = writeln!(stream, "S");
+                }
+                SvgCommand::FillAndStroke => {
+                    let _ = writeln!(stream, "B");
+                }
+                SvgCommand::SaveState => {
+                    let _ = writeln!(stream, "q");
+                }
+                SvgCommand::RestoreState => {
+                    let _ = writeln!(stream, "Q");
+                }
+            }
+        }
+    }
+
     /// Escape special characters in a PDF string.
     fn escape_pdf_string(s: &str) -> String {
         s.replace('\\', "\\\\")
@@ -1344,14 +1671,19 @@ mod tests {
                                 font_weight: 400,
                                 font_style: FontStyle::Normal,
                                 char_value: 'A',
+                                color: None,
+                                href: None,
                             }],
                         }],
                         color: Color::BLACK,
+                        text_decoration: TextDecoration::None,
                     },
                     children: vec![],
                     node_type: None,
                     resolved_style: None,
                     source_location: None,
+                    href: None,
+                    bookmark: None,
                 },
                 LayoutElement {
                     x: 54.0,
@@ -1372,14 +1704,19 @@ mod tests {
                                 font_weight: 700,
                                 font_style: FontStyle::Normal,
                                 char_value: 'A',
+                                color: None,
+                                href: None,
                             }],
                         }],
                         color: Color::BLACK,
+                        text_decoration: TextDecoration::None,
                     },
                     children: vec![],
                     node_type: None,
                     resolved_style: None,
                     source_location: None,
+                    href: None,
+                    bookmark: None,
                 },
             ],
             fixed_header: vec![],
@@ -1511,14 +1848,19 @@ mod tests {
                             font_weight: 400,
                             font_style: FontStyle::Normal,
                             char_value: 'H',
+                            color: None,
+                            href: None,
                         }],
                     }],
                     color: Color::BLACK,
+                    text_decoration: TextDecoration::None,
                 },
                 children: vec![],
                 node_type: None,
                 resolved_style: None,
                 source_location: None,
+                href: None,
+                bookmark: None,
             }],
             fixed_header: vec![],
             fixed_footer: vec![],

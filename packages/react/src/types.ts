@@ -43,6 +43,7 @@ export interface Style {
   justifyContent?: 'flex-start' | 'flex-end' | 'center' | 'space-between' | 'space-around' | 'space-evenly';
   alignItems?: 'flex-start' | 'flex-end' | 'center' | 'stretch' | 'baseline';
   alignSelf?: 'flex-start' | 'flex-end' | 'center' | 'stretch' | 'baseline';
+  alignContent?: 'flex-start' | 'flex-end' | 'center' | 'space-between' | 'space-around' | 'space-evenly' | 'stretch';
   gap?: number;
   rowGap?: number;
   columnGap?: number;
@@ -78,6 +79,13 @@ export interface Style {
   borderColor?: string | EdgeColors;
   borderRadius?: number | Corners;
 
+  // Positioning
+  position?: 'relative' | 'absolute';
+  top?: number;
+  right?: number;
+  bottom?: number;
+  left?: number;
+
   // Page behavior
   wrap?: boolean;
   breakBefore?: boolean;
@@ -104,11 +112,14 @@ export interface PageProps {
 export interface ViewProps {
   style?: Style;
   wrap?: boolean;
+  bookmark?: string;
   children?: ReactNode;
 }
 
 export interface TextProps {
   style?: Style;
+  href?: string;
+  bookmark?: string;
   children?: ReactNode;
 }
 
@@ -145,7 +156,23 @@ export interface CellProps {
 export interface FixedProps {
   position: 'header' | 'footer';
   style?: Style;
+  bookmark?: string;
   children?: ReactNode;
+}
+
+export interface SvgProps {
+  width: number;
+  height: number;
+  viewBox?: string;
+  content: string;
+  style?: Style;
+}
+
+/** A styled text segment within a <Text> element */
+export interface TextRun {
+  content: string;
+  style?: FormeStyle;
+  href?: string;
 }
 
 // ─── Forme JSON output types (match Rust serde format) ───────────────
@@ -184,18 +211,20 @@ export interface FormeNode {
   kind: FormeNodeKind;
   style: FormeStyle;
   children: FormeNode[];
+  bookmark?: string;
   sourceLocation?: { file: string; line: number; column: number };
 }
 
 export type FormeNodeKind =
   | { type: 'Page'; config: FormePageConfig }
   | { type: 'View' }
-  | { type: 'Text'; content: string }
+  | { type: 'Text'; content: string; href?: string; runs?: TextRun[] }
   | { type: 'Image'; src: string; width?: number; height?: number }
   | { type: 'Table'; columns: FormeColumnDef[] }
   | { type: 'TableRow'; is_header: boolean }
   | { type: 'TableCell'; col_span: number; row_span: number }
   | { type: 'Fixed'; position: 'Header' | 'Footer' }
+  | { type: 'Svg'; width: number; height: number; view_box?: string; content: string }
   | { type: 'PageBreak' };
 
 export interface FormeColumnDef {
@@ -247,6 +276,7 @@ export interface FormeStyle {
   justifyContent?: string;
   alignItems?: string;
   alignSelf?: string;
+  alignContent?: string;
   flexWrap?: string;
   flexGrow?: number;
   flexShrink?: number;
@@ -269,6 +299,11 @@ export interface FormeStyle {
   borderWidth?: FormeEdgeValues<number>;
   borderColor?: FormeEdgeValues<FormeColor>;
   borderRadius?: FormeCornerValues;
+  position?: string;
+  top?: number;
+  right?: number;
+  bottom?: number;
+  left?: number;
   wrap?: boolean;
   breakBefore?: boolean;
   minWidowLines?: number;
