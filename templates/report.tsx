@@ -133,9 +133,9 @@ export default function Report(data: any) {
         <Text style={{ fontSize: 10, color: '#334155', lineHeight: 1.6, marginBottom: 16 }}>{data.sections[3].intro}</Text>
 
         {data.sections[3].items.map((item: any, i: number) => (
-          <View key={i} style={{ flexDirection: 'row', gap: 12, marginBottom: 16, padding: 16, backgroundColor: '#f8fafc', borderRadius: 4, borderWidth: { top: 0, right: 0, bottom: 0, left: 3 }, borderColor: '#0f172a' }}>
+          <View key={i} style={{ flexDirection: 'row', gap: 24, marginBottom: 16, padding: 16, backgroundColor: '#f8fafc', borderRadius: 4, borderWidth: { top: 0, right: 0, bottom: 0, left: 3 }, borderColor: '#0f172a' }}>
             <View style={{ width: 24, height: 24, backgroundColor: '#0f172a', borderRadius: 12, justifyContent: 'center', alignItems: 'center' }}>
-              <Text style={{ fontSize: 10, fontWeight: 700, color: '#ffffff' }}>{i + 1}</Text>
+              <Text style={{ fontSize: 10, fontWeight: 700, color: '#ffffff', lineHeight: 1.2 }}>{i + 1}</Text>
             </View>
             <View style={{ flexGrow: 1, flexShrink: 1 }}>
               <Text style={{ fontSize: 11, fontWeight: 700, color: '#0f172a', marginBottom: 4 }}>{item.title}</Text>
