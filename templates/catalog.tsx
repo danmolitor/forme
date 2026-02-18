@@ -18,7 +18,7 @@ function ColorSwatch({ color }: { color: string }) {
 function Badge({ label }: { label: string }) {
   const bg = label === 'SALE' ? '#dc2626' : '#2563eb';
   return (
-    <View style={{ backgroundColor: bg, borderRadius: 3, textAlign: 'center', padding: { top: 2, right: 6, bottom: 2, left: 6 } }}>
+    <View style={{ backgroundColor: bg, borderRadius: 3, textAlign: 'center', paddingVertical: 2, paddingHorizontal: 6 }}>
       <Text style={{ fontSize: 7, fontWeight: 700, color: '#ffffff', letterSpacing: 0.5 }}>{label}</Text>
     </View>
   );
@@ -68,7 +68,7 @@ function CategorySection({ category }: { category: any }) {
   return (
     <View bookmark={category.name} style={{ marginBottom: 20 }}>
       {/* Category heading */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10, paddingBottom: 6, borderWidth: { top: 0, right: 0, bottom: 2, left: 0 }, borderColor: '#1e293b' }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10, paddingBottom: 6, borderBottomWidth: 2, borderColor: '#1e293b' }}>
         <Text style={{ fontSize: 14, fontWeight: 700, color: '#1e293b', textTransform: 'uppercase', letterSpacing: 1 }}>{category.name}</Text>
       </View>
 
@@ -101,7 +101,7 @@ export default function Catalog(data: any) {
       <Page size="Letter" margin={48}>
         {/* Fixed footer */}
         <Fixed position="footer">
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingTop: 8, borderWidth: { top: 1, right: 0, bottom: 0, left: 0 }, borderColor: '#e2e8f0' }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingTop: 8, borderTopWidth: 1, borderColor: '#e2e8f0' }}>
             <Text style={{ fontSize: 8, color: '#94a3b8' }}>{data.company.name}</Text>
             <Text style={{ fontSize: 8, color: '#94a3b8' }}>Page {'{{pageNumber}}'} of {'{{totalPages}}'}</Text>
           </View>
@@ -119,7 +119,7 @@ export default function Catalog(data: any) {
         </View>
 
         {/* Divider */}
-        <View style={{ borderWidth: { top: 1, right: 0, bottom: 0, left: 0 }, borderColor: '#e2e8f0', marginBottom: 20, marginTop: 12 }} />
+        <View style={{ borderTopWidth: 1, borderColor: '#e2e8f0', marginBottom: 20, marginTop: 12 }} />
 
         {/* Categories */}
         {categories.map((category: any, i: number) => (

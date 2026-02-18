@@ -54,11 +54,15 @@ export interface Style {
   paddingRight?: number;
   paddingBottom?: number;
   paddingLeft?: number;
+  paddingHorizontal?: number;
+  paddingVertical?: number;
   margin?: number | Edges;
   marginTop?: number;
   marginRight?: number;
   marginBottom?: number;
   marginLeft?: number;
+  marginHorizontal?: number;
+  marginVertical?: number;
 
   // Typography
   fontSize?: number;
@@ -76,8 +80,20 @@ export interface Style {
   backgroundColor?: string;
   opacity?: number;
   borderWidth?: number | Edges;
+  borderTopWidth?: number;
+  borderRightWidth?: number;
+  borderBottomWidth?: number;
+  borderLeftWidth?: number;
   borderColor?: string | EdgeColors;
+  borderTopColor?: string;
+  borderRightColor?: string;
+  borderBottomColor?: string;
+  borderLeftColor?: string;
   borderRadius?: number | Corners;
+  borderTopLeftRadius?: number;
+  borderTopRightRadius?: number;
+  borderBottomRightRadius?: number;
+  borderBottomLeftRadius?: number;
 
   // Positioning
   position?: 'relative' | 'absolute';

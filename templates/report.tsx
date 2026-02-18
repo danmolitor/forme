@@ -28,14 +28,14 @@ export default function Report(data: any) {
       {/* Content Pages */}
       <Page size="Letter" margin={54}>
         <Fixed position="header">
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingBottom: 8, borderWidth: { top: 0, right: 0, bottom: 1, left: 0 }, borderColor: '#e2e8f0', marginBottom: 16 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingBottom: 8, borderBottomWidth: 1, borderColor: '#e2e8f0', marginBottom: 16 }}>
             <Text style={{ fontSize: 8, color: '#94a3b8' }}>{data.company}</Text>
             <Text style={{ fontSize: 8, color: '#94a3b8' }}>{data.title}</Text>
           </View>
         </Fixed>
 
         <Fixed position="footer">
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingTop: 8, borderWidth: { top: 1, right: 0, bottom: 0, left: 0 }, borderColor: '#e2e8f0' }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingTop: 8, borderTopWidth: 1, borderColor: '#e2e8f0' }}>
             <Text style={{ fontSize: 8, color: '#94a3b8' }}>{data.classification}</Text>
             <Text style={{ fontSize: 8, color: '#94a3b8' }}>Page {'{{pageNumber}}'} of {'{{totalPages}}'}</Text>
           </View>
@@ -44,7 +44,7 @@ export default function Report(data: any) {
         {/* Table of Contents */}
         <Text style={{ fontSize: 20, fontWeight: 700, color: '#0f172a', marginBottom: 16 }}>Table of Contents</Text>
         {data.sections.map((section: any, i: number) => (
-          <View key={i} href={`#${section.title}`} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingTop: 6, paddingBottom: 6, borderWidth: { top: 0, right: 0, bottom: 1, left: 0 }, borderColor: '#f1f5f9' }}>
+          <View key={i} href={`#${section.title}`} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingTop: 6, paddingBottom: 6, borderBottomWidth: 1, borderColor: '#f1f5f9' }}>
             <Text style={{ fontSize: 10, color: '#2563eb', textDecoration: 'underline' }}>{i + 1}. {section.title}</Text>
           </View>
         ))}
@@ -133,7 +133,7 @@ export default function Report(data: any) {
         <Text style={{ fontSize: 10, color: '#334155', lineHeight: 1.6, marginBottom: 16 }}>{data.sections[3].intro}</Text>
 
         {data.sections[3].items.map((item: any, i: number) => (
-          <View key={i} style={{ flexDirection: 'row', gap: 24, marginBottom: 16, padding: 16, backgroundColor: '#f8fafc', borderRadius: 4, borderWidth: { top: 0, right: 0, bottom: 0, left: 3 }, borderColor: '#0f172a' }}>
+          <View key={i} style={{ flexDirection: 'row', gap: 24, marginBottom: 16, padding: 16, backgroundColor: '#f8fafc', borderRadius: 4, borderLeftWidth: 3, borderColor: '#0f172a' }}>
             <View style={{ width: 24, height: 24, backgroundColor: '#0f172a', borderRadius: 12, justifyContent: 'center', alignItems: 'center' }}>
               <Text style={{ fontSize: 10, fontWeight: 700, color: '#ffffff', lineHeight: 1.2 }}>{i + 1}</Text>
             </View>

@@ -565,23 +565,31 @@ export function mapStyle(style?: Style): FormeStyle {
   if (style.maxWidth !== undefined) result.maxWidth = mapDimension(style.maxWidth);
   if (style.maxHeight !== undefined) result.maxHeight = mapDimension(style.maxHeight);
 
-  // Edges (individual properties override the shorthand)
-  if (style.padding !== undefined || style.paddingTop !== undefined || style.paddingRight !== undefined || style.paddingBottom !== undefined || style.paddingLeft !== undefined) {
+  // Edges (individual > axis > base)
+  if (style.padding !== undefined || style.paddingTop !== undefined || style.paddingRight !== undefined || style.paddingBottom !== undefined || style.paddingLeft !== undefined || style.paddingHorizontal !== undefined || style.paddingVertical !== undefined) {
     const base = style.padding !== undefined ? expandEdges(style.padding) : { top: 0, right: 0, bottom: 0, left: 0 };
+    const vt = style.paddingVertical ?? base.top;
+    const vb = style.paddingVertical ?? base.bottom;
+    const hl = style.paddingHorizontal ?? base.left;
+    const hr = style.paddingHorizontal ?? base.right;
     result.padding = {
-      top: style.paddingTop ?? base.top,
-      right: style.paddingRight ?? base.right,
-      bottom: style.paddingBottom ?? base.bottom,
-      left: style.paddingLeft ?? base.left,
+      top: style.paddingTop ?? vt,
+      right: style.paddingRight ?? hr,
+      bottom: style.paddingBottom ?? vb,
+      left: style.paddingLeft ?? hl,
     };
   }
-  if (style.margin !== undefined || style.marginTop !== undefined || style.marginRight !== undefined || style.marginBottom !== undefined || style.marginLeft !== undefined) {
+  if (style.margin !== undefined || style.marginTop !== undefined || style.marginRight !== undefined || style.marginBottom !== undefined || style.marginLeft !== undefined || style.marginHorizontal !== undefined || style.marginVertical !== undefined) {
     const base = style.margin !== undefined ? expandEdges(style.margin) : { top: 0, right: 0, bottom: 0, left: 0 };
+    const vt = style.marginVertical ?? base.top;
+    const vb = style.marginVertical ?? base.bottom;
+    const hl = style.marginHorizontal ?? base.left;
+    const hr = style.marginHorizontal ?? base.right;
     result.margin = {
-      top: style.marginTop ?? base.top,
-      right: style.marginRight ?? base.right,
-      bottom: style.marginBottom ?? base.bottom,
-      left: style.marginLeft ?? base.left,
+      top: style.marginTop ?? vt,
+      right: style.marginRight ?? hr,
+      bottom: style.marginBottom ?? vb,
+      left: style.marginLeft ?? hl,
     };
   }
 
@@ -618,23 +626,44 @@ export function mapStyle(style?: Style): FormeStyle {
   if (style.opacity !== undefined) result.opacity = style.opacity;
 
   // Border
-  if (style.borderWidth !== undefined) {
-    result.borderWidth = expandEdgeValues(style.borderWidth);
+  if (style.borderWidth !== undefined || style.borderTopWidth !== undefined || style.borderRightWidth !== undefined || style.borderBottomWidth !== undefined || style.borderLeftWidth !== undefined) {
+    const base = style.borderWidth !== undefined ? expandEdgeValues(style.borderWidth) : { top: 0, right: 0, bottom: 0, left: 0 };
+    result.borderWidth = {
+      top: style.borderTopWidth ?? base.top,
+      right: style.borderRightWidth ?? base.right,
+      bottom: style.borderBottomWidth ?? base.bottom,
+      left: style.borderLeftWidth ?? base.left,
+    };
   }
-  if (style.borderColor !== undefined) {
+  if (style.borderColor !== undefined || style.borderTopColor !== undefined || style.borderRightColor !== undefined || style.borderBottomColor !== undefined || style.borderLeftColor !== undefined) {
+    let base: { top?: FormeColor; right?: FormeColor; bottom?: FormeColor; left?: FormeColor } = {};
     if (typeof style.borderColor === 'string') {
       const c = parseColor(style.borderColor);
-      result.borderColor = { top: c, right: c, bottom: c, left: c };
-    } else {
-      result.borderColor = {
+      base = { top: c, right: c, bottom: c, left: c };
+    } else if (style.borderColor) {
+      base = {
         top: parseColor(style.borderColor.top),
         right: parseColor(style.borderColor.right),
         bottom: parseColor(style.borderColor.bottom),
         left: parseColor(style.borderColor.left),
       };
     }
+    result.borderColor = {
+      top: (style.borderTopColor ? parseColor(style.borderTopColor) : base.top)!,
+      right: (style.borderRightColor ? parseColor(style.borderRightColor) : base.right)!,
+      bottom: (style.borderBottomColor ? parseColor(style.borderBottomColor) : base.bottom)!,
+      left: (style.borderLeftColor ? parseColor(style.borderLeftColor) : base.left)!,
+    };
   }
-  if (style.borderRadius !== undefined) result.borderRadius = expandCorners(style.borderRadius);
+  if (style.borderRadius !== undefined || style.borderTopLeftRadius !== undefined || style.borderTopRightRadius !== undefined || style.borderBottomRightRadius !== undefined || style.borderBottomLeftRadius !== undefined) {
+    const base = style.borderRadius !== undefined ? expandCorners(style.borderRadius) : { top_left: 0, top_right: 0, bottom_right: 0, bottom_left: 0 };
+    result.borderRadius = {
+      top_left: style.borderTopLeftRadius ?? base.top_left,
+      top_right: style.borderTopRightRadius ?? base.top_right,
+      bottom_right: style.borderBottomRightRadius ?? base.bottom_right,
+      bottom_left: style.borderBottomLeftRadius ?? base.bottom_left,
+    };
+  }
 
   // Positioning
   if (style.position !== undefined) {

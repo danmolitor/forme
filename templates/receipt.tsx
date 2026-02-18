@@ -18,7 +18,7 @@ export default function Receipt(data: any) {
         </View>
 
         {/* Divider */}
-        <View style={{ borderWidth: { top: 1, right: 0, bottom: 0, left: 0 }, borderColor: '#e2e8f0', marginBottom: 16 }} />
+        <View style={{ borderTopWidth: 1, borderColor: '#e2e8f0', marginBottom: 16 }} />
 
         {/* Receipt Info */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 }}>
@@ -40,7 +40,7 @@ export default function Receipt(data: any) {
         ))}
 
         {/* Divider */}
-        <View style={{ borderWidth: { top: 1, right: 0, bottom: 0, left: 0 }, borderColor: '#e2e8f0', marginTop: 12, marginBottom: 12 }} />
+        <View style={{ borderTopWidth: 1, borderColor: '#e2e8f0', marginTop: 12, marginBottom: 12 }} />
 
         {/* Subtotal */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingTop: 4, paddingBottom: 4 }}>
@@ -55,13 +55,13 @@ export default function Receipt(data: any) {
         </View>
 
         {/* Total */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingTop: 12, paddingBottom: 12, borderWidth: { top: 2, right: 0, bottom: 0, left: 0 }, borderColor: '#1e293b', marginTop: 4 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingTop: 12, paddingBottom: 12, borderTopWidth: 2, borderColor: '#1e293b', marginTop: 4 }}>
           <Text style={{ fontSize: 12, fontWeight: 700, color: '#1e293b' }}>Total</Text>
           <Text style={{ fontSize: 12, fontWeight: 700, color: '#1e293b' }}>${total.toFixed(2)}</Text>
         </View>
 
         {/* Payment Method */}
-        <View style={{ marginTop: 16, paddingTop: 12, paddingBottom: 12, borderWidth: { top: 1, right: 0, bottom: 0, left: 0 }, borderColor: '#e2e8f0' }}>
+        <View style={{ marginTop: 16, paddingTop: 12, paddingBottom: 12, borderTopWidth: 1, borderColor: '#e2e8f0' }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
             <Text style={{ fontSize: 9, color: '#64748b' }}>Payment Method</Text>
             <Text style={{ fontSize: 9, color: '#1e293b' }}>{data.paymentMethod}</Text>

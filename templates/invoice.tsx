@@ -10,7 +10,7 @@ export default function Invoice(data: any) {
     <Document title={`Invoice ${data.invoiceNumber}`} author={data.company.name}>
       <Page size="Letter" margin={48}>
         <Fixed position="footer">
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingTop: 8, borderWidth: { top: 1, right: 0, bottom: 0, left: 0 }, borderColor: '#e2e8f0' }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingTop: 8, borderTopWidth: 1, borderColor: '#e2e8f0' }}>
             <Text style={{ fontSize: 8, color: '#94a3b8' }}>{data.company.name}</Text>
             <Text style={{ fontSize: 8, color: '#94a3b8' }}>Page {'{{pageNumber}}'} of {'{{totalPages}}'}</Text>
           </View>

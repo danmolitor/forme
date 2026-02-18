@@ -13,7 +13,7 @@ export default function ShippingLabel(data: any) {
         </View>
 
         {/* Divider */}
-        <View style={{ borderWidth: { top: 2, right: 0, bottom: 0, left: 0 }, borderColor: '#0f172a', marginBottom: 12 }} />
+        <View style={{ borderTopWidth: 2, borderColor: '#0f172a', marginBottom: 12 }} />
 
         {/* To Address */}
         <View style={{ padding: 12, marginBottom: 12 }}>
@@ -62,7 +62,7 @@ export default function ShippingLabel(data: any) {
         </View>
 
         {/* Divider */}
-        <View style={{ borderWidth: { top: 1, right: 0, bottom: 0, left: 0 }, borderColor: '#cbd5e1', marginBottom: 8 }} />
+        <View style={{ borderTopWidth: 1, borderColor: '#cbd5e1', marginBottom: 8 }} />
 
         {/* Details Row */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', padding: 8 }}>
@@ -84,7 +84,7 @@ export default function ShippingLabel(data: any) {
         {data.stamps && data.stamps.length > 0 && (
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 8, padding: 8 }}>
             {data.stamps.map((stamp: string, i: number) => (
-              <View key={i} style={{ padding: { top: 6, right: 12, bottom: 6, left: 12 }, borderWidth: 2, borderColor: '#dc2626', borderRadius: 2 }}>
+              <View key={i} style={{ paddingVertical: 6, paddingHorizontal: 12, borderWidth: 2, borderColor: '#dc2626', borderRadius: 2 }}>
                 <Text style={{ fontSize: 10, fontWeight: 700, color: '#dc2626', textTransform: 'uppercase' }}>{stamp}</Text>
               </View>
             ))}

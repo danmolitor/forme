@@ -285,6 +285,88 @@ describe('parseColor', () => {
   });
 });
 
+// ─── Style shorthand properties ─────────────────────────────────────
+
+describe('Style shorthand properties', () => {
+  it('paddingTop only', () => {
+    expect(mapStyle({ paddingTop: 10 }).padding).toEqual({ top: 10, right: 0, bottom: 0, left: 0 });
+  });
+
+  it('paddingHorizontal sets left and right', () => {
+    expect(mapStyle({ paddingHorizontal: 16 }).padding).toEqual({ top: 0, right: 16, bottom: 0, left: 16 });
+  });
+
+  it('paddingVertical sets top and bottom', () => {
+    expect(mapStyle({ paddingVertical: 12 }).padding).toEqual({ top: 12, right: 0, bottom: 12, left: 0 });
+  });
+
+  it('padding base + paddingTop override', () => {
+    expect(mapStyle({ padding: 8, paddingTop: 12 }).padding).toEqual({ top: 12, right: 8, bottom: 8, left: 8 });
+  });
+
+  it('paddingVertical + paddingLeft override', () => {
+    expect(mapStyle({ paddingVertical: 8, paddingLeft: 4 }).padding).toEqual({ top: 8, right: 0, bottom: 8, left: 4 });
+  });
+
+  it('paddingHorizontal + paddingVertical combined', () => {
+    expect(mapStyle({ paddingVertical: 6, paddingHorizontal: 12 }).padding).toEqual({ top: 6, right: 12, bottom: 6, left: 12 });
+  });
+
+  it('padding base + axis + individual (full cascade)', () => {
+    expect(mapStyle({ padding: 4, paddingVertical: 8, paddingTop: 16 }).padding).toEqual({ top: 16, right: 4, bottom: 8, left: 4 });
+  });
+
+  it('marginHorizontal sets left and right', () => {
+    expect(mapStyle({ marginHorizontal: 20 }).margin).toEqual({ top: 0, right: 20, bottom: 0, left: 20 });
+  });
+
+  it('marginVertical + marginBottom override', () => {
+    expect(mapStyle({ marginVertical: 10, marginBottom: 20 }).margin).toEqual({ top: 10, right: 0, bottom: 20, left: 0 });
+  });
+
+  it('marginBottom only', () => {
+    expect(mapStyle({ marginBottom: 12 }).margin).toEqual({ top: 0, right: 0, bottom: 12, left: 0 });
+  });
+
+  it('borderBottomWidth only', () => {
+    expect(mapStyle({ borderBottomWidth: 1 }).borderWidth).toEqual({ top: 0, right: 0, bottom: 1, left: 0 });
+  });
+
+  it('borderWidth base + borderTopWidth override', () => {
+    expect(mapStyle({ borderWidth: 1, borderTopWidth: 3 }).borderWidth).toEqual({ top: 3, right: 1, bottom: 1, left: 1 });
+  });
+
+  it('borderTopColor only', () => {
+    const result = mapStyle({ borderTopColor: '#ff0000' });
+    expect(result.borderColor!.top).toEqual({ r: 1, g: 0, b: 0, a: 1 });
+  });
+
+  it('borderColor base + borderBottomColor override', () => {
+    const result = mapStyle({ borderColor: '#000000', borderBottomColor: '#ff0000' });
+    expect(result.borderColor!.top).toEqual({ r: 0, g: 0, b: 0, a: 1 });
+    expect(result.borderColor!.bottom).toEqual({ r: 1, g: 0, b: 0, a: 1 });
+  });
+
+  it('borderTopLeftRadius only', () => {
+    expect(mapStyle({ borderTopLeftRadius: 8 }).borderRadius).toEqual({ top_left: 8, top_right: 0, bottom_right: 0, bottom_left: 0 });
+  });
+
+  it('borderRadius base + corner overrides', () => {
+    expect(mapStyle({ borderRadius: 4, borderTopLeftRadius: 8, borderBottomRightRadius: 12 }).borderRadius).toEqual({
+      top_left: 8, top_right: 4, bottom_right: 12, bottom_left: 4,
+    });
+  });
+
+  it('no shorthands returns undefined edges', () => {
+    const style = mapStyle({ fontSize: 14 });
+    expect(style.padding).toBeUndefined();
+    expect(style.margin).toBeUndefined();
+    expect(style.borderWidth).toBeUndefined();
+    expect(style.borderColor).toBeUndefined();
+    expect(style.borderRadius).toBeUndefined();
+  });
+});
+
 // ─── Dimension mapping ──────────────────────────────────────────────
 
 describe('mapDimension', () => {
