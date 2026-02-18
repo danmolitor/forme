@@ -20,7 +20,7 @@ export default function Invoice(data: any) {
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 32 }}>
           <View>
             <View style={{ width: 48, height: 48, backgroundColor: '#2563eb', borderRadius: 8, marginBottom: 12, justifyContent: 'center', alignItems: 'center' }}>
-              <Text style={{ fontSize: 18, fontWeight: 700, color: '#ffffff', textAlign: 'center', }}>{data.company.initials}</Text>
+              <Text style={{ fontSize: 18, fontWeight: 700, color: '#ffffff', textAlign: 'center', lineHeight: 1.2 }}>{data.company.initials}</Text>
             </View>
             <Text style={{ fontSize: 16, fontWeight: 700, color: '#1e293b' }}>{data.company.name}</Text>
             <Text style={{ fontSize: 9, color: '#64748b', marginTop: 4 }}>{data.company.address}</Text>
