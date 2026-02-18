@@ -19,6 +19,8 @@ fn make_text(content: &str, font_size: f64) -> Node {
     Node {
         kind: NodeKind::Text {
             content: content.to_string(),
+            href: None,
+            runs: vec![],
         },
         style: Style {
             font_size: Some(font_size),
@@ -27,6 +29,7 @@ fn make_text(content: &str, font_size: f64) -> Node {
         children: vec![],
         id: None,
         source_location: None,
+        bookmark: None,
     }
 }
 
@@ -37,6 +40,7 @@ fn make_view(children: Vec<Node>) -> Node {
         children,
         id: None,
         source_location: None,
+        bookmark: None,
     }
 }
 
@@ -47,6 +51,7 @@ fn make_styled_view(style: Style, children: Vec<Node>) -> Node {
         children,
         id: None,
         source_location: None,
+        bookmark: None,
     }
 }
 
@@ -57,6 +62,7 @@ fn make_page_break() -> Node {
         children: vec![],
         id: None,
         source_location: None,
+        bookmark: None,
     }
 }
 
@@ -67,6 +73,7 @@ fn make_table_row(is_header: bool, cells: Vec<Node>) -> Node {
         children: cells,
         id: None,
         source_location: None,
+        bookmark: None,
     }
 }
 
@@ -83,6 +90,7 @@ fn make_table_cell(children: Vec<Node>) -> Node {
         children,
         id: None,
         source_location: None,
+        bookmark: None,
     }
 }
 
@@ -272,6 +280,7 @@ fn make_simple_table(header_cells: Vec<&str>, rows: Vec<Vec<&str>>) -> Node {
         children,
         id: None,
         source_location: None,
+        bookmark: None,
     }
 }
 
@@ -542,6 +551,7 @@ fn test_unbreakable_node_moves_to_next_page() {
         ],
         id: None,
         source_location: None,
+        bookmark: None,
     };
     page_children.push(unbreakable);
 
@@ -614,6 +624,8 @@ fn render_with_custom_font(font_data: &[u8], text: &str) -> Vec<u8> {
         children: vec![Node {
             kind: NodeKind::Text {
                 content: text.to_string(),
+                href: None,
+                runs: vec![],
             },
             style: Style {
                 font_family: Some("TestFont".to_string()),
@@ -623,6 +635,7 @@ fn render_with_custom_font(font_data: &[u8], text: &str) -> Vec<u8> {
             children: vec![],
             id: None,
             source_location: None,
+            bookmark: None,
         }],
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
@@ -723,6 +736,8 @@ fn test_mixed_standard_and_custom_fonts() {
             Node {
                 kind: NodeKind::Text {
                     content: "Standard Helvetica".to_string(),
+                    href: None,
+                    runs: vec![],
                 },
                 style: Style {
                     font_family: Some("Helvetica".to_string()),
@@ -732,11 +747,14 @@ fn test_mixed_standard_and_custom_fonts() {
                 children: vec![],
                 id: None,
                 source_location: None,
+                bookmark: None,
             },
             // Custom font text
             Node {
                 kind: NodeKind::Text {
                     content: "Custom Font Text".to_string(),
+                    href: None,
+                    runs: vec![],
                 },
                 style: Style {
                     font_family: Some("CustomFont".to_string()),
@@ -746,6 +764,7 @@ fn test_mixed_standard_and_custom_fonts() {
                 children: vec![],
                 id: None,
                 source_location: None,
+                bookmark: None,
             },
         ],
         metadata: Metadata::default(),
@@ -867,6 +886,7 @@ fn make_image_node(src: &str, width: Option<f64>, height: Option<f64>) -> Node {
         children: vec![],
         id: None,
         source_location: None,
+        bookmark: None,
     }
 }
 
@@ -1046,6 +1066,7 @@ fn make_fixed_header(text: &str) -> Node {
         children: vec![make_text(text, 10.0)],
         id: None,
         source_location: None,
+        bookmark: None,
     }
 }
 
@@ -1062,6 +1083,7 @@ fn make_fixed_footer(text: &str) -> Node {
         children: vec![make_text(text, 10.0)],
         id: None,
         source_location: None,
+        bookmark: None,
     }
 }
 
@@ -1170,6 +1192,7 @@ fn test_footer_reduces_content_area() {
         children: vec![make_text("Big Footer", 14.0)],
         id: None,
         source_location: None,
+        bookmark: None,
     };
     let mut children_with_footer = vec![big_footer];
     for i in 0..80 {
@@ -1532,6 +1555,7 @@ fn test_table_cell_overflow_does_not_panic() {
         ],
         id: None,
         source_location: None,
+        bookmark: None,
     };
     children.push(table);
 
@@ -1642,11 +1666,13 @@ fn test_page_number_placeholder_single_page() {
                 children: vec![make_text("Page {{pageNumber}} of {{totalPages}}", 12.0)],
                 id: None,
                 source_location: None,
+                bookmark: None,
             },
             make_text("Hello", 12.0),
         ],
         id: None,
         source_location: None,
+        bookmark: None,
     }]);
     let pdf_bytes = forme::render(&doc).unwrap();
     let pdf_str = String::from_utf8_lossy(&pdf_bytes);
@@ -1675,6 +1701,7 @@ fn test_page_number_placeholder_multi_page() {
         children: vec![make_text("{{pageNumber}}/{{totalPages}}", 10.0)],
         id: None,
         source_location: None,
+        bookmark: None,
     }];
     for _ in 0..80 {
         page_children.push(make_text("Line of text to fill the page.", 12.0));
@@ -1688,6 +1715,7 @@ fn test_page_number_placeholder_multi_page() {
         children: page_children,
         id: None,
         source_location: None,
+        bookmark: None,
     }]);
     let pdf_bytes = forme::render(&doc).unwrap();
     let pdf_str = String::from_utf8_lossy(&pdf_bytes);
@@ -1723,4 +1751,533 @@ fn test_no_placeholder_unchanged() {
         pdf_bytes.starts_with(b"%PDF"),
         "Should produce valid PDF without placeholders"
     );
+}
+
+// ── Feature 1: Links Tests ──────────────────────────────────────
+
+#[test]
+fn test_text_with_href_produces_link_annotation() {
+    let doc = default_doc(vec![Node {
+        kind: NodeKind::Text {
+            content: "Click here".to_string(),
+            href: Some("https://example.com".to_string()),
+            runs: vec![],
+        },
+        style: Style {
+            font_size: Some(12.0),
+            ..Default::default()
+        },
+        children: vec![],
+        id: None,
+        source_location: None,
+        bookmark: None,
+    }]);
+    let bytes = render_to_pdf(&doc);
+    assert_valid_pdf(&bytes);
+    let text = String::from_utf8_lossy(&bytes);
+    assert!(
+        text.contains("/URI"),
+        "Text with href should produce /URI annotation"
+    );
+    assert!(
+        text.contains("example.com"),
+        "Annotation should contain the URL"
+    );
+    assert!(text.contains("/Annots"), "Page should have /Annots array");
+}
+
+#[test]
+fn test_text_without_href_has_no_annotation() {
+    let doc = default_doc(vec![make_text("No link here", 12.0)]);
+    let bytes = render_to_pdf(&doc);
+    assert_valid_pdf(&bytes);
+    let text = String::from_utf8_lossy(&bytes);
+    assert!(
+        !text.contains("/URI"),
+        "Text without href should not produce annotations"
+    );
+    assert!(
+        !text.contains("/Annots"),
+        "Page should not have /Annots array"
+    );
+}
+
+#[test]
+fn test_multiple_links_on_same_page() {
+    let doc = default_doc(vec![
+        Node {
+            kind: NodeKind::Text {
+                content: "Link 1".to_string(),
+                href: Some("https://example.com/1".to_string()),
+                runs: vec![],
+            },
+            style: Style::default(),
+            children: vec![],
+            id: None,
+            source_location: None,
+            bookmark: None,
+        },
+        Node {
+            kind: NodeKind::Text {
+                content: "Link 2".to_string(),
+                href: Some("https://example.com/2".to_string()),
+                runs: vec![],
+            },
+            style: Style::default(),
+            children: vec![],
+            id: None,
+            source_location: None,
+            bookmark: None,
+        },
+    ]);
+    let bytes = render_to_pdf(&doc);
+    assert_valid_pdf(&bytes);
+    let text = String::from_utf8_lossy(&bytes);
+    // Should have at least 2 /URI references
+    let uri_count = text.matches("/URI").count();
+    assert!(
+        uri_count >= 2,
+        "Should have at least 2 link annotations, got {}",
+        uri_count
+    );
+}
+
+#[test]
+fn test_text_decoration_underline_json() {
+    let json = r#"{
+        "children": [
+            {
+                "kind": { "type": "Text", "content": "Underlined text" },
+                "style": { "textDecoration": "Underline" }
+            }
+        ]
+    }"#;
+    let bytes = forme::render_json(json).expect("Should parse underline JSON");
+    assert_valid_pdf(&bytes);
+}
+
+// ── Feature 2: Text Runs Tests ──────────────────────────────────
+
+#[test]
+fn test_text_runs_render_valid_pdf() {
+    let doc = default_doc(vec![Node {
+        kind: NodeKind::Text {
+            content: String::new(),
+            href: None,
+            runs: vec![
+                TextRun {
+                    content: "Hello ".to_string(),
+                    style: Style::default(),
+                    href: None,
+                },
+                TextRun {
+                    content: "bold".to_string(),
+                    style: Style {
+                        font_weight: Some(700),
+                        ..Default::default()
+                    },
+                    href: None,
+                },
+                TextRun {
+                    content: " world".to_string(),
+                    style: Style::default(),
+                    href: None,
+                },
+            ],
+        },
+        style: Style {
+            font_size: Some(12.0),
+            ..Default::default()
+        },
+        children: vec![],
+        id: None,
+        source_location: None,
+        bookmark: None,
+    }]);
+    let bytes = render_to_pdf(&doc);
+    assert_valid_pdf(&bytes);
+}
+
+#[test]
+fn test_text_runs_with_href_per_run() {
+    let doc = default_doc(vec![Node {
+        kind: NodeKind::Text {
+            content: String::new(),
+            href: None,
+            runs: vec![
+                TextRun {
+                    content: "Normal text ".to_string(),
+                    style: Style::default(),
+                    href: None,
+                },
+                TextRun {
+                    content: "linked text".to_string(),
+                    style: Style {
+                        color: Some(Color::rgb(0.0, 0.0, 1.0)),
+                        ..Default::default()
+                    },
+                    href: Some("https://example.com".to_string()),
+                },
+            ],
+        },
+        style: Style {
+            font_size: Some(12.0),
+            ..Default::default()
+        },
+        children: vec![],
+        id: None,
+        source_location: None,
+        bookmark: None,
+    }]);
+    let bytes = render_to_pdf(&doc);
+    assert_valid_pdf(&bytes);
+}
+
+#[test]
+fn test_text_runs_json_deserialization() {
+    let json = r#"{
+        "children": [
+            {
+                "kind": {
+                    "type": "Text",
+                    "content": "",
+                    "runs": [
+                        { "content": "Hello ", "style": {} },
+                        { "content": "bold", "style": { "fontWeight": 700 } }
+                    ]
+                },
+                "style": { "fontSize": 14 }
+            }
+        ]
+    }"#;
+    let bytes = forme::render_json(json).expect("Should parse text runs JSON");
+    assert_valid_pdf(&bytes);
+}
+
+// ── Feature 3: Bookmarks Tests ──────────────────────────────────
+
+#[test]
+fn test_bookmarks_produce_outlines() {
+    let doc = default_doc(vec![
+        Node {
+            kind: NodeKind::View,
+            style: Style::default(),
+            children: vec![make_text("Chapter 1", 18.0)],
+            id: None,
+            source_location: None,
+            bookmark: Some("Chapter 1".to_string()),
+        },
+        make_text("Content for chapter 1", 12.0),
+        Node {
+            kind: NodeKind::View,
+            style: Style::default(),
+            children: vec![make_text("Chapter 2", 18.0)],
+            id: None,
+            source_location: None,
+            bookmark: Some("Chapter 2".to_string()),
+        },
+        make_text("Content for chapter 2", 12.0),
+    ]);
+    let bytes = render_to_pdf(&doc);
+    assert_valid_pdf(&bytes);
+    let text = String::from_utf8_lossy(&bytes);
+    assert!(
+        text.contains("/Outlines"),
+        "Document with bookmarks should have /Outlines"
+    );
+    assert!(
+        text.contains("Chapter 1"),
+        "Outline should contain bookmark title 'Chapter 1'"
+    );
+    assert!(
+        text.contains("Chapter 2"),
+        "Outline should contain bookmark title 'Chapter 2'"
+    );
+}
+
+#[test]
+fn test_no_bookmarks_no_outlines() {
+    let doc = default_doc(vec![make_text("No bookmarks here", 12.0)]);
+    let bytes = render_to_pdf(&doc);
+    assert_valid_pdf(&bytes);
+    let text = String::from_utf8_lossy(&bytes);
+    assert!(
+        !text.contains("/Outlines"),
+        "Document without bookmarks should not have /Outlines"
+    );
+}
+
+#[test]
+fn test_bookmarks_json_deserialization() {
+    let json = r#"{
+        "children": [
+            {
+                "kind": { "type": "View" },
+                "style": {},
+                "bookmark": "Section A",
+                "children": [
+                    { "kind": { "type": "Text", "content": "Section A" }, "style": {} }
+                ]
+            }
+        ]
+    }"#;
+    let bytes = forme::render_json(json).expect("Should parse bookmark JSON");
+    assert_valid_pdf(&bytes);
+    let text = String::from_utf8_lossy(&bytes);
+    assert!(
+        text.contains("/Outlines"),
+        "Should produce outlines from JSON bookmark"
+    );
+}
+
+#[test]
+fn test_bookmarks_on_breakable_view() {
+    // A bookmarked View whose content exceeds a single page triggers the breakable
+    // path (layout_breakable_view). The bookmark must still appear in the PDF outlines.
+    let mut children = Vec::new();
+    for i in 0..80 {
+        children.push(make_text(&format!("Line {}", i), 12.0));
+    }
+    let bookmarked_view = Node {
+        kind: NodeKind::View,
+        style: Style::default(), // wrap defaults to true → breakable
+        children,
+        id: None,
+        source_location: None,
+        bookmark: Some("Breakable Chapter".to_string()),
+    };
+    let doc = default_doc(vec![bookmarked_view]);
+    let pages = layout_doc(&doc);
+    assert!(
+        pages.len() >= 2,
+        "Breakable bookmarked view should span multiple pages, got {}",
+        pages.len()
+    );
+
+    let bytes = render_to_pdf(&doc);
+    assert_valid_pdf(&bytes);
+    let text = String::from_utf8_lossy(&bytes);
+    assert!(
+        text.contains("/Outlines"),
+        "Breakable view with bookmark should produce /Outlines"
+    );
+    assert!(
+        text.contains("Breakable Chapter"),
+        "Outline should contain 'Breakable Chapter' bookmark title"
+    );
+}
+
+#[test]
+fn test_multiple_bookmarked_views_mixed_sizes() {
+    // Simulates a catalog: 4 bookmarked categories, some small (fit on page), some large (break).
+    // All 4 bookmarks must appear in the PDF outlines.
+    let mut doc_children = Vec::new();
+    for i in 0..4 {
+        let name = format!("Category {}", i + 1);
+        let num_lines = if i % 2 == 0 { 10 } else { 60 };
+        let mut children = Vec::new();
+        for j in 0..num_lines {
+            children.push(make_text(&format!("{} line {}", name, j), 12.0));
+        }
+        doc_children.push(Node {
+            kind: NodeKind::View,
+            style: Style::default(),
+            children,
+            id: None,
+            source_location: None,
+            bookmark: Some(name),
+        });
+    }
+    let doc = default_doc(doc_children);
+    let bytes = render_to_pdf(&doc);
+    assert_valid_pdf(&bytes);
+    let text = String::from_utf8_lossy(&bytes);
+    assert!(text.contains("/Outlines"), "Should have outlines");
+    for i in 1..=4 {
+        let name = format!("Category {}", i);
+        assert!(
+            text.contains(&format!("/Title ({})", name)),
+            "Missing bookmark for '{}'",
+            name
+        );
+    }
+}
+
+// ── Feature 4: Absolute Positioning Tests ───────────────────────
+
+#[test]
+fn test_absolute_position_does_not_affect_flow() {
+    let doc = default_doc(vec![make_styled_view(
+        Style {
+            width: Some(Dimension::Pt(200.0)),
+            height: Some(Dimension::Pt(200.0)),
+            ..Default::default()
+        },
+        vec![
+            make_text("Flow child", 12.0),
+            Node {
+                kind: NodeKind::View,
+                style: Style {
+                    position: Some(Position::Absolute),
+                    top: Some(10.0),
+                    left: Some(10.0),
+                    width: Some(Dimension::Pt(50.0)),
+                    height: Some(Dimension::Pt(50.0)),
+                    background_color: Some(Color::rgb(1.0, 0.0, 0.0)),
+                    ..Default::default()
+                },
+                children: vec![],
+                id: None,
+                source_location: None,
+                bookmark: None,
+            },
+            make_text("After absolute", 12.0),
+        ],
+    )]);
+    let pages = layout_doc(&doc);
+    assert_eq!(pages.len(), 1);
+    let bytes = render_to_pdf(&doc);
+    assert_valid_pdf(&bytes);
+}
+
+#[test]
+fn test_absolute_position_json() {
+    let json = r#"{
+        "children": [
+            {
+                "kind": { "type": "View" },
+                "style": { "width": { "Pt": 300 }, "height": { "Pt": 300 } },
+                "children": [
+                    { "kind": { "type": "Text", "content": "Flow" }, "style": {} },
+                    {
+                        "kind": { "type": "View" },
+                        "style": {
+                            "position": "Absolute",
+                            "top": 20, "right": 20,
+                            "width": { "Pt": 80 },
+                            "backgroundColor": { "r": 0.0, "g": 0.0, "b": 1.0, "a": 1.0 }
+                        },
+                        "children": [
+                            { "kind": { "type": "Text", "content": "Abs" }, "style": {} }
+                        ]
+                    }
+                ]
+            }
+        ]
+    }"#;
+    let bytes = forme::render_json(json).expect("Should parse absolute position JSON");
+    assert_valid_pdf(&bytes);
+}
+
+// ── Feature 5: SVG Rendering Tests ──────────────────────────────
+
+#[test]
+fn test_svg_basic_rect() {
+    let doc = default_doc(vec![Node {
+        kind: NodeKind::Svg {
+            width: 100.0,
+            height: 100.0,
+            view_box: Some("0 0 100 100".to_string()),
+            content: r##"<rect x="10" y="10" width="80" height="80" fill="#ff0000"/>"##.to_string(),
+        },
+        style: Style::default(),
+        children: vec![],
+        id: None,
+        source_location: None,
+        bookmark: None,
+    }]);
+    let pages = layout_doc(&doc);
+    assert_eq!(pages.len(), 1);
+    let bytes = render_to_pdf(&doc);
+    assert_valid_pdf(&bytes);
+}
+
+#[test]
+fn test_svg_circle_and_path() {
+    let doc = default_doc(vec![Node {
+        kind: NodeKind::Svg {
+            width: 200.0,
+            height: 200.0,
+            view_box: Some("0 0 200 200".to_string()),
+            content: r#"<circle cx="100" cy="100" r="50" fill="blue"/>
+                        <path d="M 10 10 L 50 50 Z" stroke="black" fill="none"/>"#
+                .to_string(),
+        },
+        style: Style::default(),
+        children: vec![],
+        id: None,
+        source_location: None,
+        bookmark: None,
+    }]);
+    let bytes = render_to_pdf(&doc);
+    assert_valid_pdf(&bytes);
+}
+
+#[test]
+fn test_svg_json_deserialization() {
+    let json = r#"{
+        "children": [
+            {
+                "kind": {
+                    "type": "Svg",
+                    "width": 100,
+                    "height": 100,
+                    "viewBox": "0 0 100 100",
+                    "content": "<rect x=\"0\" y=\"0\" width=\"100\" height=\"100\" fill=\"green\"/>"
+                },
+                "style": {}
+            }
+        ]
+    }"#;
+    let bytes = forme::render_json(json).expect("Should parse SVG JSON");
+    assert_valid_pdf(&bytes);
+}
+
+#[test]
+fn test_svg_page_break() {
+    // Fill most of a page, then add an SVG that won't fit
+    let mut children = Vec::new();
+    for i in 0..50 {
+        children.push(make_text(&format!("Line {}", i), 12.0));
+    }
+    children.push(Node {
+        kind: NodeKind::Svg {
+            width: 200.0,
+            height: 200.0,
+            view_box: Some("0 0 200 200".to_string()),
+            content: r#"<rect x="0" y="0" width="200" height="200" fill="red"/>"#.to_string(),
+        },
+        style: Style::default(),
+        children: vec![],
+        id: None,
+        source_location: None,
+        bookmark: None,
+    });
+    let doc = default_doc(children);
+    let pages = layout_doc(&doc);
+    assert!(
+        pages.len() >= 2,
+        "SVG after many lines should push to next page"
+    );
+    let bytes = render_to_pdf(&doc);
+    assert_valid_pdf(&bytes);
+}
+
+#[test]
+fn test_empty_svg_content() {
+    let doc = default_doc(vec![Node {
+        kind: NodeKind::Svg {
+            width: 50.0,
+            height: 50.0,
+            view_box: None,
+            content: String::new(),
+        },
+        style: Style::default(),
+        children: vec![],
+        id: None,
+        source_location: None,
+        bookmark: None,
+    }]);
+    let bytes = render_to_pdf(&doc);
+    assert_valid_pdf(&bytes);
 }

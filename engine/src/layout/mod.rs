@@ -39,7 +39,16 @@ use serde::Serialize;
 use crate::font::FontContext;
 use crate::model::*;
 use crate::style::*;
-use crate::text::TextLayout;
+use crate::text::{StyledChar, TextLayout};
+
+/// A bookmark entry collected during layout.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BookmarkEntry {
+    pub title: String,
+    pub page_index: usize,
+    pub y: f64,
+}
 
 // ── Serializable layout metadata (for debug overlays / dev tools) ───
 
@@ -163,6 +172,12 @@ pub struct ElementInfo {
     /// Text content extracted from TextLine draw commands (for component tree).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub text_content: Option<String>,
+    /// Optional hyperlink URL.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub href: Option<String>,
+    /// Optional bookmark title.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bookmark: Option<String>,
 }
 
 impl LayoutInfo {
@@ -204,6 +219,7 @@ impl LayoutInfo {
                     DrawCommand::Text { .. } => "Text",
                     DrawCommand::Image { .. } => "Image",
                     DrawCommand::ImagePlaceholder => "ImagePlaceholder",
+                    DrawCommand::Svg { .. } => "Svg",
                 };
                 let text_content = match &elem.draw {
                     DrawCommand::Text { lines, .. } => {
@@ -236,6 +252,8 @@ impl LayoutInfo {
                     children: Self::build_element_tree(&elem.children),
                     source_location: elem.source_location.clone(),
                     text_content,
+                    href: elem.href.clone(),
+                    bookmark: elem.bookmark.clone(),
                 }
             })
             .collect()
@@ -275,6 +293,10 @@ pub struct LayoutElement {
     pub resolved_style: Option<ResolvedStyle>,
     /// Source code location for click-to-source in the dev inspector.
     pub source_location: Option<SourceLocation>,
+    /// Optional hyperlink URL for link annotations.
+    pub href: Option<String>,
+    /// Optional bookmark title for PDF outline entries.
+    pub bookmark: Option<String>,
 }
 
 /// Return a human-readable name for a NodeKind variant.
@@ -294,6 +316,7 @@ fn node_kind_name(kind: &NodeKind) -> &'static str {
         } => "FixedFooter",
         NodeKind::Page { .. } => "Page",
         NodeKind::PageBreak => "PageBreak",
+        NodeKind::Svg { .. } => "Svg",
     }
 }
 
@@ -310,13 +333,23 @@ pub enum DrawCommand {
         border_radius: CornerValues,
     },
     /// Draw text.
-    Text { lines: Vec<TextLine>, color: Color },
+    Text {
+        lines: Vec<TextLine>,
+        color: Color,
+        text_decoration: TextDecoration,
+    },
     /// Draw an image.
     Image {
         image_data: crate::image_loader::LoadedImage,
     },
     /// Draw a grey placeholder rectangle (fallback when image loading fails).
     ImagePlaceholder,
+    /// Draw SVG vector graphics.
+    Svg {
+        commands: Vec<crate::svg::SvgCommand>,
+        width: f64,
+        height: f64,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -337,6 +370,10 @@ pub struct PositionedGlyph {
     pub font_weight: u32,
     pub font_style: FontStyle,
     pub char_value: char,
+    /// Per-glyph color (for text runs with different colors).
+    pub color: Option<Color>,
+    /// Per-glyph href (for inline links within runs).
+    pub href: Option<String>,
 }
 
 /// Shift a layout element and all its nested content (children, text lines)
@@ -517,9 +554,15 @@ impl LayoutEngine {
                 }
             }
 
-            NodeKind::Text { content } => {
+            NodeKind::Text {
+                content,
+                href,
+                runs,
+            } => {
                 self.layout_text(
                     content,
+                    href.as_deref(),
+                    runs,
                     &style,
                     cursor,
                     pages,
@@ -527,6 +570,7 @@ impl LayoutEngine {
                     available_width,
                     font_context,
                     node.source_location.as_ref(),
+                    node.bookmark.as_deref(),
                 );
             }
 
@@ -577,6 +621,26 @@ impl LayoutEngine {
                     x,
                     available_width,
                     font_context,
+                );
+            }
+
+            NodeKind::Svg {
+                width: svg_w,
+                height: svg_h,
+                view_box,
+                content,
+            } => {
+                self.layout_svg(
+                    node,
+                    &style,
+                    cursor,
+                    pages,
+                    x,
+                    available_width,
+                    *svg_w,
+                    *svg_h,
+                    view_box.as_deref(),
+                    content,
                 );
             }
         }
@@ -654,6 +718,8 @@ impl LayoutEngine {
                 node_type: Some(node_kind_name(&node.kind).to_string()),
                 resolved_style: Some(style.clone()),
                 source_location: node.source_location.clone(),
+                href: None,
+                bookmark: node.bookmark.clone(),
             };
             cursor.elements.push(rect_element);
 
@@ -690,6 +756,23 @@ impl LayoutEngine {
 
         cursor.y += margin.top + padding.top + border.top;
 
+        // Emit a zero-height marker element so the bookmark gets into the PDF outline
+        if node.bookmark.is_some() {
+            cursor.elements.push(LayoutElement {
+                x: node_x,
+                y: cursor.content_y + cursor.y,
+                width: 0.0,
+                height: 0.0,
+                draw: DrawCommand::None,
+                children: vec![],
+                node_type: None,
+                resolved_style: None,
+                source_location: None,
+                href: None,
+                bookmark: node.bookmark.clone(),
+            });
+        }
+
         let children_x = node_x + padding.left + border.left;
         self.layout_children(
             &node.children,
@@ -717,6 +800,11 @@ impl LayoutEngine {
         parent_style: Option<&ResolvedStyle>,
         font_context: &FontContext,
     ) {
+        // Separate absolute vs flow children
+        let (flow_children, abs_children): (Vec<&Node>, Vec<&Node>) = children
+            .iter()
+            .partition(|child| !matches!(child.style.position, Some(Position::Absolute)));
+
         let direction = parent_style
             .map(|s| s.flex_direction)
             .unwrap_or(FlexDirection::Column);
@@ -724,12 +812,13 @@ impl LayoutEngine {
         let row_gap = parent_style.map(|s| s.row_gap).unwrap_or(0.0);
         let column_gap = parent_style.map(|s| s.column_gap).unwrap_or(0.0);
 
+        // First pass: flow children
         match direction {
             FlexDirection::Column | FlexDirection::ColumnReverse => {
                 let items: Vec<&Node> = if matches!(direction, FlexDirection::ColumnReverse) {
-                    children.iter().rev().collect()
+                    flow_children.into_iter().rev().collect()
                 } else {
-                    children.iter().collect()
+                    flow_children
                 };
 
                 for (i, child) in items.iter().enumerate() {
@@ -749,8 +838,9 @@ impl LayoutEngine {
             }
 
             FlexDirection::Row | FlexDirection::RowReverse => {
+                let flow_owned: Vec<Node> = flow_children.into_iter().cloned().collect();
                 self.layout_flex_row(
-                    children,
+                    &flow_owned,
                     cursor,
                     pages,
                     available_width,
@@ -760,6 +850,69 @@ impl LayoutEngine {
                     font_context,
                 );
             }
+        }
+
+        // Second pass: absolute children
+        for abs_child in &abs_children {
+            let abs_style = abs_child.style.resolve(parent_style, available_width);
+
+            // Measure intrinsic size
+            let child_width = match abs_style.width {
+                SizeConstraint::Fixed(w) => w,
+                SizeConstraint::Auto => {
+                    // If both left and right are set, stretch width
+                    if let (Some(l), Some(r)) = (abs_style.left, abs_style.right) {
+                        (available_width - l - r).max(0.0)
+                    } else {
+                        self.measure_intrinsic_width(abs_child, &abs_style, font_context)
+                    }
+                }
+            };
+
+            let child_height = match abs_style.height {
+                SizeConstraint::Fixed(h) => h,
+                SizeConstraint::Auto => {
+                    self.measure_node_height(abs_child, child_width, &abs_style, font_context)
+                }
+            };
+
+            // Determine position relative to parent content box
+            let abs_x = if let Some(l) = abs_style.left {
+                content_x + l
+            } else if let Some(r) = abs_style.right {
+                content_x + available_width - r - child_width
+            } else {
+                content_x
+            };
+
+            let parent_content_y = cursor.content_y;
+            let abs_y = if let Some(t) = abs_style.top {
+                parent_content_y + t
+            } else if let Some(b) = abs_style.bottom {
+                // Bottom relative to the page content area
+                parent_content_y + cursor.content_height - b - child_height
+            } else {
+                parent_content_y
+            };
+
+            // Lay out the absolute child into a temporary cursor
+            let mut abs_cursor = PageCursor::new(&cursor.config);
+            abs_cursor.y = 0.0;
+            abs_cursor.content_x = abs_x;
+            abs_cursor.content_y = abs_y;
+
+            self.layout_node(
+                abs_child,
+                &mut abs_cursor,
+                &mut Vec::new(),
+                abs_x,
+                child_width,
+                parent_style,
+                font_context,
+            );
+
+            // Add absolute elements to the current cursor (renders on top)
+            cursor.elements.extend(abs_cursor.elements);
         }
     }
 
@@ -1110,6 +1263,8 @@ impl LayoutEngine {
                 node_type: Some("TableCell".to_string()),
                 resolved_style: Some(cell_style.clone()),
                 source_location: cell.source_location.clone(),
+                href: None,
+                bookmark: cell.bookmark.clone(),
             });
 
             cell_x += col_width;
@@ -1137,6 +1292,8 @@ impl LayoutEngine {
             node_type: Some("TableRow".to_string()),
             resolved_style: Some(row_style.clone()),
             source_location: row.source_location.clone(),
+            href: None,
+            bookmark: row.bookmark.clone(),
         });
 
         cursor.y += row_height;
@@ -1146,6 +1303,8 @@ impl LayoutEngine {
     fn layout_text(
         &self,
         content: &str,
+        href: Option<&str>,
+        runs: &[TextRun],
         style: &ResolvedStyle,
         cursor: &mut PageCursor,
         pages: &mut Vec<LayoutPage>,
@@ -1153,12 +1312,31 @@ impl LayoutEngine {
         available_width: f64,
         font_context: &FontContext,
         source_location: Option<&SourceLocation>,
+        bookmark: Option<&str>,
     ) {
         let margin = &style.margin;
         let text_x = x + margin.left;
         let text_width = available_width - margin.horizontal();
 
         cursor.y += margin.top;
+
+        // Runs path: if runs are provided, use multi-style line breaking
+        if !runs.is_empty() {
+            self.layout_text_runs(
+                runs,
+                href,
+                style,
+                cursor,
+                pages,
+                text_x,
+                text_width,
+                font_context,
+                source_location,
+                bookmark,
+            );
+            cursor.y += margin.bottom;
+            return;
+        }
 
         let lines = self.text_layout.break_into_lines(
             font_context,
@@ -1176,6 +1354,7 @@ impl LayoutEngine {
         // Snapshot-and-collect: accumulate line elements, wrap in parent
         let mut snapshot = cursor.elements.len();
         let mut container_start_y = cursor.content_y + cursor.y;
+        let mut is_first_element = true;
 
         for line in &lines {
             if line_height > cursor.remaining_height() {
@@ -1193,7 +1372,14 @@ impl LayoutEngine {
                         node_type: Some("Text".to_string()),
                         resolved_style: Some(style.clone()),
                         source_location: source_location.cloned(),
+                        href: href.map(|s| s.to_string()),
+                        bookmark: if is_first_element {
+                            bookmark.map(|s| s.to_string())
+                        } else {
+                            None
+                        },
                     });
+                    is_first_element = false;
                 }
 
                 pages.push(cursor.finalize());
@@ -1225,6 +1411,8 @@ impl LayoutEngine {
                         font_weight: style.font_weight,
                         font_style: style.font_style,
                         char_value: *ch,
+                        color: Some(style.color),
+                        href: href.map(|s| s.to_string()),
                     }
                 })
                 .collect();
@@ -1245,11 +1433,14 @@ impl LayoutEngine {
                 draw: DrawCommand::Text {
                     lines: vec![text_line],
                     color: style.color,
+                    text_decoration: style.text_decoration,
                 },
                 children: vec![],
                 node_type: Some("TextLine".to_string()),
                 resolved_style: Some(style.clone()),
                 source_location: None,
+                href: href.map(|s| s.to_string()),
+                bookmark: None,
             });
 
             cursor.y += line_height;
@@ -1269,10 +1460,178 @@ impl LayoutEngine {
                 node_type: Some("Text".to_string()),
                 resolved_style: Some(style.clone()),
                 source_location: source_location.cloned(),
+                href: href.map(|s| s.to_string()),
+                bookmark: if is_first_element {
+                    bookmark.map(|s| s.to_string())
+                } else {
+                    None
+                },
             });
         }
 
         cursor.y += margin.bottom;
+    }
+
+    /// Layout text runs with per-run styling.
+    #[allow(clippy::too_many_arguments)]
+    fn layout_text_runs(
+        &self,
+        runs: &[TextRun],
+        parent_href: Option<&str>,
+        style: &ResolvedStyle,
+        cursor: &mut PageCursor,
+        pages: &mut Vec<LayoutPage>,
+        text_x: f64,
+        text_width: f64,
+        font_context: &FontContext,
+        source_location: Option<&SourceLocation>,
+        bookmark: Option<&str>,
+    ) {
+        // Build StyledChar list from runs
+        let mut styled_chars: Vec<StyledChar> = Vec::new();
+        for run in runs {
+            let run_style = run.style.resolve(Some(style), text_width);
+            let run_href = run.href.as_deref().or(parent_href);
+            for ch in run.content.chars() {
+                styled_chars.push(StyledChar {
+                    ch,
+                    font_family: run_style.font_family.clone(),
+                    font_size: run_style.font_size,
+                    font_weight: run_style.font_weight,
+                    font_style: run_style.font_style,
+                    color: run_style.color,
+                    href: run_href.map(|s| s.to_string()),
+                    text_decoration: run_style.text_decoration,
+                    letter_spacing: run_style.letter_spacing,
+                });
+            }
+        }
+
+        // Break into lines
+        let broken_lines =
+            self.text_layout
+                .break_runs_into_lines(font_context, &styled_chars, text_width);
+
+        let line_height = style.font_size * style.line_height;
+
+        let mut snapshot = cursor.elements.len();
+        let mut container_start_y = cursor.content_y + cursor.y;
+        let mut is_first_element = true;
+
+        for run_line in &broken_lines {
+            if line_height > cursor.remaining_height() {
+                let line_elements: Vec<LayoutElement> = cursor.elements.drain(snapshot..).collect();
+                if !line_elements.is_empty() {
+                    let container_height = cursor.content_y + cursor.y - container_start_y;
+                    cursor.elements.push(LayoutElement {
+                        x: text_x,
+                        y: container_start_y,
+                        width: text_width,
+                        height: container_height,
+                        draw: DrawCommand::None,
+                        children: line_elements,
+                        node_type: Some("Text".to_string()),
+                        resolved_style: Some(style.clone()),
+                        source_location: source_location.cloned(),
+                        href: parent_href.map(|s| s.to_string()),
+                        bookmark: if is_first_element {
+                            bookmark.map(|s| s.to_string())
+                        } else {
+                            None
+                        },
+                    });
+                    is_first_element = false;
+                }
+
+                pages.push(cursor.finalize());
+                *cursor = cursor.new_page();
+
+                snapshot = cursor.elements.len();
+                container_start_y = cursor.content_y + cursor.y;
+            }
+
+            let line_x = match style.text_align {
+                TextAlign::Left => text_x,
+                TextAlign::Right => text_x + text_width - run_line.width,
+                TextAlign::Center => text_x + (text_width - run_line.width) / 2.0,
+                TextAlign::Justify => text_x,
+            };
+
+            let glyphs: Vec<PositionedGlyph> = run_line
+                .chars
+                .iter()
+                .enumerate()
+                .map(|(j, sc)| PositionedGlyph {
+                    glyph_id: sc.ch as u16,
+                    x_offset: run_line.char_positions.get(j).copied().unwrap_or(0.0),
+                    font_size: sc.font_size,
+                    font_family: sc.font_family.clone(),
+                    font_weight: sc.font_weight,
+                    font_style: sc.font_style,
+                    char_value: sc.ch,
+                    color: Some(sc.color),
+                    href: sc.href.clone(),
+                })
+                .collect();
+
+            let text_line = TextLine {
+                x: line_x,
+                y: cursor.content_y + cursor.y + style.font_size,
+                glyphs,
+                width: run_line.width,
+                height: line_height,
+            };
+
+            // Determine text decoration: use the run's decoration if any glyph has one
+            let text_dec = run_line
+                .chars
+                .iter()
+                .find(|sc| !matches!(sc.text_decoration, TextDecoration::None))
+                .map(|sc| sc.text_decoration)
+                .unwrap_or(style.text_decoration);
+
+            cursor.elements.push(LayoutElement {
+                x: line_x,
+                y: cursor.content_y + cursor.y,
+                width: run_line.width,
+                height: line_height,
+                draw: DrawCommand::Text {
+                    lines: vec![text_line],
+                    color: style.color,
+                    text_decoration: text_dec,
+                },
+                children: vec![],
+                node_type: Some("TextLine".to_string()),
+                resolved_style: Some(style.clone()),
+                source_location: None,
+                href: parent_href.map(|s| s.to_string()),
+                bookmark: None,
+            });
+
+            cursor.y += line_height;
+        }
+
+        let line_elements: Vec<LayoutElement> = cursor.elements.drain(snapshot..).collect();
+        if !line_elements.is_empty() {
+            let container_height = cursor.content_y + cursor.y - container_start_y;
+            cursor.elements.push(LayoutElement {
+                x: text_x,
+                y: container_start_y,
+                width: text_width,
+                height: container_height,
+                draw: DrawCommand::None,
+                children: line_elements,
+                node_type: Some("Text".to_string()),
+                resolved_style: Some(style.clone()),
+                source_location: source_location.cloned(),
+                href: parent_href.map(|s| s.to_string()),
+                bookmark: if is_first_element {
+                    bookmark.map(|s| s.to_string())
+                } else {
+                    None
+                },
+            });
+        }
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -1353,9 +1712,68 @@ impl LayoutEngine {
             node_type: Some(node_kind_name(&node.kind).to_string()),
             resolved_style: Some(style.clone()),
             source_location: node.source_location.clone(),
+            href: None,
+            bookmark: node.bookmark.clone(),
         });
 
         cursor.y += img_height + margin.bottom;
+    }
+
+    /// Layout an SVG element as a fixed-size box.
+    #[allow(clippy::too_many_arguments)]
+    fn layout_svg(
+        &self,
+        node: &Node,
+        style: &ResolvedStyle,
+        cursor: &mut PageCursor,
+        pages: &mut Vec<LayoutPage>,
+        x: f64,
+        _available_width: f64,
+        svg_width: f64,
+        svg_height: f64,
+        view_box: Option<&str>,
+        content: &str,
+    ) {
+        let margin = &style.margin;
+        let total_height = svg_height + margin.vertical();
+
+        if total_height > cursor.remaining_height() {
+            pages.push(cursor.finalize());
+            *cursor = cursor.new_page();
+        }
+
+        cursor.y += margin.top;
+
+        let vb = view_box
+            .and_then(crate::svg::parse_view_box)
+            .unwrap_or(crate::svg::ViewBox {
+                min_x: 0.0,
+                min_y: 0.0,
+                width: svg_width,
+                height: svg_height,
+            });
+
+        let commands = crate::svg::parse_svg(content, vb, svg_width, svg_height);
+
+        cursor.elements.push(LayoutElement {
+            x: x + margin.left,
+            y: cursor.content_y + cursor.y,
+            width: svg_width,
+            height: svg_height,
+            draw: DrawCommand::Svg {
+                commands,
+                width: svg_width,
+                height: svg_height,
+            },
+            children: vec![],
+            node_type: Some("Svg".to_string()),
+            resolved_style: Some(style.clone()),
+            source_location: node.source_location.clone(),
+            href: None,
+            bookmark: node.bookmark.clone(),
+        });
+
+        cursor.y += svg_height + margin.bottom;
     }
 
     // ── Measurement helpers ─────────────────────────────────────
@@ -1368,24 +1786,53 @@ impl LayoutEngine {
         font_context: &FontContext,
     ) -> f64 {
         match &node.kind {
-            NodeKind::Text { content } => {
+            NodeKind::Text { content, runs, .. } => {
                 let measure_width = available_width - style.margin.horizontal();
-                let lines = self.text_layout.break_into_lines(
-                    font_context,
-                    content,
-                    measure_width,
-                    style.font_size,
-                    &style.font_family,
-                    style.font_weight,
-                    style.font_style,
-                    style.letter_spacing,
-                );
-                let line_height = style.font_size * style.line_height;
-                (lines.len() as f64) * line_height + style.padding.vertical()
+                if !runs.is_empty() {
+                    // Measure runs
+                    let mut styled_chars: Vec<StyledChar> = Vec::new();
+                    for run in runs {
+                        let run_style = run.style.resolve(Some(style), measure_width);
+                        for ch in run.content.chars() {
+                            styled_chars.push(StyledChar {
+                                ch,
+                                font_family: run_style.font_family.clone(),
+                                font_size: run_style.font_size,
+                                font_weight: run_style.font_weight,
+                                font_style: run_style.font_style,
+                                color: run_style.color,
+                                href: None,
+                                text_decoration: run_style.text_decoration,
+                                letter_spacing: run_style.letter_spacing,
+                            });
+                        }
+                    }
+                    let broken_lines = self.text_layout.break_runs_into_lines(
+                        font_context,
+                        &styled_chars,
+                        measure_width,
+                    );
+                    let line_height = style.font_size * style.line_height;
+                    (broken_lines.len() as f64) * line_height + style.padding.vertical()
+                } else {
+                    let lines = self.text_layout.break_into_lines(
+                        font_context,
+                        content,
+                        measure_width,
+                        style.font_size,
+                        &style.font_family,
+                        style.font_weight,
+                        style.font_style,
+                        style.letter_spacing,
+                    );
+                    let line_height = style.font_size * style.line_height;
+                    (lines.len() as f64) * line_height + style.padding.vertical()
+                }
             }
             NodeKind::Image { height, .. } => {
                 height.unwrap_or(available_width * 0.75) + style.padding.vertical()
             }
+            NodeKind::Svg { height, .. } => *height + style.margin.vertical(),
             _ => {
                 // Match layout_view: when width is Auto, margin reduces the outer width
                 let outer_width = match style.width {
@@ -1486,7 +1933,10 @@ impl LayoutEngine {
         font_context: &FontContext,
     ) -> f64 {
         match &node.kind {
-            NodeKind::Text { content } => {
+            NodeKind::Svg { width, .. } => {
+                *width + style.padding.horizontal() + style.margin.horizontal()
+            }
+            NodeKind::Text { content, .. } => {
                 let italic = matches!(style.font_style, FontStyle::Italic | FontStyle::Oblique);
                 let text_width = font_context.measure_string(
                     content,
@@ -1696,6 +2146,8 @@ mod tests {
         Node {
             kind: NodeKind::Text {
                 content: content.to_string(),
+                href: None,
+                runs: vec![],
             },
             style: Style {
                 font_size: Some(font_size),
@@ -1704,6 +2156,7 @@ mod tests {
             children: vec![],
             id: None,
             source_location: None,
+            bookmark: None,
         }
     }
 
@@ -1714,6 +2167,7 @@ mod tests {
             children,
             id: None,
             source_location: None,
+            bookmark: None,
         }
     }
 
