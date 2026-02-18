@@ -1706,17 +1706,18 @@
     const elemStack = [];
     function walk(els) {
       for (const el of els) {
-        if (px >= el.x && px <= el.x + el.width && py >= el.y && py <= el.y + el.height) {
+        const inside = px >= el.x && px <= el.x + el.width && py >= el.y && py <= el.y + el.height;
+        if (inside) {
           best = el;
           bestAncestorNames = nameStack.slice();
           bestAncestorElements = elemStack.slice();
-          if (el.children && el.children.length) {
-            nameStack.push(el.nodeType);
-            elemStack.push(el);
-            walk(el.children);
-            nameStack.pop();
-            elemStack.pop();
-          }
+        }
+        if (el.children && el.children.length) {
+          nameStack.push(el.nodeType);
+          elemStack.push(el);
+          walk(el.children);
+          nameStack.pop();
+          elemStack.pop();
         }
       }
     }
