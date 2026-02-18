@@ -27,22 +27,22 @@
 //! ```
 
 pub mod error;
-pub mod model;
-pub mod style;
-pub mod layout;
-pub mod text;
 pub mod font;
 pub mod image_loader;
+pub mod layout;
+pub mod model;
 pub mod pdf;
+pub mod style;
+pub mod text;
 
 #[cfg(feature = "wasm")]
 pub mod wasm;
 
 pub use error::FormeError;
 
-use model::Document;
 use font::FontContext;
 use layout::{LayoutEngine, LayoutInfo};
+use model::Document;
 use pdf::PdfWriter;
 
 /// Render a document to PDF bytes.

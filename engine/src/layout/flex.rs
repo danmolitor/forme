@@ -43,7 +43,10 @@ pub fn partition_into_lines(
     for (i, &w) in base_widths.iter().enumerate() {
         let needed = if i == line_start { w } else { column_gap + w };
         if i > line_start && line_width + needed > available_width {
-            lines.push(WrapLine { start: line_start, end: i });
+            lines.push(WrapLine {
+                start: line_start,
+                end: i,
+            });
             line_start = i;
             line_width = w;
         } else {
@@ -53,7 +56,10 @@ pub fn partition_into_lines(
 
     // Close the last line
     if line_start < base_widths.len() {
-        lines.push(WrapLine { start: line_start, end: base_widths.len() });
+        lines.push(WrapLine {
+            start: line_start,
+            end: base_widths.len(),
+        });
     }
 
     lines

@@ -8,8 +8,8 @@
 pub mod metrics;
 pub mod subset;
 
-use std::collections::HashMap;
 pub use metrics::StandardFontMetrics;
+use std::collections::HashMap;
 
 /// A font registry that maps font family + weight + style to font data.
 pub struct FontRegistry {
@@ -52,7 +52,11 @@ pub struct CustomFontMetrics {
 impl CustomFontMetrics {
     /// Get the advance width of a character in points.
     pub fn char_width(&self, ch: char, font_size: f64) -> f64 {
-        let w = self.advance_widths.get(&ch).copied().unwrap_or(self.default_advance);
+        let w = self
+            .advance_widths
+            .get(&ch)
+            .copied()
+            .unwrap_or(self.default_advance);
         (w as f64 / self.units_per_em as f64) * font_size
     }
 
@@ -250,15 +254,20 @@ impl FontContext {
     }
 
     /// Get the advance width of a single character in points.
-    pub fn char_width(&self, ch: char, family: &str, weight: u32, italic: bool, font_size: f64) -> f64 {
+    pub fn char_width(
+        &self,
+        ch: char,
+        family: &str,
+        weight: u32,
+        italic: bool,
+        font_size: f64,
+    ) -> f64 {
         let font_data = self.registry.resolve(family, weight, italic);
         match font_data {
-            FontData::Standard(std_font) => {
-                std_font.metrics().char_width(ch, font_size)
-            }
-            FontData::Custom { metrics: Some(m), .. } => {
-                m.char_width(ch, font_size)
-            }
+            FontData::Standard(std_font) => std_font.metrics().char_width(ch, font_size),
+            FontData::Custom {
+                metrics: Some(m), ..
+            } => m.char_width(ch, font_size),
             FontData::Custom { metrics: None, .. } => {
                 StandardFont::Helvetica.metrics().char_width(ch, font_size)
             }
@@ -278,18 +287,22 @@ impl FontContext {
         let font_data = self.registry.resolve(family, weight, italic);
         match font_data {
             FontData::Standard(std_font) => {
-                std_font.metrics().measure_string(text, font_size, letter_spacing)
+                std_font
+                    .metrics()
+                    .measure_string(text, font_size, letter_spacing)
             }
-            FontData::Custom { metrics: Some(m), .. } => {
+            FontData::Custom {
+                metrics: Some(m), ..
+            } => {
                 let mut width = 0.0;
                 for ch in text.chars() {
                     width += m.char_width(ch, font_size) + letter_spacing;
                 }
                 width
             }
-            FontData::Custom { metrics: None, .. } => {
-                StandardFont::Helvetica.metrics().measure_string(text, font_size, letter_spacing)
-            }
+            FontData::Custom { metrics: None, .. } => StandardFont::Helvetica
+                .metrics()
+                .measure_string(text, font_size, letter_spacing),
         }
     }
 

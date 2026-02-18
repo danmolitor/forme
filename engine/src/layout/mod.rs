@@ -36,10 +36,10 @@ pub mod page_break;
 
 use serde::Serialize;
 
+use crate::font::FontContext;
 use crate::model::*;
 use crate::style::*;
 use crate::text::TextLayout;
-use crate::font::FontContext;
 
 // ── Serializable layout metadata (for debug overlays / dev tools) ───
 
@@ -169,63 +169,76 @@ impl LayoutInfo {
     /// Extract serializable layout metadata from laid-out pages.
     pub fn from_pages(pages: &[LayoutPage]) -> Self {
         LayoutInfo {
-            pages: pages.iter().map(|page| {
-                let (page_w, page_h) = page.config.size.dimensions();
-                let content_x = page.config.margin.left;
-                let content_y = page.config.margin.top;
-                let content_width = page_w - page.config.margin.horizontal();
-                let content_height = page_h - page.config.margin.vertical();
+            pages: pages
+                .iter()
+                .map(|page| {
+                    let (page_w, page_h) = page.config.size.dimensions();
+                    let content_x = page.config.margin.left;
+                    let content_y = page.config.margin.top;
+                    let content_width = page_w - page.config.margin.horizontal();
+                    let content_height = page_h - page.config.margin.vertical();
 
-                let elements = Self::build_element_tree(&page.elements);
+                    let elements = Self::build_element_tree(&page.elements);
 
-                PageInfo {
-                    width: page_w,
-                    height: page_h,
-                    content_x,
-                    content_y,
-                    content_width,
-                    content_height,
-                    elements,
-                }
-            }).collect(),
+                    PageInfo {
+                        width: page_w,
+                        height: page_h,
+                        content_x,
+                        content_y,
+                        content_width,
+                        content_height,
+                        elements,
+                    }
+                })
+                .collect(),
         }
     }
 
     fn build_element_tree(elems: &[LayoutElement]) -> Vec<ElementInfo> {
-        elems.iter().map(|elem| {
-            let kind = match &elem.draw {
-                DrawCommand::None => "None",
-                DrawCommand::Rect { .. } => "Rect",
-                DrawCommand::Text { .. } => "Text",
-                DrawCommand::Image { .. } => "Image",
-                DrawCommand::ImagePlaceholder => "ImagePlaceholder",
-            };
-            let text_content = match &elem.draw {
-                DrawCommand::Text { lines, .. } => {
-                    let text: String = lines.iter()
-                        .flat_map(|line| line.glyphs.iter().map(|g| g.char_value))
-                        .collect();
-                    if text.is_empty() { None } else { Some(text) }
-                },
-                _ => None,
-            };
-            let node_type = elem.node_type.clone().unwrap_or_else(|| kind.to_string());
-            let style = elem.resolved_style.as_ref()
-                .map(ElementStyleInfo::from_resolved)
-                .unwrap_or_default();
-            ElementInfo {
-                x: elem.x,
-                y: elem.y,
-                width: elem.width,
-                height: elem.height,
-                kind: kind.to_string(),
-                node_type,
-                style,
-                children: Self::build_element_tree(&elem.children),
-                source_location: elem.source_location.clone(),
-                text_content,
-            }
-        }).collect()
+        elems
+            .iter()
+            .map(|elem| {
+                let kind = match &elem.draw {
+                    DrawCommand::None => "None",
+                    DrawCommand::Rect { .. } => "Rect",
+                    DrawCommand::Text { .. } => "Text",
+                    DrawCommand::Image { .. } => "Image",
+                    DrawCommand::ImagePlaceholder => "ImagePlaceholder",
+                };
+                let text_content = match &elem.draw {
+                    DrawCommand::Text { lines, .. } => {
+                        let text: String = lines
+                            .iter()
+                            .flat_map(|line| line.glyphs.iter().map(|g| g.char_value))
+                            .collect();
+                        if text.is_empty() {
+                            None
+                        } else {
+                            Some(text)
+                        }
+                    }
+                    _ => None,
+                };
+                let node_type = elem.node_type.clone().unwrap_or_else(|| kind.to_string());
+                let style = elem
+                    .resolved_style
+                    .as_ref()
+                    .map(ElementStyleInfo::from_resolved)
+                    .unwrap_or_default();
+                ElementInfo {
+                    x: elem.x,
+                    y: elem.y,
+                    width: elem.width,
+                    height: elem.height,
+                    kind: kind.to_string(),
+                    node_type,
+                    style,
+                    children: Self::build_element_tree(&elem.children),
+                    source_location: elem.source_location.clone(),
+                    text_content,
+                }
+            })
+            .collect()
     }
 }
 
@@ -273,8 +286,12 @@ fn node_kind_name(kind: &NodeKind) -> &'static str {
         NodeKind::Table { .. } => "Table",
         NodeKind::TableRow { .. } => "TableRow",
         NodeKind::TableCell { .. } => "TableCell",
-        NodeKind::Fixed { position: FixedPosition::Header } => "FixedHeader",
-        NodeKind::Fixed { position: FixedPosition::Footer } => "FixedFooter",
+        NodeKind::Fixed {
+            position: FixedPosition::Header,
+        } => "FixedHeader",
+        NodeKind::Fixed {
+            position: FixedPosition::Footer,
+        } => "FixedFooter",
         NodeKind::Page { .. } => "Page",
         NodeKind::PageBreak => "PageBreak",
     }
@@ -293,10 +310,7 @@ pub enum DrawCommand {
         border_radius: CornerValues,
     },
     /// Draw text.
-    Text {
-        lines: Vec<TextLine>,
-        color: Color,
-    },
+    Text { lines: Vec<TextLine>, color: Color },
     /// Draw an image.
     Image {
         image_data: crate::image_loader::LoadedImage,
@@ -446,15 +460,7 @@ impl LayoutEngine {
                 _ => {
                     let cx = cursor.content_x;
                     let cw = cursor.content_width;
-                    self.layout_node(
-                        node,
-                        &mut cursor,
-                        &mut pages,
-                        cx,
-                        cw,
-                        None,
-                        font_context,
-                    );
+                    self.layout_node(node, &mut cursor, &mut pages, cx, cw, None, font_context);
                 }
             }
         }
@@ -505,23 +511,66 @@ impl LayoutEngine {
             }
 
             NodeKind::Text { content } => {
-                self.layout_text(content, &style, cursor, pages, x, available_width, font_context, node.source_location.as_ref());
+                self.layout_text(
+                    content,
+                    &style,
+                    cursor,
+                    pages,
+                    x,
+                    available_width,
+                    font_context,
+                    node.source_location.as_ref(),
+                );
             }
 
             NodeKind::Image { width, height, .. } => {
-                self.layout_image(node, &style, cursor, pages, x, available_width, *width, *height);
+                self.layout_image(
+                    node,
+                    &style,
+                    cursor,
+                    pages,
+                    x,
+                    available_width,
+                    *width,
+                    *height,
+                );
             }
 
             NodeKind::Table { columns } => {
-                self.layout_table(node, &style, columns, cursor, pages, x, available_width, font_context);
+                self.layout_table(
+                    node,
+                    &style,
+                    columns,
+                    cursor,
+                    pages,
+                    x,
+                    available_width,
+                    font_context,
+                );
             }
 
             NodeKind::View | NodeKind::Page { .. } => {
-                self.layout_view(node, &style, cursor, pages, x, available_width, font_context);
+                self.layout_view(
+                    node,
+                    &style,
+                    cursor,
+                    pages,
+                    x,
+                    available_width,
+                    font_context,
+                );
             }
 
             NodeKind::TableRow { .. } | NodeKind::TableCell { .. } => {
-                self.layout_view(node, &style, cursor, pages, x, available_width, font_context);
+                self.layout_view(
+                    node,
+                    &style,
+                    cursor,
+                    pages,
+                    x,
+                    available_width,
+                    font_context,
+                );
             }
         }
     }
@@ -546,7 +595,8 @@ impl LayoutEngine {
         };
         let inner_width = outer_width - padding.horizontal() - border.horizontal();
 
-        let children_height = self.measure_children_height(&node.children, inner_width, style, font_context);
+        let children_height =
+            self.measure_children_height(&node.children, inner_width, style, font_context);
         let total_height = children_height + padding.vertical() + border.vertical();
 
         let node_x = x + margin.left;
@@ -602,7 +652,14 @@ impl LayoutEngine {
             cursor.y = saved_y + total_height + margin.vertical();
         } else {
             self.layout_breakable_view(
-                node, style, cursor, pages, node_x, outer_width, inner_width, font_context,
+                node,
+                style,
+                cursor,
+                pages,
+                node_x,
+                outer_width,
+                inner_width,
+                font_context,
             );
         }
     }
@@ -682,7 +739,16 @@ impl LayoutEngine {
             }
 
             FlexDirection::Row | FlexDirection::RowReverse => {
-                self.layout_flex_row(children, cursor, pages, available_width, parent_style, column_gap, row_gap, font_context);
+                self.layout_flex_row(
+                    children,
+                    cursor,
+                    pages,
+                    available_width,
+                    parent_style,
+                    column_gap,
+                    row_gap,
+                    font_context,
+                );
             }
         }
     }
@@ -729,11 +795,12 @@ impl LayoutEngine {
         let base_widths: Vec<f64> = items.iter().map(|i| i.base_width).collect();
         let lines = match flex_wrap {
             FlexWrap::NoWrap => {
-                vec![flex::WrapLine { start: 0, end: items.len() }]
+                vec![flex::WrapLine {
+                    start: 0,
+                    end: items.len(),
+                }]
             }
-            FlexWrap::Wrap => {
-                flex::partition_into_lines(&base_widths, column_gap, available_width)
-            }
+            FlexWrap::Wrap => flex::partition_into_lines(&base_widths, column_gap, available_width),
             FlexWrap::WrapReverse => {
                 let mut l = flex::partition_into_lines(&base_widths, column_gap, available_width);
                 l.reverse();
@@ -746,9 +813,7 @@ impl LayoutEngine {
         }
 
         // Phase 3: lay out each line
-        let justify = parent_style
-            .map(|s| s.justify_content)
-            .unwrap_or_default();
+        let justify = parent_style.map(|s| s.justify_content).unwrap_or_default();
 
         // We need mutable final_widths per line, so collect into a vec
         let mut final_widths: Vec<f64> = items.iter().map(|i| i.base_width).collect();
@@ -853,9 +918,7 @@ impl LayoutEngine {
 
                 let y_offset = match align {
                     AlignItems::FlexStart => 0.0,
-                    AlignItems::FlexEnd => {
-                        line_height - item_height - item.style.margin.vertical()
-                    }
+                    AlignItems::FlexEnd => line_height - item_height - item.style.margin.vertical(),
                     AlignItems::Center => {
                         (line_height - item_height - item.style.margin.vertical()) / 2.0
                     }
@@ -866,15 +929,7 @@ impl LayoutEngine {
                 let saved_y = cursor.y;
                 cursor.y = row_start_y + y_offset;
 
-                self.layout_node(
-                    item.node,
-                    cursor,
-                    pages,
-                    x,
-                    fw,
-                    parent_style,
-                    font_context,
-                );
+                self.layout_node(item.node, cursor, pages, x, fw, parent_style, font_context);
 
                 cursor.y = saved_y;
                 x += fw;
@@ -933,7 +988,8 @@ impl LayoutEngine {
         }
 
         for body_row in &body_rows {
-            let row_height = self.measure_table_row_height(body_row, &col_widths, style, font_context);
+            let row_height =
+                self.measure_table_row_height(body_row, &col_widths, style, font_context);
 
             if row_height > cursor.remaining_height() {
                 pages.push(cursor.finalize());
@@ -952,7 +1008,14 @@ impl LayoutEngine {
                 }
             }
 
-            self.layout_table_row(body_row, &col_widths, style, cursor, cell_x_start, font_context);
+            self.layout_table_row(
+                body_row,
+                &col_widths,
+                style,
+                cursor,
+                cell_x_start,
+                font_context,
+            );
         }
 
         cursor.y += padding.bottom + border.bottom + margin.bottom;
@@ -967,7 +1030,9 @@ impl LayoutEngine {
         start_x: f64,
         font_context: &FontContext,
     ) {
-        let row_style = row.style.resolve(Some(parent_style), col_widths.iter().sum());
+        let row_style = row
+            .style
+            .resolve(Some(parent_style), col_widths.iter().sum());
 
         let row_height = self.measure_table_row_height(row, col_widths, parent_style, font_context);
         let row_y = cursor.content_y + cursor.y;
@@ -985,9 +1050,8 @@ impl LayoutEngine {
             // Snapshot before cell content — we'll collect as cell children
             let cell_snapshot = cursor.elements.len();
 
-            let inner_width = col_width
-                - cell_style.padding.horizontal()
-                - cell_style.border_width.horizontal();
+            let inner_width =
+                col_width - cell_style.padding.horizontal() - cell_style.border_width.horizontal();
 
             let content_x = cell_x + cell_style.padding.left + cell_style.border_width.left;
             let saved_y = cursor.y;
@@ -1008,7 +1072,8 @@ impl LayoutEngine {
             cursor.y = saved_y;
 
             // Collect cell content elements
-            let cell_children: Vec<LayoutElement> = cursor.elements.drain(cell_snapshot..).collect();
+            let cell_children: Vec<LayoutElement> =
+                cursor.elements.drain(cell_snapshot..).collect();
 
             // Always push a cell element (with or without visual styling) to preserve hierarchy
             cursor.elements.push(LayoutElement {
@@ -1226,7 +1291,11 @@ impl LayoutEngine {
         let (img_width, img_height) = if let Some(ref img) = loaded {
             let intrinsic_w = img.width_px as f64;
             let intrinsic_h = img.height_px as f64;
-            let aspect = if intrinsic_w > 0.0 { intrinsic_h / intrinsic_w } else { 0.75 };
+            let aspect = if intrinsic_w > 0.0 {
+                intrinsic_h / intrinsic_w
+            } else {
+                0.75
+            };
 
             match (explicit_width, explicit_height) {
                 (Some(w), Some(h)) => (w, h),
@@ -1309,8 +1378,10 @@ impl LayoutEngine {
                     SizeConstraint::Fixed(w) => w,
                     SizeConstraint::Auto => available_width - style.margin.horizontal(),
                 };
-                let inner_width = outer_width - style.padding.horizontal() - style.border_width.horizontal();
-                let children_height = self.measure_children_height(&node.children, inner_width, style, font_context);
+                let inner_width =
+                    outer_width - style.padding.horizontal() - style.border_width.horizontal();
+                let children_height =
+                    self.measure_children_height(&node.children, inner_width, style, font_context);
                 children_height + style.padding.vertical() + style.border_width.vertical()
             }
         }
@@ -1345,7 +1416,10 @@ impl LayoutEngine {
 
                 let lines = match parent_style.flex_wrap {
                     FlexWrap::NoWrap => {
-                        vec![flex::WrapLine { start: 0, end: children.len() }]
+                        vec![flex::WrapLine {
+                            start: 0,
+                            end: children.len(),
+                        }]
                     }
                     FlexWrap::Wrap | FlexWrap::WrapReverse => {
                         flex::partition_into_lines(&base_widths, column_gap, available_width)
@@ -1374,8 +1448,12 @@ impl LayoutEngine {
                 let mut total = 0.0;
                 for (i, child) in children.iter().enumerate() {
                     let child_style = child.style.resolve(Some(parent_style), available_width);
-                    let child_height =
-                        self.measure_node_height(child, available_width, &child_style, font_context);
+                    let child_height = self.measure_node_height(
+                        child,
+                        available_width,
+                        &child_style,
+                        font_context,
+                    );
                     total += child_height + child_style.margin.vertical();
                     if i > 0 {
                         total += row_gap;
@@ -1419,7 +1497,8 @@ impl LayoutEngine {
                     let mut total = 0.0f64;
                     for (i, child) in node.children.iter().enumerate() {
                         let child_style = child.style.resolve(Some(style), 0.0);
-                        let child_width = self.measure_intrinsic_width(child, &child_style, font_context);
+                        let child_width =
+                            self.measure_intrinsic_width(child, &child_style, font_context);
                         match direction {
                             FlexDirection::Row | FlexDirection::RowReverse => {
                                 total += child_width;
@@ -1432,7 +1511,9 @@ impl LayoutEngine {
                             }
                         }
                     }
-                    total + style.padding.horizontal() + style.margin.horizontal()
+                    total
+                        + style.padding.horizontal()
+                        + style.margin.horizontal()
                         + style.border_width.horizontal()
                 }
             }
@@ -1446,21 +1527,27 @@ impl LayoutEngine {
         parent_style: &ResolvedStyle,
         font_context: &FontContext,
     ) -> f64 {
-        let row_style = row.style.resolve(Some(parent_style), col_widths.iter().sum());
+        let row_style = row
+            .style
+            .resolve(Some(parent_style), col_widths.iter().sum());
         let mut max_height: f64 = 0.0;
 
         for (i, cell) in row.children.iter().enumerate() {
             let col_width = col_widths.get(i).copied().unwrap_or(0.0);
             let cell_style = cell.style.resolve(Some(&row_style), col_width);
-            let inner_width = col_width - cell_style.padding.horizontal() - cell_style.border_width.horizontal();
+            let inner_width =
+                col_width - cell_style.padding.horizontal() - cell_style.border_width.horizontal();
 
             let mut cell_content_height = 0.0;
             for child in &cell.children {
                 let child_style = child.style.resolve(Some(&cell_style), inner_width);
-                cell_content_height += self.measure_node_height(child, inner_width, &child_style, font_context);
+                cell_content_height +=
+                    self.measure_node_height(child, inner_width, &child_style, font_context);
             }
 
-            let total = cell_content_height + cell_style.padding.vertical() + cell_style.border_width.vertical();
+            let total = cell_content_height
+                + cell_style.padding.vertical()
+                + cell_style.border_width.vertical();
             max_height = max_height.max(total);
         }
 
@@ -1474,10 +1561,7 @@ impl LayoutEngine {
         children: &[Node],
     ) -> Vec<f64> {
         if defs.is_empty() {
-            let num_cols = children
-                .first()
-                .map(|row| row.children.len())
-                .unwrap_or(1);
+            let num_cols = children.first().map(|row| row.children.len()).unwrap_or(1);
             return vec![available_width / num_cols as f64; num_cols];
         }
 
@@ -1515,11 +1599,7 @@ impl LayoutEngine {
         widths
     }
 
-    fn inject_fixed_elements(
-        &self,
-        pages: &mut Vec<LayoutPage>,
-        font_context: &FontContext,
-    ) {
+    fn inject_fixed_elements(&self, pages: &mut Vec<LayoutPage>, font_context: &FontContext) {
         for page in pages.iter_mut() {
             if page.fixed_header.is_empty() && page.fixed_footer.is_empty() {
                 continue;
@@ -1600,8 +1680,13 @@ mod tests {
 
     fn make_text(content: &str, font_size: f64) -> Node {
         Node {
-            kind: NodeKind::Text { content: content.to_string() },
-            style: Style { font_size: Some(font_size), ..Default::default() },
+            kind: NodeKind::Text {
+                content: content.to_string(),
+            },
+            style: Style {
+                font_size: Some(font_size),
+                ..Default::default()
+            },
             children: vec![],
             id: None,
             source_location: None,
@@ -1632,7 +1717,10 @@ mod tests {
         let child2_w = engine.measure_intrinsic_width(&child2, &child2_style, &font_context);
 
         let row = make_styled_view(
-            Style { flex_direction: Some(FlexDirection::Row), ..Default::default() },
+            Style {
+                flex_direction: Some(FlexDirection::Row),
+                ..Default::default()
+            },
             vec![make_text("Hello", 14.0), make_text("World", 14.0)],
         );
         let row_style = row.style.resolve(None, 0.0);
@@ -1641,7 +1729,9 @@ mod tests {
         assert!(
             (row_w - (child1_w + child2_w)).abs() < 0.01,
             "Row intrinsic width ({}) should equal sum of children ({} + {})",
-            row_w, child1_w, child2_w
+            row_w,
+            child1_w,
+            child2_w
         );
     }
 
@@ -1659,7 +1749,10 @@ mod tests {
         let long_w = engine.measure_intrinsic_width(&long, &long_style, &font_context);
 
         let col = make_styled_view(
-            Style { flex_direction: Some(FlexDirection::Column), ..Default::default() },
+            Style {
+                flex_direction: Some(FlexDirection::Column),
+                ..Default::default()
+            },
             vec![make_text("Hi", 14.0), make_text("Hello World", 14.0)],
         );
         let col_style = col.style.resolve(None, 0.0);
@@ -1668,7 +1761,9 @@ mod tests {
         assert!(
             (col_w - long_w).abs() < 0.01,
             "Column intrinsic width ({}) should equal max child ({}, short was {})",
-            col_w, long_w, short_w
+            col_w,
+            long_w,
+            short_w
         );
     }
 
@@ -1678,7 +1773,10 @@ mod tests {
         let font_context = FontContext::new();
 
         let inner = make_styled_view(
-            Style { flex_direction: Some(FlexDirection::Row), ..Default::default() },
+            Style {
+                flex_direction: Some(FlexDirection::Row),
+                ..Default::default()
+            },
             vec![make_text("A", 12.0), make_text("B", 12.0)],
         );
         let inner_style = inner.style.resolve(None, 0.0);
@@ -1687,7 +1785,10 @@ mod tests {
         let outer = make_styled_view(
             Style::default(),
             vec![make_styled_view(
-                Style { flex_direction: Some(FlexDirection::Row), ..Default::default() },
+                Style {
+                    flex_direction: Some(FlexDirection::Row),
+                    ..Default::default()
+                },
                 vec![make_text("A", 12.0), make_text("B", 12.0)],
             )],
         );
@@ -1697,7 +1798,8 @@ mod tests {
         assert!(
             (outer_w - inner_w).abs() < 0.01,
             "Nested container ({}) should match inner container ({})",
-            outer_w, inner_w
+            outer_w,
+            inner_w
         );
     }
 
@@ -1707,11 +1809,18 @@ mod tests {
         let font_context = FontContext::new();
 
         let no_gap = make_styled_view(
-            Style { flex_direction: Some(FlexDirection::Row), ..Default::default() },
+            Style {
+                flex_direction: Some(FlexDirection::Row),
+                ..Default::default()
+            },
             vec![make_text("A", 12.0), make_text("B", 12.0)],
         );
         let with_gap = make_styled_view(
-            Style { flex_direction: Some(FlexDirection::Row), gap: Some(10.0), ..Default::default() },
+            Style {
+                flex_direction: Some(FlexDirection::Row),
+                gap: Some(10.0),
+                ..Default::default()
+            },
             vec![make_text("A", 12.0), make_text("B", 12.0)],
         );
 
@@ -1723,7 +1832,8 @@ mod tests {
         assert!(
             (with_gap_w - no_gap_w - 10.0).abs() < 0.01,
             "Gap should add 10pt: with_gap={}, no_gap={}",
-            with_gap_w, no_gap_w
+            with_gap_w,
+            no_gap_w
         );
     }
 
@@ -1734,7 +1844,10 @@ mod tests {
 
         let padding = 8.0;
         let empty = make_styled_view(
-            Style { padding: Some(Edges::uniform(padding)), ..Default::default() },
+            Style {
+                padding: Some(Edges::uniform(padding)),
+                ..Default::default()
+            },
             vec![],
         );
         let style = empty.style.resolve(None, 0.0);
@@ -1743,7 +1856,8 @@ mod tests {
         assert!(
             (w - padding * 2.0).abs() < 0.01,
             "Empty container width ({}) should equal horizontal padding ({})",
-            w, padding * 2.0
+            w,
+            padding * 2.0
         );
     }
 }

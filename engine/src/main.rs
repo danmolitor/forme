@@ -48,11 +48,7 @@ fn main() {
                 eprintln!("Failed to write PDF to '{}': {}", output_path, e);
                 process::exit(1);
             });
-            eprintln!(
-                "Written {} bytes to {}",
-                pdf_bytes.len(),
-                output_path
-            );
+            eprintln!("Written {} bytes to {}", pdf_bytes.len(), output_path);
         }
         Err(e) => {
             eprintln!("{}", e);

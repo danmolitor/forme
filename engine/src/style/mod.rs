@@ -7,15 +7,14 @@
 //! We don't try to implement all of CSS. We implement the parts that matter
 //! for PDF documents, and we implement them correctly.
 
-use serde::{Deserialize, Serialize};
 use crate::model::Edges;
+use serde::{Deserialize, Serialize};
 
 /// The complete set of style properties for a node.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Style {
     // ── Box Model ──────────────────────────────────────────────
-
     /// Explicit width in points.
     pub width: Option<Dimension>,
     /// Explicit height in points.
@@ -37,7 +36,6 @@ pub struct Style {
     pub margin: Option<Edges>,
 
     // ── Flexbox Layout ─────────────────────────────────────────
-
     /// Direction of the main axis.
     #[serde(default)]
     pub flex_direction: Option<FlexDirection>,
@@ -67,7 +65,6 @@ pub struct Style {
     pub column_gap: Option<f64>,
 
     // ── Typography ─────────────────────────────────────────────
-
     /// Font family name.
     pub font_family: Option<String>,
     /// Font size in points.
@@ -88,7 +85,6 @@ pub struct Style {
     pub text_transform: Option<TextTransform>,
 
     // ── Color & Background ─────────────────────────────────────
-
     /// Text color.
     pub color: Option<Color>,
     /// Background color.
@@ -97,7 +93,6 @@ pub struct Style {
     pub opacity: Option<f64>,
 
     // ── Border ─────────────────────────────────────────────────
-
     /// Border width for all sides.
     pub border_width: Option<EdgeValues<f64>>,
     /// Border color for all sides.
@@ -106,7 +101,6 @@ pub struct Style {
     pub border_radius: Option<CornerValues>,
 
     // ── Page Behavior ──────────────────────────────────────────
-
     /// Whether this node can be broken across pages.
     /// `true` = breakable (default for View, Text, Table).
     /// `false` = keep on one page; if it doesn't fit, move to next page.
@@ -229,9 +223,24 @@ pub struct Color {
 }
 
 impl Color {
-    pub const BLACK: Color = Color { r: 0.0, g: 0.0, b: 0.0, a: 1.0 };
-    pub const WHITE: Color = Color { r: 1.0, g: 1.0, b: 1.0, a: 1.0 };
-    pub const TRANSPARENT: Color = Color { r: 0.0, g: 0.0, b: 0.0, a: 0.0 };
+    pub const BLACK: Color = Color {
+        r: 0.0,
+        g: 0.0,
+        b: 0.0,
+        a: 1.0,
+    };
+    pub const WHITE: Color = Color {
+        r: 1.0,
+        g: 1.0,
+        b: 1.0,
+        a: 1.0,
+    };
+    pub const TRANSPARENT: Color = Color {
+        r: 0.0,
+        g: 0.0,
+        b: 0.0,
+        a: 0.0,
+    };
 
     pub fn rgb(r: f64, g: f64, b: f64) -> Self {
         Self { r, g, b, a: 1.0 }
@@ -280,7 +289,12 @@ pub struct EdgeValues<T: Copy> {
 
 impl<T: Copy> EdgeValues<T> {
     pub fn uniform(v: T) -> Self {
-        Self { top: v, right: v, bottom: v, left: v }
+        Self {
+            top: v,
+            right: v,
+            bottom: v,
+            left: v,
+        }
     }
 }
 
@@ -373,22 +387,37 @@ impl Style {
         let font_size = self.font_size.unwrap_or(parent_font_size);
 
         ResolvedStyle {
-            width: self.width.map(|d| match d {
-                Dimension::Pt(v) => SizeConstraint::Fixed(v),
-                Dimension::Percent(p) => SizeConstraint::Fixed(available_width * p / 100.0),
-                Dimension::Auto => SizeConstraint::Auto,
-            }).unwrap_or(SizeConstraint::Auto),
+            width: self
+                .width
+                .map(|d| match d {
+                    Dimension::Pt(v) => SizeConstraint::Fixed(v),
+                    Dimension::Percent(p) => SizeConstraint::Fixed(available_width * p / 100.0),
+                    Dimension::Auto => SizeConstraint::Auto,
+                })
+                .unwrap_or(SizeConstraint::Auto),
 
-            height: self.height.map(|d| match d {
-                Dimension::Pt(v) => SizeConstraint::Fixed(v),
-                Dimension::Percent(p) => SizeConstraint::Fixed(p), // height % is complex, simplified
-                Dimension::Auto => SizeConstraint::Auto,
-            }).unwrap_or(SizeConstraint::Auto),
+            height: self
+                .height
+                .map(|d| match d {
+                    Dimension::Pt(v) => SizeConstraint::Fixed(v),
+                    Dimension::Percent(p) => SizeConstraint::Fixed(p), // height % is complex, simplified
+                    Dimension::Auto => SizeConstraint::Auto,
+                })
+                .unwrap_or(SizeConstraint::Auto),
 
-            min_width: self.min_width.and_then(|d| d.resolve(available_width)).unwrap_or(0.0),
+            min_width: self
+                .min_width
+                .and_then(|d| d.resolve(available_width))
+                .unwrap_or(0.0),
             min_height: self.min_height.and_then(|d| d.resolve(0.0)).unwrap_or(0.0),
-            max_width: self.max_width.and_then(|d| d.resolve(available_width)).unwrap_or(f64::INFINITY),
-            max_height: self.max_height.and_then(|d| d.resolve(0.0)).unwrap_or(f64::INFINITY),
+            max_width: self
+                .max_width
+                .and_then(|d| d.resolve(available_width))
+                .unwrap_or(f64::INFINITY),
+            max_height: self
+                .max_height
+                .and_then(|d| d.resolve(0.0))
+                .unwrap_or(f64::INFINITY),
 
             padding: self.padding.unwrap_or_default(),
             margin: self.margin.unwrap_or_default(),
@@ -400,40 +429,51 @@ impl Style {
             flex_wrap: self.flex_wrap.unwrap_or_default(),
             flex_grow: self.flex_grow.unwrap_or(0.0),
             flex_shrink: self.flex_shrink.unwrap_or(1.0),
-            flex_basis: self.flex_basis.map(|d| match d {
-                Dimension::Pt(v) => SizeConstraint::Fixed(v),
-                Dimension::Percent(p) => SizeConstraint::Fixed(available_width * p / 100.0),
-                Dimension::Auto => SizeConstraint::Auto,
-            }).unwrap_or(SizeConstraint::Auto),
+            flex_basis: self
+                .flex_basis
+                .map(|d| match d {
+                    Dimension::Pt(v) => SizeConstraint::Fixed(v),
+                    Dimension::Percent(p) => SizeConstraint::Fixed(available_width * p / 100.0),
+                    Dimension::Auto => SizeConstraint::Auto,
+                })
+                .unwrap_or(SizeConstraint::Auto),
             gap: self.gap.unwrap_or(0.0),
             row_gap: self.row_gap.or(self.gap).unwrap_or(0.0),
             column_gap: self.column_gap.or(self.gap).unwrap_or(0.0),
 
             font_family: self.font_family.clone().unwrap_or(parent_font_family),
             font_size,
-            font_weight: self.font_weight.unwrap_or(
-                parent.map(|p| p.font_weight).unwrap_or(400),
-            ),
-            font_style: self.font_style.unwrap_or(
-                parent.map(|p| p.font_style).unwrap_or_default(),
-            ),
-            line_height: self.line_height.unwrap_or(
-                parent.map(|p| p.line_height).unwrap_or(1.4),
-            ),
-            text_align: self.text_align.unwrap_or(
-                parent.map(|p| p.text_align).unwrap_or_default(),
-            ),
+            font_weight: self
+                .font_weight
+                .unwrap_or(parent.map(|p| p.font_weight).unwrap_or(400)),
+            font_style: self
+                .font_style
+                .unwrap_or(parent.map(|p| p.font_style).unwrap_or_default()),
+            line_height: self
+                .line_height
+                .unwrap_or(parent.map(|p| p.line_height).unwrap_or(1.4)),
+            text_align: self
+                .text_align
+                .unwrap_or(parent.map(|p| p.text_align).unwrap_or_default()),
             letter_spacing: self.letter_spacing.unwrap_or(0.0),
 
             color: self.color.unwrap_or(parent_color),
             background_color: self.background_color,
             opacity: self.opacity.unwrap_or(1.0),
 
-            border_width: self.border_width.map(|e| Edges {
-                top: e.top, right: e.right, bottom: e.bottom, left: e.left,
-            }).unwrap_or_default(),
+            border_width: self
+                .border_width
+                .map(|e| Edges {
+                    top: e.top,
+                    right: e.right,
+                    bottom: e.bottom,
+                    left: e.left,
+                })
+                .unwrap_or_default(),
 
-            border_color: self.border_color.unwrap_or(EdgeValues::uniform(Color::BLACK)),
+            border_color: self
+                .border_color
+                .unwrap_or(EdgeValues::uniform(Color::BLACK)),
             border_radius: self.border_radius.unwrap_or(CornerValues::uniform(0.0)),
 
             breakable: self.wrap.unwrap_or(true),

@@ -8,10 +8,10 @@
 //! - Page breaks happen at the right places
 //! - Table header repetition works
 
-use forme::model::*;
-use forme::style::*;
 use forme::font::FontContext;
 use forme::layout::LayoutEngine;
+use forme::model::*;
+use forme::style::*;
 
 // ─── Helpers ────────────────────────────────────────────────────
 
@@ -106,22 +106,13 @@ fn render_to_pdf(doc: &Document) -> Vec<u8> {
 
 fn assert_valid_pdf(bytes: &[u8]) {
     assert!(bytes.len() > 50, "PDF too small to be valid");
-    assert!(
-        bytes.starts_with(b"%PDF-1.7"),
-        "Missing PDF header"
-    );
+    assert!(bytes.starts_with(b"%PDF-1.7"), "Missing PDF header");
     assert!(
         bytes.windows(5).any(|w| w == b"%%EOF"),
         "Missing %%EOF marker"
     );
-    assert!(
-        bytes.windows(4).any(|w| w == b"xref"),
-        "Missing xref table"
-    );
-    assert!(
-        bytes.windows(7).any(|w| w == b"trailer"),
-        "Missing trailer"
-    );
+    assert!(bytes.windows(4).any(|w| w == b"xref"), "Missing xref table");
+    assert!(bytes.windows(7).any(|w| w == b"trailer"), "Missing trailer");
 }
 
 // ─── Basic Pipeline Tests ───────────────────────────────────────
@@ -157,7 +148,11 @@ fn test_explicit_page_break() {
         make_text("Page 2", 12.0),
     ]);
     let pages = layout_doc(&doc);
-    assert_eq!(pages.len(), 2, "Should have exactly 2 pages after a page break");
+    assert_eq!(
+        pages.len(),
+        2,
+        "Should have exactly 2 pages after a page break"
+    );
 }
 
 #[test]
@@ -218,10 +213,7 @@ fn test_flex_row_layout() {
             flex_direction: Some(FlexDirection::Row),
             ..Default::default()
         },
-        vec![
-            make_text("Left", 12.0),
-            make_text("Right", 12.0),
-        ],
+        vec![make_text("Left", 12.0), make_text("Right", 12.0)],
     );
     let doc = default_doc(vec![row]);
     let pages = layout_doc(&doc);
@@ -231,10 +223,7 @@ fn test_flex_row_layout() {
 
 #[test]
 fn test_flex_column_is_default() {
-    let container = make_view(vec![
-        make_text("First", 12.0),
-        make_text("Second", 12.0),
-    ]);
+    let container = make_view(vec![make_text("First", 12.0), make_text("Second", 12.0)]);
     let doc = default_doc(vec![container]);
     let pages = layout_doc(&doc);
     assert_eq!(pages.len(), 1);
@@ -290,10 +279,7 @@ fn make_simple_table(header_cells: Vec<&str>, rows: Vec<Vec<&str>>) -> Node {
 fn test_simple_table() {
     let table = make_simple_table(
         vec!["Name", "Age"],
-        vec![
-            vec!["Alice", "30"],
-            vec!["Bob", "25"],
-        ],
+        vec![vec!["Alice", "30"], vec!["Bob", "25"]],
     );
     let doc = default_doc(vec![table]);
     let pages = layout_doc(&doc);
@@ -306,7 +292,12 @@ fn test_table_page_break_with_many_rows() {
     // Create a table with enough rows to overflow a page.
     // At ~22pt per row (10pt font, padding, line height), ~34 rows per page.
     let rows: Vec<Vec<&str>> = (0..80)
-        .map(|i| vec![Box::leak(format!("Item {}", i).into_boxed_str()) as &str, "Value"])
+        .map(|i| {
+            vec![
+                Box::leak(format!("Item {}", i).into_boxed_str()) as &str,
+                "Value",
+            ]
+        })
         .collect();
     let table = make_simple_table(vec!["Name", "Value"], rows);
     let doc = default_doc(vec![table]);
@@ -459,7 +450,11 @@ fn test_page_sizes() {
         assert!(
             (w - expected_w).abs() < 0.01 && (h - expected_h).abs() < 0.01,
             "Page size {:?} dimensions wrong: ({}, {}) vs ({}, {})",
-            size, w, h, expected_w, expected_h
+            size,
+            w,
+            h,
+            expected_w,
+            expected_h
         );
     }
 }
@@ -611,11 +606,15 @@ fn load_test_font() -> Option<Vec<u8>> {
 
 fn render_with_custom_font(font_data: &[u8], text: &str) -> Vec<u8> {
     let mut font_context = FontContext::new();
-    font_context.registry_mut().register("TestFont", 400, false, font_data.to_vec());
+    font_context
+        .registry_mut()
+        .register("TestFont", 400, false, font_data.to_vec());
 
     let doc = Document {
         children: vec![Node {
-            kind: NodeKind::Text { content: text.to_string() },
+            kind: NodeKind::Text {
+                content: text.to_string(),
+            },
             style: Style {
                 font_family: Some("TestFont".to_string()),
                 font_size: Some(14.0),
@@ -639,7 +638,10 @@ fn render_with_custom_font(font_data: &[u8], text: &str) -> Vec<u8> {
 fn test_custom_font_produces_valid_pdf() {
     let font_data = match load_test_font() {
         Some(data) => data,
-        None => { eprintln!("Skipping: no test TTF font found"); return; }
+        None => {
+            eprintln!("Skipping: no test TTF font found");
+            return;
+        }
     };
 
     let bytes = render_with_custom_font(&font_data, "Hello Custom Font");
@@ -650,47 +652,78 @@ fn test_custom_font_produces_valid_pdf() {
 fn test_custom_font_has_cidfont_objects() {
     let font_data = match load_test_font() {
         Some(data) => data,
-        None => { eprintln!("Skipping: no test TTF font found"); return; }
+        None => {
+            eprintln!("Skipping: no test TTF font found");
+            return;
+        }
     };
 
     let bytes = render_with_custom_font(&font_data, "ABC");
     let text = String::from_utf8_lossy(&bytes);
 
-    assert!(text.contains("CIDFontType2"), "Should contain CIDFontType2 subtype");
-    assert!(text.contains("/FontFile2"), "Should contain FontFile2 reference");
-    assert!(text.contains("/Type0"), "Should contain Type0 font dictionary");
-    assert!(text.contains("/Identity-H"), "Should use Identity-H encoding");
-    assert!(text.contains("/DescendantFonts"), "Should have DescendantFonts array");
+    assert!(
+        text.contains("CIDFontType2"),
+        "Should contain CIDFontType2 subtype"
+    );
+    assert!(
+        text.contains("/FontFile2"),
+        "Should contain FontFile2 reference"
+    );
+    assert!(
+        text.contains("/Type0"),
+        "Should contain Type0 font dictionary"
+    );
+    assert!(
+        text.contains("/Identity-H"),
+        "Should use Identity-H encoding"
+    );
+    assert!(
+        text.contains("/DescendantFonts"),
+        "Should have DescendantFonts array"
+    );
 }
 
 #[test]
 fn test_custom_font_has_tounicode() {
     let font_data = match load_test_font() {
         Some(data) => data,
-        None => { eprintln!("Skipping: no test TTF font found"); return; }
+        None => {
+            eprintln!("Skipping: no test TTF font found");
+            return;
+        }
     };
 
     let bytes = render_with_custom_font(&font_data, "Test");
     let text = String::from_utf8_lossy(&bytes);
 
-    assert!(text.contains("/ToUnicode"), "Should have ToUnicode CMap for text extraction");
+    assert!(
+        text.contains("/ToUnicode"),
+        "Should have ToUnicode CMap for text extraction"
+    );
 }
 
 #[test]
 fn test_mixed_standard_and_custom_fonts() {
     let font_data = match load_test_font() {
         Some(data) => data,
-        None => { eprintln!("Skipping: no test TTF font found"); return; }
+        None => {
+            eprintln!("Skipping: no test TTF font found");
+            return;
+        }
     };
 
     let mut font_context = FontContext::new();
-    font_context.registry_mut().register("CustomFont", 400, false, font_data);
+    font_context
+        .registry_mut()
+        .register("CustomFont", 400, false, font_data);
 
     let doc = Document {
         children: vec![
             // Standard font text
             Node {
-                kind: NodeKind::Text { content: "Standard Helvetica".to_string() },
+                kind: NodeKind::Text {
+                    content: "Standard Helvetica".to_string(),
+                },
                 style: Style {
                     font_family: Some("Helvetica".to_string()),
                     font_size: Some(12.0),
@@ -702,7 +735,9 @@ fn test_mixed_standard_and_custom_fonts() {
             },
             // Custom font text
             Node {
-                kind: NodeKind::Text { content: "Custom Font Text".to_string() },
+                kind: NodeKind::Text {
+                    content: "Custom Font Text".to_string(),
+                },
                 style: Style {
                     font_family: Some("CustomFont".to_string()),
                     font_size: Some(12.0),
@@ -726,15 +761,24 @@ fn test_mixed_standard_and_custom_fonts() {
     let text = String::from_utf8_lossy(&bytes);
 
     // Should have both Type1 (standard) and Type0/CIDFontType2 (custom) fonts
-    assert!(text.contains("/Type1"), "Should have Type1 for standard font");
-    assert!(text.contains("CIDFontType2"), "Should have CIDFontType2 for custom font");
+    assert!(
+        text.contains("/Type1"),
+        "Should have Type1 for standard font"
+    );
+    assert!(
+        text.contains("CIDFontType2"),
+        "Should have CIDFontType2 for custom font"
+    );
 }
 
 #[test]
 fn test_custom_font_subset_smaller_than_full() {
     let font_data = match load_test_font() {
         Some(data) => data,
-        None => { eprintln!("Skipping: no test TTF font found"); return; }
+        None => {
+            eprintln!("Skipping: no test TTF font found");
+            return;
+        }
     };
 
     // Render with just "A" — the subset should be much smaller than the full font
@@ -749,7 +793,8 @@ fn test_custom_font_subset_smaller_than_full() {
     assert!(
         bytes.len() < font_data.len(),
         "PDF ({} bytes) should be smaller than full font ({} bytes)",
-        bytes.len(), font_data.len()
+        bytes.len(),
+        font_data.len()
     );
 }
 
@@ -760,12 +805,8 @@ fn make_test_jpeg(width: u32, height: u32) -> Vec<u8> {
     let img = image::RgbImage::from_fn(width, height, |_, _| image::Rgb([0, 128, 255]));
     let mut buf = Vec::new();
     let encoder = image::codecs::jpeg::JpegEncoder::new(&mut buf);
-    image::ImageEncoder::write_image(
-        encoder,
-        img.as_raw(),
-        width, height,
-        image::ColorType::Rgb8,
-    ).unwrap();
+    image::ImageEncoder::write_image(encoder, img.as_raw(), width, height, image::ColorType::Rgb8)
+        .unwrap();
     buf
 }
 
@@ -780,9 +821,11 @@ fn make_test_png(width: u32, height: u32) -> Vec<u8> {
     image::ImageEncoder::write_image(
         encoder,
         img.as_raw(),
-        width, height,
+        width,
+        height,
         image::ColorType::Rgba8,
-    ).unwrap();
+    )
+    .unwrap();
     buf
 }
 
@@ -798,9 +841,11 @@ fn make_test_png_with_alpha(width: u32, height: u32) -> Vec<u8> {
     image::ImageEncoder::write_image(
         encoder,
         img.as_raw(),
-        width, height,
+        width,
+        height,
         image::ColorType::Rgba8,
-    ).unwrap();
+    )
+    .unwrap();
     buf
 }
 
@@ -835,7 +880,10 @@ fn test_jpeg_image_produces_valid_pdf() {
     assert_valid_pdf(&bytes);
 
     let text = String::from_utf8_lossy(&bytes);
-    assert!(text.contains("/DCTDecode"), "JPEG should use DCTDecode filter");
+    assert!(
+        text.contains("/DCTDecode"),
+        "JPEG should use DCTDecode filter"
+    );
     assert!(text.contains("/XObject"), "Page should reference XObject");
     assert!(text.contains("/Im0"), "Should reference /Im0");
 }
@@ -850,7 +898,10 @@ fn test_png_image_produces_valid_pdf() {
     assert_valid_pdf(&bytes);
 
     let text = String::from_utf8_lossy(&bytes);
-    assert!(text.contains("/FlateDecode"), "PNG should use FlateDecode filter");
+    assert!(
+        text.contains("/FlateDecode"),
+        "PNG should use FlateDecode filter"
+    );
     assert!(text.contains("/XObject"), "Page should reference XObject");
 }
 
@@ -864,7 +915,10 @@ fn test_png_with_alpha_has_smask() {
     assert_valid_pdf(&bytes);
 
     let text = String::from_utf8_lossy(&bytes);
-    assert!(text.contains("/SMask"), "Alpha PNG should have SMask reference");
+    assert!(
+        text.contains("/SMask"),
+        "Alpha PNG should have SMask reference"
+    );
     assert!(text.contains("/DeviceGray"), "SMask should use DeviceGray");
 }
 
@@ -880,13 +934,18 @@ fn test_image_aspect_ratio() {
     assert_eq!(pages.len(), 1);
 
     // Find the image element
-    let img_elem = pages[0].elements.iter()
+    let img_elem = pages[0]
+        .elements
+        .iter()
         .find(|e| matches!(e.draw, forme::layout::DrawCommand::Image { .. }))
         .expect("Should have an image element");
 
     assert!((img_elem.width - 100.0).abs() < 0.1, "Width should be 100");
-    assert!((img_elem.height - 50.0).abs() < 0.1,
-        "Height should be 50 (100 * 4/8), got {}", img_elem.height);
+    assert!(
+        (img_elem.height - 50.0).abs() < 0.1,
+        "Height should be 50 (100 * 4/8), got {}",
+        img_elem.height
+    );
 }
 
 #[test]
@@ -901,20 +960,29 @@ fn test_base64_image_src() {
     assert_valid_pdf(&bytes);
 
     let text = String::from_utf8_lossy(&bytes);
-    assert!(text.contains("/XObject"), "Raw base64 image should produce XObject");
+    assert!(
+        text.contains("/XObject"),
+        "Raw base64 image should produce XObject"
+    );
 }
 
 #[test]
 fn test_missing_image_falls_back() {
     // Invalid src should fall back to placeholder, not crash
-    let doc = default_doc(vec![make_image_node("nonexistent_file.png", Some(100.0), Some(75.0))]);
+    let doc = default_doc(vec![make_image_node(
+        "nonexistent_file.png",
+        Some(100.0),
+        Some(75.0),
+    )]);
     let bytes = render_to_pdf(&doc);
     assert_valid_pdf(&bytes);
 
     let text = String::from_utf8_lossy(&bytes);
     // Should NOT have XObject (it's a placeholder)
-    assert!(!text.contains("/XObject"),
-        "Missing image should render as placeholder, not XObject");
+    assert!(
+        !text.contains("/XObject"),
+        "Missing image should render as placeholder, not XObject"
+    );
 }
 
 #[test]
@@ -941,27 +1009,35 @@ fn test_image_json_deserialization() {
     let png_data = make_test_png(2, 2);
     let src = to_data_uri(&png_data, "image/png");
 
-    let json = format!(r#"{{
+    let json = format!(
+        r#"{{
         "children": [
             {{
                 "kind": {{ "type": "Image", "src": "{}", "width": 100.0, "height": 100.0 }},
                 "style": {{}}
             }}
         ]
-    }}"#, src);
+    }}"#,
+        src
+    );
 
     let bytes = forme::render_json(&json).expect("Should parse image JSON");
     assert_valid_pdf(&bytes);
 
     let text = String::from_utf8_lossy(&bytes);
-    assert!(text.contains("/XObject"), "Image from JSON should produce XObject");
+    assert!(
+        text.contains("/XObject"),
+        "Image from JSON should produce XObject"
+    );
 }
 
 // ─── Fixed Header/Footer Tests ──────────────────────────────────
 
 fn make_fixed_header(text: &str) -> Node {
     Node {
-        kind: NodeKind::Fixed { position: FixedPosition::Header },
+        kind: NodeKind::Fixed {
+            position: FixedPosition::Header,
+        },
         style: Style {
             padding: Some(Edges::uniform(8.0)),
             background_color: Some(Color::rgb(0.9, 0.9, 0.95)),
@@ -975,7 +1051,9 @@ fn make_fixed_header(text: &str) -> Node {
 
 fn make_fixed_footer(text: &str) -> Node {
     Node {
-        kind: NodeKind::Fixed { position: FixedPosition::Footer },
+        kind: NodeKind::Fixed {
+            position: FixedPosition::Footer,
+        },
         style: Style {
             padding: Some(Edges::uniform(8.0)),
             background_color: Some(Color::rgb(0.95, 0.95, 0.95)),
@@ -996,7 +1074,10 @@ fn test_fixed_header_single_page() {
     let pages = layout_doc(&doc);
     assert_eq!(pages.len(), 1);
     // Header + body elements should be present
-    assert!(pages[0].elements.len() >= 2, "Page should have header + body elements");
+    assert!(
+        pages[0].elements.len() >= 2,
+        "Page should have header + body elements"
+    );
 }
 
 #[test]
@@ -1008,7 +1089,11 @@ fn test_fixed_header_repeats_on_overflow() {
     }
     let doc = default_doc(children);
     let pages = layout_doc(&doc);
-    assert!(pages.len() >= 3, "Should have 3+ pages, got {}", pages.len());
+    assert!(
+        pages.len() >= 3,
+        "Should have 3+ pages, got {}",
+        pages.len()
+    );
 
     // Every page should have elements (header renders on each)
     for (i, page) in pages.iter().enumerate() {
@@ -1029,21 +1114,25 @@ fn test_fixed_footer_renders() {
     let pages = layout_doc(&doc);
     assert_eq!(pages.len(), 1);
     // Footer elements should be at the bottom of content area
-    assert!(pages[0].elements.len() >= 2, "Page should have footer + body elements");
+    assert!(
+        pages[0].elements.len() >= 2,
+        "Page should have footer + body elements"
+    );
 }
 
 #[test]
 fn test_header_and_footer_together() {
-    let mut children = vec![
-        make_fixed_header("Header"),
-        make_fixed_footer("Footer"),
-    ];
+    let mut children = vec![make_fixed_header("Header"), make_fixed_footer("Footer")];
     for i in 0..80 {
         children.push(make_text(&format!("Content line {}", i), 12.0));
     }
     let doc = default_doc(children);
     let pages = layout_doc(&doc);
-    assert!(pages.len() >= 2, "Should overflow to multiple pages, got {}", pages.len());
+    assert!(
+        pages.len() >= 2,
+        "Should overflow to multiple pages, got {}",
+        pages.len()
+    );
 
     // Each page should have elements
     for (i, page) in pages.iter().enumerate() {
@@ -1071,7 +1160,9 @@ fn test_footer_reduces_content_area() {
 
     // Doc with large footer
     let big_footer = Node {
-        kind: NodeKind::Fixed { position: FixedPosition::Footer },
+        kind: NodeKind::Fixed {
+            position: FixedPosition::Footer,
+        },
         style: Style {
             padding: Some(Edges::symmetric(40.0, 8.0)), // tall footer
             ..Default::default()
@@ -1129,15 +1220,24 @@ fn test_flex_wrap_single_line_fits() {
         },
         vec![
             make_styled_view(
-                Style { width: Some(Dimension::Pt(100.0)), ..Default::default() },
+                Style {
+                    width: Some(Dimension::Pt(100.0)),
+                    ..Default::default()
+                },
                 vec![make_text("A", 12.0)],
             ),
             make_styled_view(
-                Style { width: Some(Dimension::Pt(100.0)), ..Default::default() },
+                Style {
+                    width: Some(Dimension::Pt(100.0)),
+                    ..Default::default()
+                },
                 vec![make_text("B", 12.0)],
             ),
             make_styled_view(
-                Style { width: Some(Dimension::Pt(100.0)), ..Default::default() },
+                Style {
+                    width: Some(Dimension::Pt(100.0)),
+                    ..Default::default()
+                },
                 vec![make_text("C", 12.0)],
             ),
         ],
@@ -1344,8 +1444,16 @@ fn test_flex_wrap_with_row_gap() {
     assert_eq!(pages_no_gap.len(), 1);
 
     // The version with row_gap should use more vertical space
-    let max_y_gap = pages_gap[0].elements.iter().map(|e| e.y + e.height).fold(0.0f64, f64::max);
-    let max_y_no_gap = pages_no_gap[0].elements.iter().map(|e| e.y + e.height).fold(0.0f64, f64::max);
+    let max_y_gap = pages_gap[0]
+        .elements
+        .iter()
+        .map(|e| e.y + e.height)
+        .fold(0.0f64, f64::max);
+    let max_y_no_gap = pages_no_gap[0]
+        .elements
+        .iter()
+        .map(|e| e.y + e.height)
+        .fold(0.0f64, f64::max);
     assert!(
         max_y_gap > max_y_no_gap,
         "Grid with row_gap ({:.1}) should use more vertical space than without ({:.1})",
@@ -1412,15 +1520,15 @@ fn test_table_cell_overflow_does_not_panic() {
         kind: NodeKind::Table { columns: vec![] },
         style: Style::default(),
         children: vec![
-            make_table_row(true, vec![
-                make_table_cell(vec![make_text("Header", 10.0)]),
-            ]),
-            make_table_row(false, vec![
-                make_table_cell(vec![make_text(&long_text, 10.0)]),
-            ]),
-            make_table_row(false, vec![
-                make_table_cell(vec![make_text("Normal row", 10.0)]),
-            ]),
+            make_table_row(true, vec![make_table_cell(vec![make_text("Header", 10.0)])]),
+            make_table_row(
+                false,
+                vec![make_table_cell(vec![make_text(&long_text, 10.0)])],
+            ),
+            make_table_row(
+                false,
+                vec![make_table_cell(vec![make_text("Normal row", 10.0)])],
+            ),
         ],
         id: None,
         source_location: None,
@@ -1447,7 +1555,12 @@ fn test_table_row_level_page_break_works() {
     // Verify that when a row doesn't fit on the current page, it moves to the next
     // page with header repetition. This is the supported behavior (vs. cell-level breaks).
     let rows: Vec<Vec<&str>> = (0..60)
-        .map(|i| vec![Box::leak(format!("Row {}", i).into_boxed_str()) as &str, "Data"])
+        .map(|i| {
+            vec![
+                Box::leak(format!("Row {}", i).into_boxed_str()) as &str,
+                "Data",
+            ]
+        })
         .collect();
     let table = make_simple_table(vec!["Col A", "Col B"], rows);
     let doc = default_doc(vec![table]);
@@ -1477,7 +1590,11 @@ fn test_invalid_json_returns_parse_error() {
     assert!(result.is_err(), "Invalid JSON should return Err");
     let err = result.unwrap_err();
     let msg = err.to_string();
-    assert!(msg.contains("Failed to parse document"), "Error should describe parse failure: {}", msg);
+    assert!(
+        msg.contains("Failed to parse document"),
+        "Error should describe parse failure: {}",
+        msg
+    );
 }
 
 #[test]
@@ -1493,7 +1610,11 @@ fn test_wrong_schema_returns_parse_error() {
 fn test_valid_doc_returns_ok() {
     let json = r#"{"children": [{"kind": {"type": "Text", "content": "Hello"}, "style": {}}]}"#;
     let result = forme::render_json(json);
-    assert!(result.is_ok(), "Valid JSON should return Ok, got: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Valid JSON should return Ok, got: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -1518,10 +1639,7 @@ fn test_page_number_placeholder_single_page() {
                     position: FixedPosition::Footer,
                 },
                 style: Style::default(),
-                children: vec![make_text(
-                    "Page {{pageNumber}} of {{totalPages}}",
-                    12.0,
-                )],
+                children: vec![make_text("Page {{pageNumber}} of {{totalPages}}", 12.0)],
                 id: None,
                 source_location: None,
             },

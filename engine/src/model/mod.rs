@@ -9,8 +9,8 @@
 //! containers (View), text (Text), images (Image), and tables (Table). But
 //! there is one critical addition: **Page** is a first-class node type.
 
-use serde::{Deserialize, Serialize};
 use crate::style::Style;
+use serde::{Deserialize, Serialize};
 
 /// A complete document ready for rendering.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -113,11 +113,21 @@ pub struct Edges {
 
 impl Edges {
     pub fn uniform(v: f64) -> Self {
-        Self { top: v, right: v, bottom: v, left: v }
+        Self {
+            top: v,
+            right: v,
+            bottom: v,
+            left: v,
+        }
     }
 
     pub fn symmetric(vertical: f64, horizontal: f64) -> Self {
-        Self { top: vertical, right: horizontal, bottom: vertical, left: horizontal }
+        Self {
+            top: vertical,
+            right: horizontal,
+            bottom: vertical,
+            left: horizontal,
+        }
     }
 
     pub fn horizontal(&self) -> f64 {
@@ -167,9 +177,7 @@ pub enum NodeKind {
     View,
 
     /// A text node with string content.
-    Text {
-        content: String,
-    },
+    Text { content: String },
 
     /// An image node.
     Image {
@@ -270,7 +278,9 @@ impl Node {
     /// Create a Text node.
     pub fn text(content: &str, style: Style) -> Self {
         Self {
-            kind: NodeKind::Text { content: content.to_string() },
+            kind: NodeKind::Text {
+                content: content.to_string(),
+            },
             style,
             children: vec![],
             id: None,

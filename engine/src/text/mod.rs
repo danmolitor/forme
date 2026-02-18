@@ -53,8 +53,13 @@ impl TextLayout {
         }
 
         let char_widths = self.measure_chars(
-            font_context, text, font_size, font_family,
-            font_weight, font_style, letter_spacing,
+            font_context,
+            text,
+            font_size,
+            font_family,
+            font_weight,
+            font_style,
+            letter_spacing,
         );
 
         let mut lines = Vec::new();
@@ -177,8 +182,13 @@ impl TextLayout {
         letter_spacing: f64,
     ) -> f64 {
         self.measure_chars(
-            font_context, text, font_size, font_family,
-            font_weight, font_style, letter_spacing,
+            font_context,
+            text,
+            font_size,
+            font_family,
+            font_weight,
+            font_style,
+            letter_spacing,
         )
         .iter()
         .sum()
@@ -198,7 +208,14 @@ mod tests {
         let tl = TextLayout::new();
         let fc = ctx();
         let lines = tl.break_into_lines(
-            &fc, "Hello", 200.0, 12.0, "Helvetica", 400, FontStyle::Normal, 0.0,
+            &fc,
+            "Hello",
+            200.0,
+            12.0,
+            "Helvetica",
+            400,
+            FontStyle::Normal,
+            0.0,
         );
         assert_eq!(lines.len(), 1);
         assert_eq!(lines[0].text, "Hello");
@@ -209,7 +226,14 @@ mod tests {
         let tl = TextLayout::new();
         let fc = ctx();
         let lines = tl.break_into_lines(
-            &fc, "Hello World", 40.0, 12.0, "Helvetica", 400, FontStyle::Normal, 0.0,
+            &fc,
+            "Hello World",
+            40.0,
+            12.0,
+            "Helvetica",
+            400,
+            FontStyle::Normal,
+            0.0,
         );
         assert!(lines.len() >= 2);
     }
@@ -219,7 +243,14 @@ mod tests {
         let tl = TextLayout::new();
         let fc = ctx();
         let lines = tl.break_into_lines(
-            &fc, "Hello\nWorld", 200.0, 12.0, "Helvetica", 400, FontStyle::Normal, 0.0,
+            &fc,
+            "Hello\nWorld",
+            200.0,
+            12.0,
+            "Helvetica",
+            400,
+            FontStyle::Normal,
+            0.0,
         );
         assert_eq!(lines.len(), 2);
         assert_eq!(lines[0].text, "Hello");
@@ -231,7 +262,14 @@ mod tests {
         let tl = TextLayout::new();
         let fc = ctx();
         let lines = tl.break_into_lines(
-            &fc, "", 200.0, 12.0, "Helvetica", 400, FontStyle::Normal, 0.0,
+            &fc,
+            "",
+            200.0,
+            12.0,
+            "Helvetica",
+            400,
+            FontStyle::Normal,
+            0.0,
         );
         assert_eq!(lines.len(), 1);
         assert_eq!(lines[0].width, 0.0);
@@ -242,11 +280,26 @@ mod tests {
         let tl = TextLayout::new();
         let fc = ctx();
         let regular = tl.measure_width(
-            &fc, "ABCDEFG", 32.0, "Helvetica", 400, FontStyle::Normal, 0.0,
+            &fc,
+            "ABCDEFG",
+            32.0,
+            "Helvetica",
+            400,
+            FontStyle::Normal,
+            0.0,
         );
         let bold = tl.measure_width(
-            &fc, "ABCDEFG", 32.0, "Helvetica", 700, FontStyle::Normal, 0.0,
+            &fc,
+            "ABCDEFG",
+            32.0,
+            "Helvetica",
+            700,
+            FontStyle::Normal,
+            0.0,
         );
-        assert!(bold > regular, "Bold text should be wider: bold={bold}, regular={regular}");
+        assert!(
+            bold > regular,
+            "Bold text should be wider: bold={bold}, regular={regular}"
+        );
     }
 }

@@ -54,7 +54,8 @@ pub fn load_image(src: &str) -> Result<LoadedImage, String> {
 fn read_source_bytes(src: &str) -> Result<Vec<u8>, String> {
     // Data URI: data:image/png;base64,iVBOR...
     if src.starts_with("data:image/") {
-        let comma_pos = src.find(',')
+        let comma_pos = src
+            .find(',')
             .ok_or_else(|| "Invalid data URI: missing comma".to_string())?;
         let b64_data = &src[comma_pos + 1..];
         return base64_decode(b64_data);
@@ -119,7 +120,8 @@ fn decode_jpeg(data: &[u8]) -> Result<LoadedImage, String> {
         .with_guessed_format()
         .map_err(|e| format!("JPEG format detection error: {}", e))?;
 
-    let (width, height) = reader.into_dimensions()
+    let (width, height) = reader
+        .into_dimensions()
         .map_err(|e| format!("Failed to read JPEG dimensions: {}", e))?;
 
     // Detect color space from JPEG component count.
@@ -176,7 +178,8 @@ fn decode_png(data: &[u8]) -> Result<LoadedImage, String> {
         .with_guessed_format()
         .map_err(|e| format!("PNG format detection error: {}", e))?;
 
-    let img = reader.decode()
+    let img = reader
+        .decode()
         .map_err(|e| format!("Failed to decode PNG: {}", e))?;
 
     let rgba = img.to_rgba8();
@@ -253,12 +256,8 @@ mod tests {
 
         let mut buf = Vec::new();
         let encoder = image::codecs::png::PngEncoder::new(&mut buf);
-        image::ImageEncoder::write_image(
-            encoder,
-            img.as_raw(),
-            1, 1,
-            image::ColorType::Rgba8,
-        ).unwrap();
+        image::ImageEncoder::write_image(encoder, img.as_raw(), 1, 1, image::ColorType::Rgba8)
+            .unwrap();
 
         let loaded = decode_image_bytes(&buf).unwrap();
         assert_eq!(loaded.width_px, 1);
@@ -279,12 +278,8 @@ mod tests {
 
         let mut buf = Vec::new();
         let encoder = image::codecs::png::PngEncoder::new(&mut buf);
-        image::ImageEncoder::write_image(
-            encoder,
-            img.as_raw(),
-            1, 1,
-            image::ColorType::Rgba8,
-        ).unwrap();
+        image::ImageEncoder::write_image(encoder, img.as_raw(), 1, 1, image::ColorType::Rgba8)
+            .unwrap();
 
         let loaded = decode_image_bytes(&buf).unwrap();
         match &loaded.pixel_data {
@@ -303,12 +298,8 @@ mod tests {
 
         let mut buf = Vec::new();
         let encoder = image::codecs::jpeg::JpegEncoder::new(&mut buf);
-        image::ImageEncoder::write_image(
-            encoder,
-            img.as_raw(),
-            2, 2,
-            image::ColorType::Rgb8,
-        ).unwrap();
+        image::ImageEncoder::write_image(encoder, img.as_raw(), 2, 2, image::ColorType::Rgb8)
+            .unwrap();
 
         let loaded = decode_image_bytes(&buf).unwrap();
         assert_eq!(loaded.width_px, 2);
@@ -330,12 +321,8 @@ mod tests {
 
         let mut buf = Vec::new();
         let encoder = image::codecs::png::PngEncoder::new(&mut buf);
-        image::ImageEncoder::write_image(
-            encoder,
-            img.as_raw(),
-            1, 1,
-            image::ColorType::Rgba8,
-        ).unwrap();
+        image::ImageEncoder::write_image(encoder, img.as_raw(), 1, 1, image::ColorType::Rgba8)
+            .unwrap();
 
         use base64::Engine;
         let b64 = base64::engine::general_purpose::STANDARD.encode(&buf);

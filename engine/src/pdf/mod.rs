@@ -28,14 +28,14 @@
 
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write as FmtWrite; // for write! on String
-use std::io::Write as IoWrite;   // for write! on Vec<u8>
+use std::io::Write as IoWrite; // for write! on Vec<u8>
 
 use crate::error::FormeError;
+use crate::font::subset::subset_ttf;
+use crate::font::{FontContext, FontData, FontKey};
 use crate::layout::*;
 use crate::model::*;
 use crate::style::{Color, FontStyle};
-use crate::font::{FontContext, FontData, FontKey};
-use crate::font::subset::subset_ttf;
 use miniz_oxide::deflate::compress_to_vec_zlib;
 
 pub struct PdfWriter;
@@ -79,7 +79,12 @@ impl PdfWriter {
     }
 
     /// Write laid-out pages to a PDF byte vector.
-    pub fn write(&self, pages: &[LayoutPage], metadata: &Metadata, font_context: &FontContext) -> Result<Vec<u8>, FormeError> {
+    pub fn write(
+        &self,
+        pages: &[LayoutPage],
+        metadata: &Metadata,
+        font_context: &FontContext,
+    ) -> Result<Vec<u8>, FormeError> {
         let mut builder = PdfBuilder {
             objects: Vec::new(),
             font_objects: Vec::new(),
@@ -93,9 +98,18 @@ impl PdfWriter {
         // 1 = Catalog
         // 2 = Pages (page tree root)
         // 3+ = fonts, then page objects, then content streams
-        builder.objects.push(PdfObject { id: 0, data: vec![] });
-        builder.objects.push(PdfObject { id: 1, data: vec![] });
-        builder.objects.push(PdfObject { id: 2, data: vec![] });
+        builder.objects.push(PdfObject {
+            id: 0,
+            data: vec![],
+        });
+        builder.objects.push(PdfObject {
+            id: 1,
+            data: vec![],
+        });
+        builder.objects.push(PdfObject {
+            id: 2,
+            data: vec![],
+        });
 
         // Register the fonts actually used across all pages
         self.register_fonts(&mut builder, pages, font_context)?;
@@ -108,7 +122,11 @@ impl PdfWriter {
 
         for (page_idx, page) in pages.iter().enumerate() {
             let content = self.build_content_stream_for_page(
-                page, page_idx, &builder, page_idx + 1, pages.len(),
+                page,
+                page_idx,
+                &builder,
+                page_idx + 1,
+                pages.len(),
             );
             let compressed = compress_to_vec_zlib(content.as_bytes(), 6);
 
@@ -132,7 +150,10 @@ impl PdfWriter {
             let resources = if xobject_resources.is_empty() {
                 format!("/Font << {} >>", font_resources)
             } else {
-                format!("/Font << {} >> /XObject << {} >>", font_resources, xobject_resources)
+                format!(
+                    "/Font << {} >> /XObject << {} >>",
+                    font_resources, xobject_resources
+                )
             };
             let page_dict = format!(
                 "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {:.2} {:.2}] \
@@ -203,8 +224,14 @@ impl PdfWriter {
 
         for element in &page.elements {
             self.write_element(
-                &mut stream, element, page_height, builder,
-                page_idx, &mut element_counter, page_number, total_pages,
+                &mut stream,
+                element,
+                page_height,
+                builder,
+                page_idx,
+                &mut element_counter,
+                page_number,
+                total_pages,
             );
         }
 
@@ -289,7 +316,10 @@ impl PdfWriter {
                     let (font_name, font_key) = if !line.glyphs.is_empty() {
                         let g = &line.glyphs[0];
                         let idx = self.font_index(
-                            &g.font_family, g.font_weight, g.font_style, &builder.font_objects,
+                            &g.font_family,
+                            g.font_weight,
+                            g.font_style,
+                            &builder.font_objects,
                         );
                         let italic = matches!(g.font_style, FontStyle::Italic | FontStyle::Oblique);
                         let key = FontKey {
@@ -323,7 +353,8 @@ impl PdfWriter {
                         .replace("{{totalPages}}", &total_pages.to_string());
 
                     // Check if this is a custom font — use hex glyph ID encoding
-                    let is_custom = font_key.as_ref()
+                    let is_custom = font_key
+                        .as_ref()
                         .map(|k| builder.custom_font_data.contains_key(k))
                         .unwrap_or(false);
 
@@ -408,8 +439,14 @@ impl PdfWriter {
 
         for child in &element.children {
             self.write_element(
-                stream, child, page_height, builder,
-                page_idx, element_counter, page_number, total_pages,
+                stream,
+                child,
+                page_height,
+                builder,
+                page_idx,
+                element_counter,
+                page_number,
+                total_pages,
             );
         }
     }
@@ -437,9 +474,12 @@ impl PdfWriter {
             let _ = write!(
                 stream,
                 "{:.2} {:.2} {:.2} {:.2} {:.2} {:.2} c\n",
-                x + w - br + br * k, y,
-                x + w, y + br - br * k,
-                x + w, y + br
+                x + w - br + br * k,
+                y,
+                x + w,
+                y + br - br * k,
+                x + w,
+                y + br
             );
         }
 
@@ -448,9 +488,12 @@ impl PdfWriter {
             let _ = write!(
                 stream,
                 "{:.2} {:.2} {:.2} {:.2} {:.2} {:.2} c\n",
-                x + w, y + h - tr + tr * k,
-                x + w - tr + tr * k, y + h,
-                x + w - tr, y + h
+                x + w,
+                y + h - tr + tr * k,
+                x + w - tr + tr * k,
+                y + h,
+                x + w - tr,
+                y + h
             );
         }
 
@@ -459,9 +502,12 @@ impl PdfWriter {
             let _ = write!(
                 stream,
                 "{:.2} {:.2} {:.2} {:.2} {:.2} {:.2} c\n",
-                x + tl - tl * k, y + h,
-                x, y + h - tl + tl * k,
-                x, y + h - tl
+                x + tl - tl * k,
+                y + h,
+                x,
+                y + h - tl + tl * k,
+                x,
+                y + h - tl
             );
         }
 
@@ -470,9 +516,12 @@ impl PdfWriter {
             let _ = write!(
                 stream,
                 "{:.2} {:.2} {:.2} {:.2} {:.2} {:.2} c\n",
-                x, y + bl - bl * k,
-                x + bl - bl * k, y,
-                x + bl, y
+                x,
+                y + bl - bl * k,
+                x + bl - bl * k,
+                y,
+                x + bl,
+                y
             );
         }
 
@@ -493,32 +542,56 @@ impl PdfWriter {
             let _ = write!(
                 stream,
                 "q\n{:.3} {:.3} {:.3} RG\n{:.2} w\n{:.2} {:.2} m\n{:.2} {:.2} l\nS\nQ\n",
-                bc.top.r, bc.top.g, bc.top.b, bw.top,
-                x, y + h, x + w, y + h
+                bc.top.r,
+                bc.top.g,
+                bc.top.b,
+                bw.top,
+                x,
+                y + h,
+                x + w,
+                y + h
             );
         }
         if bw.bottom > 0.0 {
             let _ = write!(
                 stream,
                 "q\n{:.3} {:.3} {:.3} RG\n{:.2} w\n{:.2} {:.2} m\n{:.2} {:.2} l\nS\nQ\n",
-                bc.bottom.r, bc.bottom.g, bc.bottom.b, bw.bottom,
-                x, y, x + w, y
+                bc.bottom.r,
+                bc.bottom.g,
+                bc.bottom.b,
+                bw.bottom,
+                x,
+                y,
+                x + w,
+                y
             );
         }
         if bw.left > 0.0 {
             let _ = write!(
                 stream,
                 "q\n{:.3} {:.3} {:.3} RG\n{:.2} w\n{:.2} {:.2} m\n{:.2} {:.2} l\nS\nQ\n",
-                bc.left.r, bc.left.g, bc.left.b, bw.left,
-                x, y, x, y + h
+                bc.left.r,
+                bc.left.g,
+                bc.left.b,
+                bw.left,
+                x,
+                y,
+                x,
+                y + h
             );
         }
         if bw.right > 0.0 {
             let _ = write!(
                 stream,
                 "q\n{:.3} {:.3} {:.3} RG\n{:.2} w\n{:.2} {:.2} m\n{:.2} {:.2} l\nS\nQ\n",
-                bc.right.r, bc.right.g, bc.right.b, bw.right,
-                x + w, y, x + w, y + h
+                bc.right.r,
+                bc.right.g,
+                bc.right.b,
+                bw.right,
+                x + w,
+                y,
+                x + w,
+                y + h
             );
         }
     }
@@ -542,7 +615,8 @@ impl PdfWriter {
 
         // Sort for deterministic ordering, then dedup
         keys.sort_by(|a, b| {
-            a.family.cmp(&b.family)
+            a.family
+                .cmp(&b.family)
                 .then(a.weight.cmp(&b.weight))
                 .then(a.italic.cmp(&b.italic))
         });
@@ -576,9 +650,8 @@ impl PdfWriter {
                 }
                 FontData::Custom { data, .. } => {
                     let used_chars = font_chars.get(key).cloned().unwrap_or_default();
-                    let type0_obj_id = Self::write_custom_font_objects(
-                        builder, key, data, &used_chars,
-                    )?;
+                    let type0_obj_id =
+                        Self::write_custom_font_objects(builder, key, data, &used_chars)?;
                     builder.font_objects.push((key.clone(), type0_obj_id));
                 }
             }
@@ -596,7 +669,8 @@ impl PdfWriter {
             if let DrawCommand::Text { lines, .. } = &element.draw {
                 for line in lines {
                     for glyph in &line.glyphs {
-                        let italic = matches!(glyph.font_style, FontStyle::Italic | FontStyle::Oblique);
+                        let italic =
+                            matches!(glyph.font_style, FontStyle::Italic | FontStyle::Oblique);
                         let key = FontKey {
                             family: glyph.font_family.clone(),
                             weight: if glyph.font_weight >= 600 { 700 } else { 400 },
@@ -612,19 +686,10 @@ impl PdfWriter {
 
     /// Walk all pages, create XObject PDF objects for each image,
     /// and populate the image_index_map for content stream reference.
-    fn register_images(
-        &self,
-        builder: &mut PdfBuilder,
-        pages: &[LayoutPage],
-    ) {
+    fn register_images(&self, builder: &mut PdfBuilder, pages: &[LayoutPage]) {
         for (page_idx, page) in pages.iter().enumerate() {
             let mut element_counter = 0usize;
-            Self::collect_images_recursive(
-                &page.elements,
-                page_idx,
-                &mut element_counter,
-                builder,
-            );
+            Self::collect_images_recursive(&page.elements, page_idx, &mut element_counter, builder);
         }
     }
 
@@ -643,7 +708,9 @@ impl PdfWriter {
                     let img_idx = builder.image_objects.len();
                     let xobj_id = Self::write_image_xobject(builder, image_data);
                     builder.image_objects.push(xobj_id);
-                    builder.image_index_map.insert((page_idx, elem_idx), img_idx);
+                    builder
+                        .image_index_map
+                        .insert((page_idx, elem_idx), img_idx);
                 }
                 DrawCommand::ImagePlaceholder => {
                     *element_counter += 1;
@@ -685,7 +752,8 @@ impl PdfWriter {
                      /BitsPerComponent 8 \
                      /Filter /DCTDecode \
                      /Length {} >>\nstream\n",
-                    image.width_px, image.height_px,
+                    image.width_px,
+                    image.height_px,
                     color_space_str,
                     data.len()
                 );
@@ -712,7 +780,8 @@ impl PdfWriter {
                          /BitsPerComponent 8 \
                          /Filter /FlateDecode \
                          /Length {} >>\nstream\n",
-                        image.width_px, image.height_px,
+                        image.width_px,
+                        image.height_px,
                         compressed_alpha.len()
                     );
                     smask_data.extend_from_slice(&compressed_alpha);
@@ -741,7 +810,8 @@ impl PdfWriter {
                      /BitsPerComponent 8 \
                      /Filter /FlateDecode \
                      /Length {}{} >>\nstream\n",
-                    image.width_px, image.height_px,
+                    image.width_px,
+                    image.height_px,
                     compressed_rgb.len(),
                     smask_ref
                 );
@@ -785,10 +855,12 @@ impl PdfWriter {
         ttf_data: &[u8],
         used_chars: &HashSet<char>,
     ) -> Result<usize, FormeError> {
-        let face = ttf_parser::Face::parse(ttf_data, 0)
-            .map_err(|e| FormeError::FontError(
-                format!("Failed to parse TTF data for font '{}': {}", key.family, e)
-            ))?;
+        let face = ttf_parser::Face::parse(ttf_data, 0).map_err(|e| {
+            FormeError::FontError(format!(
+                "Failed to parse TTF data for font '{}': {}",
+                key.family, e
+            ))
+        })?;
 
         let units_per_em = face.units_per_em();
         let ascender = face.ascender();
@@ -807,9 +879,13 @@ impl PdfWriter {
         let (embed_ttf, char_to_gid) = match subset_ttf(ttf_data, &orig_gids) {
             Ok(subset_result) => {
                 // Remap char_to_gid through the subset's gid_remap
-                let remapped: HashMap<char, u16> = char_to_orig_gid.iter()
+                let remapped: HashMap<char, u16> = char_to_orig_gid
+                    .iter()
                     .filter_map(|(&ch, &orig_gid)| {
-                        subset_result.gid_remap.get(&orig_gid).map(|&new_gid| (ch, new_gid))
+                        subset_result
+                            .gid_remap
+                            .get(&orig_gid)
+                            .map(|&new_gid| (ch, new_gid))
                     })
                     .collect();
                 (subset_result.ttf_data, remapped)
@@ -840,8 +916,7 @@ impl PdfWriter {
         });
 
         // Parse the subset font for metrics (width array uses subset GIDs)
-        let subset_face = ttf_parser::Face::parse(&embed_ttf, 0)
-            .unwrap_or_else(|_| face.clone());
+        let subset_face = ttf_parser::Face::parse(&embed_ttf, 0).unwrap_or_else(|_| face.clone());
         let subset_upem = subset_face.units_per_em();
 
         // 2. FontDescriptor
@@ -883,7 +958,8 @@ impl PdfWriter {
         // 3. CIDFont dictionary (DescendantFont)
         let cidfont_id = builder.objects.len();
         let w_array = Self::build_w_array(&char_to_gid, &subset_face, subset_upem);
-        let default_width = subset_face.glyph_hor_advance(ttf_parser::GlyphId(0))
+        let default_width = subset_face
+            .glyph_hor_advance(ttf_parser::GlyphId(0))
             .map(|adv| (adv as f64 * 1000.0 / subset_upem as f64) as u32)
             .unwrap_or(1000);
         let cidfont_dict = format!(
@@ -891,10 +967,7 @@ impl PdfWriter {
              /CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> \
              /FontDescriptor {} 0 R /DW {} /W {} \
              /CIDToGIDMap /Identity >>",
-            pdf_font_name,
-            font_descriptor_id,
-            default_width,
-            w_array,
+            pdf_font_name, font_descriptor_id, default_width, w_array,
         );
         builder.objects.push(PdfObject {
             id: cidfont_id,
@@ -925,9 +998,7 @@ impl PdfWriter {
              /Encoding /Identity-H \
              /DescendantFonts [{} 0 R] \
              /ToUnicode {} 0 R >>",
-            pdf_font_name,
-            cidfont_id,
-            tounicode_id,
+            pdf_font_name, cidfont_id, tounicode_id,
         );
         builder.objects.push(PdfObject {
             id: type0_id,
@@ -935,13 +1006,16 @@ impl PdfWriter {
         });
 
         // Store embedding data for content stream encoding
-        builder.custom_font_data.insert(key.clone(), CustomFontEmbedData {
-            ttf_data: embed_ttf,
-            char_to_gid,
-            units_per_em,
-            ascender,
-            descender,
-        });
+        builder.custom_font_data.insert(
+            key.clone(),
+            CustomFontEmbedData {
+                ttf_data: embed_ttf,
+                char_to_gid,
+                units_per_em,
+                ascender,
+                descender,
+            },
+        );
 
         Ok(type0_id)
     }
@@ -964,7 +1038,8 @@ impl PdfWriter {
                 continue;
             }
             seen_gids.insert(gid);
-            let advance = face.glyph_hor_advance(ttf_parser::GlyphId(gid))
+            let advance = face
+                .glyph_hor_advance(ttf_parser::GlyphId(gid))
                 .unwrap_or(0);
             let width = (advance as f64 * scale) as u32;
             entries.push((gid, width));
@@ -982,10 +1057,7 @@ impl PdfWriter {
     }
 
     /// Build a ToUnicode CMap for text extraction/copy-paste support.
-    fn build_tounicode_cmap(
-        char_to_gid: &HashMap<char, u16>,
-        font_name: &str,
-    ) -> String {
+    fn build_tounicode_cmap(char_to_gid: &HashMap<char, u16>, font_name: &str) -> String {
         // Invert the mapping: gid → unicode codepoint
         let mut gid_to_unicode: Vec<(u16, u32)> = char_to_gid
             .iter()
@@ -998,7 +1070,10 @@ impl PdfWriter {
         let _ = write!(cmap, "12 dict begin\n");
         let _ = write!(cmap, "begincmap\n");
         let _ = write!(cmap, "/CIDSystemInfo\n");
-        let _ = write!(cmap, "<< /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def\n");
+        let _ = write!(
+            cmap,
+            "<< /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def\n"
+        );
         let _ = write!(cmap, "/CMapName /{}-UTF16 def\n", font_name);
         let _ = write!(cmap, "/CMapType 2 def\n");
         let _ = write!(cmap, "1 begincodespacerange\n");
@@ -1134,7 +1209,6 @@ impl PdfWriter {
         }
     }
 
-
     /// Serialize all objects into the final PDF byte stream.
     fn serialize(&self, builder: &PdfBuilder, info_obj_id: Option<usize>) -> Vec<u8> {
         let mut output: Vec<u8> = Vec::new();
@@ -1159,7 +1233,11 @@ impl PdfWriter {
             let _ = write!(output, "{:010} 00000 n \n", offsets[i]);
         }
 
-        let _ = write!(output, "trailer\n<< /Size {} /Root 1 0 R", builder.objects.len());
+        let _ = write!(
+            output,
+            "trailer\n<< /Size {} /Root 1 0 R",
+            builder.objects.len()
+        );
         if let Some(info_id) = info_obj_id {
             let _ = write!(output, " /Info {} 0 R", info_id);
         }
@@ -1180,10 +1258,7 @@ mod tests {
             PdfWriter::escape_pdf_string("Hello (World)"),
             "Hello \\(World\\)"
         );
-        assert_eq!(
-            PdfWriter::escape_pdf_string("back\\slash"),
-            "back\\\\slash"
-        );
+        assert_eq!(PdfWriter::escape_pdf_string("back\\slash"), "back\\\\slash");
     }
 
     #[test]
@@ -1243,14 +1318,23 @@ mod tests {
             height: 841.89,
             elements: vec![
                 LayoutElement {
-                    x: 54.0, y: 54.0, width: 100.0, height: 16.8,
+                    x: 54.0,
+                    y: 54.0,
+                    width: 100.0,
+                    height: 16.8,
                     draw: DrawCommand::Text {
                         lines: vec![TextLine {
-                            x: 54.0, y: 66.0, width: 50.0, height: 16.8,
+                            x: 54.0,
+                            y: 66.0,
+                            width: 50.0,
+                            height: 16.8,
                             glyphs: vec![PositionedGlyph {
-                                glyph_id: 65, x_offset: 0.0, font_size: 12.0,
+                                glyph_id: 65,
+                                x_offset: 0.0,
+                                font_size: 12.0,
                                 font_family: "Helvetica".to_string(),
-                                font_weight: 400, font_style: FontStyle::Normal,
+                                font_weight: 400,
+                                font_style: FontStyle::Normal,
                                 char_value: 'A',
                             }],
                         }],
@@ -1262,14 +1346,23 @@ mod tests {
                     source_location: None,
                 },
                 LayoutElement {
-                    x: 54.0, y: 74.0, width: 100.0, height: 16.8,
+                    x: 54.0,
+                    y: 74.0,
+                    width: 100.0,
+                    height: 16.8,
                     draw: DrawCommand::Text {
                         lines: vec![TextLine {
-                            x: 54.0, y: 86.0, width: 50.0, height: 16.8,
+                            x: 54.0,
+                            y: 86.0,
+                            width: 50.0,
+                            height: 16.8,
                             glyphs: vec![PositionedGlyph {
-                                glyph_id: 65, x_offset: 0.0, font_size: 12.0,
+                                glyph_id: 65,
+                                x_offset: 0.0,
+                                font_size: 12.0,
                                 font_family: "Helvetica".to_string(),
-                                font_weight: 700, font_style: FontStyle::Normal,
+                                font_weight: 700,
+                                font_style: FontStyle::Normal,
                                 char_value: 'A',
                             }],
                         }],
@@ -1291,18 +1384,39 @@ mod tests {
         let text = String::from_utf8_lossy(&bytes);
 
         // Should have both Helvetica and Helvetica-Bold registered
-        assert!(text.contains("Helvetica"), "Should contain regular Helvetica");
-        assert!(text.contains("Helvetica-Bold"), "Should contain Helvetica-Bold");
+        assert!(
+            text.contains("Helvetica"),
+            "Should contain regular Helvetica"
+        );
+        assert!(
+            text.contains("Helvetica-Bold"),
+            "Should contain Helvetica-Bold"
+        );
     }
 
     #[test]
     fn test_sanitize_font_name() {
         assert_eq!(PdfWriter::sanitize_font_name("Inter", 400, false), "Inter");
-        assert_eq!(PdfWriter::sanitize_font_name("Inter", 700, false), "Inter-Bold");
-        assert_eq!(PdfWriter::sanitize_font_name("Inter", 400, true), "Inter-Italic");
-        assert_eq!(PdfWriter::sanitize_font_name("Inter", 700, true), "Inter-Bold-Italic");
-        assert_eq!(PdfWriter::sanitize_font_name("Noto Sans", 400, false), "NotoSans");
-        assert_eq!(PdfWriter::sanitize_font_name("Font (Display)", 400, false), "FontDisplay");
+        assert_eq!(
+            PdfWriter::sanitize_font_name("Inter", 700, false),
+            "Inter-Bold"
+        );
+        assert_eq!(
+            PdfWriter::sanitize_font_name("Inter", 400, true),
+            "Inter-Italic"
+        );
+        assert_eq!(
+            PdfWriter::sanitize_font_name("Inter", 700, true),
+            "Inter-Bold-Italic"
+        );
+        assert_eq!(
+            PdfWriter::sanitize_font_name("Noto Sans", 400, false),
+            "NotoSans"
+        );
+        assert_eq!(
+            PdfWriter::sanitize_font_name("Font (Display)", 400, false),
+            "FontDisplay"
+        );
     }
 
     #[test]
@@ -1315,12 +1429,27 @@ mod tests {
 
         assert!(cmap.contains("begincmap"), "CMap should contain begincmap");
         assert!(cmap.contains("endcmap"), "CMap should contain endcmap");
-        assert!(cmap.contains("beginbfchar"), "CMap should contain beginbfchar");
+        assert!(
+            cmap.contains("beginbfchar"),
+            "CMap should contain beginbfchar"
+        );
         assert!(cmap.contains("endbfchar"), "CMap should contain endbfchar");
-        assert!(cmap.contains("<0024> <0041>"), "Should map gid 0x0024 to Unicode 'A' 0x0041");
-        assert!(cmap.contains("<0025> <0042>"), "Should map gid 0x0025 to Unicode 'B' 0x0042");
-        assert!(cmap.contains("begincodespacerange"), "Should define codespace range");
-        assert!(cmap.contains("<0000> <FFFF>"), "Codespace should be 0000-FFFF");
+        assert!(
+            cmap.contains("<0024> <0041>"),
+            "Should map gid 0x0024 to Unicode 'A' 0x0041"
+        );
+        assert!(
+            cmap.contains("<0025> <0042>"),
+            "Should map gid 0x0025 to Unicode 'B' 0x0042"
+        );
+        assert!(
+            cmap.contains("begincodespacerange"),
+            "Should define codespace range"
+        );
+        assert!(
+            cmap.contains("<0000> <FFFF>"),
+            "Codespace should be 0000-FFFF"
+        );
     }
 
     #[test]
@@ -1356,14 +1485,23 @@ mod tests {
             width: 595.28,
             height: 841.89,
             elements: vec![LayoutElement {
-                x: 54.0, y: 54.0, width: 100.0, height: 16.8,
+                x: 54.0,
+                y: 54.0,
+                width: 100.0,
+                height: 16.8,
                 draw: DrawCommand::Text {
                     lines: vec![TextLine {
-                        x: 54.0, y: 66.0, width: 50.0, height: 16.8,
+                        x: 54.0,
+                        y: 66.0,
+                        width: 50.0,
+                        height: 16.8,
                         glyphs: vec![PositionedGlyph {
-                            glyph_id: 65, x_offset: 0.0, font_size: 12.0,
+                            glyph_id: 65,
+                            x_offset: 0.0,
+                            font_size: 12.0,
                             font_family: "Helvetica".to_string(),
-                            font_weight: 400, font_style: FontStyle::Normal,
+                            font_weight: 400,
+                            font_style: FontStyle::Normal,
                             char_value: 'H',
                         }],
                     }],
@@ -1384,7 +1522,13 @@ mod tests {
         let text = String::from_utf8_lossy(&bytes);
 
         // Standard fonts should use Type1, not CIDFontType2
-        assert!(text.contains("/Type1"), "Standard font should use Type1 subtype");
-        assert!(!text.contains("CIDFontType2"), "Standard font should not use CIDFontType2");
+        assert!(
+            text.contains("/Type1"),
+            "Standard font should use Type1 subtype"
+        );
+        assert!(
+            !text.contains("CIDFontType2"),
+            "Standard font should not use CIDFontType2"
+        );
     }
 }
