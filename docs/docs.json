@@ -1,0 +1,33 @@
+{
+  "$schema": "https://mintlify.com/schema.json",
+  "name": "Forme",
+  "theme": "mint",
+  "logo": {
+    "light": "/favicon.svg",
+    "dark": "/favicon.svg"
+  },
+  "favicon": "/favicon.ico",
+  "colors": {
+    "primary": "#111827"
+  },
+  "topbarCtaButton": {
+    "name": "Get Started",
+    "url": "https://github.com/formepdf/forme"
+  },
+  "navigation": {
+    "groups": [
+      {
+        "group": "Getting Started",
+        "pages": ["quickstart"]
+      },
+      {
+        "group": "Reference",
+        "pages": ["components", "styles", "page-breaks"]
+      },
+      {
+        "group": "Migration",
+        "pages": ["migrating-from-react-pdf", "replacing-puppeteer"]
+      }
+    ]
+  }
+}
