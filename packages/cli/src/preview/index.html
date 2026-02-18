@@ -1753,6 +1753,74 @@
     }
   }
 
+  // -- Cmd/Ctrl key tracking for link hover cursor ------------------
+  let lastHoverClientX = 0;
+  let lastHoverClientY = 0;
+  let cmdHeld = false;
+
+  function getHitLayerUnderPoint(cx, cy) {
+    // Use elementFromPoint to find the hit-layer currently under the cursor,
+    // avoiding stale references after page re-renders.
+    const el = document.elementFromPoint(cx, cy);
+    if (el && el.classList.contains('hit-layer')) return el;
+    // Could be a child or parent; walk up
+    if (el) {
+      const parent = el.closest('.hit-layer');
+      if (parent) return parent;
+    }
+    return null;
+  }
+
+  function reevaluateLinkCursor(metaHeld) {
+    if (!layoutData) return;
+
+    const hitLayer = getHitLayerUnderPoint(lastHoverClientX, lastHoverClientY);
+    if (!hitLayer) return;
+
+    const pageIdx = parseInt(hitLayer.dataset.pageIndex, 10);
+    const page = layoutData.pages[pageIdx];
+    if (!page) return;
+
+    const rect = hitLayer.getBoundingClientRect();
+    const px = (lastHoverClientX - rect.left) / currentZoom;
+    const py = (lastHoverClientY - rect.top) / currentZoom;
+
+    if (metaHeld) {
+      const { element: hit, ancestorElements } = hitTest(page.elements, px, py);
+      const href = hit ? findHrefInChain(hit, ancestorElements) : null;
+      if (href) {
+        hitLayer.style.cursor = 'pointer';
+        tooltip.textContent = href.startsWith('#') ? `Go to: ${href.slice(1)}` : href;
+        tooltip.style.display = 'block';
+        tooltip.style.left = (lastHoverClientX + 12) + 'px';
+        tooltip.style.top = (lastHoverClientY + 12) + 'px';
+        return;
+      }
+    }
+    hitLayer.style.cursor = '';
+    tooltip.style.display = 'none';
+  }
+
+  // Track mouse position globally so we always have the latest coords
+  document.addEventListener('mousemove', (e) => {
+    lastHoverClientX = e.clientX;
+    lastHoverClientY = e.clientY;
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Meta' || e.key === 'Control') {
+      cmdHeld = true;
+      reevaluateLinkCursor(true);
+    }
+  });
+
+  document.addEventListener('keyup', (e) => {
+    if (e.key === 'Meta' || e.key === 'Control') {
+      cmdHeld = false;
+      reevaluateLinkCursor(false);
+    }
+  });
+
   // -- Hit Testing -------------------------------------------------
   function hitTest(elements, px, py) {
     let best = null;

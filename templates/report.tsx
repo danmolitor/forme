@@ -45,7 +45,7 @@ export default function Report(data: any) {
         <Text style={{ fontSize: 20, fontWeight: 700, color: '#0f172a', marginBottom: 16 }}>Table of Contents</Text>
         {data.sections.map((section: any, i: number) => (
           <View key={i} href={`#${section.title}`} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingTop: 6, paddingBottom: 6, borderWidth: { top: 0, right: 0, bottom: 1, left: 0 }, borderColor: '#f1f5f9' }}>
-            <Text style={{ fontSize: 10, color: '#334155' }}>{i + 1}. {section.title}</Text>
+            <Text style={{ fontSize: 10, color: '#2563eb', textDecoration: 'underline' }}>{i + 1}. {section.title}</Text>
           </View>
         ))}
 
