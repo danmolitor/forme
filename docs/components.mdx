@@ -4,10 +4,10 @@ sidebarTitle: Components
 description: All 10 Forme components for building PDF documents.
 ---
 
-Forme provides 10 components for building PDF documents. All components are imported from `@forme/react`.
+Forme provides 11 components for building PDF documents. All components are imported from `@forme/react`.
 
 ```tsx
-import { Document, Page, View, Text, Image, Table, Row, Cell, Fixed, PageBreak } from '@forme/react';
+import { Document, Page, View, Text, Image, Svg, Table, Row, Cell, Fixed, PageBreak } from '@forme/react';
 ```
 
 ---
@@ -276,6 +276,40 @@ A table cell inside a `<Row>`.
 ```
 
 Cells can contain any Forme element, not just Text.
+
+---
+
+## Svg
+
+Renders inline SVG graphics. Supports basic SVG elements: `rect`, `circle`, `ellipse`, `line`, `polyline`, `polygon`, and `path`.
+
+### Props
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `width` | `number` | (required) | Display width in points |
+| `height` | `number` | (required) | Display height in points |
+| `viewBox` | `string` | - | SVG viewBox attribute (e.g., `"0 0 100 100"`) |
+| `content` | `string` | (required) | SVG markup string containing the elements to render |
+| `style` | `Style` | - | Additional style properties (margin, etc.) |
+
+### Example
+
+```tsx
+{/* Simple shapes */}
+<Svg width={100} height={100} viewBox="0 0 100 100"
+  content='<rect x="10" y="10" width="80" height="80" fill="#3b82f6" rx="8" />' />
+
+{/* Circle with stroke */}
+<Svg width={60} height={60} viewBox="0 0 60 60"
+  content='<circle cx="30" cy="30" r="25" fill="none" stroke="#1e293b" stroke-width="2" />' />
+
+{/* Path element */}
+<Svg width={200} height={100} viewBox="0 0 200 100"
+  content='<path d="M10 80 Q 95 10 180 80" fill="none" stroke="#ef4444" stroke-width="3" />' />
+```
+
+SVG content is rendered directly into the PDF using native PDF drawing operations, not rasterized. This produces crisp vector output at any zoom level.
 
 ---
 

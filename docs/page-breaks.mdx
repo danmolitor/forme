@@ -64,6 +64,24 @@ Set `wrap={false}` on a View to prevent it from splitting across pages. If the e
 
 This is useful for cards, summary blocks, and other elements where splitting would look wrong.
 
+## Widow and orphan control
+
+When a text paragraph splits across pages, Forme ensures a minimum number of lines appear on each side of the break. This prevents a single isolated line at the bottom of a page (orphan) or at the top of the next page (widow).
+
+By default, at least 2 lines are kept on each side. You can adjust this per element:
+
+```tsx
+{/* Default: at least 2 lines on each side of a break */}
+<Text>Long paragraph that might split across pages...</Text>
+
+{/* Stricter: at least 3 lines on each side */}
+<Text style={{ minWidowLines: 3, minOrphanLines: 3 }}>
+  Important text where more context is needed on each page...
+</Text>
+```
+
+If only 1 line would fit at the bottom of a page (and `minOrphanLines` is 2), the entire paragraph moves to the next page. If a split would leave only 1 line at the top of the next page (and `minWidowLines` is 2), the split point moves up to keep at least 2 lines on the next page.
+
 ## Fixed headers and footers
 
 Use `<Fixed>` to repeat content on every page. Fixed elements reduce the available content area.

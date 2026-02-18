@@ -178,7 +178,7 @@ Forme is not a drop-in replacement for every Puppeteer use case. Keep Puppeteer 
 
 2. **You need full CSS support.** Forme supports a subset of CSS (flexbox, basic typography, borders, backgrounds). If your templates rely on CSS Grid, CSS animations, `position: absolute`, or other advanced CSS features, Puppeteer handles all of them.
 
-3. **You need SVG rendering.** Forme does not render SVG. If your PDFs contain charts from D3, Chart.js, or other SVG-based libraries, Puppeteer renders them natively.
+3. **You need complex SVG rendering.** Forme supports basic SVG elements (`rect`, `circle`, `ellipse`, `line`, `polyline`, `polygon`, `path`), but not advanced SVG features like filters, gradients, masks, or CSS styling within SVG. If your PDFs contain complex charts from D3 or Chart.js, Puppeteer may still handle more of the SVG spec.
 
 4. **You need JavaScript execution.** If your template includes client-side JavaScript that modifies the DOM before rendering (e.g., charting libraries, dynamic calculations), Puppeteer executes it. Forme templates are static at render time.
 

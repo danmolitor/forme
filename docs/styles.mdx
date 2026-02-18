@@ -30,6 +30,7 @@ Every Forme component accepts a `style` prop with CSS-like properties. Styles ar
 | `justifyContent` | `"flex-start"` \| `"flex-end"` \| `"center"` \| `"space-between"` \| `"space-around"` \| `"space-evenly"` | `"flex-start"` | Alignment along the main axis |
 | `alignItems` | `"flex-start"` \| `"flex-end"` \| `"center"` \| `"stretch"` \| `"baseline"` | `"stretch"` | Alignment along the cross axis |
 | `alignSelf` | `"flex-start"` \| `"flex-end"` \| `"center"` \| `"stretch"` \| `"baseline"` | - | Override parent's `alignItems` for this element |
+| `alignContent` | `"flex-start"` \| `"flex-end"` \| `"center"` \| `"space-between"` \| `"space-around"` \| `"space-evenly"` \| `"stretch"` | `"flex-start"` | Distribution of wrapped lines along the cross axis. Only applies when `flexWrap` is `"wrap"` and the container has a fixed `height`. |
 | `gap` | `number` | `0` | Space between children (both row and column gap) |
 | `rowGap` | `number` | - | Space between rows (overrides `gap` for row direction) |
 | `columnGap` | `number` | - | Space between columns (overrides `gap` for column direction) |
@@ -53,6 +54,13 @@ Every Forme component accepts a `style` prop with CSS-like properties. Styles ar
   <View style={{ flexGrow: 1 }}><Text>Column 1</Text></View>
   <View style={{ flexGrow: 1 }}><Text>Column 2</Text></View>
   <View style={{ flexGrow: 1 }}><Text>Column 3</Text></View>
+</View>
+
+{/* Wrapped items with centered lines */}
+<View style={{ flexDirection: 'row', flexWrap: 'wrap', alignContent: 'center', height: 200, gap: 8 }}>
+  <View style={{ width: 80, height: 40, backgroundColor: '#dbeafe' }}><Text>A</Text></View>
+  <View style={{ width: 80, height: 40, backgroundColor: '#dbeafe' }}><Text>B</Text></View>
+  <View style={{ width: 80, height: 40, backgroundColor: '#dbeafe' }}><Text>C</Text></View>
 </View>
 ```
 
@@ -148,8 +156,8 @@ Margins in Forme are always additive (like flexbox gap). There is no CSS margin 
 |----------|------|---------|-------------|
 | `wrap` | `boolean` | `true` | Whether this element can break across pages. Set `false` to keep it on one page. |
 | `breakBefore` | `boolean` | `false` | Force a page break before this element |
-| `minWidowLines` | `number` | - | Minimum number of lines to keep at the top of a new page after a text break |
-| `minOrphanLines` | `number` | - | Minimum number of lines to keep at the bottom of a page before a text break |
+| `minWidowLines` | `number` | `2` | Minimum number of lines to keep at the top of a new page after a text break |
+| `minOrphanLines` | `number` | `2` | Minimum number of lines to keep at the bottom of a page before a text break |
 
 ### Page behavior examples
 
@@ -164,6 +172,11 @@ Margins in Forme are always additive (like flexbox gap). There is no CSS margin 
 <View style={{ breakBefore: true }}>
   <Text style={{ fontSize: 20, fontWeight: 700 }}>Chapter 2</Text>
 </View>
+
+{/* Keep at least 3 lines together at top and bottom of page breaks */}
+<Text style={{ minWidowLines: 3, minOrphanLines: 3 }}>
+  Long paragraph text that might split across pages...
+</Text>
 ```
 
 ## Style Inheritance

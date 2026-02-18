@@ -18,7 +18,7 @@ Forme and react-pdf share a similar component API, so migration is mostly renami
 | `<Link>` | Not yet supported | Use plain Text for now |
 | `<Note>` | Not yet supported | - |
 | `<Canvas>` | Not yet supported | - |
-| `<SVG>` | Not yet supported | - |
+| `<SVG>` | `<Svg>` | SVG content passed as a string via the `content` prop. Supports basic shapes and paths. |
 
 ## Import changes
 
@@ -148,17 +148,15 @@ Both approaches produce the same result. Forme uses template placeholders instea
 
 Be honest about these gaps before migrating:
 
-1. **SVG rendering.** react-pdf has full SVG support. Forme does not render SVG elements. Workaround: convert SVGs to PNG/JPEG before embedding.
+1. **Links.** react-pdf supports clickable links with `<Link>`. Forme does not support PDF link annotations yet.
 
-2. **Links.** react-pdf supports clickable links with `<Link>`. Forme does not support PDF link annotations yet.
+2. **Absolute positioning.** react-pdf supports `position: "absolute"`. Forme only supports fixed headers/footers via `<Fixed>`, not arbitrary absolute positioning.
 
-3. **Absolute positioning.** react-pdf supports `position: "absolute"`. Forme only supports fixed headers/footers via `<Fixed>`, not arbitrary absolute positioning.
+3. **Bookmarks/outlines.** react-pdf can generate PDF bookmarks. Forme does not support this yet.
 
-4. **Bookmarks/outlines.** react-pdf can generate PDF bookmarks. Forme does not support this yet.
+4. **Text run styling.** react-pdf supports inline styling within text (e.g., bold a single word). Forme treats each `<Text>` element as a single styled run.
 
-5. **Text run styling.** react-pdf supports inline styling within text (e.g., bold a single word). Forme treats each `<Text>` element as a single styled run.
-
-6. **Emoji rendering.** react-pdf handles emoji via system fonts. Forme does not have special emoji support.
+5. **Emoji rendering.** react-pdf handles emoji via system fonts. Forme does not have special emoji support.
 
 ## Migration checklist
 
@@ -167,6 +165,6 @@ Be honest about these gaps before migrating:
 3. Replace `fixed` prop + absolute positioning with `<Fixed position="header">` or `<Fixed position="footer">`
 4. Replace render callbacks for page numbers with `{{pageNumber}}` / `{{totalPages}}` placeholders
 5. Convert View-based table layouts to `<Table>`, `<Row>`, `<Cell>` components
-6. Replace any SVG usage with rasterized images
+6. Convert `<SVG>` elements to `<Svg>` with SVG markup in the `content` prop
 7. Remove any `<Link>` components (or replace with styled Text for now)
 8. Test page break behavior, especially for tables and flex layouts

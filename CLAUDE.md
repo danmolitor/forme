@@ -24,6 +24,7 @@ forme/
 │   │   ├── text/mod.rs     # Line breaking + text measurement
 │   │   ├── font/mod.rs     # Font registry + custom font subsetting
 │   │   ├── image_loader/   # JPEG/PNG decoding from file paths and data URIs
+│   │   ├── svg/mod.rs      # SVG parsing and rendering (rect, circle, line, path)
 │   │   └── pdf/mod.rs      # PDF 1.7 serializer (from scratch)
 │   └── tests/
 │       └── integration.rs  # Full pipeline tests
@@ -93,15 +94,27 @@ Layout: origin at top-left, Y increases downward (like web).
 PDF: origin at bottom-left, Y increases upward.
 Transform in pdf serializer: `pdf_y = page_height - layout_y - element_height`
 
+## Layout Features
+
+### Widow/Orphan Control
+`layout_text` and `layout_text_runs` call `page_break::decide_break()` before placing lines. This prevents a single orphan line at the bottom of a page or a single widow line at the top of the next page. Configurable via `minWidowLines` and `minOrphanLines` style properties (default: 2 each). The decision logic returns `Place` (all lines fit), `MoveToNextPage` (move entire paragraph), or `Split { items_on_current_page }` (break at the right point).
+
+### Flex Wrap + align-content
+`layout_flex_row` supports `flex-wrap: wrap` with cross-axis distribution via `align-content`. Supported values: `flex-start` (default), `flex-end`, `center`, `space-between`, `space-around`, `space-evenly`, `stretch`. Only applies when the container has a fixed height (otherwise there's no slack to distribute). Post-layout adjustment shifts wrap lines vertically based on the chosen alignment.
+
+### Table Cell Overflow
+`layout_table_row` uses cursor cloning to preserve cell content that exceeds page height. Instead of discarding overflow (the old `&mut Vec::new()` approach), each cell gets a cloned cursor and a `cell_pages` vec. If cell content triggers page breaks, the overflow pages are collected and appended to the real pages list. Content is preserved rather than silently discarded.
+
+### Fixed Height Containers
+`SizeConstraint::Fixed(h)` is respected in both `layout_view` (for the container's own Rect height) and `measure_node_height` (so parent containers measure children correctly). When a fixed height is set, it takes precedence over computed children height.
+
 ## Known Issues & Limitations (Current State)
 
-### NICE TO HAVE (LATER)
-
-7. No Knuth-Plass line breaking (using greedy algorithm — fine for documents).
-8. No hyphenation.
-9. No BiDi text support (Arabic, Hebrew).
-10. No CSS Grid.
-11. No PDF/A compliance.
+1. No Knuth-Plass line breaking (using greedy algorithm — fine for documents).
+2. No hyphenation.
+3. No BiDi text support (Arabic, Hebrew).
+4. No CSS Grid.
+5. No PDF/A compliance.
 
 ## How the Layout Engine Works (for making changes)
 
@@ -114,6 +127,7 @@ fn layout_node(&self, node, cursor, pages, x, available_width, parent_style) {
         View => layout_view(node, ...),                     // Flex container
         Table { columns } => layout_table(node, ...),       // Row-by-row with headers
         Image { .. } => layout_image(node, ...),            // Block placement
+        Svg { .. } => layout_svg(node, ...),                // SVG rendering
         PageBreak => { pages.push(cursor.finalize()); *cursor = cursor.new_page(); }
         Fixed { position } => { store in cursor for repetition }
     }

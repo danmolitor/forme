@@ -51,6 +51,10 @@ Live preview with debug overlays. Click any element to inspect its computed styl
 - **Click-to-inspect**: Select any element to see its box model, computed styles, and position.
 - **Debug overlays**: Toggle bounding boxes, margins, and page break points.
 - **Fast**: Rust engine compiled to WASM. Renders in milliseconds, not seconds.
+- **Flex wrap + align-content**: Flex containers wrap across pages correctly. `align-content` distributes wrapped lines (`center`, `space-between`, `space-around`, `space-evenly`, `flex-end`, `stretch`).
+- **Widow/orphan control**: Text paragraphs never leave a single orphan line at the bottom of a page or a single widow line at the top. Configurable via `minWidowLines` and `minOrphanLines`.
+- **Table overflow**: Table cells with content taller than a page are preserved across page breaks, not silently clipped.
+- **SVG**: Inline SVG rendering with support for `rect`, `circle`, `ellipse`, `line`, `polyline`, `polygon`, and `path` elements.
 - **Custom fonts**: TrueType font embedding with automatic subsetting.
 - **Images**: JPEG and PNG with transparency support.
 - **Dynamic page numbers**: `{{pageNumber}}` and `{{totalPages}}` in any text element.
@@ -67,6 +71,7 @@ Live preview with debug overlays. Click any element to inspect its computed styl
 | `<Table>` | Table with column definitions. |
 | `<Row>` | Table row. |
 | `<Cell>` | Table cell. |
+| `<Svg>` | Inline SVG graphics. |
 | `<Fixed>` | Repeating header or footer. |
 | `<PageBreak>` | Force a page break. |
 
@@ -74,7 +79,7 @@ Live preview with debug overlays. Click any element to inspect its computed styl
 
 | | Forme | react-pdf | Puppeteer | HTML-to-PDF APIs |
 |---|---|---|---|---|
-| Page breaks | Page-native | Broken for 7 years | CSS `page-break` (fragile) | Depends on engine |
+| Page breaks | Page-native (widow/orphan aware) | Broken for 7 years | CSS `page-break` (fragile) | Depends on engine |
 | Live preview | Built-in dev server | Render to file | Run script, open file | Upload, wait, download |
 | Element inspector | Click-to-inspect | No | No | No |
 | Render speed | ~10ms (WASM) | ~100-500ms | ~1-5s (Chrome boot) | Network round trip |
