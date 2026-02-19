@@ -10,9 +10,12 @@
     "build": "tsc && rm -rf dist/preview && cp -r src/preview dist/preview",
     "test": "vitest run"
   },
+  "files": [
+    "dist"
+  ],
   "dependencies": {
-    "@formepdf/core": "file:../core",
-    "@formepdf/react": "file:../react",
+    "@formepdf/core": "0.1.0",
+    "@formepdf/react": "0.1.0",
     "esbuild": "^0.24.0",
     "chokidar": "^4.0.0",
     "ws": "^8.18.0",
@@ -25,5 +28,10 @@
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/formepdf/forme",
+    "directory": "packages/cli"
+  }
 }

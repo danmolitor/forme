@@ -18,7 +18,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@formepdf/react": "file:../react"
+    "@formepdf/react": "0.1.0"
   },
   "peerDependencies": {
     "react": "^18 || ^19"
@@ -34,5 +34,10 @@
     "dist/",
     "pkg/"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/formepdf/forme",
+    "directory": "packages/core"
+  }
 }
