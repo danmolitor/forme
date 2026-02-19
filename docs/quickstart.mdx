@@ -8,7 +8,7 @@ Forme is a PDF generation library for React and TypeScript. You write JSX compon
 ## 1. Install
 
 ```bash
-npm install forme @forme/react @forme/core
+npm install forme @formepdf/react @formepdf/core
 ```
 
 ## 2. Create a file
@@ -16,7 +16,7 @@ npm install forme @forme/react @forme/core
 Create `invoice.tsx`:
 
 ```tsx
-import { Document, Page, View, Text } from '@forme/react';
+import { Document, Page, View, Text } from '@formepdf/react';
 
 export default (
   <Document title="My First Invoice">
@@ -84,8 +84,8 @@ This writes a valid PDF file. Open it in any PDF viewer.
 For programmatic use, call `renderDocument()` directly:
 
 ```tsx
-import { Document, Page, Text } from '@forme/react';
-import { renderDocument } from '@forme/core';
+import { Document, Page, Text } from '@formepdf/react';
+import { renderDocument } from '@formepdf/core';
 
 const pdfBytes = await renderDocument(
   <Document>
@@ -104,7 +104,7 @@ const pdfBytes = await renderDocument(
 Export a function instead of a static element:
 
 ```tsx
-import { Document, Page, View, Text } from '@forme/react';
+import { Document, Page, View, Text } from '@formepdf/react';
 
 export default function Invoice(data: any) {
   return (

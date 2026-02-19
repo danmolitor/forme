@@ -3,7 +3,7 @@ import { resolve, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { isValidElement, type ReactElement } from 'react';
 import { bundleFile, BUNDLE_DIR } from './bundle.js';
-import { renderDocumentWithLayout } from '@forme/core';
+import { renderDocumentWithLayout } from '@formepdf/core';
 
 export interface BuildOptions {
   output: string;
@@ -17,7 +17,7 @@ export async function buildPdf(inputPath: string, options: BuildOptions): Promis
   try {
     const code = await bundleFile(absoluteInput);
 
-    // Write temp file inside CLI package dir so Node resolves @forme/* deps
+    // Write temp file inside CLI package dir so Node resolves @formepdf/* deps
     const tmpFile = join(BUNDLE_DIR, `.forme-build-${Date.now()}.mjs`);
     await writeFile(tmpFile, code);
 

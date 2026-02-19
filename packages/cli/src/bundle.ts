@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 /// The temp directory for bundled output — placed inside CLI package
-/// so that Node's module resolution finds @forme/react, @forme/core, react.
+/// so that Node's module resolution finds @formepdf/react, @formepdf/core, react.
 export const BUNDLE_DIR = join(__dirname, '..');
 
 /// esbuild plugin that intercepts react/jsx-dev-runtime to capture source
@@ -58,7 +58,7 @@ export async function bundleFile(filePath: string): Promise<string> {
       jsx: 'automatic',
       jsxDev: true,
       target: 'node20',
-      external: ['react', '@forme/react', '@forme/core'],
+      external: ['react', '@formepdf/react', '@formepdf/core'],
       plugins: [formeJsxSourcePlugin],
     });
 

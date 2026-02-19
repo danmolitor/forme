@@ -1,4 +1,4 @@
-import { Document, Page, View, Text, Svg, Table, Row, Cell, Fixed, PageBreak, StyleSheet } from '@forme/react';
+import { Document, Page, View, Text, Svg, Table, Row, Cell, Fixed, PageBreak, StyleSheet } from '@formepdf/react';
 
 const styles = StyleSheet.create({
   sectionTitle: { fontSize: 20, fontWeight: 700, color: '#0f172a', marginBottom: 12 },

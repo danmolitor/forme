@@ -1,4 +1,4 @@
-import { Document, Page, View, Text, Table, Row, Cell, Fixed } from '@forme/react';
+import { Document, Page, View, Text, Table, Row, Cell, Fixed } from '@formepdf/react';
 
 export default function Invoice(data: any) {
   const items = data.items || [];

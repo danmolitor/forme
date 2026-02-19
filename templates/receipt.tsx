@@ -1,4 +1,4 @@
-import { Document, Page, View, Text } from '@forme/react';
+import { Document, Page, View, Text } from '@formepdf/react';
 
 export default function Receipt(data: any) {
   const items = data.items || [];

@@ -1,4 +1,4 @@
-import { Document, Page, View, Text, Svg, Fixed } from '@forme/react';
+import { Document, Page, View, Text, Svg, Fixed } from '@formepdf/react';
 
 function formatPrice(price: number): string {
   return `$${price.toFixed(2)}`;

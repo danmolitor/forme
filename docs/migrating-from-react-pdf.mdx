@@ -29,13 +29,13 @@ import { Document, Page, View, Text, Image, StyleSheet } from '@react-pdf/render
 
 **Forme:**
 ```tsx
-import { Document, Page, View, Text, Image } from '@forme/react';
+import { Document, Page, View, Text, Image } from '@formepdf/react';
 ```
 
 Forme also has `StyleSheet.create()` for familiarity:
 
 ```tsx
-import { StyleSheet } from '@forme/react';
+import { StyleSheet } from '@formepdf/react';
 
 const styles = StyleSheet.create({
   heading: { fontSize: 24, fontWeight: 700 },
@@ -67,7 +67,7 @@ const buffer = await renderToBuffer(<MyDocument />);
 
 **Forme:**
 ```tsx
-import { renderDocument } from '@forme/core';
+import { renderDocument } from '@formepdf/core';
 const pdfBytes = await renderDocument(<MyDocument />);
 ```
 
@@ -165,8 +165,8 @@ Be honest about these gaps before migrating:
 
 ## Migration checklist
 
-1. Replace `@react-pdf/renderer` imports with `@forme/react` and `@forme/core`
-2. Update `StyleSheet` import from `@react-pdf/renderer` to `@forme/react` (works the same way)
+1. Replace `@react-pdf/renderer` imports with `@formepdf/react` and `@formepdf/core`
+2. Update `StyleSheet` import from `@react-pdf/renderer` to `@formepdf/react` (works the same way)
 3. Replace `fixed` prop + absolute positioning with `<Fixed position="header">` or `<Fixed position="footer">`
 4. Replace render callbacks for page numbers with `{{pageNumber}}` / `{{totalPages}}` placeholders
 5. Convert View-based table layouts to `<Table>`, `<Row>`, `<Cell>` components

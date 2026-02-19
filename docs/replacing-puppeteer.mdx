@@ -94,8 +94,8 @@ This approach has several costs:
 ## The Forme equivalent
 
 ```tsx
-import { Document, Page, View, Text, Table, Row, Cell } from '@forme/react';
-import { renderDocument } from '@forme/core';
+import { Document, Page, View, Text, Table, Row, Cell } from '@formepdf/react';
+import { renderDocument } from '@formepdf/core';
 
 app.post('/generate-pdf', async (req, res) => {
   const pdf = await renderDocument(
@@ -145,7 +145,7 @@ For serverless environments (AWS Lambda, Vercel, Cloudflare Workers), the differ
 ### 1. Install Forme
 
 ```bash
-npm install @forme/react @forme/core
+npm install @formepdf/react @formepdf/core
 ```
 
 ### 2. Convert your HTML template to JSX

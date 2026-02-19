@@ -11,12 +11,12 @@ Every PDF tool makes you choose: fight with CSS page breaks (react-pdf, Puppetee
 ## Quick Start
 
 ```bash
-npm install forme @forme/react @forme/core
+npm install @formepdf/cli @formepdf/react @formepdf/core
 ```
 
 ```tsx
-import { Document, Page, View, Text } from '@forme/react';
-import { renderDocument } from '@forme/core';
+import { Document, Page, View, Text } from '@formepdf/react';
+import { renderDocument } from '@formepdf/core';
 
 const pdf = await renderDocument(
   <Document>

@@ -21,7 +21,7 @@ D3 can render to a virtual DOM using `d3-node` or `jsdom` on the server side. He
 ```tsx
 import { JSDOM } from 'jsdom';
 import * as d3 from 'd3';
-import { Document, Page, Svg } from '@forme/react';
+import { Document, Page, Svg } from '@formepdf/react';
 
 function renderBarChart(data: { label: string; value: number }[]): string {
   const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>');

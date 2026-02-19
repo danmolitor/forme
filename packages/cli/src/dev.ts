@@ -7,7 +7,7 @@ import { WebSocketServer, type WebSocket } from 'ws';
 import open from 'open';
 import { isValidElement, type ReactElement } from 'react';
 import { bundleFile, BUNDLE_DIR } from './bundle.js';
-import { renderPdfWithLayout, type LayoutInfo } from '@forme/core';
+import { renderPdfWithLayout, type LayoutInfo } from '@formepdf/core';
 
 export interface DevOptions {
   port: number;
@@ -155,7 +155,7 @@ export function startDevServer(inputPath: string, options: DevOptions): void {
       // Skip if a newer build started
       if (buildId !== buildCounter) return;
 
-      // Write temp file inside CLI package dir so Node resolves @forme/* deps
+      // Write temp file inside CLI package dir so Node resolves @formepdf/* deps
       const tmpFile = join(BUNDLE_DIR, `.forme-dev-${Date.now()}.mjs`);
       await writeFile(tmpFile, code);
 
@@ -170,7 +170,7 @@ export function startDevServer(inputPath: string, options: DevOptions): void {
       const element = await resolveElement(mod, dataPath, overrideData);
 
       // Serialize JSX to document JSON, apply overrides, then render
-      const { serialize } = await import('@forme/react');
+      const { serialize } = await import('@formepdf/react');
       const doc = serialize(element) as unknown as Record<string, unknown>;
 
       // Apply page size override
