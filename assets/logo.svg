@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Page shape with F cut out -->
+  <rect x="8" y="4" width="48" height="56" rx="4" fill="#0f172a"/>
+  <rect x="18" y="16" width="28" height="4" rx="1" fill="#ffffff"/>
+  <rect x="18" y="26" width="20" height="4" rx="1" fill="#ffffff"/>
+  <rect x="18" y="36" width="4" height="16" rx="1" fill="#ffffff"/>
+</svg>

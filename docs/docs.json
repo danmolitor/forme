@@ -3,8 +3,8 @@
   "name": "Forme",
   "theme": "mint",
   "logo": {
-    "light": "/favicon.svg",
-    "dark": "/favicon.svg"
+    "light": "/wordmark.svg",
+    "dark": "/wordmark-white.svg"
   },
   "favicon": "/favicon.ico",
   "colors": {
