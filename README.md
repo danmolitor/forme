@@ -2,7 +2,7 @@
 
 PDF generation with JSX. Page breaks that actually work.
 
-[screenshot/GIF placeholder, founder will add this]
+![Forme dev server](./assets/dev-server.gif)
 
 ## Why
 
@@ -41,7 +41,7 @@ npx forme dev invoice.tsx --data sample.json
 
 Live preview with debug overlays. Click any element to inspect its computed styles.
 
-![Forme dev server](./assets/dev-server.gif)
+![Forme dev server](./assets/dev-server-screenshot.png)
 
 ## Features
 
