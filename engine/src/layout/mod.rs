@@ -790,13 +790,18 @@ impl LayoutEngine {
         cursor: &mut PageCursor,
         pages: &mut Vec<LayoutPage>,
         node_x: f64,
-        _outer_width: f64,
+        outer_width: f64,
         inner_width: f64,
         font_context: &FontContext,
     ) {
         let padding = &style.padding;
         let border = &style.border_width;
         let margin = &style.margin;
+
+        // Save state before child layout for page-break detection
+        let initial_page_count = pages.len();
+        let snapshot = cursor.elements.len();
+        let rect_start_y = cursor.content_y + cursor.y + margin.top;
 
         cursor.y += margin.top + padding.top + border.top;
 
@@ -828,6 +833,120 @@ impl LayoutEngine {
             Some(style),
             font_context,
         );
+
+        // Check if this view has any visual styling worth wrapping
+        let has_visual = style.background_color.is_some()
+            || style.border_width.top > 0.0
+            || style.border_width.right > 0.0
+            || style.border_width.bottom > 0.0
+            || style.border_width.left > 0.0;
+
+        if !has_visual {
+            // No visual styling — skip wrapping (preserves current behavior)
+            cursor.y += padding.bottom + border.bottom + margin.bottom;
+            return;
+        }
+
+        let draw_cmd = DrawCommand::Rect {
+            background: style.background_color,
+            border_width: style.border_width,
+            border_color: style.border_color,
+            border_radius: style.border_radius,
+        };
+
+        if pages.len() == initial_page_count {
+            // No page breaks: simple wrap (same as non-breakable path)
+            let child_elements: Vec<LayoutElement> =
+                cursor.elements.drain(snapshot..).collect();
+            let rect_height =
+                cursor.content_y + cursor.y + padding.bottom + border.bottom - rect_start_y;
+            cursor.elements.push(LayoutElement {
+                x: node_x,
+                y: rect_start_y,
+                width: outer_width,
+                height: rect_height,
+                draw: draw_cmd,
+                children: child_elements,
+                node_type: Some(node_kind_name(&node.kind).to_string()),
+                resolved_style: Some(style.clone()),
+                source_location: node.source_location.clone(),
+                href: node.href.clone(),
+                bookmark: node.bookmark.clone(),
+            });
+        } else {
+            // Page breaks occurred: wrap elements on each page with clone semantics
+
+            // A. First page — wrap elements from snapshot onward
+            let page = &mut pages[initial_page_count];
+            let page_content_bottom =
+                page.config.margin.top + (page.height - page.config.margin.vertical());
+            let our_elements: Vec<LayoutElement> =
+                page.elements.drain(snapshot..).collect();
+            if !our_elements.is_empty() {
+                let rect_height = page_content_bottom - rect_start_y;
+                page.elements.push(LayoutElement {
+                    x: node_x,
+                    y: rect_start_y,
+                    width: outer_width,
+                    height: rect_height,
+                    draw: draw_cmd.clone(),
+                    children: our_elements,
+                    node_type: Some(node_kind_name(&node.kind).to_string()),
+                    resolved_style: Some(style.clone()),
+                    source_location: node.source_location.clone(),
+                    href: node.href.clone(),
+                    bookmark: node.bookmark.clone(),
+                });
+            }
+
+            // B. Intermediate pages — wrap ALL elements
+            for page in &mut pages[initial_page_count + 1..] {
+                let header_h: f64 = page.fixed_header.iter().map(|(_, h)| *h).sum();
+                let content_top = page.config.margin.top + header_h;
+                let content_bottom =
+                    page.config.margin.top + (page.height - page.config.margin.vertical());
+                let all_elements: Vec<LayoutElement> = page.elements.drain(..).collect();
+                if !all_elements.is_empty() {
+                    page.elements.push(LayoutElement {
+                        x: node_x,
+                        y: content_top,
+                        width: outer_width,
+                        height: content_bottom - content_top,
+                        draw: draw_cmd.clone(),
+                        children: all_elements,
+                        node_type: Some(node_kind_name(&node.kind).to_string()),
+                        resolved_style: Some(style.clone()),
+                        source_location: node.source_location.clone(),
+                        href: None,
+                        bookmark: None,
+                    });
+                }
+            }
+
+            // C. Current page (cursor.elements) — wrap ALL elements
+            let all_elements: Vec<LayoutElement> = cursor.elements.drain(..).collect();
+            if !all_elements.is_empty() {
+                let header_h: f64 =
+                    cursor.fixed_header.iter().map(|(_, h)| *h).sum();
+                let content_top = cursor.content_y + header_h;
+                let rect_height = cursor.content_y + cursor.y + padding.bottom
+                    + border.bottom
+                    - content_top;
+                cursor.elements.push(LayoutElement {
+                    x: node_x,
+                    y: content_top,
+                    width: outer_width,
+                    height: rect_height,
+                    draw: draw_cmd,
+                    children: all_elements,
+                    node_type: Some(node_kind_name(&node.kind).to_string()),
+                    resolved_style: Some(style.clone()),
+                    source_location: node.source_location.clone(),
+                    href: None,
+                    bookmark: None,
+                });
+            }
+        }
 
         cursor.y += padding.bottom + border.bottom + margin.bottom;
     }

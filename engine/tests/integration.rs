@@ -2952,3 +2952,145 @@ fn test_internal_link_json_deserialization() {
         "JSON internal link should produce /GoTo"
     );
 }
+
+// ─── Breakable View Background/Border Preservation ──────────────
+
+/// Helper: count top-level Rect elements on a page
+fn count_top_level_rects(page: &forme::layout::LayoutPage) -> usize {
+    page.elements
+        .iter()
+        .filter(|e| matches!(e.draw, forme::layout::DrawCommand::Rect { .. }))
+        .count()
+}
+
+/// Helper: check if a page has a Rect element with a background color
+fn has_rect_with_background(page: &forme::layout::LayoutPage) -> bool {
+    page.elements.iter().any(|e| {
+        matches!(
+            e.draw,
+            forme::layout::DrawCommand::Rect {
+                background: Some(_),
+                ..
+            }
+        )
+    })
+}
+
+#[test]
+fn test_breakable_view_with_background_splits_across_pages() {
+    // Create a view with a background that overflows onto multiple pages.
+    // Use a short page to force the split with less content.
+    let mut children = Vec::new();
+    for i in 0..60 {
+        children.push(make_text(&format!("Line {}", i), 14.0));
+    }
+    let view = make_styled_view(
+        Style {
+            background_color: Some(Color::rgb(0.9, 0.9, 1.0)),
+            ..Default::default()
+        },
+        children,
+    );
+
+    let doc = Document {
+        children: vec![view],
+        metadata: Metadata::default(),
+        default_page: PageConfig {
+            size: PageSize::Custom {
+                width: 400.0,
+                height: 300.0,
+            },
+            margin: Edges::uniform(20.0),
+            wrap: true,
+        },
+    };
+
+    let pages = layout_doc(&doc);
+    assert!(
+        pages.len() >= 2,
+        "View should overflow onto at least 2 pages, got {}",
+        pages.len()
+    );
+
+    // Each page should have a Rect wrapper with the background color
+    for (i, page) in pages.iter().enumerate() {
+        assert!(
+            has_rect_with_background(page),
+            "Page {} should have a Rect element with background color",
+            i
+        );
+    }
+
+    // Should also produce a valid PDF
+    let bytes = render_to_pdf(&doc);
+    assert_valid_pdf(&bytes);
+}
+
+#[test]
+fn test_breakable_view_without_visual_stays_unwrapped() {
+    // A plain view (no background, no border) should NOT get a Rect wrapper
+    let mut children = Vec::new();
+    for i in 0..60 {
+        children.push(make_text(&format!("Line {}", i), 14.0));
+    }
+    let view = make_view(children);
+
+    let doc = Document {
+        children: vec![view],
+        metadata: Metadata::default(),
+        default_page: PageConfig {
+            size: PageSize::Custom {
+                width: 400.0,
+                height: 300.0,
+            },
+            margin: Edges::uniform(20.0),
+            wrap: true,
+        },
+    };
+
+    let pages = layout_doc(&doc);
+    assert!(pages.len() >= 2, "Should overflow onto multiple pages");
+
+    // No page should have top-level Rect elements (plain view = no wrapper)
+    for (i, page) in pages.iter().enumerate() {
+        assert_eq!(
+            count_top_level_rects(page),
+            0,
+            "Page {} should have no Rect wrapper for a plain view",
+            i
+        );
+    }
+}
+
+#[test]
+fn test_single_page_breakable_view_with_background_gets_wrapped() {
+    // A breakable view with background that fits on one page should still get a Rect wrapper
+    let view = make_styled_view(
+        Style {
+            background_color: Some(Color::rgb(1.0, 0.9, 0.9)),
+            padding: Some(Edges::uniform(10.0)),
+            ..Default::default()
+        },
+        vec![make_text("Short content", 12.0)],
+    );
+
+    let doc = default_doc(vec![view]);
+    let pages = layout_doc(&doc);
+    assert_eq!(pages.len(), 1, "Should fit on one page");
+
+    assert!(
+        has_rect_with_background(&pages[0]),
+        "Single-page breakable view with background should get a Rect wrapper"
+    );
+
+    // Verify the Rect has children (the text content)
+    let rect = pages[0]
+        .elements
+        .iter()
+        .find(|e| matches!(e.draw, forme::layout::DrawCommand::Rect { background: Some(_), .. }))
+        .expect("Should find Rect element");
+    assert!(
+        !rect.children.is_empty(),
+        "Rect wrapper should contain child elements"
+    );
+}
