@@ -4,6 +4,9 @@ export { Document, Page, View, Text, Image, Table, Row, Cell, Fixed, Svg, PageBr
 // Serialization
 export { serialize, mapStyle, mapDimension, parseColor, expandEdges, expandCorners } from './serialize.js';
 
+// StyleSheet
+export { StyleSheet } from './stylesheet.js';
+
 // Render functions
 export { render, renderToObject } from './render.js';
 

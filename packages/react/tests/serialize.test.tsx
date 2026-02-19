@@ -18,6 +18,7 @@ import {
   parseColor,
   expandEdges,
   expandCorners,
+  StyleSheet,
 } from '../src/index';
 
 // ─── Component → JSON structure ─────────────────────────────────────
@@ -803,5 +804,18 @@ describe('Full round-trip', () => {
     const parsed = JSON.parse(json);
     expect(parsed.children[0].style.flexDirection).toBe('Row');
     expect(parsed.children[0].style.padding).toEqual({ top: 10, right: 10, bottom: 10, left: 10 });
+  });
+});
+
+// ─── StyleSheet ─────────────────────────────────────────────────────
+
+describe('StyleSheet', () => {
+  it('StyleSheet.create returns the same object', () => {
+    const styles = StyleSheet.create({
+      heading: { fontSize: 24, fontWeight: 700 },
+      body: { fontSize: 10 },
+    });
+    expect(styles.heading.fontSize).toBe(24);
+    expect(styles.body.fontSize).toBe(10);
   });
 });
