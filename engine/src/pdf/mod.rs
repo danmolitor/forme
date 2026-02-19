@@ -560,7 +560,8 @@ impl PdfWriter {
                                 );
                             }
                             TextDecoration::LineThrough => {
-                                let first_size = line.glyphs.first().map(|g| g.font_size).unwrap_or(12.0);
+                                let first_size =
+                                    line.glyphs.first().map(|g| g.font_size).unwrap_or(12.0);
                                 let strikethrough_y = pdf_y + first_size * 0.3;
                                 let _ = write!(
                                     stream,
@@ -587,7 +588,8 @@ impl PdfWriter {
                             );
                         }
                         if matches!(text_decoration, TextDecoration::LineThrough) {
-                            let first_size = line.glyphs.first().map(|g| g.font_size).unwrap_or(12.0);
+                            let first_size =
+                                line.glyphs.first().map(|g| g.font_size).unwrap_or(12.0);
                             let strikethrough_y = pdf_y + first_size * 0.3;
                             let _ = write!(
                                 stream,

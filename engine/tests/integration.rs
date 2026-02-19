@@ -2635,10 +2635,7 @@ fn test_table_cell_overflow_preserves_content() {
         kind: NodeKind::Table { columns: vec![] },
         style: Style::default(),
         children: vec![
-            make_table_row(
-                true,
-                vec![make_table_cell(vec![make_text("Header", 10.0)])],
-            ),
+            make_table_row(true, vec![make_table_cell(vec![make_text("Header", 10.0)])]),
             make_table_row(
                 false,
                 vec![make_table_cell(vec![make_text(&very_long_text, 10.0)])],
@@ -3087,7 +3084,15 @@ fn test_single_page_breakable_view_with_background_gets_wrapped() {
     let rect = pages[0]
         .elements
         .iter()
-        .find(|e| matches!(e.draw, forme::layout::DrawCommand::Rect { background: Some(_), .. }))
+        .find(|e| {
+            matches!(
+                e.draw,
+                forme::layout::DrawCommand::Rect {
+                    background: Some(_),
+                    ..
+                }
+            )
+        })
         .expect("Should find Rect element");
     assert!(
         !rect.children.is_empty(),

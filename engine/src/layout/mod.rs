@@ -856,8 +856,7 @@ impl LayoutEngine {
 
         if pages.len() == initial_page_count {
             // No page breaks: simple wrap (same as non-breakable path)
-            let child_elements: Vec<LayoutElement> =
-                cursor.elements.drain(snapshot..).collect();
+            let child_elements: Vec<LayoutElement> = cursor.elements.drain(snapshot..).collect();
             let rect_height =
                 cursor.content_y + cursor.y + padding.bottom + border.bottom - rect_start_y;
             cursor.elements.push(LayoutElement {
@@ -880,8 +879,7 @@ impl LayoutEngine {
             let page = &mut pages[initial_page_count];
             let page_content_bottom =
                 page.config.margin.top + (page.height - page.config.margin.vertical());
-            let our_elements: Vec<LayoutElement> =
-                page.elements.drain(snapshot..).collect();
+            let our_elements: Vec<LayoutElement> = page.elements.drain(snapshot..).collect();
             if !our_elements.is_empty() {
                 let rect_height = page_content_bottom - rect_start_y;
                 page.elements.push(LayoutElement {
@@ -926,12 +924,10 @@ impl LayoutEngine {
             // C. Current page (cursor.elements) — wrap ALL elements
             let all_elements: Vec<LayoutElement> = cursor.elements.drain(..).collect();
             if !all_elements.is_empty() {
-                let header_h: f64 =
-                    cursor.fixed_header.iter().map(|(_, h)| *h).sum();
+                let header_h: f64 = cursor.fixed_header.iter().map(|(_, h)| *h).sum();
                 let content_top = cursor.content_y + header_h;
-                let rect_height = cursor.content_y + cursor.y + padding.bottom
-                    + border.bottom
-                    - content_top;
+                let rect_height =
+                    cursor.content_y + cursor.y + padding.bottom + border.bottom - content_top;
                 cursor.elements.push(LayoutElement {
                     x: node_x,
                     y: content_top,
@@ -1010,8 +1006,7 @@ impl LayoutEngine {
                     // For align-items Center/FlexEnd, measure child width and adjust x
                     let (child_x, child_w) =
                         if !matches!(align, AlignItems::Stretch | AlignItems::FlexStart) {
-                            let child_style =
-                                child.style.resolve(parent_style, available_width);
+                            let child_style = child.style.resolve(parent_style, available_width);
                             let intrinsic =
                                 self.measure_intrinsic_width(child, &child_style, font_context);
                             let w = match child_style.width {
@@ -1019,12 +1014,8 @@ impl LayoutEngine {
                                 SizeConstraint::Auto => intrinsic,
                             };
                             match align {
-                                AlignItems::Center => {
-                                    (content_x + (available_width - w) / 2.0, w)
-                                }
-                                AlignItems::FlexEnd => {
-                                    (content_x + available_width - w, w)
-                                }
+                                AlignItems::Center => (content_x + (available_width - w) / 2.0, w),
+                                AlignItems::FlexEnd => (content_x + available_width - w, w),
                                 _ => (content_x, available_width),
                             }
                         } else {
@@ -1045,14 +1036,13 @@ impl LayoutEngine {
                 }
 
                 // justify-content: redistribute children vertically when parent has fixed height
-                let needs_justify = !matches!(justify, JustifyContent::FlexStart)
-                    && pages.len() == initial_pages;
+                let needs_justify =
+                    !matches!(justify, JustifyContent::FlexStart) && pages.len() == initial_pages;
                 if needs_justify {
                     if let Some(ps) = parent_style {
                         if let SizeConstraint::Fixed(container_h) = ps.height {
-                            let inner_h = container_h
-                                - ps.padding.vertical()
-                                - ps.border_width.vertical();
+                            let inner_h =
+                                container_h - ps.padding.vertical() - ps.border_width.vertical();
                             let children_total = cursor.y - start_y;
                             let slack = inner_h - children_total;
                             if slack > 0.0 {
@@ -1070,9 +1060,7 @@ impl LayoutEngine {
                                     }
                                     JustifyContent::SpaceAround => {
                                         let space = slack / n as f64;
-                                        (0..n)
-                                            .map(|i| space / 2.0 + i as f64 * space)
-                                            .collect()
+                                        (0..n).map(|i| space / 2.0 + i as f64 * space).collect()
                                     }
                                     JustifyContent::SpaceEvenly => {
                                         let space = slack / (n + 1) as f64;
@@ -1219,8 +1207,7 @@ impl LayoutEngine {
                         }
                     },
                 };
-                let min_content_width =
-                    self.measure_min_content_width(child, &style, font_context);
+                let min_content_width = self.measure_min_content_width(child, &style, font_context);
                 FlexItem {
                     node: child,
                     style,
@@ -1386,9 +1373,7 @@ impl LayoutEngine {
 
         // Apply align-content redistribution for wrapped flex lines
         if pages.len() == initial_pages_count && !line_infos.is_empty() {
-            let align_content = parent_style
-                .map(|s| s.align_content)
-                .unwrap_or_default();
+            let align_content = parent_style.map(|s| s.align_content).unwrap_or_default();
             if !matches!(align_content, AlignContent::FlexStart)
                 && !matches!(flex_wrap, FlexWrap::NoWrap)
             {
@@ -1414,9 +1399,7 @@ impl LayoutEngine {
                                 }
                                 AlignContent::SpaceAround => {
                                     let space = slack / n as f64;
-                                    (0..n)
-                                        .map(|i| space / 2.0 + i as f64 * space)
-                                        .collect()
+                                    (0..n).map(|i| space / 2.0 + i as f64 * space).collect()
                                 }
                                 AlignContent::SpaceEvenly => {
                                     let space = slack / (n + 1) as f64;
@@ -2345,8 +2328,7 @@ impl LayoutEngine {
                     let line_count = line.end - line.start;
                     let line_gap = column_gap * (line_count as f64 - 1.0).max(0.0);
                     let distributable = available_width - line_gap;
-                    let total_base: f64 =
-                        base_widths[line.start..line.end].iter().sum();
+                    let total_base: f64 = base_widths[line.start..line.end].iter().sum();
                     let remaining = distributable - total_base;
 
                     if remaining > 0.0 {
@@ -2368,8 +2350,8 @@ impl LayoutEngine {
                             .sum();
                         if total_shrink > 0.0 {
                             for (j, s) in styles[line.start..line.end].iter().enumerate() {
-                                let factor = (s.flex_shrink * base_widths[line.start + j])
-                                    / total_shrink;
+                                let factor =
+                                    (s.flex_shrink * base_widths[line.start + j]) / total_shrink;
                                 let w = base_widths[line.start + j] + remaining * factor;
                                 final_widths[line.start + j] = w.max(s.min_width);
                             }
@@ -2384,8 +2366,7 @@ impl LayoutEngine {
                         .enumerate()
                         .map(|(j, child)| {
                             let fw = final_widths[line.start + j];
-                            let child_style =
-                                child.style.resolve(Some(parent_style), fw);
+                            let child_style = child.style.resolve(Some(parent_style), fw);
                             self.measure_node_height(child, fw, &child_style, font_context)
                                 + child_style.margin.vertical()
                         })
@@ -2906,8 +2887,12 @@ mod tests {
 
         let sale_text = make_text("SALE", 12.0);
         let sale_style = sale_text.style.resolve(None, 0.0);
-        let sale_word_width = engine.measure_min_content_width(&sale_text, &sale_style, &font_context);
-        assert!(sale_word_width > 0.0, "SALE should have non-zero min-content width");
+        let sale_word_width =
+            engine.measure_min_content_width(&sale_text, &sale_style, &font_context);
+        assert!(
+            sale_word_width > 0.0,
+            "SALE should have non-zero min-content width"
+        );
 
         // Row with 100pt available; child1 wants 80pt, child2 (SALE) wants 60pt.
         // Total = 140pt, overflow = 40pt. Without floor, SALE would shrink below word width.
@@ -2938,7 +2923,11 @@ mod tests {
         );
 
         let doc = Document {
-            children: vec![Node::page(PageConfig::default(), Style::default(), vec![container])],
+            children: vec![Node::page(
+                PageConfig::default(),
+                Style::default(),
+                vec![container],
+            )],
             metadata: Default::default(),
             default_page: PageConfig::default(),
         };
@@ -2951,7 +2940,10 @@ mod tests {
         let page = &pages[0];
         // Find the container (the View with children)
         let container_el = page.elements.iter().find(|e| e.children.len() == 2);
-        assert!(container_el.is_some(), "Should find container with 2 children");
+        assert!(
+            container_el.is_some(),
+            "Should find container with 2 children"
+        );
         let sale_child = &container_el.unwrap().children[1];
         assert!(
             sale_child.width >= sale_word_width - 0.01,
@@ -2981,7 +2973,11 @@ mod tests {
         );
 
         let doc = Document {
-            children: vec![Node::page(PageConfig::default(), Style::default(), vec![container])],
+            children: vec![Node::page(
+                PageConfig::default(),
+                Style::default(),
+                vec![container],
+            )],
             metadata: Default::default(),
             default_page: PageConfig::default(),
         };
@@ -2992,7 +2988,10 @@ mod tests {
         // The container should have one child, and that child should be
         // offset roughly to the vertical center
         let container_el = page.elements.iter().find(|e| !e.children.is_empty());
-        assert!(container_el.is_some(), "Should find container with children");
+        assert!(
+            container_el.is_some(),
+            "Should find container with children"
+        );
         let container_el = container_el.unwrap();
         let child = &container_el.children[0];
 
@@ -3025,7 +3024,11 @@ mod tests {
         );
 
         let doc = Document {
-            children: vec![Node::page(PageConfig::default(), Style::default(), vec![container])],
+            children: vec![Node::page(
+                PageConfig::default(),
+                Style::default(),
+                vec![container],
+            )],
             metadata: Default::default(),
             default_page: PageConfig::default(),
         };
@@ -3083,7 +3086,11 @@ mod tests {
         );
 
         let doc = Document {
-            children: vec![Node::page(PageConfig::default(), Style::default(), vec![parent])],
+            children: vec![Node::page(
+                PageConfig::default(),
+                Style::default(),
+                vec![parent],
+            )],
             metadata: Default::default(),
             default_page: PageConfig::default(),
         };
