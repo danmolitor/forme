@@ -1,6 +1,6 @@
 {
   "name": "@formepdf/cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "CLI for Forme PDF rendering engine — dev server with live preview and build command",
   "type": "module",
   "bin": {
