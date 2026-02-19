@@ -1140,7 +1140,7 @@ impl LayoutEngine {
                     }
                     SizeConstraint::Auto => None,
                 })
-                .unwrap_or_else(|| cursor.content_y + cursor.y - parent_box_y);
+                .unwrap_or(cursor.content_y + cursor.y - parent_box_y);
 
             let abs_y = if let Some(t) = abs_style.top {
                 parent_box_y + t
