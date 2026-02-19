@@ -1,10 +1,24 @@
 ---
 title: Replacing Puppeteer
 sidebarTitle: Replacing Puppeteer
-description: How to replace Puppeteer or Playwright PDF generation with Forme.
+description: Replace Puppeteer and headless Chrome PDF generation with Forme. 100x faster, no browser dependency, reliable page breaks.
 ---
 
-If you are using Puppeteer (or Playwright) to generate PDFs from HTML, Forme can simplify your pipeline and improve performance. This guide covers the before/after comparison and when Puppeteer is still the right choice.
+If you are using Puppeteer (or Playwright) to generate PDFs from HTML, you have probably hit at least one of these: slow renders, high memory usage, Chrome crashes in production, or unreliable CSS page breaks. Forme replaces the entire headless browser pipeline with a WASM module that runs in-process and produces PDF bytes in milliseconds.
+
+## Common problems Forme solves
+
+**Puppeteer PDF generation is slow.** Launching Chrome, creating a page, setting HTML content, and rendering to PDF typically takes 1-3 seconds. Forme renders the same document in 5-15ms because there is no browser to start.
+
+**Chrome uses too much memory.** Each Chrome process consumes 50-200MB of RAM. Under concurrent load, memory pressure leads to crashes and OOM kills. Forme uses 2-5MB per render.
+
+**CSS page breaks are unreliable.** `page-break-inside: avoid` and `break-before: always` are hints that Chrome frequently ignores. Forme uses page-native layout where every break is deterministic.
+
+**Table headers don't repeat across pages.** HTML `<thead>` repetition in Chrome's print mode is inconsistent. In Forme, mark a row as `header` and it repeats on every page, guaranteed.
+
+**Docker images are huge.** Chromium adds 400MB+ to your container. Forme has no native dependencies, so your image stays the size of your Node.js base.
+
+**Serverless cold starts are painful.** Chrome takes 3-10 seconds to start in Lambda or similar environments. Forme's WASM module loads in under 100ms.
 
 ## The Puppeteer pipeline
 
@@ -176,7 +190,7 @@ Forme is not a drop-in replacement for every Puppeteer use case. Keep Puppeteer 
 
 1. **You are rendering existing HTML/CSS you do not control.** If you receive HTML from a CMS, email template system, or third-party API and need to convert it to PDF, Puppeteer renders arbitrary HTML. Forme requires you to rewrite the template in JSX.
 
-2. **You need full CSS support.** Forme supports a subset of CSS (flexbox, basic typography, borders, backgrounds). If your templates rely on CSS Grid, CSS animations, `position: absolute`, or other advanced CSS features, Puppeteer handles all of them.
+2. **You need full CSS support.** Forme supports a subset of CSS (flexbox, positioning, typography, borders, backgrounds). If your templates rely on CSS Grid, CSS animations, or other advanced CSS features, Puppeteer handles all of them.
 
 3. **You need complex SVG rendering.** Forme supports basic SVG elements (`rect`, `circle`, `ellipse`, `line`, `polyline`, `polygon`, `path`), but not advanced SVG features like filters, gradients, masks, or CSS styling within SVG. If your PDFs contain complex charts from D3 or Chart.js, Puppeteer may still handle more of the SVG spec.
 

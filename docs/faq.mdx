@@ -1,0 +1,53 @@
+---
+title: FAQ
+sidebarTitle: FAQ
+description: Frequently asked questions about Forme PDF generation: comparison with react-pdf, Puppeteer, performance, serverless support, and more.
+---
+
+## How does Forme compare to react-pdf?
+
+Both use React components to define PDF layouts. The key difference is the layout engine. react-pdf lays out content on an infinite canvas and slices it into pages, which breaks flex layouts and tables at page boundaries. Forme's engine is page-native, so every layout decision accounts for the page boundary from the start. Forme also has built-in table header repetition, a dev server with live preview, and faster render times. See the full [migration guide](/migrating-from-react-pdf) for details.
+
+## How does Forme compare to Puppeteer for PDF generation?
+
+Puppeteer launches a headless Chrome browser to render HTML to PDF. This gives you full CSS support but costs 1-3 seconds per render, 50-200MB of memory per Chrome process, and a 400MB+ Docker image. Forme renders directly to PDF via a WASM module in 5-15ms with no browser dependency. The tradeoff is that Forme requires you to write JSX templates instead of HTML/CSS. See the [Puppeteer replacement guide](/replacing-puppeteer) for a step-by-step comparison.
+
+## Can I use Forme in serverless (AWS Lambda, Vercel, Cloudflare Workers)?
+
+Yes. Forme's WASM module loads in under 100ms, making it a good fit for serverless environments. There is no Chromium binary to bundle, no native dependencies to compile, and no subprocess to manage. Cold starts are fast because the entire engine is a single WASM file.
+
+## Does Forme support custom fonts?
+
+Yes. Forme embeds TrueType (.ttf) fonts directly into the PDF with automatic subsetting (only the glyphs your document uses are included). Register fonts by providing a file path or data URI.
+
+## Does Forme support images?
+
+Yes. Forme supports JPEG and PNG images, including PNG transparency. Provide images as file paths or base64 data URIs. Aspect ratio is preserved when you specify only one dimension. See the [Image component docs](/components#image).
+
+## Does Forme support SVG?
+
+Yes. The `<Svg>` component renders SVG markup directly into the PDF as vector graphics (not rasterized). Supported elements include `rect`, `circle`, `ellipse`, `line`, `polyline`, `polygon`, and `path`. Advanced SVG features like filters, gradients, and masks are not yet supported. See the [Svg component docs](/components#svg).
+
+## Does Forme support tables with header repetition?
+
+Yes. This is one of Forme's core features. Add the `header` prop to a `<Row>` inside a `<Table>`, and that row automatically repeats at the top of every continuation page when the table spans multiple pages. No workarounds or manual pagination needed. See [page breaks](/page-breaks#table-header-repetition).
+
+## How fast is Forme?
+
+A typical invoice renders in 5-15ms. Complex documents with tables, images, and multiple pages render in 20-80ms. This is 10-100x faster than Puppeteer and 5-10x faster than react-pdf for most documents. The engine is written in Rust and compiled to WebAssembly, so performance is consistent across environments.
+
+## Does Forme work with Next.js?
+
+Yes. Use `renderDocument()` from `@forme/core` in API routes, server actions, or `getServerSideProps`. Since Forme runs in-process as WASM, there is no external service or subprocess to manage. It works in both the Pages Router and App Router.
+
+## Does Forme work with Express?
+
+Yes. Call `renderDocument()` in any Express route handler and send the resulting `Uint8Array` as the response. See the [Puppeteer replacement guide](/replacing-puppeteer#the-forme-equivalent) for a complete Express example.
+
+## What languages does Forme support?
+
+Forme supports any language that uses a left-to-right writing system and can be rendered with a TrueType font. This covers Latin, Cyrillic, Greek, CJK (Chinese, Japanese, Korean), and many other scripts. Right-to-left languages (Arabic, Hebrew) and bidirectional text are not yet supported.
+
+## Is Forme free?
+
+Yes. Forme is open source under the MIT license. You can use it in personal and commercial projects without restrictions.

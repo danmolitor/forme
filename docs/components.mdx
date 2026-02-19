@@ -1,7 +1,7 @@
 ---
 title: Components
 sidebarTitle: Components
-description: All 10 Forme components for building PDF documents.
+description: All Forme React components for PDF generation: Document, Page, View, Text, Image, Table, Row, Cell, Fixed, PageBreak, and Svg.
 ---
 
 Forme provides 11 components for building PDF documents. All components are imported from `@forme/react`.
@@ -9,6 +9,25 @@ Forme provides 11 components for building PDF documents. All components are impo
 ```tsx
 import { Document, Page, View, Text, Image, Svg, Table, Row, Cell, Fixed, PageBreak } from '@forme/react';
 ```
+
+---
+
+## Styling
+
+Styles are plain objects passed to the `style` prop. You can write them inline or extract them with `StyleSheet.create()` for TypeScript autocomplete:
+
+```tsx
+import { StyleSheet } from '@forme/react';
+
+const styles = StyleSheet.create({
+  heading: { fontSize: 24, fontWeight: 700 },
+  body: { fontSize: 10, lineHeight: 1.6 },
+});
+
+<Text style={styles.heading}>Title</Text>
+```
+
+`StyleSheet.create()` is an identity function. It returns the same object you pass in. Its purpose is to provide autocomplete and type checking on style properties.
 
 ---
 
@@ -83,6 +102,8 @@ A flex container, analogous to an HTML `<div>`. Defaults to column layout.
 |------|------|---------|-------------|
 | `style` | `Style` | - | CSS-like style properties |
 | `wrap` | `boolean` | `true` | Whether this container can break across pages. Set to `false` to keep all children on the same page. |
+| `href` | `string` | - | URL to link to. Makes the entire View a clickable link in the PDF. |
+| `bookmark` | `string` | - | Adds a PDF outline (bookmark) entry with this label. Readers can jump to this View from the bookmark panel. |
 
 ### Example
 
@@ -98,9 +119,17 @@ A flex container, analogous to an HTML `<div>`. Defaults to column layout.
   <Text style={{ fontWeight: 700 }}>Important Card</Text>
   <Text>This content will not split across pages.</Text>
 </View>
+
+{/* Absolute positioning */}
+<View style={{ width: 200, height: 80, backgroundColor: '#f1f5f9' }}>
+  <Text>Card content</Text>
+  <View style={{ position: 'absolute', top: 4, right: 4, padding: 4, backgroundColor: '#ef4444', borderRadius: 4 }}>
+    <Text style={{ fontSize: 8, color: '#fff', fontWeight: 700 }}>SALE</Text>
+  </View>
+</View>
 ```
 
-Views use flexbox column layout by default. All flex properties (`flexDirection`, `justifyContent`, `alignItems`, `flexWrap`, `gap`, `flexGrow`, `flexShrink`) are supported.
+Views use flexbox column layout by default. All flex properties (`flexDirection`, `justifyContent`, `alignItems`, `flexWrap`, `gap`, `flexGrow`, `flexShrink`) are supported. Set `position: 'absolute'` in the style to position a View relative to its parent's content box.
 
 ---
 
@@ -113,7 +142,9 @@ Renders text content with font properties, colors, and alignment.
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
 | `style` | `Style` | - | Typography and color styles |
-| `children` | `string \| number` | - | Text content. Nested `<Text>` children are concatenated. |
+| `children` | `string \| number \| Text` | - | Text content. Nest `<Text>` inside `<Text>` for inline styling (bold a word, change colors mid-sentence). |
+| `href` | `string` | - | URL to link to. Makes this text a clickable link in the PDF. |
+| `bookmark` | `string` | - | Adds a PDF outline (bookmark) entry with this label. |
 
 ### Example
 
@@ -129,13 +160,34 @@ Renders text content with font properties, colors, and alignment.
   are subject to a 1.5% monthly finance charge.
 </Text>
 
+{/* Clickable link */}
+<Text href="https://example.com" style={{ color: '#2563eb', textDecoration: 'underline' }}>
+  Visit our website
+</Text>
+
+{/* Bookmark (appears in PDF outline panel) */}
+<Text bookmark="Chapter 1" style={{ fontSize: 20, fontWeight: 700 }}>
+  Chapter 1: Introduction
+</Text>
+
+{/* Inline styling with nested Text */}
+<Text style={{ fontSize: 10 }}>
+  This sentence has a <Text style={{ fontWeight: 700 }}>bold word</Text> and a{' '}
+  <Text style={{ color: '#ef4444' }}>red word</Text> in the middle.
+</Text>
+
+{/* Strikethrough pricing */}
+<Text style={{ fontSize: 14 }}>
+  $42.00 <Text style={{ textDecoration: 'line-through', color: '#94a3b8' }}>$56.00</Text>
+</Text>
+
 {/* Dynamic page numbers */}
 <Text style={{ fontSize: 9, textAlign: 'center' }}>
   Page {'{{pageNumber}}'} of {'{{totalPages}}'}
 </Text>
 ```
 
-Text wraps automatically based on the available width. Use `{{pageNumber}}` and `{{totalPages}}` placeholders for dynamic page numbering.
+Text wraps automatically based on the available width. Use `{{pageNumber}}` and `{{totalPages}}` placeholders for dynamic page numbering. Nested `<Text>` elements share the same line and can have different styles, which is useful for inline formatting like bold words, colored spans, or strikethrough pricing.
 
 ---
 

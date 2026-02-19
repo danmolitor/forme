@@ -6,7 +6,7 @@ PDF generation with JSX. Page breaks that actually work.
 
 ## Why
 
-Every PDF tool makes you choose: fight with CSS page breaks (react-pdf, Puppeteer) or use a drag-and-drop editor that can't handle dynamic data. Forme is a layout engine built for pages from the ground up. No infinite canvas. No hoping Chrome respects your `page-break-inside: avoid`.
+Every PDF tool makes you choose: fight with CSS page breaks (react-pdf, Puppeteer) or use a drag-and-drop editor that can't handle dynamic data. Forme is a layout engine built for pages from the ground up. Page breaks that actually work. No headless browser. No Chrome dependency. No infinite canvas. Works in serverless environments with sub-100ms cold starts.
 
 ## Quick Start
 
@@ -58,6 +58,9 @@ Live preview with debug overlays. Click any element to inspect its computed styl
 - **Column flex**: `justifyContent` and `alignItems` work in both row and column directions.
 - **SVG**: Inline SVG rendering with support for `rect`, `circle`, `ellipse`, `line`, `polyline`, `polygon`, and `path` elements.
 - **Custom fonts**: TrueType font embedding with automatic subsetting.
+- **Links**: Add `href` to any `<Text>` or `<View>` for clickable PDF links.
+- **Bookmarks**: Add `bookmark` to any element for PDF outline entries. Navigate long documents from the bookmark panel.
+- **Inline text styling**: Nest `<Text>` inside `<Text>` to bold a word, change colors mid-sentence, or apply strikethrough.
 - **Images**: JPEG and PNG with transparency support.
 - **Dynamic page numbers**: `{{pageNumber}}` and `{{totalPages}}` in any text element.
 
@@ -79,15 +82,22 @@ Live preview with debug overlays. Click any element to inspect its computed styl
 
 ## Comparison
 
-| | Forme | react-pdf | Puppeteer | HTML-to-PDF APIs |
-|---|---|---|---|---|
-| Page breaks | Page-native (widow/orphan aware) | Broken for 7 years | CSS `page-break` (fragile) | Depends on engine |
-| Live preview | Built-in dev server | Render to file | Run script, open file | Upload, wait, download |
-| Element inspector | Click-to-inspect | No | No | No |
-| Render speed | ~10ms (WASM) | ~100-500ms | ~1-5s (Chrome boot) | Network round trip |
-| Custom fonts | TTF with subsetting | Yes | Yes | Varies |
-| Dependencies | None (WASM) | yoga-layout | Chrome/Chromium | External service |
-| Runs in-process | Yes | Yes | No (subprocess) | No (HTTP API) |
+| | Forme | react-pdf | Puppeteer |
+|---|---|---|---|
+| Page breaks | Page-native (widow/orphan aware) | Broken for 7 years | CSS `page-break` (fragile) |
+| Table header repetition | Automatic on every page | Not built in | Inconsistent `<thead>` |
+| Live preview | Built-in dev server | Render to file | Run script, open file |
+| Click-to-inspect | VS Code, Cursor, WebStorm | No | No |
+| Render speed | ~10ms (WASM) | ~100-500ms | ~1-5s (Chrome boot) |
+| Memory per render | ~2-5MB | ~50-100MB | ~50-200MB |
+| SVG | Basic shapes and paths | Yes | Full browser SVG |
+| Links | `href` prop on Text/View | `<Link>` component | HTML `<a>` tags |
+| Bookmarks | `bookmark` prop on any element | Yes | No |
+| Inline text styling | Nested `<Text>` elements | Nested `<Text>` elements | HTML/CSS |
+| Absolute positioning | Yes | Yes | Full CSS |
+| Custom fonts | TTF with subsetting | Yes | Yes |
+| Dependencies | None (WASM) | yoga-layout | Chrome/Chromium |
+| Runs in-process | Yes | Yes | No (subprocess) |
 
 ## Templates
 

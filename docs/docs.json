@@ -18,11 +18,11 @@
     "groups": [
       {
         "group": "Getting Started",
-        "pages": ["quickstart"]
+        "pages": ["quickstart", "faq"]
       },
       {
         "group": "Reference",
-        "pages": ["components", "styles", "page-breaks"]
+        "pages": ["components", "styles", "page-breaks", "charts"]
       },
       {
         "group": "Migration",

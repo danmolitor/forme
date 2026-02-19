@@ -1,10 +1,10 @@
 ---
 title: Migrating from react-pdf
 sidebarTitle: Migrating from react-pdf
-description: How to migrate from react-pdf to Forme.
+description: How to migrate from @react-pdf/renderer to Forme. Fix page break issues, get table header repetition, and faster renders.
 ---
 
-Forme and react-pdf share a similar component API, so migration is mostly renaming imports. This guide covers the differences and what to watch for.
+If you are hitting page break issues, broken flex layouts across pages, or missing table header repetition in react-pdf, Forme fixes all of these. The two libraries share a similar component API, so migration is mostly renaming imports. This guide covers the differences and what to watch for.
 
 ## Component mapping
 
@@ -15,7 +15,7 @@ Forme and react-pdf share a similar component API, so migration is mostly renami
 | `<View>` | `<View>` | Same |
 | `<Text>` | `<Text>` | Same |
 | `<Image>` | `<Image>` | Same API, supports file paths and data URIs |
-| `<Link>` | Not yet supported | Use plain Text for now |
+| `<Link>` | `<Text href="...">` | Use the `href` prop on `<Text>` or `<View>` to create clickable links |
 | `<Note>` | Not yet supported | - |
 | `<Canvas>` | Not yet supported | - |
 | `<SVG>` | `<Svg>` | SVG content passed as a string via the `content` prop. Supports basic shapes and paths. |
@@ -32,16 +32,17 @@ import { Document, Page, View, Text, Image, StyleSheet } from '@react-pdf/render
 import { Document, Page, View, Text, Image } from '@forme/react';
 ```
 
-Forme does not have a `StyleSheet.create()` utility. Styles are plain objects passed directly to the `style` prop. If you prefer to define styles separately, use a regular JavaScript object:
+Forme also has `StyleSheet.create()` for familiarity:
 
 ```tsx
-const styles = {
-  heading: { fontSize: 24, fontWeight: 700 },
-  body: { fontSize: 10, lineHeight: 1.6 },
-};
+import { StyleSheet } from '@forme/react';
 
-<Text style={styles.heading}>Title</Text>
+const styles = StyleSheet.create({
+  heading: { fontSize: 24, fontWeight: 700 },
+});
 ```
+
+It works the same way as react-pdf's version. It's an identity function that provides TypeScript autocomplete.
 
 ## Style differences
 
@@ -54,7 +55,7 @@ Most style properties are the same between react-pdf and Forme. Key differences:
 | `borderColor` | Single string | String or `{ top, right, bottom, left }` |
 | `borderRadius` | Single number | Number or `{ topLeft, topRight, bottomRight, bottomLeft }` |
 | `margin` | `"auto"` supported | `"auto"` not supported (use flexbox alignment instead) |
-| `position` | `"absolute"` supported | Use `<Fixed>` for repeating elements. Absolute positioning is not supported. |
+| `position` | `"absolute"` supported | `position: "absolute"` supported in both. Forme also has `<Fixed>` for repeating headers/footers, which automatically adjusts the content area. |
 
 ## Rendering
 
@@ -144,27 +145,31 @@ Both approaches produce the same result. Forme uses template placeholders instea
 
 5. **Dependencies.** Forme is a single WASM binary with no native dependencies. react-pdf depends on yoga-layout (native binary).
 
+6. **Links.** Add `href` to any `<Text>` or `<View>` to create clickable PDF links. No separate `<Link>` component needed.
+
+7. **Bookmarks.** Add `bookmark` to any `<Text>` or `<View>` to create PDF outline entries. Readers can navigate long documents from the bookmark panel.
+
+8. **Inline text styling.** Nest `<Text>` inside `<Text>` to style individual words or spans. Bold a single word, change colors mid-sentence, or apply strikethrough to a price.
+
 ## What works in react-pdf but not Forme (yet)
 
 Be honest about these gaps before migrating:
 
-1. **Links.** react-pdf supports clickable links with `<Link>`. Forme does not support PDF link annotations yet.
+1. **`<Canvas>` component.** react-pdf has a `<Canvas>` component for custom drawing. Forme does not have an equivalent. Use `<Svg>` for custom graphics.
 
-2. **Absolute positioning.** react-pdf supports `position: "absolute"`. Forme only supports fixed headers/footers via `<Fixed>`, not arbitrary absolute positioning.
+2. **`<Note>` component.** react-pdf supports PDF annotations via `<Note>`. Forme does not support this yet.
 
-3. **Bookmarks/outlines.** react-pdf can generate PDF bookmarks. Forme does not support this yet.
+3. **Emoji rendering.** react-pdf handles emoji via system fonts. Forme does not have special emoji support.
 
-4. **Text run styling.** react-pdf supports inline styling within text (e.g., bold a single word). Forme treats each `<Text>` element as a single styled run.
-
-5. **Emoji rendering.** react-pdf handles emoji via system fonts. Forme does not have special emoji support.
+4. **`margin: "auto"`.**  react-pdf supports `margin: "auto"` for centering. In Forme, use flexbox alignment (`justifyContent: 'center'`, `alignItems: 'center'`) instead.
 
 ## Migration checklist
 
 1. Replace `@react-pdf/renderer` imports with `@forme/react` and `@forme/core`
-2. Remove `StyleSheet.create()` calls (keep the style objects, just remove the wrapper)
+2. Update `StyleSheet` import from `@react-pdf/renderer` to `@forme/react` (works the same way)
 3. Replace `fixed` prop + absolute positioning with `<Fixed position="header">` or `<Fixed position="footer">`
 4. Replace render callbacks for page numbers with `{{pageNumber}}` / `{{totalPages}}` placeholders
 5. Convert View-based table layouts to `<Table>`, `<Row>`, `<Cell>` components
 6. Convert `<SVG>` elements to `<Svg>` with SVG markup in the `content` prop
-7. Remove any `<Link>` components (or replace with styled Text for now)
+7. Replace `<Link>` components with `<Text href="...">` equivalents
 8. Test page break behavior, especially for tables and flex layouts

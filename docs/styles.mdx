@@ -1,7 +1,7 @@
 ---
 title: Styles
 sidebarTitle: Styles
-description: CSS-like style properties for Forme components.
+description: Every supported CSS style property in Forme: flexbox layout, typography, borders, backgrounds, positioning, and more.
 ---
 
 Every Forme component accepts a `style` prop with CSS-like properties. Styles are passed as a JavaScript object.
@@ -147,6 +147,36 @@ Margins in Forme are always additive (like flexbox gap). There is no CSS margin 
 {/* Accent left border */}
 <View style={{ paddingLeft: 12, borderWidth: { top: 0, right: 0, bottom: 0, left: 3 }, borderColor: '#2563eb' }}>
   <Text>Highlighted note</Text>
+</View>
+```
+
+## Positioning
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `position` | `"relative"` \| `"absolute"` | `"relative"` | Positioning mode. Absolute positioning places the element relative to its parent's content box. |
+| `top` | `number` | - | Offset from the top of the parent's padding edge (absolute positioning) |
+| `right` | `number` | - | Offset from the right of the parent's padding edge (absolute positioning) |
+| `bottom` | `number` | - | Offset from the bottom of the parent's padding edge (absolute positioning) |
+| `left` | `number` | - | Offset from the left of the parent's padding edge (absolute positioning) |
+
+### Positioning examples
+
+```tsx
+{/* Badge overlay in the top-right corner */}
+<View style={{ width: 200, height: 100, backgroundColor: '#f8fafc' }}>
+  <Text>Product Card</Text>
+  <View style={{ position: 'absolute', top: 4, right: 4, padding: 4, backgroundColor: '#ef4444', borderRadius: 4 }}>
+    <Text style={{ fontSize: 8, color: '#ffffff', fontWeight: 700 }}>NEW</Text>
+  </View>
+</View>
+
+{/* Watermark-style overlay */}
+<View style={{ width: '100%', height: 400 }}>
+  <Text>Document content here...</Text>
+  <View style={{ position: 'absolute', top: 160, left: 100 }}>
+    <Text style={{ fontSize: 48, color: '#e2e8f0', fontWeight: 700 }}>DRAFT</Text>
+  </View>
 </View>
 ```
 

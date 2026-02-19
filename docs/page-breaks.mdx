@@ -1,10 +1,18 @@
 ---
 title: Page Breaks
 sidebarTitle: Page Breaks
-description: How content flows across pages and how to control page break behavior.
+description: How page breaks work in Forme. Automatic content splitting, fixed headers and footers, dynamic page numbers, and table header repetition.
 ---
 
 Forme's layout engine is page-native. Every layout decision, from flex calculations to text wrapping, is made with the page boundary as a hard constraint. This page explains how content flows across pages and how to control that behavior.
+
+## Why CSS page breaks are unreliable
+
+If you have tried generating PDFs from HTML, you have probably run into this: you add `page-break-inside: avoid` or `break-before: always` to your CSS, and the browser ignores it. This is not a bug in your code. CSS page break properties (`page-break-inside`, `break-before`, `break-after`) are hints to the rendering engine, not guarantees. Chrome and other browsers frequently ignore them, especially with complex layouts, flexbox containers, or tables.
+
+This is a fundamental limitation of the HTML-to-PDF approach. The browser lays out content for a scrollable viewport, then tries to slice it into pages after the fact. Page breaks are an afterthought, not a first-class concern.
+
+Forme does not use CSS for layout. Every element is measured and positioned in a page-aware coordinate system. When content exceeds the page boundary, the engine splits it deterministically. There is no guessing, no hoping, and no browser-specific behavior to work around.
 
 ## Automatic page breaks
 
