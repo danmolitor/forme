@@ -1513,6 +1513,7 @@ impl LayoutEngine {
         cursor.y += padding.bottom + border.bottom + margin.bottom;
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn layout_table_row(
         &self,
         row: &Node,
