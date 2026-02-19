@@ -1,0 +1,136 @@
+---
+title: "Charts"
+sidebarTitle: "Charts"
+description: "How to render charts in Forme PDFs using D3, Chart.js, or any library that outputs SVG."
+---
+
+# Charts
+
+Forme renders SVG content via the `<Svg>` component. Any charting library that outputs SVG strings can be used to embed charts in your PDFs.
+
+## The pattern
+
+1. Use a charting library to produce an SVG string
+2. Pass the string to `<Svg content={svgString} />`
+3. Forme renders the SVG shapes directly into the PDF as vector graphics
+
+## D3 example
+
+D3 can render to a virtual DOM using `d3-node` or `jsdom` on the server side. Here is a bar chart example:
+
+```tsx
+import { JSDOM } from 'jsdom';
+import * as d3 from 'd3';
+import { Document, Page, Svg } from '@forme/react';
+
+function renderBarChart(data: { label: string; value: number }[]): string {
+  const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>');
+  const body = d3.select(dom.window.document.body);
+
+  const width = 400;
+  const height = 200;
+  const margin = { top: 20, right: 20, bottom: 40, left: 40 };
+
+  const svg = body.append('svg')
+    .attr('xmlns', 'http://www.w3.org/2000/svg')
+    .attr('width', width)
+    .attr('height', height);
+
+  const x = d3.scaleBand()
+    .domain(data.map(d => d.label))
+    .range([margin.left, width - margin.right])
+    .padding(0.2);
+
+  const y = d3.scaleLinear()
+    .domain([0, d3.max(data, d => d.value) || 0])
+    .range([height - margin.bottom, margin.top]);
+
+  // Bars
+  svg.selectAll('rect')
+    .data(data)
+    .join('rect')
+    .attr('x', d => x(d.label) || 0)
+    .attr('y', d => y(d.value))
+    .attr('width', x.bandwidth())
+    .attr('height', d => height - margin.bottom - y(d.value))
+    .attr('fill', '#3b82f6');
+
+  // X axis labels
+  svg.selectAll('.label')
+    .data(data)
+    .join('text')
+    .attr('x', d => (x(d.label) || 0) + x.bandwidth() / 2)
+    .attr('y', height - margin.bottom + 16)
+    .attr('text-anchor', 'middle')
+    .attr('font-size', '10')
+    .attr('fill', '#64748b')
+    .text(d => d.label);
+
+  return body.html();
+}
+
+export default function Report(data: any) {
+  const chartSvg = renderBarChart(data.chartData);
+
+  return (
+    <Document>
+      <Page size="Letter" margin={54}>
+        <Svg width={400} height={200} content={chartSvg} />
+      </Page>
+    </Document>
+  );
+}
+```
+
+## Simple charts without a library
+
+For basic charts, you can write SVG strings directly:
+
+```tsx
+function horizontalBar(label: string, value: number, max: number, color: string): string {
+  const barWidth = (value / max) * 300;
+  return `
+    <rect x="0" y="0" width="${barWidth}" height="20" fill="${color}" rx="3"/>
+    <text x="${barWidth + 8}" y="14" font-size="10" fill="#334155">${value}</text>
+  `;
+}
+
+// In your template:
+<Svg
+  width={400}
+  height={24}
+  viewBox="0 0 400 24"
+  content={horizontalBar('Revenue', 142, 200, '#3b82f6')}
+/>
+```
+
+## Supported SVG elements
+
+Forme's SVG renderer supports the following elements:
+
+- `<rect>` - rectangles, rounded rectangles
+- `<circle>` - circles
+- `<ellipse>` - ellipses
+- `<line>` - straight lines
+- `<polyline>` - connected line segments
+- `<polygon>` - closed shapes
+- `<path>` - arbitrary paths (M, L, H, V, C, Q, Z commands)
+- `<g>` - groups with transform support
+
+Supported attributes: fill, stroke, stroke-width, transform (translate, scale, rotate), opacity.
+
+## What's not supported
+
+- `<text>` inside SVG (use Forme's `<Text>` component instead, positioned alongside the SVG)
+- CSS styling inside SVG (use inline attributes)
+- `<clipPath>`, `<mask>`, `<filter>`, `<gradient>` (these are not yet supported)
+- `<use>`, `<defs>`, `<symbol>` references
+
+For charts that rely on these features, consider rendering the chart to a PNG image and using `<Image>` instead.
+
+## Tips
+
+- Set explicit `width`, `height`, and `viewBox` on the `<Svg>` component for consistent sizing
+- Use server-side rendering (jsdom, d3-node) to produce SVG strings in Node.js
+- Keep chart SVGs simple. The fewer elements, the smaller the PDF and the faster the render.
+- For complex charts with many data points, consider simplifying (fewer grid lines, fewer labels) since PDF charts are static and don't need interactivity
