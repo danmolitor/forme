@@ -166,10 +166,11 @@ Layout elements form a hierarchy that mirrors the document tree. This is critica
 
 This is used in:
 - **`layout_view`** (non-breakable path): View rect wraps its children
+- **`layout_breakable_view`** (breakable path): Wraps children in a `DrawCommand::Rect` per page when the view has background/border (clone semantics: each page fragment gets full styling)
 - **`layout_table_row`**: Row wraps Cells, each Cell wraps its content
 - **`layout_text`**: Text container wraps TextLine elements (flushes on page breaks)
 
-**Not** used in `layout_breakable_view` (no wrapper) or `layout_flex_row` (items are laid out individually via `layout_view` which handles its own nesting).
+**Not** used in `layout_flex_row` (items are laid out individually via `layout_view` which handles its own nesting).
 
 The PDF serializer (`write_element`) and layout overlay (`drawLayoutOverlay`) both recurse into `element.children`. Any new layout function that creates a container element must use this pattern to maintain the hierarchy.
 
