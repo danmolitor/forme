@@ -1,6 +1,6 @@
 {
   "name": "@formepdf/react",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "JSX-to-JSON serializer for Forme PDF engine",
   "type": "module",
   "main": "./dist/index.js",
