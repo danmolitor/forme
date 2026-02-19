@@ -41,7 +41,7 @@ npx forme dev invoice.tsx --data sample.json
 
 Live preview with debug overlays. Click any element to inspect its computed styles.
 
-[dev server screenshot placeholder]
+![Forme dev server](./assets/dev-server.gif)
 
 ## Features
 
