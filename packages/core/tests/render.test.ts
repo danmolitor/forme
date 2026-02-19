@@ -29,7 +29,7 @@ describe('renderPdf', () => {
   });
 
   it('rejects invalid JSON with error', async () => {
-    await expect(renderPdf('not valid json {{')).rejects.toThrow('JSON parse error');
+    await expect(renderPdf('not valid json {{')).rejects.toThrow('Failed to parse document');
   });
 
   it('renders empty document to valid PDF', async () => {
@@ -108,13 +108,13 @@ describe('renderPdfWithLayout', () => {
 });
 
 describe('renderDocument', () => {
-  // Dynamic import so these tests can be skipped if @forme/react isn't built
+  // Dynamic import so these tests can be skipped if @formepdf/react isn't built
   let React: typeof import('react');
-  let Components: typeof import('@forme/react');
+  let Components: typeof import('@formepdf/react');
 
   async function loadModules() {
     React = await import('react');
-    Components = await import('@forme/react');
+    Components = await import('@formepdf/react');
   }
 
   it('renders JSX Document with Text to PDF', async () => {
