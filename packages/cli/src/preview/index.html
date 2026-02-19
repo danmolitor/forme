@@ -846,9 +846,7 @@
     <select id="editor-select" title="Editor for Open in Editor">
       <option value="vscode">VS Code</option>
       <option value="cursor">Cursor</option>
-      <option value="jetbrains">JetBrains</option>
       <option value="webstorm">WebStorm</option>
-      <option value="zed">Zed</option>
     </select>
   </div>
 </div>
@@ -1416,9 +1414,7 @@
   const editorUrls = {
     vscode:    (s) => `vscode://file/${s.file}:${s.line}:${s.column}`,
     cursor:    (s) => `cursor://file/${s.file}:${s.line}:${s.column}`,
-    jetbrains: (s) => `idea://open?file=${encodeURIComponent(s.file)}&line=${s.line}&column=${s.column}`,
     webstorm:  (s) => `webstorm://open?file=${encodeURIComponent(s.file)}&line=${s.line}&column=${s.column}`,
-    zed:       (s) => `zed://file/${s.file}:${s.line}:${s.column}`,
   };
 
   function openInEditor(source) {
