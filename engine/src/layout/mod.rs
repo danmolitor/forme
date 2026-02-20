@@ -34,6 +34,9 @@
 pub mod flex;
 pub mod page_break;
 
+use std::cell::RefCell;
+use std::collections::HashMap;
+
 use serde::Serialize;
 
 use crate::font::FontContext;
@@ -477,6 +480,7 @@ fn apply_char_transform(ch: char, transform: TextTransform, is_word_start: bool)
 /// The main layout engine.
 pub struct LayoutEngine {
     text_layout: TextLayout,
+    image_dim_cache: RefCell<HashMap<String, (u32, u32)>>,
 }
 
 /// Tracks where we are on the current page during layout.
@@ -551,6 +555,20 @@ impl LayoutEngine {
     pub fn new() -> Self {
         Self {
             text_layout: TextLayout::new(),
+            image_dim_cache: RefCell::new(HashMap::new()),
+        }
+    }
+
+    /// Look up cached image dimensions, or load and cache them.
+    fn get_image_dimensions(&self, src: &str) -> Option<(u32, u32)> {
+        if let Some(dims) = self.image_dim_cache.borrow().get(src) {
+            return Some(*dims);
+        }
+        if let Ok(dims) = crate::image_loader::load_image_dimensions(src) {
+            self.image_dim_cache.borrow_mut().insert(src.to_string(), dims);
+            Some(dims)
+        } else {
+            None
         }
     }
 
@@ -1053,7 +1071,8 @@ impl LayoutEngine {
                         if !matches!(align, AlignItems::Stretch | AlignItems::FlexStart) {
                             let child_style = child.style.resolve(parent_style, available_width);
                             let intrinsic =
-                                self.measure_intrinsic_width(child, &child_style, font_context);
+                                self.measure_intrinsic_width(child, &child_style, font_context)
+                                    .min(available_width);
                             let w = match child_style.width {
                                 SizeConstraint::Fixed(fw) => fw,
                                 SizeConstraint::Auto => intrinsic,
@@ -1080,49 +1099,110 @@ impl LayoutEngine {
                     child_ranges.push((child_start, cursor.elements.len()));
                 }
 
+                // flex-grow: distribute extra vertical space proportionally
+                // Compute container inner height from parent style or page content area
+                let container_inner_h: Option<f64> = parent_style
+                    .and_then(|ps| match ps.height {
+                        SizeConstraint::Fixed(h) => {
+                            Some(h - ps.padding.vertical() - ps.border_width.vertical())
+                        }
+                        SizeConstraint::Auto => None,
+                    })
+                    .or_else(|| {
+                        // Page-level: use remaining content height from start
+                        if parent_style.is_none() {
+                            Some(cursor.content_height - start_y)
+                        } else {
+                            None
+                        }
+                    });
+
+                if let Some(inner_h) = container_inner_h {
+                    if pages.len() == initial_pages {
+                        let child_styles: Vec<ResolvedStyle> = items
+                            .iter()
+                            .map(|child| child.style.resolve(parent_style, available_width))
+                            .collect();
+                        let total_grow: f64 = child_styles.iter().map(|s| s.flex_grow).sum();
+                        if total_grow > 0.0 {
+                            let children_total = cursor.y - start_y;
+                            let slack = (inner_h - children_total).max(0.0);
+                            if slack > 0.0 {
+                                let mut cumulative_shift = 0.0_f64;
+                                for (i, cs) in child_styles.iter().enumerate() {
+                                    let (start, end) = child_ranges[i];
+                                    if cumulative_shift > 0.001 {
+                                        for j in start..end {
+                                            offset_element_y(
+                                                &mut cursor.elements[j],
+                                                cumulative_shift,
+                                            );
+                                        }
+                                    }
+                                    if cs.flex_grow > 0.0 {
+                                        let extra = slack * (cs.flex_grow / total_grow);
+                                        // Expand the container element's height
+                                        if start < end {
+                                            let elem = &mut cursor.elements[end - 1];
+                                            elem.height += extra;
+                                        }
+                                        cumulative_shift += extra;
+                                    }
+                                }
+                                cursor.y += cumulative_shift;
+                            }
+                        }
+                    }
+                }
+
                 // justify-content: redistribute children vertically when parent has fixed height
                 let needs_justify =
                     !matches!(justify, JustifyContent::FlexStart) && pages.len() == initial_pages;
                 if needs_justify {
-                    if let Some(ps) = parent_style {
-                        if let SizeConstraint::Fixed(container_h) = ps.height {
-                            let inner_h =
-                                container_h - ps.padding.vertical() - ps.border_width.vertical();
-                            let children_total = cursor.y - start_y;
-                            let slack = inner_h - children_total;
-                            if slack > 0.0 {
-                                let n = child_ranges.len();
-                                let offsets: Vec<f64> = match justify {
-                                    JustifyContent::FlexEnd => vec![slack; n],
-                                    JustifyContent::Center => vec![slack / 2.0; n],
-                                    JustifyContent::SpaceBetween => {
-                                        if n <= 1 {
-                                            vec![0.0; n]
-                                        } else {
-                                            let per_gap = slack / (n - 1) as f64;
-                                            (0..n).map(|i| i as f64 * per_gap).collect()
-                                        }
-                                    }
-                                    JustifyContent::SpaceAround => {
-                                        let space = slack / n as f64;
-                                        (0..n).map(|i| space / 2.0 + i as f64 * space).collect()
-                                    }
-                                    JustifyContent::SpaceEvenly => {
-                                        let space = slack / (n + 1) as f64;
-                                        (0..n).map(|i| (i + 1) as f64 * space).collect()
-                                    }
-                                    JustifyContent::FlexStart => vec![0.0; n],
-                                };
-                                for (i, &(start, end)) in child_ranges.iter().enumerate() {
-                                    let dy = offsets[i];
-                                    if dy.abs() > 0.001 {
-                                        for j in start..end {
-                                            offset_element_y(&mut cursor.elements[j], dy);
-                                        }
+                    // Use container_inner_h if available, otherwise compute from parent style
+                    let justify_inner_h = container_inner_h.or_else(|| {
+                        parent_style.and_then(|ps| match ps.height {
+                            SizeConstraint::Fixed(h) => {
+                                Some(h - ps.padding.vertical() - ps.border_width.vertical())
+                            }
+                            SizeConstraint::Auto => None,
+                        })
+                    });
+                    if let Some(inner_h) = justify_inner_h {
+                        let children_total = cursor.y - start_y;
+                        let slack = inner_h - children_total;
+                        if slack > 0.0 {
+                            let n = child_ranges.len();
+                            let offsets: Vec<f64> = match justify {
+                                JustifyContent::FlexEnd => vec![slack; n],
+                                JustifyContent::Center => vec![slack / 2.0; n],
+                                JustifyContent::SpaceBetween => {
+                                    if n <= 1 {
+                                        vec![0.0; n]
+                                    } else {
+                                        let per_gap = slack / (n - 1) as f64;
+                                        (0..n).map(|i| i as f64 * per_gap).collect()
                                     }
                                 }
-                                cursor.y += *offsets.last().unwrap_or(&0.0);
+                                JustifyContent::SpaceAround => {
+                                    let space = slack / n as f64;
+                                    (0..n).map(|i| space / 2.0 + i as f64 * space).collect()
+                                }
+                                JustifyContent::SpaceEvenly => {
+                                    let space = slack / (n + 1) as f64;
+                                    (0..n).map(|i| (i + 1) as f64 * space).collect()
+                                }
+                                JustifyContent::FlexStart => vec![0.0; n],
+                            };
+                            for (i, &(start, end)) in child_ranges.iter().enumerate() {
+                                let dy = offsets[i];
+                                if dy.abs() > 0.001 {
+                                    for j in start..end {
+                                        offset_element_y(&mut cursor.elements[j], dy);
+                                    }
+                                }
                             }
+                            cursor.y += *offsets.last().unwrap_or(&0.0);
                         }
                     }
                 }
@@ -2308,8 +2388,29 @@ impl LayoutEngine {
                     (lines.len() as f64) * line_height + style.padding.vertical()
                 }
             }
-            NodeKind::Image { height, .. } => {
-                height.unwrap_or(available_width * 0.75) + style.padding.vertical()
+            NodeKind::Image {
+                src,
+                width: explicit_w,
+                height: explicit_h,
+            } => {
+                // 1. style.height takes precedence
+                if let SizeConstraint::Fixed(h) = style.height {
+                    return h + style.padding.vertical();
+                }
+                // 2. Explicit height prop
+                if let Some(h) = explicit_h {
+                    return *h + style.padding.vertical();
+                }
+                // 3. Compute from real image aspect ratio (header-only read, no pixel decode)
+                let aspect = self.get_image_dimensions(src)
+                    .map(|(w, h)| if w > 0 { h as f64 / w as f64 } else { 0.75 })
+                    .unwrap_or(0.75);
+                let w = if let SizeConstraint::Fixed(w) = style.width {
+                    w
+                } else {
+                    explicit_w.unwrap_or(available_width - style.margin.horizontal())
+                };
+                w * aspect + style.padding.vertical()
             }
             NodeKind::Svg { height, .. } => *height + style.margin.vertical(),
             _ => {
@@ -2360,6 +2461,7 @@ impl LayoutEngine {
                             SizeConstraint::Fixed(w) => w,
                             SizeConstraint::Auto => {
                                 self.measure_intrinsic_width(child, style, font_context)
+                                    .min(available_width)
                             }
                         },
                     })
@@ -2478,8 +2580,18 @@ impl LayoutEngine {
                 // this width is later used as max_width for line breaking
                 text_width + 0.01 + style.padding.horizontal() + style.margin.horizontal()
             }
-            NodeKind::Image { width, .. } => {
-                width.unwrap_or(100.0) + style.padding.horizontal() + style.margin.horizontal()
+            NodeKind::Image { src, width, .. } => {
+                let w = if let SizeConstraint::Fixed(w) = style.width {
+                    w
+                } else if let Some(w) = width {
+                    *w
+                } else {
+                    // Read real pixel width from image header
+                    self.get_image_dimensions(src)
+                        .map(|(w, _)| w as f64)
+                        .unwrap_or(100.0)
+                };
+                w + style.padding.horizontal() + style.margin.horizontal()
             }
             _ => {
                 // Recursively measure children's intrinsic widths
@@ -3223,5 +3335,315 @@ mod tests {
     fn apply_char_transform_capitalize_word_start() {
         assert_eq!(apply_char_transform('h', TextTransform::Capitalize, true), 'H');
         assert_eq!(apply_char_transform('h', TextTransform::Capitalize, false), 'h');
+    }
+
+    // ── flex-grow in column direction ──
+
+    #[test]
+    fn column_flex_grow_single_child_fills_container() {
+        // A column container with fixed height 300pt and a single child with flex_grow: 1.
+        // The child should expand to fill the entire 300pt.
+        let engine = LayoutEngine::new();
+        let font_context = FontContext::new();
+
+        let child = make_styled_view(
+            Style {
+                flex_grow: Some(1.0),
+                ..Default::default()
+            },
+            vec![make_text("Short", 12.0)],
+        );
+
+        let container = make_styled_view(
+            Style {
+                flex_direction: Some(FlexDirection::Column),
+                height: Some(Dimension::Pt(300.0)),
+                ..Default::default()
+            },
+            vec![child],
+        );
+
+        let doc = Document {
+            children: vec![Node::page(
+                PageConfig::default(),
+                Style::default(),
+                vec![container],
+            )],
+            metadata: Default::default(),
+            default_page: PageConfig::default(),
+        };
+
+        let pages = engine.layout(&doc, &font_context);
+        let page = &pages[0];
+
+        let container_el = page.elements.iter().find(|e| !e.children.is_empty());
+        assert!(container_el.is_some());
+        let container_el = container_el.unwrap();
+        assert!(
+            (container_el.height - 300.0).abs() < 1.0,
+            "Container should be 300pt, got {}",
+            container_el.height
+        );
+
+        let child_el = &container_el.children[0];
+        assert!(
+            (child_el.height - 300.0).abs() < 1.0,
+            "flex-grow child should expand to 300pt, got {}",
+            child_el.height
+        );
+    }
+
+    #[test]
+    fn column_flex_grow_two_children_proportional() {
+        // Two children: one with flex_grow: 1, one with flex_grow: 2.
+        // They should share remaining space proportionally (1:2).
+        let engine = LayoutEngine::new();
+        let font_context = FontContext::new();
+
+        let child1 = make_styled_view(
+            Style {
+                flex_grow: Some(1.0),
+                ..Default::default()
+            },
+            vec![make_text("A", 12.0)],
+        );
+        let child2 = make_styled_view(
+            Style {
+                flex_grow: Some(2.0),
+                ..Default::default()
+            },
+            vec![make_text("B", 12.0)],
+        );
+
+        let container = make_styled_view(
+            Style {
+                flex_direction: Some(FlexDirection::Column),
+                height: Some(Dimension::Pt(300.0)),
+                ..Default::default()
+            },
+            vec![child1, child2],
+        );
+
+        let doc = Document {
+            children: vec![Node::page(
+                PageConfig::default(),
+                Style::default(),
+                vec![container],
+            )],
+            metadata: Default::default(),
+            default_page: PageConfig::default(),
+        };
+
+        let pages = engine.layout(&doc, &font_context);
+        let page = &pages[0];
+
+        let container_el = page
+            .elements
+            .iter()
+            .find(|e| e.children.len() == 2)
+            .expect("Should find container with two children");
+
+        let c1 = &container_el.children[0];
+        let c2 = &container_el.children[1];
+
+        // Both children have the same natural height (one line of text).
+        // The slack is split 1:2 between them.
+        // So child2 should be roughly twice as much taller than child1's growth.
+        let total = c1.height + c2.height;
+        assert!(
+            (total - 300.0).abs() < 2.0,
+            "Children should sum to ~300pt, got {}",
+            total
+        );
+
+        // child2.height should be roughly 2x child1.height
+        // (not exact because natural heights are equal, but growth is 1:2)
+        let ratio = c2.height / c1.height;
+        assert!(
+            ratio > 1.3 && ratio < 2.5,
+            "child2/child1 ratio should be between 1.3 and 2.5, got {}",
+            ratio
+        );
+    }
+
+    #[test]
+    fn column_flex_grow_mixed_grow_and_fixed() {
+        // One fixed child (no flex_grow) and one flex_grow child.
+        // The flex_grow child takes all remaining space.
+        let engine = LayoutEngine::new();
+        let font_context = FontContext::new();
+
+        let fixed_child = make_styled_view(
+            Style {
+                height: Some(Dimension::Pt(50.0)),
+                ..Default::default()
+            },
+            vec![make_text("Fixed", 12.0)],
+        );
+        let grow_child = make_styled_view(
+            Style {
+                flex_grow: Some(1.0),
+                ..Default::default()
+            },
+            vec![make_text("Grow", 12.0)],
+        );
+
+        let container = make_styled_view(
+            Style {
+                flex_direction: Some(FlexDirection::Column),
+                height: Some(Dimension::Pt(300.0)),
+                ..Default::default()
+            },
+            vec![fixed_child, grow_child],
+        );
+
+        let doc = Document {
+            children: vec![Node::page(
+                PageConfig::default(),
+                Style::default(),
+                vec![container],
+            )],
+            metadata: Default::default(),
+            default_page: PageConfig::default(),
+        };
+
+        let pages = engine.layout(&doc, &font_context);
+        let page = &pages[0];
+
+        let container_el = page
+            .elements
+            .iter()
+            .find(|e| e.children.len() == 2)
+            .expect("Should find container with two children");
+
+        let fixed_el = &container_el.children[0];
+        let grow_el = &container_el.children[1];
+
+        // Fixed child stays at 50pt
+        assert!(
+            (fixed_el.height - 50.0).abs() < 1.0,
+            "Fixed child should stay at 50pt, got {}",
+            fixed_el.height
+        );
+
+        // Grow child takes remaining ~250pt
+        assert!(
+            (grow_el.height - 250.0).abs() < 2.0,
+            "Grow child should expand to ~250pt, got {}",
+            grow_el.height
+        );
+    }
+
+    #[test]
+    fn column_flex_grow_page_level() {
+        // flex_grow: 1 on a direct Page child should fill the page content area.
+        let engine = LayoutEngine::new();
+        let font_context = FontContext::new();
+
+        let grow_child = make_styled_view(
+            Style {
+                flex_grow: Some(1.0),
+                ..Default::default()
+            },
+            vec![make_text("Fill page", 12.0)],
+        );
+
+        let doc = Document {
+            children: vec![Node::page(
+                PageConfig::default(),
+                Style::default(),
+                vec![grow_child],
+            )],
+            metadata: Default::default(),
+            default_page: PageConfig::default(),
+        };
+
+        let pages = engine.layout(&doc, &font_context);
+        let page = &pages[0];
+
+        // The child should fill the page content height
+        assert!(
+            !page.elements.is_empty(),
+            "Page should have at least one element"
+        );
+
+        let content_height =
+            page.height - page.config.margin.top - page.config.margin.bottom;
+        let el = &page.elements[0];
+        assert!(
+            (el.height - content_height).abs() < 2.0,
+            "Page-level flex-grow child should fill content height ({}), got {}",
+            content_height,
+            el.height
+        );
+    }
+
+    #[test]
+    fn column_flex_grow_with_justify_content() {
+        // flex-grow and justify-content: center should work together.
+        // A fixed child + a grow child + justify-content: center.
+        // After grow fills the space, there's no slack left for justify, so positions stay as-is.
+        let engine = LayoutEngine::new();
+        let font_context = FontContext::new();
+
+        let fixed_child = make_styled_view(
+            Style {
+                height: Some(Dimension::Pt(50.0)),
+                ..Default::default()
+            },
+            vec![make_text("Top", 12.0)],
+        );
+        let grow_child = make_styled_view(
+            Style {
+                flex_grow: Some(1.0),
+                ..Default::default()
+            },
+            vec![make_text("Fill", 12.0)],
+        );
+
+        let container = make_styled_view(
+            Style {
+                flex_direction: Some(FlexDirection::Column),
+                height: Some(Dimension::Pt(300.0)),
+                justify_content: Some(JustifyContent::Center),
+                ..Default::default()
+            },
+            vec![fixed_child, grow_child],
+        );
+
+        let doc = Document {
+            children: vec![Node::page(
+                PageConfig::default(),
+                Style::default(),
+                vec![container],
+            )],
+            metadata: Default::default(),
+            default_page: PageConfig::default(),
+        };
+
+        let pages = engine.layout(&doc, &font_context);
+        let page = &pages[0];
+
+        let container_el = page
+            .elements
+            .iter()
+            .find(|e| e.children.len() == 2)
+            .expect("Should find container");
+
+        // After flex-grow absorbs all slack, justify-content has nothing to distribute.
+        // First child should be at the top of the container.
+        let first_child = &container_el.children[0];
+        assert!(
+            (first_child.y - container_el.y).abs() < 1.0,
+            "First child should be at top of container"
+        );
+
+        // Children should still sum to container height
+        let total = container_el.children[0].height + container_el.children[1].height;
+        assert!(
+            (total - 300.0).abs() < 2.0,
+            "Children should fill container, got {}",
+            total
+        );
     }
 }

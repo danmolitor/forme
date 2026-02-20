@@ -50,6 +50,18 @@ pub fn load_image(src: &str) -> Result<LoadedImage, String> {
     decode_image_bytes(&raw_bytes)
 }
 
+/// Read only the pixel dimensions from an image source without decoding pixels.
+/// Returns (width, height) in pixels. Much cheaper than `load_image`.
+pub fn load_image_dimensions(src: &str) -> Result<(u32, u32), String> {
+    let raw_bytes = read_source_bytes(src)?;
+    let reader = image::io::Reader::new(Cursor::new(&raw_bytes))
+        .with_guessed_format()
+        .map_err(|e| format!("Image format detection error: {}", e))?;
+    reader
+        .into_dimensions()
+        .map_err(|e| format!("Failed to read image dimensions: {}", e))
+}
+
 /// Resolve the source string to raw image bytes.
 fn read_source_bytes(src: &str) -> Result<Vec<u8>, String> {
     // Data URI: data:image/png;base64,iVBOR...
