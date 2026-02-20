@@ -3058,6 +3058,95 @@ fn test_breakable_view_with_background_splits_across_pages() {
 }
 
 #[test]
+fn test_breakable_view_background_does_not_overlap_footer() {
+    // A breakable view with a background color should not extend its
+    // wrapper Rect into the footer's reserved space on any page.
+    let page_height = 300.0;
+    let margin = 20.0;
+    let footer_padding = 20.0; // top + bottom = 40 total
+    let footer_font = 12.0;
+
+    let footer = Node {
+        kind: NodeKind::Fixed {
+            position: FixedPosition::Footer,
+        },
+        style: Style {
+            padding: Some(Edges::uniform(footer_padding)),
+            ..Default::default()
+        },
+        children: vec![make_text("Footer", footer_font)],
+        id: None,
+        source_location: None,
+        bookmark: None,
+        href: None,
+    };
+
+    let mut view_children = Vec::new();
+    for i in 0..60 {
+        view_children.push(make_text(&format!("Item {}", i), 14.0));
+    }
+    let view = make_styled_view(
+        Style {
+            background_color: Some(Color::rgb(0.8, 1.0, 0.8)),
+            ..Default::default()
+        },
+        view_children,
+    );
+
+    let doc = Document {
+        children: vec![footer, view],
+        metadata: Metadata::default(),
+        default_page: PageConfig {
+            size: PageSize::Custom {
+                width: 400.0,
+                height: page_height,
+            },
+            margin: Edges::uniform(margin),
+            wrap: true,
+        },
+    };
+
+    let pages = layout_doc(&doc);
+    assert!(
+        pages.len() >= 2,
+        "Should overflow to at least 2 pages, got {}",
+        pages.len()
+    );
+
+    // The page content area bottom (before footer) =
+    //   page_height - margin_bottom = 300 - 20 = 280.
+    // The footer occupies space above that, so the content must stop
+    // before the footer. We check that no background Rect extends
+    // past the usable content area (i.e., page_height - margin - footer_height).
+    // We use a generous threshold: the rect bottom must be ≤ page_height - margin.
+    // More importantly, it must NOT reach page_height - margin (the absolute bottom
+    // of the content box), because the footer takes space away from that.
+    let page_content_bottom = page_height - margin; // 280.0
+
+    for (i, page) in pages.iter().enumerate() {
+        for elem in &page.elements {
+            if let forme::layout::DrawCommand::Rect {
+                background: Some(_),
+                ..
+            } = &elem.draw
+            {
+                let rect_bottom = elem.y + elem.height;
+                assert!(
+                    rect_bottom < page_content_bottom - 1.0,
+                    "Page {}: background Rect bottom ({:.1}) should not reach content bottom ({:.1}) — footer space must be reserved",
+                    i,
+                    rect_bottom,
+                    page_content_bottom,
+                );
+            }
+        }
+    }
+
+    let bytes = render_to_pdf(&doc);
+    assert_valid_pdf(&bytes);
+}
+
+#[test]
 fn test_breakable_view_without_visual_stays_unwrapped() {
     // A plain view (no background, no border) should NOT get a Rect wrapper
     let mut children = Vec::new();

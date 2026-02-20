@@ -1002,8 +1002,9 @@ impl LayoutEngine {
 
             // A. First page — wrap elements from snapshot onward
             let page = &mut pages[initial_page_count];
+            let footer_h: f64 = page.fixed_footer.iter().map(|(_, h)| *h).sum();
             let page_content_bottom =
-                page.config.margin.top + (page.height - page.config.margin.vertical());
+                page.config.margin.top + (page.height - page.config.margin.vertical()) - footer_h;
             let our_elements: Vec<LayoutElement> = page.elements.drain(snapshot..).collect();
             if !our_elements.is_empty() {
                 let rect_height = page_content_bottom - rect_start_y;
@@ -1026,8 +1027,9 @@ impl LayoutEngine {
             for page in &mut pages[initial_page_count + 1..] {
                 let header_h: f64 = page.fixed_header.iter().map(|(_, h)| *h).sum();
                 let content_top = page.config.margin.top + header_h;
+                let footer_h: f64 = page.fixed_footer.iter().map(|(_, h)| *h).sum();
                 let content_bottom =
-                    page.config.margin.top + (page.height - page.config.margin.vertical());
+                    page.config.margin.top + (page.height - page.config.margin.vertical()) - footer_h;
                 let all_elements: Vec<LayoutElement> = page.elements.drain(..).collect();
                 if !all_elements.is_empty() {
                     page.elements.push(LayoutElement {
