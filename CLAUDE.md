@@ -111,6 +111,10 @@ Transform in pdf serializer: `pdf_y = page_height - layout_y - element_height`
 ### Column justify-content + align-items
 `layout_children` column branch applies `justify-content` (vertical distribution) and `align-items` (horizontal alignment) as post-layout adjustments. Requires a fixed parent height for justify-content to have slack to distribute. Supports all standard values: `flex-start`, `flex-end`, `center`, `space-between`, `space-around`, `space-evenly`. `align-items` supports `flex-start`, `flex-end`, `center`, and `stretch` (default).
 
+When `flex-grow` expands a child's height, `reapply_justify_content()` redistributes that child's children vertically. This enables patterns like a cover page where a `flex: 1` container with `justifyContent: 'center'` vertically centers its content.
+
+For `align-items: center/flex-end`, percentage-width children (e.g., `width: '80%'`) are passed `available_width` to `layout_node` so the percentage resolves correctly against the parent, not the already-resolved child width. Auto-width children receive their intrinsic width instead, preventing them from stretching. `measure_intrinsic_width` for Images accounts for height constraints via aspect ratio, matching `layout_image` behavior.
+
 ### Flex Min-Content Width
 During flex shrink in `layout_flex_row`, items cannot be compressed below their min-content width (the widest unbreakable word in text nodes). This prevents short words from wrapping inside flex children. Computed by `measure_min_content_width` which delegates to `TextLayout::measure_widest_word` for text nodes.
 
