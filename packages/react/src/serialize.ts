@@ -636,7 +636,8 @@ export function mapStyle(style?: Style): FormeStyle {
     };
   }
   if (style.borderColor !== undefined || style.borderTopColor !== undefined || style.borderRightColor !== undefined || style.borderBottomColor !== undefined || style.borderLeftColor !== undefined) {
-    let base: { top?: FormeColor; right?: FormeColor; bottom?: FormeColor; left?: FormeColor } = {};
+    const defaultColor = parseColor('#000000');
+    let base = { top: defaultColor, right: defaultColor, bottom: defaultColor, left: defaultColor };
     if (typeof style.borderColor === 'string') {
       const c = parseColor(style.borderColor);
       base = { top: c, right: c, bottom: c, left: c };
@@ -649,10 +650,10 @@ export function mapStyle(style?: Style): FormeStyle {
       };
     }
     result.borderColor = {
-      top: (style.borderTopColor ? parseColor(style.borderTopColor) : base.top)!,
-      right: (style.borderRightColor ? parseColor(style.borderRightColor) : base.right)!,
-      bottom: (style.borderBottomColor ? parseColor(style.borderBottomColor) : base.bottom)!,
-      left: (style.borderLeftColor ? parseColor(style.borderLeftColor) : base.left)!,
+      top: style.borderTopColor ? parseColor(style.borderTopColor) : base.top,
+      right: style.borderRightColor ? parseColor(style.borderRightColor) : base.right,
+      bottom: style.borderBottomColor ? parseColor(style.borderBottomColor) : base.bottom,
+      left: style.borderLeftColor ? parseColor(style.borderLeftColor) : base.left,
     };
   }
   if (style.borderRadius !== undefined || style.borderTopLeftRadius !== undefined || style.borderTopRightRadius !== undefined || style.borderBottomRightRadius !== undefined || style.borderBottomLeftRadius !== undefined) {

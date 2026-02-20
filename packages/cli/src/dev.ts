@@ -208,6 +208,14 @@ export function startDevServer(inputPath: string, options: DevOptions): void {
 
       const pageCount = layout?.pages?.length ?? 0;
 
+      // Warn once if no source locations found (click-to-inspect won't work)
+      if (firstRender && !hasAnySourceLocation(doc)) {
+        console.warn(
+          `\n  Warning: No source locations found — click-to-inspect is disabled.\n` +
+          `  Ensure your tsconfig.json has "jsx": "react-jsx" (not "react").\n`
+        );
+      }
+
       if (firstRender) {
         firstRender = false;
         const url = `http://localhost:${port}`;
@@ -344,4 +352,15 @@ async function getPreviewHtml(): Promise<string> {
 
   // Inline fallback
   return `<!DOCTYPE html><html><body><h1>Preview HTML not found</h1></body></html>`;
+}
+
+function hasAnySourceLocation(doc: Record<string, unknown>): boolean {
+  const children = doc.children as Array<Record<string, unknown>> | undefined;
+  if (!children) return false;
+  function check(node: Record<string, unknown>): boolean {
+    if (node.sourceLocation) return true;
+    const kids = node.children as Array<Record<string, unknown>> | undefined;
+    return kids?.some(check) ?? false;
+  }
+  return children.some(check);
 }

@@ -339,7 +339,12 @@ describe('Style shorthand properties', () => {
 
   it('borderTopColor only', () => {
     const result = mapStyle({ borderTopColor: '#ff0000' });
-    expect(result.borderColor!.top).toEqual({ r: 1, g: 0, b: 0, a: 1 });
+    expect(result.borderColor).toEqual({
+      top: { r: 1, g: 0, b: 0, a: 1 },
+      right: { r: 0, g: 0, b: 0, a: 1 },
+      bottom: { r: 0, g: 0, b: 0, a: 1 },
+      left: { r: 0, g: 0, b: 0, a: 1 },
+    });
   });
 
   it('borderColor base + borderBottomColor override', () => {
