@@ -100,8 +100,10 @@ fn decode_image_bytes(data: &[u8]) -> Result<LoadedImage, String> {
         decode_jpeg(data)
     } else if is_png(data) {
         decode_png(data)
+    } else if is_webp(data) {
+        decode_webp(data)
     } else {
-        Err("Unsupported image format (expected JPEG or PNG)".to_string())
+        Err("Unsupported image format (expected JPEG, PNG, or WebP)".to_string())
     }
 }
 
@@ -111,6 +113,10 @@ fn is_jpeg(data: &[u8]) -> bool {
 
 fn is_png(data: &[u8]) -> bool {
     data.len() >= 4 && data[0] == 0x89 && data[1] == 0x50 && data[2] == 0x4E && data[3] == 0x47
+}
+
+fn is_webp(data: &[u8]) -> bool {
+    data.len() >= 12 && &data[0..4] == b"RIFF" && &data[8..12] == b"WEBP"
 }
 
 /// JPEG: read dimensions and color space without decoding pixels.
@@ -170,6 +176,46 @@ fn detect_jpeg_color_space(data: &[u8]) -> JpegColorSpace {
     }
     // Default to RGB if we can't determine
     JpegColorSpace::DeviceRGB
+}
+
+/// WebP: decode to RGBA, split into RGB + alpha (same pipeline as PNG).
+fn decode_webp(data: &[u8]) -> Result<LoadedImage, String> {
+    let reader = image::io::Reader::new(Cursor::new(data))
+        .with_guessed_format()
+        .map_err(|e| format!("WebP format detection error: {}", e))?;
+
+    let img = reader
+        .decode()
+        .map_err(|e| format!("Failed to decode WebP: {}", e))?;
+
+    let rgba = img.to_rgba8();
+    let width = rgba.width();
+    let height = rgba.height();
+
+    let pixel_count = (width * height) as usize;
+    let mut rgb = Vec::with_capacity(pixel_count * 3);
+    let mut alpha = Vec::with_capacity(pixel_count);
+    let mut has_transparency = false;
+
+    for pixel in rgba.pixels() {
+        rgb.push(pixel[0]);
+        rgb.push(pixel[1]);
+        rgb.push(pixel[2]);
+        let a = pixel[3];
+        alpha.push(a);
+        if a != 255 {
+            has_transparency = true;
+        }
+    }
+
+    Ok(LoadedImage {
+        pixel_data: ImagePixelData::Decoded {
+            rgb,
+            alpha: if has_transparency { Some(alpha) } else { None },
+        },
+        width_px: width,
+        height_px: height,
+    })
 }
 
 /// PNG: decode to RGBA, split into RGB + alpha.
@@ -240,6 +286,83 @@ mod tests {
     fn test_too_short_data() {
         let result = decode_image_bytes(&[0x00, 0x01]);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_is_webp() {
+        // Valid RIFF....WEBP header
+        assert!(is_webp(b"RIFF\x00\x00\x00\x00WEBP"));
+        // Too short
+        assert!(!is_webp(b"RIFF\x00\x00\x00\x00WEB"));
+        // Wrong prefix
+        assert!(!is_webp(b"XXXX\x00\x00\x00\x00WEBP"));
+        // Wrong suffix
+        assert!(!is_webp(b"RIFF\x00\x00\x00\x00XXXX"));
+        // JPEG bytes
+        assert!(!is_webp(&[0xFF, 0xD8, 0xFF, 0xE0]));
+    }
+
+    #[test]
+    fn test_decode_webp() {
+        // Create a 2x2 RGBA image, encode as WebP, then decode via our pipeline
+        let img = image::RgbaImage::from_fn(2, 2, |_, _| image::Rgba([255, 0, 0, 255]));
+        let mut buf = Vec::new();
+        let encoder = image::codecs::webp::WebPEncoder::new_lossless(&mut buf);
+        image::ImageEncoder::write_image(
+            encoder,
+            img.as_raw(),
+            2,
+            2,
+            image::ColorType::Rgba8,
+        )
+        .unwrap();
+
+        let loaded = decode_image_bytes(&buf).unwrap();
+        assert_eq!(loaded.width_px, 2);
+        assert_eq!(loaded.height_px, 2);
+        match &loaded.pixel_data {
+            ImagePixelData::Decoded { rgb, alpha } => {
+                // All pixels should be red
+                for i in 0..4 {
+                    assert_eq!(rgb[i * 3], 255, "R channel");
+                    assert_eq!(rgb[i * 3 + 1], 0, "G channel");
+                    assert_eq!(rgb[i * 3 + 2], 0, "B channel");
+                }
+                assert!(alpha.is_none(), "Fully opaque should have no alpha");
+            }
+            _ => panic!("WebP should decode to Decoded variant"),
+        }
+    }
+
+    #[test]
+    fn test_decode_webp_with_alpha() {
+        let img = image::RgbaImage::from_fn(2, 2, |x, _| {
+            if x == 0 {
+                image::Rgba([0, 255, 0, 128])
+            } else {
+                image::Rgba([0, 255, 0, 255])
+            }
+        });
+        let mut buf = Vec::new();
+        let encoder = image::codecs::webp::WebPEncoder::new_lossless(&mut buf);
+        image::ImageEncoder::write_image(
+            encoder,
+            img.as_raw(),
+            2,
+            2,
+            image::ColorType::Rgba8,
+        )
+        .unwrap();
+
+        let loaded = decode_image_bytes(&buf).unwrap();
+        match &loaded.pixel_data {
+            ImagePixelData::Decoded { rgb: _, alpha } => {
+                let alpha = alpha.as_ref().expect("Should have alpha channel");
+                assert_eq!(alpha[0], 128);
+                assert_eq!(alpha[1], 255);
+            }
+            _ => panic!("WebP should decode to Decoded variant"),
+        }
     }
 
     #[test]

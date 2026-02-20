@@ -354,12 +354,14 @@ pub enum DrawCommand {
         border_width: Edges,
         border_color: EdgeValues<Color>,
         border_radius: CornerValues,
+        opacity: f64,
     },
     /// Draw text.
     Text {
         lines: Vec<TextLine>,
         color: Color,
         text_decoration: TextDecoration,
+        opacity: f64,
     },
     /// Draw an image.
     Image {
@@ -428,6 +430,47 @@ fn offset_element_x(el: &mut LayoutElement, dx: f64) {
     }
     for child in &mut el.children {
         offset_element_x(child, dx);
+    }
+}
+
+/// Apply a text transform to a string.
+fn apply_text_transform(text: &str, transform: TextTransform) -> String {
+    match transform {
+        TextTransform::None => text.to_string(),
+        TextTransform::Uppercase => text.to_uppercase(),
+        TextTransform::Lowercase => text.to_lowercase(),
+        TextTransform::Capitalize => {
+            let mut result = String::with_capacity(text.len());
+            let mut prev_is_whitespace = true;
+            for ch in text.chars() {
+                if prev_is_whitespace && ch.is_alphabetic() {
+                    for upper in ch.to_uppercase() {
+                        result.push(upper);
+                    }
+                } else {
+                    result.push(ch);
+                }
+                prev_is_whitespace = ch.is_whitespace();
+            }
+            result
+        }
+    }
+}
+
+/// Apply a text transform to a single character, given whether it's the first
+/// letter of a word (for Capitalize).
+fn apply_char_transform(ch: char, transform: TextTransform, is_word_start: bool) -> char {
+    match transform {
+        TextTransform::None => ch,
+        TextTransform::Uppercase => ch.to_uppercase().next().unwrap_or(ch),
+        TextTransform::Lowercase => ch.to_lowercase().next().unwrap_or(ch),
+        TextTransform::Capitalize => {
+            if is_word_start && ch.is_alphabetic() {
+                ch.to_uppercase().next().unwrap_or(ch)
+            } else {
+                ch
+            }
+        }
     }
 }
 
@@ -757,6 +800,7 @@ impl LayoutEngine {
                     border_width: style.border_width,
                     border_color: style.border_color,
                     border_radius: style.border_radius,
+                    opacity: style.opacity,
                 },
                 children: child_elements,
                 node_type: Some(node_kind_name(&node.kind).to_string()),
@@ -852,6 +896,7 @@ impl LayoutEngine {
             border_width: style.border_width,
             border_color: style.border_color,
             border_radius: style.border_radius,
+            opacity: style.opacity,
         };
 
         if pages.len() == initial_page_count {
@@ -1598,6 +1643,7 @@ impl LayoutEngine {
                         border_width: cell_style.border_width,
                         border_color: cell_style.border_color,
                         border_radius: cell_style.border_radius,
+                        opacity: cell_style.opacity,
                     }
                 } else {
                     DrawCommand::None
@@ -1627,6 +1673,7 @@ impl LayoutEngine {
                     border_width: Edges::default(),
                     border_color: EdgeValues::uniform(Color::BLACK),
                     border_radius: CornerValues::uniform(0.0),
+                    opacity: row_style.opacity,
                 }
             } else {
                 DrawCommand::None
@@ -1684,9 +1731,10 @@ impl LayoutEngine {
             return;
         }
 
+        let transformed = apply_text_transform(content, style.text_transform);
         let lines = self.text_layout.break_into_lines(
             font_context,
-            content,
+            &transformed,
             text_width,
             style.font_size,
             &style.font_family,
@@ -1821,6 +1869,7 @@ impl LayoutEngine {
                     lines: vec![text_line],
                     color: style.color,
                     text_decoration: style.text_decoration,
+                    opacity: style.opacity,
                 },
                 children: vec![],
                 node_type: Some("TextLine".to_string()),
@@ -1879,9 +1928,13 @@ impl LayoutEngine {
         for run in runs {
             let run_style = run.style.resolve(Some(style), text_width);
             let run_href = run.href.as_deref().or(parent_href);
+            let transform = run_style.text_transform;
+            let mut prev_is_whitespace = true;
             for ch in run.content.chars() {
+                let transformed_ch = apply_char_transform(ch, transform, prev_is_whitespace);
+                prev_is_whitespace = ch.is_whitespace();
                 styled_chars.push(StyledChar {
-                    ch,
+                    ch: transformed_ch,
                     font_family: run_style.font_family.clone(),
                     font_size: run_style.font_size,
                     font_weight: run_style.font_weight,
@@ -2024,6 +2077,7 @@ impl LayoutEngine {
                     lines: vec![text_line],
                     color: style.color,
                     text_decoration: text_dec,
+                    opacity: style.opacity,
                 },
                 children: vec![],
                 node_type: Some("TextLine".to_string()),
@@ -3130,5 +3184,44 @@ mod tests {
             abs_child.y,
             expected_y
         );
+    }
+
+    #[test]
+    fn text_transform_none_passthrough() {
+        assert_eq!(apply_text_transform("Hello World", TextTransform::None), "Hello World");
+    }
+
+    #[test]
+    fn text_transform_uppercase() {
+        assert_eq!(apply_text_transform("hello world", TextTransform::Uppercase), "HELLO WORLD");
+    }
+
+    #[test]
+    fn text_transform_lowercase() {
+        assert_eq!(apply_text_transform("HELLO WORLD", TextTransform::Lowercase), "hello world");
+    }
+
+    #[test]
+    fn text_transform_capitalize() {
+        assert_eq!(apply_text_transform("hello world", TextTransform::Capitalize), "Hello World");
+        assert_eq!(apply_text_transform("  hello  world  ", TextTransform::Capitalize), "  Hello  World  ");
+        assert_eq!(apply_text_transform("already Capitalized", TextTransform::Capitalize), "Already Capitalized");
+    }
+
+    #[test]
+    fn text_transform_capitalize_empty() {
+        assert_eq!(apply_text_transform("", TextTransform::Capitalize), "");
+    }
+
+    #[test]
+    fn apply_char_transform_uppercase() {
+        assert_eq!(apply_char_transform('a', TextTransform::Uppercase, false), 'A');
+        assert_eq!(apply_char_transform('A', TextTransform::Uppercase, false), 'A');
+    }
+
+    #[test]
+    fn apply_char_transform_capitalize_word_start() {
+        assert_eq!(apply_char_transform('h', TextTransform::Capitalize, true), 'H');
+        assert_eq!(apply_char_transform('h', TextTransform::Capitalize, false), 'h');
     }
 }

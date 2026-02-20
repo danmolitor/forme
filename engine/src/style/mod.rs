@@ -381,6 +381,7 @@ pub struct ResolvedStyle {
     pub text_align: TextAlign,
     pub letter_spacing: f64,
     pub text_decoration: TextDecoration,
+    pub text_transform: TextTransform,
 
     // Visual
     pub color: Color,
@@ -495,6 +496,9 @@ impl Style {
             text_decoration: self
                 .text_decoration
                 .unwrap_or(parent.map(|p| p.text_decoration).unwrap_or_default()),
+            text_transform: self
+                .text_transform
+                .unwrap_or(parent.map(|p| p.text_transform).unwrap_or_default()),
 
             color: self.color.unwrap_or(parent_color),
             background_color: self.background_color,

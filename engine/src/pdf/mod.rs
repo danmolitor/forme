@@ -82,6 +82,9 @@ struct PdfBuilder {
     /// Maps (page_index, element_position_in_page) to image index in image_objects.
     /// Used during content stream writing to find the right /ImN reference.
     image_index_map: HashMap<(usize, usize), usize>,
+    /// ExtGState objects for opacity. Maps opacity value (as ordered bits) to
+    /// (object_id, gs_name) e.g. (42, "GS0").
+    ext_gstate_map: HashMap<u64, (usize, String)>,
 }
 
 struct PdfObject {
@@ -114,6 +117,7 @@ impl PdfWriter {
             custom_font_data: HashMap::new(),
             image_objects: Vec::new(),
             image_index_map: HashMap::new(),
+            ext_gstate_map: HashMap::new(),
         };
 
         // Reserve object IDs:
@@ -139,6 +143,9 @@ impl PdfWriter {
 
         // Register images as XObject PDF objects
         self.register_images(&mut builder, pages);
+
+        // Register ExtGState objects for opacity
+        self.register_ext_gstates(&mut builder, pages);
 
         // Two-pass page processing:
         // Pass 1: Build content streams, page objects, collect bookmarks + annotations
@@ -190,14 +197,14 @@ impl PdfWriter {
             // Build resource dict for this page
             let font_resources = self.build_font_resource_dict(&builder.font_objects);
             let xobject_resources = self.build_xobject_resource_dict(page_idx, &builder);
-            let resources = if xobject_resources.is_empty() {
-                format!("/Font << {} >>", font_resources)
-            } else {
-                format!(
-                    "/Font << {} >> /XObject << {} >>",
-                    font_resources, xobject_resources
-                )
-            };
+            let ext_gstate_resources = self.build_ext_gstate_resource_dict(&builder);
+            let mut resources = format!("/Font << {} >>", font_resources);
+            if !xobject_resources.is_empty() {
+                let _ = write!(resources, " /XObject << {} >>", xobject_resources);
+            }
+            if !ext_gstate_resources.is_empty() {
+                let _ = write!(resources, " /ExtGState << {} >>", ext_gstate_resources);
+            }
             per_page_resources.push(resources);
 
             // Collect bookmarks (needs page_obj_id)
@@ -383,11 +390,20 @@ impl PdfWriter {
                 border_width,
                 border_color,
                 border_radius,
+                opacity,
             } => {
                 let x = element.x;
                 let y = page_height - element.y - element.height;
                 let w = element.width;
                 let h = element.height;
+
+                // Apply opacity via ExtGState
+                let needs_opacity = *opacity < 1.0;
+                if needs_opacity {
+                    if let Some((_, gs_name)) = builder.ext_gstate_map.get(&opacity.to_bits()) {
+                        let _ = writeln!(stream, "q\n/{} gs", gs_name);
+                    }
+                }
 
                 if let Some(bg) = background {
                     if bg.a > 0.0 {
@@ -427,13 +443,26 @@ impl PdfWriter {
                         self.write_border_sides(stream, x, y, w, h, bw, border_color);
                     }
                 }
+
+                if needs_opacity {
+                    let _ = writeln!(stream, "Q");
+                }
             }
 
             DrawCommand::Text {
                 lines,
                 color,
                 text_decoration,
+                opacity,
             } => {
+                // Apply opacity via ExtGState
+                let needs_opacity = *opacity < 1.0;
+                if needs_opacity {
+                    if let Some((_, gs_name)) = builder.ext_gstate_map.get(&opacity.to_bits()) {
+                        let _ = writeln!(stream, "q\n/{} gs", gs_name);
+                    }
+                }
+
                 for line in lines {
                     if line.glyphs.is_empty() {
                         continue;
@@ -600,6 +629,10 @@ impl PdfWriter {
                             );
                         }
                     }
+                }
+
+                if needs_opacity {
+                    let _ = writeln!(stream, "Q");
                 }
             }
 
@@ -957,6 +990,63 @@ impl PdfWriter {
                 }
             }
         }
+    }
+
+    /// Collect unique opacity values from all pages and create ExtGState PDF objects.
+    fn register_ext_gstates(&self, builder: &mut PdfBuilder, pages: &[LayoutPage]) {
+        let mut unique_opacities: Vec<f64> = Vec::new();
+        for page in pages {
+            Self::collect_opacities_recursive(&page.elements, &mut unique_opacities);
+        }
+        unique_opacities.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        unique_opacities.dedup();
+
+        for (idx, &opacity) in unique_opacities.iter().enumerate() {
+            let obj_id = builder.objects.len();
+            let gs_name = format!("GS{}", idx);
+            let obj_data = format!(
+                "<< /Type /ExtGState /ca {:.4} /CA {:.4} >>",
+                opacity, opacity
+            );
+            builder.objects.push(PdfObject {
+                id: obj_id,
+                data: obj_data.into_bytes(),
+            });
+            let key = opacity.to_bits();
+            builder.ext_gstate_map.insert(key, (obj_id, gs_name));
+        }
+    }
+
+    fn collect_opacities_recursive(elements: &[LayoutElement], opacities: &mut Vec<f64>) {
+        for element in elements {
+            match &element.draw {
+                DrawCommand::Rect { opacity, .. } | DrawCommand::Text { opacity, .. }
+                    if *opacity < 1.0 =>
+                {
+                    opacities.push(*opacity);
+                }
+                _ => {}
+            }
+            Self::collect_opacities_recursive(&element.children, opacities);
+        }
+    }
+
+    /// Build the ExtGState resource dict entries for a page.
+    fn build_ext_gstate_resource_dict(&self, builder: &PdfBuilder) -> String {
+        if builder.ext_gstate_map.is_empty() {
+            return String::new();
+        }
+        let mut entries: Vec<(&String, usize)> = builder
+            .ext_gstate_map
+            .values()
+            .map(|(obj_id, name)| (name, *obj_id))
+            .collect();
+        entries.sort_by_key(|(name, _)| (*name).clone());
+        entries
+            .iter()
+            .map(|(name, obj_id)| format!("/{} {} 0 R", name, obj_id))
+            .collect::<Vec<_>>()
+            .join(" ")
     }
 
     /// Write a single image as one or two XObject PDF objects.
@@ -1774,6 +1864,7 @@ mod tests {
                         }],
                         color: Color::BLACK,
                         text_decoration: TextDecoration::None,
+                        opacity: 1.0,
                     },
                     children: vec![],
                     node_type: None,
@@ -1809,6 +1900,7 @@ mod tests {
                         }],
                         color: Color::BLACK,
                         text_decoration: TextDecoration::None,
+                        opacity: 1.0,
                     },
                     children: vec![],
                     node_type: None,
@@ -1955,6 +2047,7 @@ mod tests {
                     }],
                     color: Color::BLACK,
                     text_decoration: TextDecoration::None,
+                    opacity: 1.0,
                 },
                 children: vec![],
                 node_type: None,

@@ -954,6 +954,40 @@ fn test_png_with_alpha_has_smask() {
     assert!(text.contains("/DeviceGray"), "SMask should use DeviceGray");
 }
 
+/// Helper: create a minimal in-memory WebP (opaque, lossless) for testing.
+fn make_test_webp(width: u32, height: u32) -> Vec<u8> {
+    let img =
+        image::RgbaImage::from_fn(width, height, |_, _| image::Rgba([0, 0, 255, 255]));
+    let mut buf = Vec::new();
+    let encoder = image::codecs::webp::WebPEncoder::new_lossless(&mut buf);
+    image::ImageEncoder::write_image(
+        encoder,
+        img.as_raw(),
+        width,
+        height,
+        image::ColorType::Rgba8,
+    )
+    .unwrap();
+    buf
+}
+
+#[test]
+fn test_webp_image_produces_valid_pdf() {
+    let webp_data = make_test_webp(4, 4);
+    let src = to_data_uri(&webp_data, "image/webp");
+
+    let doc = default_doc(vec![make_image_node(&src, Some(80.0), Some(80.0))]);
+    let bytes = render_to_pdf(&doc);
+    assert_valid_pdf(&bytes);
+
+    let text = String::from_utf8_lossy(&bytes);
+    assert!(
+        text.contains("/FlateDecode"),
+        "WebP should use FlateDecode filter (decoded to RGB)"
+    );
+    assert!(text.contains("/XObject"), "Page should reference XObject");
+}
+
 #[test]
 fn test_image_aspect_ratio() {
     // 8x4 image: aspect ratio 0.5
@@ -3098,4 +3132,132 @@ fn test_single_page_breakable_view_with_background_gets_wrapped() {
         !rect.children.is_empty(),
         "Rect wrapper should contain child elements"
     );
+}
+
+// ─── Text Transform ────────────────────────────────────────────
+
+#[test]
+fn test_text_transform_uppercase_in_pdf() {
+    let doc = default_doc(vec![Node {
+        kind: NodeKind::Text {
+            content: "hello world".to_string(),
+            href: None,
+            runs: vec![],
+        },
+        style: Style {
+            font_size: Some(12.0),
+            text_transform: Some(TextTransform::Uppercase),
+            ..Default::default()
+        },
+        children: vec![],
+        id: None,
+        source_location: None,
+        bookmark: None,
+        href: None,
+    }]);
+
+    let pages = layout_doc(&doc);
+
+    // The laid-out text should contain uppercase characters
+    let text_content = extract_text_from_pages(&pages);
+    assert!(
+        text_content.contains('H') && text_content.contains('W'),
+        "Text should be uppercased, got: {}",
+        text_content
+    );
+    assert!(
+        !text_content.contains('h'),
+        "Should not contain lowercase 'h', got: {}",
+        text_content
+    );
+}
+
+#[test]
+fn test_text_transform_resolves_with_inheritance() {
+    let style = Style {
+        text_transform: Some(TextTransform::Uppercase),
+        ..Default::default()
+    };
+    let parent_resolved = style.resolve(None, 500.0);
+
+    // Child without text_transform should inherit from parent
+    let child_style = Style::default();
+    let child_resolved = child_style.resolve(Some(&parent_resolved), 500.0);
+    assert!(matches!(child_resolved.text_transform, TextTransform::Uppercase));
+
+    // Child with explicit text_transform should override
+    let child_override = Style {
+        text_transform: Some(TextTransform::Lowercase),
+        ..Default::default()
+    };
+    let child_resolved = child_override.resolve(Some(&parent_resolved), 500.0);
+    assert!(matches!(child_resolved.text_transform, TextTransform::Lowercase));
+}
+
+// ─── Opacity ───────────────────────────────────────────────────
+
+#[test]
+fn test_opacity_produces_ext_gstate_in_pdf() {
+    let doc = default_doc(vec![make_styled_view(
+        Style {
+            opacity: Some(0.5),
+            background_color: Some(Color::rgb(1.0, 0.0, 0.0)),
+            width: Some(Dimension::Pt(100.0)),
+            height: Some(Dimension::Pt(50.0)),
+            ..Default::default()
+        },
+        vec![make_text("Semi-transparent", 12.0)],
+    )]);
+
+    let pdf_bytes = render_to_pdf(&doc);
+    let pdf_str = String::from_utf8_lossy(&pdf_bytes);
+
+    // Should contain ExtGState dictionary with opacity
+    assert!(
+        pdf_str.contains("/ExtGState"),
+        "PDF should contain /ExtGState resource"
+    );
+    assert!(
+        pdf_str.contains("/ca 0.5"),
+        "PDF should contain /ca 0.5 for fill opacity"
+    );
+    assert!(
+        pdf_str.contains("/CA 0.5"),
+        "PDF should contain /CA 0.5 for stroke opacity"
+    );
+}
+
+#[test]
+fn test_opacity_1_produces_no_ext_gstate() {
+    let doc = default_doc(vec![make_text("Full opacity", 12.0)]);
+
+    let pdf_bytes = render_to_pdf(&doc);
+    let pdf_str = String::from_utf8_lossy(&pdf_bytes);
+
+    assert!(
+        !pdf_str.contains("/ExtGState"),
+        "PDF should NOT contain /ExtGState when all opacities are 1.0"
+    );
+}
+
+/// Helper: extract all text characters from laid-out pages.
+fn extract_text_from_pages(pages: &[forme::layout::LayoutPage]) -> String {
+    let mut text = String::new();
+    for page in pages {
+        extract_text_from_elements(&page.elements, &mut text);
+    }
+    text
+}
+
+fn extract_text_from_elements(elements: &[forme::layout::LayoutElement], text: &mut String) {
+    for el in elements {
+        if let forme::layout::DrawCommand::Text { lines, .. } = &el.draw {
+            for line in lines {
+                for glyph in &line.glyphs {
+                    text.push(glyph.char_value);
+                }
+            }
+        }
+        extract_text_from_elements(&el.children, text);
+    }
 }
