@@ -555,6 +555,8 @@ struct PageCursor {
     fixed_footer: Vec<(Node, f64)>,
     content_x: f64,
     content_y: f64,
+    /// Extra Y offset applied on continuation pages (e.g. parent view's padding+border)
+    continuation_top_offset: f64,
 }
 
 impl PageCursor {
@@ -573,6 +575,7 @@ impl PageCursor {
             fixed_footer: Vec::new(),
             content_x: config.margin.left,
             content_y: config.margin.top,
+            continuation_top_offset: 0.0,
         }
     }
 
@@ -597,9 +600,10 @@ impl PageCursor {
         let mut cursor = PageCursor::new(&self.config);
         cursor.fixed_header = self.fixed_header.clone();
         cursor.fixed_footer = self.fixed_footer.clone();
+        cursor.continuation_top_offset = self.continuation_top_offset;
 
         let header_height: f64 = cursor.fixed_header.iter().map(|(_, h)| *h).sum();
-        cursor.y = header_height;
+        cursor.y = header_height + cursor.continuation_top_offset;
 
         cursor
     }
@@ -926,6 +930,8 @@ impl LayoutEngine {
         let rect_start_y = cursor.content_y + cursor.y + margin.top;
 
         cursor.y += margin.top + padding.top + border.top;
+        let prev_continuation_offset = cursor.continuation_top_offset;
+        cursor.continuation_top_offset = padding.top + border.top;
 
         // Emit a zero-height marker element so the bookmark gets into the PDF outline
         if node.bookmark.is_some() {
@@ -955,6 +961,8 @@ impl LayoutEngine {
             Some(style),
             font_context,
         );
+
+        cursor.continuation_top_offset = prev_continuation_offset;
 
         // Check if this view has any visual styling worth wrapping
         let has_visual = style.background_color.is_some()

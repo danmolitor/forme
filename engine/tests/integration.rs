@@ -3350,3 +3350,89 @@ fn extract_text_from_elements(elements: &[forme::layout::LayoutElement], text: &
         extract_text_from_elements(&el.children, text);
     }
 }
+
+#[test]
+fn test_breakable_view_continuation_page_has_top_padding() {
+    // Use a small custom page so content overflows to page 2
+    let page_config = PageConfig {
+        size: PageSize::Custom {
+            width: 200.0,
+            height: 200.0,
+        },
+        margin: Edges::uniform(20.0),
+        wrap: true,
+    };
+    let padding = 15.0;
+
+    // Create a breakable view with background + padding containing children that overflow
+    let breakable_view = make_styled_view(
+        Style {
+            background_color: Some(Color {
+                r: 0.0,
+                g: 0.5,
+                b: 0.0,
+                a: 1.0,
+            }),
+            padding: Some(Edges::uniform(padding)),
+            ..Default::default()
+        },
+        vec![
+            make_text("First child on page 1", 12.0),
+            make_text("Second child on page 1", 12.0),
+            make_text("Third child on page 1", 12.0),
+            make_text("Fourth child on page 1", 12.0),
+            make_text("Fifth child on page 1", 12.0),
+            make_text("Sixth child on page 1", 12.0),
+            make_text("Seventh child overflows", 12.0),
+            make_text("Eighth child on page 2", 12.0),
+            make_text("Ninth child on page 2", 12.0),
+            make_text("Tenth child on page 2", 12.0),
+        ],
+    );
+
+    let doc = Document {
+        children: vec![breakable_view],
+        metadata: Metadata::default(),
+        default_page: page_config,
+    };
+
+    let pages = layout_doc(&doc);
+    assert!(
+        pages.len() >= 2,
+        "Expected at least 2 pages, got {}",
+        pages.len()
+    );
+
+    // On continuation pages (page 2+), the wrapper Rect element should exist
+    // and the first child inside it should be offset by padding.top from the Rect's top edge.
+    for page_idx in 1..pages.len() {
+        let page = &pages[page_idx];
+        // Find the wrapper Rect element (the breakable view's background)
+        let wrapper = page
+            .elements
+            .iter()
+            .find(|el| matches!(el.draw, forme::layout::DrawCommand::Rect { .. }))
+            .expect(&format!(
+                "Page {} should have a wrapper Rect element",
+                page_idx + 1
+            ));
+
+        assert!(
+            !wrapper.children.is_empty(),
+            "Page {} wrapper should have children",
+            page_idx + 1
+        );
+
+        let first_child = &wrapper.children[0];
+        let offset_from_rect_top = first_child.y - wrapper.y;
+        assert!(
+            (offset_from_rect_top - padding).abs() < 1.0,
+            "Page {}: first child should be {}pt below wrapper top, but was {}pt (child.y={}, wrapper.y={})",
+            page_idx + 1,
+            padding,
+            offset_from_rect_top,
+            first_child.y,
+            wrapper.y
+        );
+    }
+}
