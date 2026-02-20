@@ -436,6 +436,66 @@ fn offset_element_x(el: &mut LayoutElement, dx: f64) {
     }
 }
 
+/// After flex-grow expands an element's height, redistribute its children
+/// vertically according to its justify-content setting. Only meaningful for
+/// column containers whose height was just increased by flex-grow.
+fn reapply_justify_content(elem: &mut LayoutElement) {
+    let style = match elem.resolved_style {
+        Some(ref s) => s,
+        None => return,
+    };
+    if matches!(style.justify_content, JustifyContent::FlexStart) {
+        return;
+    }
+    if elem.children.is_empty() {
+        return;
+    }
+
+    let padding_top = style.padding.top + style.border_width.top;
+    let padding_bottom = style.padding.bottom + style.border_width.bottom;
+    let inner_h = elem.height - padding_top - padding_bottom;
+    let content_top = elem.y + padding_top;
+
+    // Find the span of children content
+    let last_child = &elem.children[elem.children.len() - 1];
+    let children_bottom = last_child.y + last_child.height;
+    let children_span = children_bottom - content_top;
+    let slack = inner_h - children_span;
+    if slack < 0.001 {
+        return;
+    }
+
+    let n = elem.children.len();
+    let offsets: Vec<f64> = match style.justify_content {
+        JustifyContent::FlexEnd => vec![slack; n],
+        JustifyContent::Center => vec![slack / 2.0; n],
+        JustifyContent::SpaceBetween => {
+            if n <= 1 {
+                vec![0.0; n]
+            } else {
+                let per_gap = slack / (n - 1) as f64;
+                (0..n).map(|i| i as f64 * per_gap).collect()
+            }
+        }
+        JustifyContent::SpaceAround => {
+            let space = slack / n as f64;
+            (0..n).map(|i| space / 2.0 + i as f64 * space).collect()
+        }
+        JustifyContent::SpaceEvenly => {
+            let space = slack / (n + 1) as f64;
+            (0..n).map(|i| (i + 1) as f64 * space).collect()
+        }
+        JustifyContent::FlexStart => unreachable!(),
+    };
+
+    for (i, child) in elem.children.iter_mut().enumerate() {
+        let dy = offsets[i];
+        if dy.abs() > 0.001 {
+            offset_element_y(child, dy);
+        }
+    }
+}
+
 /// Apply a text transform to a string.
 fn apply_text_transform(text: &str, transform: TextTransform) -> String {
     match transform {
@@ -902,9 +962,11 @@ impl LayoutEngine {
             || style.border_width.right > 0.0
             || style.border_width.bottom > 0.0
             || style.border_width.left > 0.0;
+        // Also wrap when flex_grow > 0 so the flex-grow code finds a proper wrapper element
+        let needs_wrapper = has_visual || style.flex_grow > 0.0;
 
-        if !has_visual {
-            // No visual styling — skip wrapping (preserves current behavior)
+        if !needs_wrapper {
+            // No visual styling and no flex-grow — skip wrapping
             cursor.y += padding.bottom + border.bottom + margin.bottom;
             return;
         }
@@ -1066,10 +1128,17 @@ impl LayoutEngine {
                     }
                     let child_start = cursor.elements.len();
 
-                    // For align-items Center/FlexEnd, measure child width and adjust x
-                    let (child_x, child_w) =
+                    // For align-items Center/FlexEnd, measure child width and adjust x.
+                    // Returns (child_x, layout_width): layout_width is what we pass
+                    // to layout_node. For Fixed-width children (incl. percentage),
+                    // we pass available_width so percentages re-resolve correctly.
+                    // For Auto-width children, we pass the intrinsic width so they
+                    // don't stretch to fill the parent.
+                    let (child_x, layout_w) =
                         if !matches!(align, AlignItems::Stretch | AlignItems::FlexStart) {
                             let child_style = child.style.resolve(parent_style, available_width);
+                            let has_explicit_width =
+                                matches!(child_style.width, SizeConstraint::Fixed(_));
                             let intrinsic =
                                 self.measure_intrinsic_width(child, &child_style, font_context)
                                     .min(available_width);
@@ -1077,9 +1146,16 @@ impl LayoutEngine {
                                 SizeConstraint::Fixed(fw) => fw,
                                 SizeConstraint::Auto => intrinsic,
                             };
+                            let lw = if has_explicit_width {
+                                available_width
+                            } else {
+                                w
+                            };
                             match align {
-                                AlignItems::Center => (content_x + (available_width - w) / 2.0, w),
-                                AlignItems::FlexEnd => (content_x + available_width - w, w),
+                                AlignItems::Center => {
+                                    (content_x + (available_width - w) / 2.0, lw)
+                                }
+                                AlignItems::FlexEnd => (content_x + available_width - w, lw),
                                 _ => (content_x, available_width),
                             }
                         } else {
@@ -1091,7 +1167,7 @@ impl LayoutEngine {
                         cursor,
                         pages,
                         child_x,
-                        child_w,
+                        layout_w,
                         parent_style,
                         font_context,
                     );
@@ -1145,6 +1221,7 @@ impl LayoutEngine {
                                         if start < end {
                                             let elem = &mut cursor.elements[end - 1];
                                             elem.height += extra;
+                                            reapply_justify_content(elem);
                                         }
                                         cumulative_shift += extra;
                                     }
@@ -2580,16 +2657,31 @@ impl LayoutEngine {
                 // this width is later used as max_width for line breaking
                 text_width + 0.01 + style.padding.horizontal() + style.margin.horizontal()
             }
-            NodeKind::Image { src, width, .. } => {
+            NodeKind::Image { src, width, height, .. } => {
                 let w = if let SizeConstraint::Fixed(w) = style.width {
                     w
                 } else if let Some(w) = width {
                     *w
+                } else if let Some((iw, ih)) = self.get_image_dimensions(src) {
+                    let pixel_w = iw as f64;
+                    let pixel_h = ih as f64;
+                    let aspect = if pixel_w > 0.0 {
+                        pixel_h / pixel_w
+                    } else {
+                        0.75
+                    };
+                    // Check for height constraint (style or node prop)
+                    let constrained_h = match style.height {
+                        SizeConstraint::Fixed(h) => Some(h),
+                        SizeConstraint::Auto => *height,
+                    };
+                    if let Some(h) = constrained_h {
+                        h / aspect
+                    } else {
+                        pixel_w
+                    }
                 } else {
-                    // Read real pixel width from image header
-                    self.get_image_dimensions(src)
-                        .map(|(w, _)| w as f64)
-                        .unwrap_or(100.0)
+                    100.0
                 };
                 w + style.padding.horizontal() + style.margin.horizontal()
             }
@@ -3644,6 +3736,311 @@ mod tests {
             (total - 300.0).abs() < 2.0,
             "Children should fill container, got {}",
             total
+        );
+    }
+
+    #[test]
+    fn column_flex_grow_child_justify_content_center() {
+        // A flex-grow child with justify-content: center should vertically center its content.
+        // This is the cover-page bug: the inner View grows via flex but its children stay at top.
+        let engine = LayoutEngine::new();
+        let font_context = FontContext::new();
+
+        // Inner content: a small fixed-height box
+        let inner_box = make_styled_view(
+            Style {
+                height: Some(Dimension::Pt(40.0)),
+                ..Default::default()
+            },
+            vec![make_text("Centered", 12.0)],
+        );
+
+        // The grow child: flex: 1, justify-content: center
+        let grow_child = make_styled_view(
+            Style {
+                flex_grow: Some(1.0),
+                flex_direction: Some(FlexDirection::Column),
+                justify_content: Some(JustifyContent::Center),
+                ..Default::default()
+            },
+            vec![inner_box],
+        );
+
+        // Outer column container with fixed height
+        let container = make_styled_view(
+            Style {
+                flex_direction: Some(FlexDirection::Column),
+                height: Some(Dimension::Pt(400.0)),
+                ..Default::default()
+            },
+            vec![grow_child],
+        );
+
+        let doc = Document {
+            children: vec![Node::page(
+                PageConfig::default(),
+                Style::default(),
+                vec![container],
+            )],
+            metadata: Default::default(),
+            default_page: PageConfig::default(),
+        };
+
+        let pages = engine.layout(&doc, &font_context);
+        let page = &pages[0];
+
+        // Find the container (has 1 child = the grow child)
+        let container_el = page
+            .elements
+            .iter()
+            .find(|e| e.height > 350.0 && e.children.len() == 1)
+            .expect("Should find outer container");
+
+        let grow_el = &container_el.children[0];
+        assert!(
+            (grow_el.height - 400.0).abs() < 2.0,
+            "Grow child should expand to 400, got {}",
+            grow_el.height
+        );
+
+        // The inner box should be vertically centered within the grow child
+        let inner_el = &grow_el.children[0];
+        let expected_center = grow_el.y + grow_el.height / 2.0;
+        let actual_center = inner_el.y + inner_el.height / 2.0;
+        assert!(
+            (actual_center - expected_center).abs() < 2.0,
+            "Inner box should be vertically centered. Expected center ~{}, got ~{}",
+            expected_center,
+            actual_center
+        );
+    }
+
+    #[test]
+    fn column_flex_grow_child_justify_content_flex_end() {
+        // A flex-grow child with justify-content: flex-end should push content to the bottom.
+        let engine = LayoutEngine::new();
+        let font_context = FontContext::new();
+
+        let inner_box = make_styled_view(
+            Style {
+                height: Some(Dimension::Pt(30.0)),
+                ..Default::default()
+            },
+            vec![make_text("Bottom", 12.0)],
+        );
+
+        let grow_child = make_styled_view(
+            Style {
+                flex_grow: Some(1.0),
+                flex_direction: Some(FlexDirection::Column),
+                justify_content: Some(JustifyContent::FlexEnd),
+                ..Default::default()
+            },
+            vec![inner_box],
+        );
+
+        let container = make_styled_view(
+            Style {
+                flex_direction: Some(FlexDirection::Column),
+                height: Some(Dimension::Pt(300.0)),
+                ..Default::default()
+            },
+            vec![grow_child],
+        );
+
+        let doc = Document {
+            children: vec![Node::page(
+                PageConfig::default(),
+                Style::default(),
+                vec![container],
+            )],
+            metadata: Default::default(),
+            default_page: PageConfig::default(),
+        };
+
+        let pages = engine.layout(&doc, &font_context);
+        let page = &pages[0];
+
+        let container_el = page
+            .elements
+            .iter()
+            .find(|e| e.height > 250.0 && e.children.len() == 1)
+            .expect("Should find outer container");
+
+        let grow_el = &container_el.children[0];
+        let inner_el = &grow_el.children[0];
+
+        // Inner box should be near the bottom of the grow child
+        let inner_bottom = inner_el.y + inner_el.height;
+        let grow_bottom = grow_el.y + grow_el.height;
+        assert!(
+            (inner_bottom - grow_bottom).abs() < 2.0,
+            "Inner box bottom ({}) should align with grow child bottom ({})",
+            inner_bottom,
+            grow_bottom
+        );
+    }
+
+    #[test]
+    fn column_flex_grow_child_no_justify_unchanged() {
+        // Regression: flex-grow with default FlexStart should keep content at top.
+        let engine = LayoutEngine::new();
+        let font_context = FontContext::new();
+
+        let inner_box = make_styled_view(
+            Style {
+                height: Some(Dimension::Pt(50.0)),
+                ..Default::default()
+            },
+            vec![make_text("Top", 12.0)],
+        );
+
+        let grow_child = make_styled_view(
+            Style {
+                flex_grow: Some(1.0),
+                flex_direction: Some(FlexDirection::Column),
+                // No justify-content set — defaults to FlexStart
+                ..Default::default()
+            },
+            vec![inner_box],
+        );
+
+        let container = make_styled_view(
+            Style {
+                flex_direction: Some(FlexDirection::Column),
+                height: Some(Dimension::Pt(300.0)),
+                ..Default::default()
+            },
+            vec![grow_child],
+        );
+
+        let doc = Document {
+            children: vec![Node::page(
+                PageConfig::default(),
+                Style::default(),
+                vec![container],
+            )],
+            metadata: Default::default(),
+            default_page: PageConfig::default(),
+        };
+
+        let pages = engine.layout(&doc, &font_context);
+        let page = &pages[0];
+
+        let container_el = page
+            .elements
+            .iter()
+            .find(|e| e.height > 250.0 && e.children.len() == 1)
+            .expect("Should find outer container");
+
+        let grow_el = &container_el.children[0];
+        let inner_el = &grow_el.children[0];
+
+        // Inner box should stay at the top of the grow child
+        assert!(
+            (inner_el.y - grow_el.y).abs() < 2.0,
+            "Inner box ({}) should be at top of grow child ({})",
+            inner_el.y,
+            grow_el.y
+        );
+    }
+
+    #[test]
+    fn column_flex_grow_child_align_items_center() {
+        // A flex-grown View with align_items: Center should horizontally center its Text child.
+        let engine = LayoutEngine::new();
+        let font_context = FontContext::new();
+
+        let text = make_text("Hello", 12.0);
+
+        let grow_child = make_styled_view(
+            Style {
+                flex_grow: Some(1.0),
+                flex_direction: Some(FlexDirection::Column),
+                align_items: Some(AlignItems::Center),
+                ..Default::default()
+            },
+            vec![text],
+        );
+
+        let container = make_styled_view(
+            Style {
+                flex_direction: Some(FlexDirection::Column),
+                height: Some(Dimension::Pt(300.0)),
+                ..Default::default()
+            },
+            vec![grow_child],
+        );
+
+        let doc = Document {
+            children: vec![Node::page(
+                PageConfig::default(),
+                Style::default(),
+                vec![container],
+            )],
+            metadata: Default::default(),
+            default_page: PageConfig::default(),
+        };
+
+        let pages = engine.layout(&doc, &font_context);
+        let page = &pages[0];
+
+        let container_el = page
+            .elements
+            .iter()
+            .find(|e| e.height > 250.0 && e.children.len() == 1)
+            .expect("Should find outer container");
+
+        let grow_el = &container_el.children[0];
+        assert!(
+            !grow_el.children.is_empty(),
+            "Grow child should have text child"
+        );
+
+        let text_el = &grow_el.children[0];
+        let text_center = text_el.x + text_el.width / 2.0;
+        let grow_center = grow_el.x + grow_el.width / 2.0;
+        assert!(
+            (text_center - grow_center).abs() < 2.0,
+            "Text center ({}) should be near grow child center ({})",
+            text_center,
+            grow_center
+        );
+    }
+
+    #[test]
+    fn image_intrinsic_width_respects_height_constraint() {
+        // An Image with only a height prop should compute intrinsic width from
+        // aspect ratio, not return the raw pixel width. This ensures align-items:
+        // center can correctly center images.
+        let engine = LayoutEngine::new();
+        let font_context = FontContext::new();
+
+        // Use a 1x1 PNG data URI (known dimensions: 1x1 pixels)
+        let one_px_png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+
+        let image_node = Node {
+            kind: NodeKind::Image {
+                src: one_px_png.to_string(),
+                width: None,
+                height: Some(36.0),
+            },
+            style: Style::default(),
+            children: vec![],
+            id: None,
+            source_location: None,
+            bookmark: None,
+            href: None,
+        };
+
+        let resolved = image_node.style.resolve(None, 0.0);
+        let intrinsic = engine.measure_intrinsic_width(&image_node, &resolved, &font_context);
+
+        // 1x1 pixel image with height: 36 should give width = 36 / (1/1) = 36
+        assert!(
+            (intrinsic - 36.0).abs() < 1.0,
+            "Intrinsic width should be ~36 for 1:1 aspect image with height 36, got {}",
+            intrinsic
         );
     }
 }
