@@ -593,6 +593,13 @@ export function mapStyle(style?: Style): FormeStyle {
     };
   }
 
+  // Flex shorthand: flex: N → flexGrow: N, flexShrink: 1, flexBasis: 0
+  if (style.flex !== undefined) {
+    if (style.flexGrow === undefined) result.flexGrow = style.flex;
+    if (style.flexShrink === undefined) result.flexShrink = 1;
+    if (style.flexBasis === undefined) result.flexBasis = { Pt: 0 };
+  }
+
   // Flex
   if (style.flexDirection !== undefined) result.flexDirection = FLEX_DIRECTION_MAP[style.flexDirection];
   if (style.justifyContent !== undefined) result.justifyContent = JUSTIFY_CONTENT_MAP[style.justifyContent];

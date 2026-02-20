@@ -36,6 +36,7 @@ export interface Style {
   maxWidth?: number | string;
   maxHeight?: number | string;
   flexDirection?: 'row' | 'column' | 'row-reverse' | 'column-reverse';
+  flex?: number;
   flexGrow?: number;
   flexShrink?: number;
   flexBasis?: number | string;
