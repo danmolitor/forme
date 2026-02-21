@@ -1,6 +1,6 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { readFile, writeFile, unlink } from 'node:fs/promises';
-import { resolve, basename, join } from 'node:path';
+import { resolve, basename, dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { watch } from 'chokidar';
 import { WebSocketServer, type WebSocket } from 'ws';
@@ -196,6 +196,9 @@ export function startDevServer(inputPath: string, options: DevOptions): void {
         }
       }
 
+      // Resolve font file paths relative to the template directory
+      await resolveFontPaths(doc, absoluteInput);
+
       const { pdf, layout } = await renderPdfWithLayout(JSON.stringify(doc));
 
       // Skip if a newer build started
@@ -363,4 +366,24 @@ function hasAnySourceLocation(doc: Record<string, unknown>): boolean {
     return kids?.some(check) ?? false;
   }
   return children.some(check);
+}
+
+function uint8ArrayToBase64(bytes: Uint8Array): string {
+  return Buffer.from(bytes).toString('base64');
+}
+
+async function resolveFontPaths(doc: Record<string, unknown>, templatePath: string): Promise<void> {
+  const fonts = doc.fonts as Array<{ src: string | Uint8Array }> | undefined;
+  if (!fonts?.length) return;
+
+  const templateDir = dirname(templatePath);
+  for (const font of fonts) {
+    if (font.src instanceof Uint8Array) {
+      font.src = uint8ArrayToBase64(font.src);
+    } else if (typeof font.src === 'string' && !font.src.startsWith('data:')) {
+      const fontPath = resolve(templateDir, font.src);
+      const bytes = await readFile(fontPath);
+      font.src = uint8ArrayToBase64(new Uint8Array(bytes));
+    }
+  }
 }

@@ -158,10 +158,26 @@ impl ElementStyleInfo {
             border_width: style.border_width,
             width: size_constraint_to_str(&style.width),
             height: size_constraint_to_str(&style.height),
-            min_width: if style.min_width > 0.0 { Some(style.min_width) } else { None },
-            min_height: if style.min_height > 0.0 { Some(style.min_height) } else { None },
-            max_width: if style.max_width.is_finite() { Some(style.max_width) } else { None },
-            max_height: if style.max_height.is_finite() { Some(style.max_height) } else { None },
+            min_width: if style.min_width > 0.0 {
+                Some(style.min_width)
+            } else {
+                None
+            },
+            min_height: if style.min_height > 0.0 {
+                Some(style.min_height)
+            } else {
+                None
+            },
+            max_width: if style.max_width.is_finite() {
+                Some(style.max_width)
+            } else {
+                None
+            },
+            max_height: if style.max_height.is_finite() {
+                Some(style.max_height)
+            } else {
+                None
+            },
             flex_direction: style.flex_direction,
             justify_content: style.justify_content,
             align_items: style.align_items,
@@ -3278,6 +3294,7 @@ mod tests {
             )],
             metadata: Default::default(),
             default_page: PageConfig::default(),
+            fonts: vec![],
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -3328,6 +3345,7 @@ mod tests {
             )],
             metadata: Default::default(),
             default_page: PageConfig::default(),
+            fonts: vec![],
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -3379,6 +3397,7 @@ mod tests {
             )],
             metadata: Default::default(),
             default_page: PageConfig::default(),
+            fonts: vec![],
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -3441,6 +3460,7 @@ mod tests {
             )],
             metadata: Default::default(),
             default_page: PageConfig::default(),
+            fonts: vec![],
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -3582,6 +3602,7 @@ mod tests {
             )],
             metadata: Default::default(),
             default_page: PageConfig::default(),
+            fonts: vec![],
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -3643,6 +3664,7 @@ mod tests {
             )],
             metadata: Default::default(),
             default_page: PageConfig::default(),
+            fonts: vec![],
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -3716,6 +3738,7 @@ mod tests {
             )],
             metadata: Default::default(),
             default_page: PageConfig::default(),
+            fonts: vec![],
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -3767,6 +3790,7 @@ mod tests {
             )],
             metadata: Default::default(),
             default_page: PageConfig::default(),
+            fonts: vec![],
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -3829,6 +3853,7 @@ mod tests {
             )],
             metadata: Default::default(),
             default_page: PageConfig::default(),
+            fonts: vec![],
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -3902,6 +3927,7 @@ mod tests {
             )],
             metadata: Default::default(),
             default_page: PageConfig::default(),
+            fonts: vec![],
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -3974,6 +4000,7 @@ mod tests {
             )],
             metadata: Default::default(),
             default_page: PageConfig::default(),
+            fonts: vec![],
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -4040,6 +4067,7 @@ mod tests {
             )],
             metadata: Default::default(),
             default_page: PageConfig::default(),
+            fonts: vec![],
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -4098,6 +4126,7 @@ mod tests {
             )],
             metadata: Default::default(),
             default_page: PageConfig::default(),
+            fonts: vec![],
         };
 
         let pages = engine.layout(&doc, &font_context);

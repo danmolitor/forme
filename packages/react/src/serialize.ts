@@ -1,5 +1,6 @@
 import { type ReactElement, isValidElement, Children, Fragment } from 'react';
 import { Document, Page, View, Text, Image, Table, Row, Cell, Fixed, Svg, PageBreak } from './components.js';
+import { Font, type FontRegistration } from './font.js';
 import type {
   Style,
   Edges,
@@ -7,7 +8,9 @@ import type {
   EdgeColors,
   ColumnDef,
   TextRun,
+  DocumentProps,
   FormeDocument,
+  FormeFont,
   FormeNode,
   FormeNodeKind,
   FormeStyle,
@@ -116,7 +119,10 @@ export function serialize(element: ReactElement): FormeDocument {
   if (props.subject !== undefined) metadata.subject = props.subject;
   if (props.creator !== undefined) metadata.creator = props.creator;
 
-  return {
+  // Merge global + document fonts (document fonts override on conflict)
+  const mergedFonts = mergeFonts(Font.getRegistered(), (props as DocumentProps).fonts);
+
+  const result: FormeDocument = {
     children,
     metadata,
     defaultPage: {
@@ -125,6 +131,12 @@ export function serialize(element: ReactElement): FormeDocument {
       wrap: true,
     },
   };
+
+  if (mergedFonts.length > 0) {
+    result.fonts = mergedFonts;
+  }
+
+  return result;
 }
 
 // ─── Page serialization ──────────────────────────────────────────────
@@ -768,4 +780,41 @@ function mapColumnWidth(w: ColumnDef['width']): FormeColumnWidth {
   if ('fraction' in w) return { Fraction: w.fraction };
   if ('fixed' in w) return { Fixed: w.fixed };
   return 'Auto';
+}
+
+// ─── Font merging ─────────────────────────────────────────────────
+
+function normalizeFontWeight(w?: number | string): number {
+  if (w === undefined || w === 'normal') return 400;
+  if (w === 'bold') return 700;
+  return typeof w === 'number' ? w : (parseInt(w, 10) || 400);
+}
+
+function fontKey(family: string, weight: number, italic: boolean): string {
+  return `${family}:${weight}:${italic}`;
+}
+
+function mergeFonts(
+  globalFonts: FontRegistration[],
+  docFonts?: FontRegistration[],
+): FormeFont[] {
+  const map = new Map<string, FormeFont>();
+
+  for (const f of globalFonts) {
+    const weight = normalizeFontWeight(f.fontWeight);
+    const italic = f.fontStyle === 'italic' || f.fontStyle === 'oblique';
+    const key = fontKey(f.family, weight, italic);
+    map.set(key, { family: f.family, src: f.src, weight, italic });
+  }
+
+  if (docFonts) {
+    for (const f of docFonts) {
+      const weight = normalizeFontWeight(f.fontWeight);
+      const italic = f.fontStyle === 'italic' || f.fontStyle === 'oblique';
+      const key = fontKey(f.family, weight, italic);
+      map.set(key, { family: f.family, src: f.src, weight, italic });
+    }
+  }
+
+  return Array.from(map.values());
 }

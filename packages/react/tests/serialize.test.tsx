@@ -1,5 +1,5 @@
 import React from 'react';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import {
   Document,
   Page,
@@ -19,6 +19,7 @@ import {
   expandEdges,
   expandCorners,
   StyleSheet,
+  Font,
 } from '../src/index';
 
 // ─── Component → JSON structure ─────────────────────────────────────
@@ -822,5 +823,130 @@ describe('StyleSheet', () => {
     });
     expect(styles.heading.fontSize).toBe(24);
     expect(styles.body.fontSize).toBe(10);
+  });
+});
+
+// ─── Font registration ──────────────────────────────────────────────
+
+describe('Font registration', () => {
+  afterEach(() => {
+    Font.clear();
+  });
+
+  it('Font.register() stores fonts and getRegistered() returns them', () => {
+    Font.register({ family: 'Inter', src: 'inter.ttf' });
+    const fonts = Font.getRegistered();
+    expect(fonts).toHaveLength(1);
+    expect(fonts[0].family).toBe('Inter');
+    expect(fonts[0].fontWeight).toBe(400);
+    expect(fonts[0].fontStyle).toBe('normal');
+  });
+
+  it('Font.register() normalizes weight strings', () => {
+    Font.register({ family: 'Inter', src: 'inter-bold.ttf', fontWeight: 'bold' });
+    expect(Font.getRegistered()[0].fontWeight).toBe(700);
+  });
+
+  it('Font.register() normalizes weight "normal"', () => {
+    Font.register({ family: 'Inter', src: 'inter.ttf', fontWeight: 'normal' });
+    expect(Font.getRegistered()[0].fontWeight).toBe(400);
+  });
+
+  it('Font.clear() removes all registrations', () => {
+    Font.register({ family: 'Inter', src: 'inter.ttf' });
+    Font.register({ family: 'Roboto', src: 'roboto.ttf' });
+    expect(Font.getRegistered()).toHaveLength(2);
+    Font.clear();
+    expect(Font.getRegistered()).toHaveLength(0);
+  });
+
+  it('getRegistered() returns a copy', () => {
+    Font.register({ family: 'Inter', src: 'inter.ttf' });
+    const fonts = Font.getRegistered();
+    fonts.push({ family: 'Fake', src: 'fake.ttf' });
+    expect(Font.getRegistered()).toHaveLength(1);
+  });
+});
+
+// ─── Font serialization ──────────────────────────────────────────────
+
+describe('Font serialization', () => {
+  afterEach(() => {
+    Font.clear();
+  });
+
+  it('global fonts are included in serialized document', () => {
+    Font.register({ family: 'Inter', src: 'data:font/ttf;base64,AAAA' });
+    const doc = serialize(<Document><Text>Hello</Text></Document>);
+    expect(doc.fonts).toHaveLength(1);
+    expect(doc.fonts![0]).toEqual({
+      family: 'Inter',
+      src: 'data:font/ttf;base64,AAAA',
+      weight: 400,
+      italic: false,
+    });
+  });
+
+  it('document fonts prop is included', () => {
+    const doc = serialize(
+      <Document fonts={[{ family: 'Roboto', src: 'roboto.ttf', fontWeight: 700 }]}>
+        <Text>Hello</Text>
+      </Document>
+    );
+    expect(doc.fonts).toHaveLength(1);
+    expect(doc.fonts![0]).toEqual({
+      family: 'Roboto',
+      src: 'roboto.ttf',
+      weight: 700,
+      italic: false,
+    });
+  });
+
+  it('document fonts override global fonts on conflict', () => {
+    Font.register({ family: 'Inter', src: 'global.ttf' });
+    const doc = serialize(
+      <Document fonts={[{ family: 'Inter', src: 'document.ttf' }]}>
+        <Text>Hello</Text>
+      </Document>
+    );
+    expect(doc.fonts).toHaveLength(1);
+    expect(doc.fonts![0].src).toBe('document.ttf');
+  });
+
+  it('global and document fonts merge when no conflict', () => {
+    Font.register({ family: 'Inter', src: 'inter.ttf' });
+    const doc = serialize(
+      <Document fonts={[{ family: 'Roboto', src: 'roboto.ttf' }]}>
+        <Text>Hello</Text>
+      </Document>
+    );
+    expect(doc.fonts).toHaveLength(2);
+    const families = doc.fonts!.map(f => f.family);
+    expect(families).toContain('Inter');
+    expect(families).toContain('Roboto');
+  });
+
+  it('italic font style is serialized correctly', () => {
+    Font.register({ family: 'Inter', src: 'inter-italic.ttf', fontStyle: 'italic' });
+    const doc = serialize(<Document><Text>Hello</Text></Document>);
+    expect(doc.fonts![0].italic).toBe(true);
+  });
+
+  it('oblique font style is serialized as italic', () => {
+    Font.register({ family: 'Inter', src: 'inter-oblique.ttf', fontStyle: 'oblique' });
+    const doc = serialize(<Document><Text>Hello</Text></Document>);
+    expect(doc.fonts![0].italic).toBe(true);
+  });
+
+  it('no fonts omits fonts field from output', () => {
+    const doc = serialize(<Document><Text>Hello</Text></Document>);
+    expect(doc.fonts).toBeUndefined();
+  });
+
+  it('Uint8Array src passes through in serialized output', () => {
+    const bytes = new Uint8Array([0, 1, 2, 3]);
+    Font.register({ family: 'Inter', src: bytes });
+    const doc = serialize(<Document><Text>Hello</Text></Document>);
+    expect(doc.fonts![0].src).toBeInstanceOf(Uint8Array);
   });
 });

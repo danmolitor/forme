@@ -7,6 +7,10 @@ export { serialize, mapStyle, mapDimension, parseColor, expandEdges, expandCorne
 // StyleSheet
 export { StyleSheet } from './stylesheet.js';
 
+// Font registration
+export { Font } from './font.js';
+export type { FontRegistration } from './font.js';
+
 // Render functions
 export { render, renderToObject } from './render.js';
 
@@ -31,6 +35,7 @@ export type {
   TextRun,
   // Forme JSON output
   FormeDocument,
+  FormeFont,
   FormeNode,
   FormeNodeKind,
   FormeStyle,

@@ -1,7 +1,7 @@
 import initWasm, { render_pdf as wasmRenderPdf } from '../pkg/forme.js';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import type { ReactElement } from 'react';
 
 // ── Layout metadata types ──────────────────────────────────────────
@@ -94,6 +94,27 @@ async function ensureInit(): Promise<void> {
   initialized = true;
 }
 
+// ── Font resolution ──────────────────────────────────────────────
+
+function uint8ArrayToBase64(bytes: Uint8Array): string {
+  return Buffer.from(bytes).toString('base64');
+}
+
+async function resolveFonts(doc: Record<string, unknown>): Promise<void> {
+  const fonts = doc.fonts as Array<{ family: string; src: string | Uint8Array; weight: number; italic: boolean }> | undefined;
+  if (!fonts?.length) return;
+
+  for (const font of fonts) {
+    if (font.src instanceof Uint8Array) {
+      font.src = uint8ArrayToBase64(font.src);
+    } else if (typeof font.src === 'string' && !font.src.startsWith('data:')) {
+      const bytes = await readFile(resolve(font.src));
+      font.src = uint8ArrayToBase64(new Uint8Array(bytes));
+    }
+    // data URIs pass through as-is (engine extracts base64 portion)
+  }
+}
+
 // ── Render functions ───────────────────────────────────────────────
 
 export async function renderPdf(json: string): Promise<Uint8Array> {
@@ -111,12 +132,14 @@ export async function renderPdfWithLayout(json: string): Promise<RenderWithLayou
 
 export async function renderDocument(element: ReactElement): Promise<Uint8Array> {
   const { serialize } = await import('@formepdf/react');
-  const json = JSON.stringify(serialize(element));
-  return renderPdf(json);
+  const doc = serialize(element) as unknown as Record<string, unknown>;
+  await resolveFonts(doc);
+  return renderPdf(JSON.stringify(doc));
 }
 
 export async function renderDocumentWithLayout(element: ReactElement): Promise<RenderWithLayoutResult> {
   const { serialize } = await import('@formepdf/react');
-  const json = JSON.stringify(serialize(element));
-  return renderPdfWithLayout(json);
+  const doc = serialize(element) as unknown as Record<string, unknown>;
+  await resolveFonts(doc);
+  return renderPdfWithLayout(JSON.stringify(doc));
 }

@@ -28,6 +28,30 @@ pub struct Document {
     /// nodes aren't explicitly wrapped in Page nodes.
     #[serde(default)]
     pub default_page: PageConfig,
+
+    /// Custom fonts to register before layout. Each entry contains
+    /// the font family name, base64-encoded font data, weight, and style.
+    #[serde(default)]
+    pub fonts: Vec<FontEntry>,
+}
+
+/// A custom font to register with the engine.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FontEntry {
+    /// Font family name (e.g. "Inter", "Roboto").
+    pub family: String,
+    /// Base64-encoded font data, or a data URI (e.g. "data:font/ttf;base64,...").
+    pub src: String,
+    /// Font weight (100-900). Defaults to 400.
+    #[serde(default = "default_weight")]
+    pub weight: u32,
+    /// Whether this is an italic variant.
+    #[serde(default)]
+    pub italic: bool,
+}
+
+fn default_weight() -> u32 {
+    400
 }
 
 /// Document metadata embedded in the PDF.

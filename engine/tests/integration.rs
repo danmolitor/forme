@@ -8,6 +8,7 @@
 //! - Page breaks happen at the right places
 //! - Table header repetition works
 
+use base64::Engine as _;
 use forme::font::FontContext;
 use forme::layout::LayoutEngine;
 use forme::model::*;
@@ -105,6 +106,7 @@ fn default_doc(children: Vec<Node>) -> Document {
         children,
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
+        fonts: vec![],
     }
 }
 
@@ -518,6 +520,7 @@ fn test_metadata_in_output() {
             creator: None,
         },
         default_page: PageConfig::default(),
+        fonts: vec![],
     };
     let bytes = render_to_pdf(&doc);
     assert_valid_pdf(&bytes);
@@ -648,6 +651,7 @@ fn render_with_custom_font(font_data: &[u8], text: &str) -> Vec<u8> {
         }],
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
+        fonts: vec![],
     };
 
     let engine = LayoutEngine::new();
@@ -780,6 +784,7 @@ fn test_mixed_standard_and_custom_fonts() {
         ],
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
+        fonts: vec![],
     };
 
     let engine = LayoutEngine::new();
@@ -3033,6 +3038,7 @@ fn test_breakable_view_with_background_splits_across_pages() {
             margin: Edges::uniform(20.0),
             wrap: true,
         },
+        fonts: vec![],
     };
 
     let pages = layout_doc(&doc);
@@ -3103,6 +3109,7 @@ fn test_breakable_view_background_does_not_overlap_footer() {
             margin: Edges::uniform(margin),
             wrap: true,
         },
+        fonts: vec![],
     };
 
     let pages = layout_doc(&doc);
@@ -3165,6 +3172,7 @@ fn test_breakable_view_without_visual_stays_unwrapped() {
             margin: Edges::uniform(20.0),
             wrap: true,
         },
+        fonts: vec![],
     };
 
     let pages = layout_doc(&doc);
@@ -3357,6 +3365,93 @@ fn extract_text_from_elements(elements: &[forme::layout::LayoutElement], text: &
 }
 
 #[test]
+fn test_fonts_via_json_deserialization() {
+    // Test that a document with fonts[] array deserializes and renders correctly
+    let font_data = load_test_font();
+    if font_data.is_none() {
+        println!("Skipping test_fonts_via_json — no test font available");
+        return;
+    }
+    let font_data = font_data.unwrap();
+    let font_b64 = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &font_data);
+
+    let json = format!(
+        r#"{{
+            "children": [{{
+                "kind": {{ "type": "Text", "content": "Hello custom font" }},
+                "style": {{ "fontFamily": "MyFont", "fontSize": 16 }},
+                "children": []
+            }}],
+            "metadata": {{}},
+            "defaultPage": {{
+                "size": "A4",
+                "margin": {{ "top": 54, "right": 54, "bottom": 54, "left": 54 }},
+                "wrap": true
+            }},
+            "fonts": [{{
+                "family": "MyFont",
+                "src": "data:font/ttf;base64,{}",
+                "weight": 400,
+                "italic": false
+            }}]
+        }}"#,
+        font_b64
+    );
+
+    let bytes = forme::render_json(&json).unwrap();
+    assert_valid_pdf(&bytes);
+
+    let text = String::from_utf8_lossy(&bytes);
+    // Should have CIDFont (embedded custom font) not just standard fonts
+    assert!(
+        text.contains("CIDFontType2"),
+        "PDF should contain embedded custom font (CIDFontType2)"
+    );
+}
+
+#[test]
+fn test_fonts_empty_array_renders_ok() {
+    let json = r#"{
+        "children": [{
+            "kind": { "type": "Text", "content": "Hello" },
+            "style": {},
+            "children": []
+        }],
+        "metadata": {},
+        "defaultPage": {
+            "size": "A4",
+            "margin": { "top": 54, "right": 54, "bottom": 54, "left": 54 },
+            "wrap": true
+        },
+        "fonts": []
+    }"#;
+
+    let bytes = forme::render_json(json).unwrap();
+    assert_valid_pdf(&bytes);
+}
+
+#[test]
+fn test_fonts_field_omitted_renders_ok() {
+    // fonts field omitted entirely — should default to empty vec
+    let json = r#"{
+        "children": [{
+            "kind": { "type": "Text", "content": "Hello" },
+            "style": {},
+            "children": []
+        }],
+        "metadata": {},
+        "defaultPage": {
+            "size": "A4",
+            "margin": { "top": 54, "right": 54, "bottom": 54, "left": 54 },
+            "wrap": true
+        }
+    }"#;
+
+    let bytes = forme::render_json(json).unwrap();
+    assert_valid_pdf(&bytes);
+}
+
+#[test]
 fn test_breakable_view_continuation_page_has_top_padding() {
     // Use a small custom page so content overflows to page 2
     let page_config = PageConfig {
@@ -3399,6 +3494,7 @@ fn test_breakable_view_continuation_page_has_top_padding() {
         children: vec![breakable_view],
         metadata: Metadata::default(),
         default_page: page_config,
+        fonts: vec![],
     };
 
     let pages = layout_doc(&doc);

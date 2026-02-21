@@ -43,7 +43,7 @@ pub use error::FormeError;
 
 use font::FontContext;
 use layout::{LayoutEngine, LayoutInfo};
-use model::Document;
+use model::{Document, FontEntry};
 use pdf::PdfWriter;
 
 /// Render a document to PDF bytes.
@@ -51,7 +51,8 @@ use pdf::PdfWriter;
 /// This is the primary entry point. Takes a document tree and returns
 /// the raw bytes of a valid PDF file.
 pub fn render(document: &Document) -> Result<Vec<u8>, FormeError> {
-    let font_context = FontContext::new();
+    let mut font_context = FontContext::new();
+    register_document_fonts(&mut font_context, &document.fonts);
     let engine = LayoutEngine::new();
     let pages = engine.layout(document, &font_context);
     let writer = PdfWriter::new();
@@ -63,13 +64,36 @@ pub fn render(document: &Document) -> Result<Vec<u8>, FormeError> {
 /// Same as `render()` but also returns `LayoutInfo` describing the
 /// position and dimensions of every element on every page.
 pub fn render_with_layout(document: &Document) -> Result<(Vec<u8>, LayoutInfo), FormeError> {
-    let font_context = FontContext::new();
+    let mut font_context = FontContext::new();
+    register_document_fonts(&mut font_context, &document.fonts);
     let engine = LayoutEngine::new();
     let pages = engine.layout(document, &font_context);
     let layout_info = LayoutInfo::from_pages(&pages);
     let writer = PdfWriter::new();
     let pdf = writer.write(&pages, &document.metadata, &font_context)?;
     Ok((pdf, layout_info))
+}
+
+/// Register custom fonts from the document's `fonts` array.
+fn register_document_fonts(font_context: &mut FontContext, fonts: &[FontEntry]) {
+    use base64::Engine as _;
+    let b64 = base64::engine::general_purpose::STANDARD;
+
+    for entry in fonts {
+        let bytes = if let Some(comma_pos) = entry.src.find(',') {
+            // data URI: "data:font/ttf;base64,AAAA..."
+            b64.decode(&entry.src[comma_pos + 1..]).ok()
+        } else {
+            // raw base64 string
+            b64.decode(&entry.src).ok()
+        };
+
+        if let Some(data) = bytes {
+            font_context
+                .registry_mut()
+                .register(&entry.family, entry.weight, entry.italic, data);
+        }
+    }
 }
 
 /// Render a document described as JSON to PDF bytes.

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import type { FontRegistration } from './font.js';
 
 // ─── Developer-facing types ──────────────────────────────────────────
 
@@ -117,6 +118,7 @@ export interface DocumentProps {
   author?: string;
   subject?: string;
   creator?: string;
+  fonts?: FontRegistration[];
   children?: ReactNode;
 }
 
@@ -195,10 +197,18 @@ export interface TextRun {
 
 // ─── Forme JSON output types (match Rust serde format) ───────────────
 
+export interface FormeFont {
+  family: string;
+  src: string | Uint8Array;
+  weight: number;
+  italic: boolean;
+}
+
 export interface FormeDocument {
   children: FormeNode[];
   metadata: FormeMetadata;
   defaultPage: FormePageConfig;
+  fonts?: FormeFont[];
 }
 
 export interface FormeMetadata {
