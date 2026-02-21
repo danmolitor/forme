@@ -1226,6 +1226,17 @@
     // Computed styles
     let html = '';
 
+    const sizeProps = [];
+    if (s.width != null) sizeProps.push(['width', s.width + 'pt']);
+    if (s.height != null) sizeProps.push(['height', s.height + 'pt']);
+    if (s.minWidth != null) sizeProps.push(['min-width', fmt(s.minWidth) + 'pt']);
+    if (s.minHeight != null) sizeProps.push(['min-height', fmt(s.minHeight) + 'pt']);
+    if (s.maxWidth != null) sizeProps.push(['max-width', fmt(s.maxWidth) + 'pt']);
+    if (s.maxHeight != null) sizeProps.push(['max-height', fmt(s.maxHeight) + 'pt']);
+    if (sizeProps.length) {
+      html += renderStyleSection('Sizing', sizeProps);
+    }
+
     const posProps = [];
     if (s.position && s.position !== 'Relative') {
       posProps.push(['position', s.position.toLowerCase()]);
@@ -1242,8 +1253,14 @@
     if (s.flexDirection !== 'Column') layoutProps.push(['flex-direction', s.flexDirection]);
     if (s.justifyContent !== 'FlexStart') layoutProps.push(['justify-content', s.justifyContent]);
     if (s.alignItems !== 'Stretch') layoutProps.push(['align-items', s.alignItems]);
+    if (s.alignSelf) layoutProps.push(['align-self', s.alignSelf]);
     if (s.flexWrap !== 'NoWrap') layoutProps.push(['flex-wrap', s.flexWrap]);
+    if (s.flexGrow > 0) layoutProps.push(['flex-grow', String(s.flexGrow)]);
+    if (s.flexShrink !== 1) layoutProps.push(['flex-shrink', String(s.flexShrink)]);
+    if (s.flexBasis != null) layoutProps.push(['flex-basis', s.flexBasis + 'pt']);
     if (s.gap > 0) layoutProps.push(['gap', fmt(s.gap) + 'pt']);
+    if (s.rowGap > 0 && s.rowGap !== s.gap) layoutProps.push(['row-gap', fmt(s.rowGap) + 'pt']);
+    if (s.columnGap > 0 && s.columnGap !== s.gap) layoutProps.push(['column-gap', fmt(s.columnGap) + 'pt']);
     if (layoutProps.length) {
       html += renderStyleSection('Layout', layoutProps);
     }
@@ -1266,6 +1283,9 @@
     if (s.fontStyle !== 'Normal') typoProps.push(['font-style', s.fontStyle]);
     if (s.lineHeight !== 1.4) typoProps.push(['line-height', fmt(s.lineHeight)]);
     if (s.textAlign !== 'Left') typoProps.push(['text-align', s.textAlign]);
+    if (s.letterSpacing !== 0) typoProps.push(['letter-spacing', fmt(s.letterSpacing) + 'pt']);
+    if (s.textDecoration !== 'None') typoProps.push(['text-decoration', s.textDecoration.toLowerCase()]);
+    if (s.textTransform !== 'None') typoProps.push(['text-transform', s.textTransform.toLowerCase()]);
     html += renderStyleSection('Typography', typoProps);
 
     const visualProps = [];
@@ -1282,6 +1302,15 @@
     if (el.bookmark) linkProps.push(['bookmark', escapeHtml(el.bookmark)]);
     if (linkProps.length) {
       html += renderStyleSection('Link & Bookmark', linkProps);
+    }
+
+    const pageProps = [];
+    if (s.breakable) pageProps.push(['breakable', 'true']);
+    if (s.breakBefore) pageProps.push(['break-before', 'true']);
+    if (s.minWidowLines !== 2) pageProps.push(['min-widow-lines', String(s.minWidowLines)]);
+    if (s.minOrphanLines !== 2) pageProps.push(['min-orphan-lines', String(s.minOrphanLines)]);
+    if (pageProps.length) {
+      html += renderStyleSection('Page Behavior', pageProps);
     }
 
     inspectorStyles.innerHTML = html;
@@ -1352,6 +1381,8 @@
       'NoWrap': 'nowrap', 'Wrap': 'wrap',
       'Normal': 'normal', 'Italic': 'italic',
       'Left': 'left', 'Right': 'right', 'Justify': 'justify',
+      'None': 'none', 'Underline': 'underline', 'LineThrough': 'line-through',
+      'Uppercase': 'uppercase', 'Lowercase': 'lowercase', 'Capitalize': 'capitalize',
     };
     function mapEnum(v) { return enumMap[v] || v; }
 
@@ -1375,11 +1406,23 @@
 
     const props = [];
 
+    if (s.width != null) props.push(`width: ${s.width}`);
+    if (s.height != null) props.push(`height: ${s.height}`);
+    if (s.minWidth != null) props.push(`minWidth: ${s.minWidth}`);
+    if (s.minHeight != null) props.push(`minHeight: ${s.minHeight}`);
+    if (s.maxWidth != null) props.push(`maxWidth: ${s.maxWidth}`);
+    if (s.maxHeight != null) props.push(`maxHeight: ${s.maxHeight}`);
     if (s.flexDirection !== 'Column') props.push(`flexDirection: '${mapEnum(s.flexDirection)}'`);
     if (s.justifyContent !== 'FlexStart') props.push(`justifyContent: '${mapEnum(s.justifyContent)}'`);
     if (s.alignItems !== 'Stretch') props.push(`alignItems: '${mapEnum(s.alignItems)}'`);
+    if (s.alignSelf) props.push(`alignSelf: '${mapEnum(s.alignSelf)}'`);
     if (s.flexWrap !== 'NoWrap') props.push(`flexWrap: '${mapEnum(s.flexWrap)}'`);
+    if (s.flexGrow > 0) props.push(`flexGrow: ${s.flexGrow}`);
+    if (s.flexShrink !== 1) props.push(`flexShrink: ${s.flexShrink}`);
+    if (s.flexBasis != null) props.push(`flexBasis: ${s.flexBasis}`);
     if (s.gap > 0) props.push(`gap: ${s.gap}`);
+    if (s.rowGap > 0) props.push(`rowGap: ${s.rowGap}`);
+    if (s.columnGap > 0) props.push(`columnGap: ${s.columnGap}`);
 
     if (!edgesAllZero(s.margin)) props.push(`margin: ${fmtEdges(s.margin)}`);
     if (!edgesAllZero(s.padding)) props.push(`padding: ${fmtEdges(s.padding)}`);
@@ -1391,6 +1434,9 @@
     if (s.fontStyle !== 'Normal') props.push(`fontStyle: '${mapEnum(s.fontStyle)}'`);
     if (s.lineHeight !== 1.4) props.push(`lineHeight: ${s.lineHeight}`);
     if (s.textAlign !== 'Left') props.push(`textAlign: '${mapEnum(s.textAlign)}'`);
+    if (s.letterSpacing !== 0) props.push(`letterSpacing: ${s.letterSpacing}`);
+    if (s.textDecoration !== 'None') props.push(`textDecoration: '${mapEnum(s.textDecoration)}'`);
+    if (s.textTransform !== 'None') props.push(`textTransform: '${mapEnum(s.textTransform)}'`);
 
     if (s.opacity < 1) props.push(`opacity: ${s.opacity}`);
     if (!colorEq(s.color, 0, 0, 0)) props.push(`color: '${colorToHex(s.color)}'`);

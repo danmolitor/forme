@@ -75,26 +75,52 @@ pub struct PageInfo {
     pub elements: Vec<ElementInfo>,
 }
 
-/// Serializable subset of ResolvedStyle for the inspector panel.
-/// Excludes SizeConstraint (which doesn't derive Serialize).
+/// Serializable snapshot of ResolvedStyle for the inspector panel.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ElementStyleInfo {
+    // Box model
     pub margin: Edges,
     pub padding: Edges,
     pub border_width: Edges,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub width: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub height: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub min_width: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub min_height: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_width: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_height: Option<f64>,
+    // Flex
     pub flex_direction: FlexDirection,
     pub justify_content: JustifyContent,
     pub align_items: AlignItems,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub align_self: Option<AlignItems>,
     pub flex_wrap: FlexWrap,
     pub align_content: AlignContent,
+    pub flex_grow: f64,
+    pub flex_shrink: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub flex_basis: Option<String>,
     pub gap: f64,
+    pub row_gap: f64,
+    pub column_gap: f64,
+    // Text
     pub font_family: String,
     pub font_size: f64,
     pub font_weight: u32,
     pub font_style: FontStyle,
     pub line_height: f64,
     pub text_align: TextAlign,
+    pub letter_spacing: f64,
+    pub text_decoration: TextDecoration,
+    pub text_transform: TextTransform,
+    // Visual
     pub color: Color,
     pub background_color: Option<Color>,
     pub border_color: EdgeValues<Color>,
@@ -110,6 +136,18 @@ pub struct ElementStyleInfo {
     pub bottom: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub left: Option<f64>,
+    // Page behavior
+    pub breakable: bool,
+    pub break_before: bool,
+    pub min_widow_lines: u32,
+    pub min_orphan_lines: u32,
+}
+
+fn size_constraint_to_str(sc: &SizeConstraint) -> Option<String> {
+    match sc {
+        SizeConstraint::Auto => None,
+        SizeConstraint::Fixed(v) => Some(format!("{v}")),
+    }
 }
 
 impl ElementStyleInfo {
@@ -118,18 +156,33 @@ impl ElementStyleInfo {
             margin: style.margin,
             padding: style.padding,
             border_width: style.border_width,
+            width: size_constraint_to_str(&style.width),
+            height: size_constraint_to_str(&style.height),
+            min_width: if style.min_width > 0.0 { Some(style.min_width) } else { None },
+            min_height: if style.min_height > 0.0 { Some(style.min_height) } else { None },
+            max_width: if style.max_width.is_finite() { Some(style.max_width) } else { None },
+            max_height: if style.max_height.is_finite() { Some(style.max_height) } else { None },
             flex_direction: style.flex_direction,
             justify_content: style.justify_content,
             align_items: style.align_items,
+            align_self: style.align_self,
             flex_wrap: style.flex_wrap,
             align_content: style.align_content,
+            flex_grow: style.flex_grow,
+            flex_shrink: style.flex_shrink,
+            flex_basis: size_constraint_to_str(&style.flex_basis),
             gap: style.gap,
+            row_gap: style.row_gap,
+            column_gap: style.column_gap,
             font_family: style.font_family.clone(),
             font_size: style.font_size,
             font_weight: style.font_weight,
             font_style: style.font_style,
             line_height: style.line_height,
             text_align: style.text_align,
+            letter_spacing: style.letter_spacing,
+            text_decoration: style.text_decoration,
+            text_transform: style.text_transform,
             color: style.color,
             background_color: style.background_color,
             border_color: style.border_color,
@@ -140,6 +193,10 @@ impl ElementStyleInfo {
             right: style.right,
             bottom: style.bottom,
             left: style.left,
+            breakable: style.breakable,
+            break_before: style.break_before,
+            min_widow_lines: style.min_widow_lines,
+            min_orphan_lines: style.min_orphan_lines,
         }
     }
 }
@@ -150,18 +207,33 @@ impl Default for ElementStyleInfo {
             margin: Edges::default(),
             padding: Edges::default(),
             border_width: Edges::default(),
+            width: None,
+            height: None,
+            min_width: None,
+            min_height: None,
+            max_width: None,
+            max_height: None,
             flex_direction: FlexDirection::default(),
             justify_content: JustifyContent::default(),
             align_items: AlignItems::default(),
+            align_self: None,
             flex_wrap: FlexWrap::default(),
             align_content: AlignContent::default(),
+            flex_grow: 0.0,
+            flex_shrink: 1.0,
+            flex_basis: None,
             gap: 0.0,
+            row_gap: 0.0,
+            column_gap: 0.0,
             font_family: "Helvetica".to_string(),
             font_size: 12.0,
             font_weight: 400,
             font_style: FontStyle::default(),
             line_height: 1.4,
             text_align: TextAlign::default(),
+            letter_spacing: 0.0,
+            text_decoration: TextDecoration::None,
+            text_transform: TextTransform::None,
             color: Color::BLACK,
             background_color: None,
             border_color: EdgeValues::uniform(Color::BLACK),
@@ -172,6 +244,10 @@ impl Default for ElementStyleInfo {
             right: None,
             bottom: None,
             left: None,
+            breakable: false,
+            break_before: false,
+            min_widow_lines: 2,
+            min_orphan_lines: 2,
         }
     }
 }
