@@ -320,14 +320,8 @@ mod tests {
         let img = image::RgbaImage::from_fn(2, 2, |_, _| image::Rgba([255, 0, 0, 255]));
         let mut buf = Vec::new();
         let encoder = image::codecs::webp::WebPEncoder::new_lossless(&mut buf);
-        image::ImageEncoder::write_image(
-            encoder,
-            img.as_raw(),
-            2,
-            2,
-            image::ColorType::Rgba8,
-        )
-        .unwrap();
+        image::ImageEncoder::write_image(encoder, img.as_raw(), 2, 2, image::ColorType::Rgba8)
+            .unwrap();
 
         let loaded = decode_image_bytes(&buf).unwrap();
         assert_eq!(loaded.width_px, 2);
@@ -357,14 +351,8 @@ mod tests {
         });
         let mut buf = Vec::new();
         let encoder = image::codecs::webp::WebPEncoder::new_lossless(&mut buf);
-        image::ImageEncoder::write_image(
-            encoder,
-            img.as_raw(),
-            2,
-            2,
-            image::ColorType::Rgba8,
-        )
-        .unwrap();
+        image::ImageEncoder::write_image(encoder, img.as_raw(), 2, 2, image::ColorType::Rgba8)
+            .unwrap();
 
         let loaded = decode_image_bytes(&buf).unwrap();
         match &loaded.pixel_data {

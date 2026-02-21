@@ -629,7 +629,9 @@ impl LayoutEngine {
             return Some(*dims);
         }
         if let Ok(dims) = crate::image_loader::load_image_dimensions(src) {
-            self.image_dim_cache.borrow_mut().insert(src.to_string(), dims);
+            self.image_dim_cache
+                .borrow_mut()
+                .insert(src.to_string(), dims);
             Some(dims)
         } else {
             None
@@ -1036,8 +1038,9 @@ impl LayoutEngine {
                 let header_h: f64 = page.fixed_header.iter().map(|(_, h)| *h).sum();
                 let content_top = page.config.margin.top + header_h;
                 let footer_h: f64 = page.fixed_footer.iter().map(|(_, h)| *h).sum();
-                let content_bottom =
-                    page.config.margin.top + (page.height - page.config.margin.vertical()) - footer_h;
+                let content_bottom = page.config.margin.top
+                    + (page.height - page.config.margin.vertical())
+                    - footer_h;
                 let all_elements: Vec<LayoutElement> = page.elements.drain(..).collect();
                 if !all_elements.is_empty() {
                     page.elements.push(LayoutElement {
@@ -1149,9 +1152,9 @@ impl LayoutEngine {
                             let child_style = child.style.resolve(parent_style, available_width);
                             let has_explicit_width =
                                 matches!(child_style.width, SizeConstraint::Fixed(_));
-                            let intrinsic =
-                                self.measure_intrinsic_width(child, &child_style, font_context)
-                                    .min(available_width);
+                            let intrinsic = self
+                                .measure_intrinsic_width(child, &child_style, font_context)
+                                .min(available_width);
                             let w = match child_style.width {
                                 SizeConstraint::Fixed(fw) => fw,
                                 SizeConstraint::Auto => intrinsic,
@@ -1162,9 +1165,7 @@ impl LayoutEngine {
                                 w
                             };
                             match align {
-                                AlignItems::Center => {
-                                    (content_x + (available_width - w) / 2.0, lw)
-                                }
+                                AlignItems::Center => (content_x + (available_width - w) / 2.0, lw),
                                 AlignItems::FlexEnd => (content_x + available_width - w, lw),
                                 _ => (content_x, available_width),
                             }
@@ -2489,7 +2490,8 @@ impl LayoutEngine {
                     return *h + style.padding.vertical();
                 }
                 // 3. Compute from real image aspect ratio (header-only read, no pixel decode)
-                let aspect = self.get_image_dimensions(src)
+                let aspect = self
+                    .get_image_dimensions(src)
                     .map(|(w, h)| if w > 0 { h as f64 / w as f64 } else { 0.75 })
                     .unwrap_or(0.75);
                 let w = if let SizeConstraint::Fixed(w) = style.width {
@@ -2546,10 +2548,9 @@ impl LayoutEngine {
                         SizeConstraint::Fixed(w) => w,
                         SizeConstraint::Auto => match style.width {
                             SizeConstraint::Fixed(w) => w,
-                            SizeConstraint::Auto => {
-                                self.measure_intrinsic_width(child, style, font_context)
-                                    .min(available_width)
-                            }
+                            SizeConstraint::Auto => self
+                                .measure_intrinsic_width(child, style, font_context)
+                                .min(available_width),
                         },
                     })
                     .collect();
@@ -2667,7 +2668,9 @@ impl LayoutEngine {
                 // this width is later used as max_width for line breaking
                 text_width + 0.01 + style.padding.horizontal() + style.margin.horizontal()
             }
-            NodeKind::Image { src, width, height, .. } => {
+            NodeKind::Image {
+                src, width, height, ..
+            } => {
                 let w = if let SizeConstraint::Fixed(w) = style.width {
                     w
                 } else if let Some(w) = width {
@@ -3402,24 +3405,42 @@ mod tests {
 
     #[test]
     fn text_transform_none_passthrough() {
-        assert_eq!(apply_text_transform("Hello World", TextTransform::None), "Hello World");
+        assert_eq!(
+            apply_text_transform("Hello World", TextTransform::None),
+            "Hello World"
+        );
     }
 
     #[test]
     fn text_transform_uppercase() {
-        assert_eq!(apply_text_transform("hello world", TextTransform::Uppercase), "HELLO WORLD");
+        assert_eq!(
+            apply_text_transform("hello world", TextTransform::Uppercase),
+            "HELLO WORLD"
+        );
     }
 
     #[test]
     fn text_transform_lowercase() {
-        assert_eq!(apply_text_transform("HELLO WORLD", TextTransform::Lowercase), "hello world");
+        assert_eq!(
+            apply_text_transform("HELLO WORLD", TextTransform::Lowercase),
+            "hello world"
+        );
     }
 
     #[test]
     fn text_transform_capitalize() {
-        assert_eq!(apply_text_transform("hello world", TextTransform::Capitalize), "Hello World");
-        assert_eq!(apply_text_transform("  hello  world  ", TextTransform::Capitalize), "  Hello  World  ");
-        assert_eq!(apply_text_transform("already Capitalized", TextTransform::Capitalize), "Already Capitalized");
+        assert_eq!(
+            apply_text_transform("hello world", TextTransform::Capitalize),
+            "Hello World"
+        );
+        assert_eq!(
+            apply_text_transform("  hello  world  ", TextTransform::Capitalize),
+            "  Hello  World  "
+        );
+        assert_eq!(
+            apply_text_transform("already Capitalized", TextTransform::Capitalize),
+            "Already Capitalized"
+        );
     }
 
     #[test]
@@ -3429,14 +3450,26 @@ mod tests {
 
     #[test]
     fn apply_char_transform_uppercase() {
-        assert_eq!(apply_char_transform('a', TextTransform::Uppercase, false), 'A');
-        assert_eq!(apply_char_transform('A', TextTransform::Uppercase, false), 'A');
+        assert_eq!(
+            apply_char_transform('a', TextTransform::Uppercase, false),
+            'A'
+        );
+        assert_eq!(
+            apply_char_transform('A', TextTransform::Uppercase, false),
+            'A'
+        );
     }
 
     #[test]
     fn apply_char_transform_capitalize_word_start() {
-        assert_eq!(apply_char_transform('h', TextTransform::Capitalize, true), 'H');
-        assert_eq!(apply_char_transform('h', TextTransform::Capitalize, false), 'h');
+        assert_eq!(
+            apply_char_transform('h', TextTransform::Capitalize, true),
+            'H'
+        );
+        assert_eq!(
+            apply_char_transform('h', TextTransform::Capitalize, false),
+            'h'
+        );
     }
 
     // ── flex-grow in column direction ──
@@ -3669,8 +3702,7 @@ mod tests {
             "Page should have at least one element"
         );
 
-        let content_height =
-            page.height - page.config.margin.top - page.config.margin.bottom;
+        let content_height = page.height - page.config.margin.top - page.config.margin.bottom;
         let el = &page.elements[0];
         assert!(
             (el.height - content_height).abs() < 2.0,

@@ -956,8 +956,7 @@ fn test_png_with_alpha_has_smask() {
 
 /// Helper: create a minimal in-memory WebP (opaque, lossless) for testing.
 fn make_test_webp(width: u32, height: u32) -> Vec<u8> {
-    let img =
-        image::RgbaImage::from_fn(width, height, |_, _| image::Rgba([0, 0, 255, 255]));
+    let img = image::RgbaImage::from_fn(width, height, |_, _| image::Rgba([0, 0, 255, 255]));
     let mut buf = Vec::new();
     let encoder = image::codecs::webp::WebPEncoder::new_lossless(&mut buf);
     image::ImageEncoder::write_image(
@@ -3272,7 +3271,10 @@ fn test_text_transform_resolves_with_inheritance() {
     // Child without text_transform should inherit from parent
     let child_style = Style::default();
     let child_resolved = child_style.resolve(Some(&parent_resolved), 500.0);
-    assert!(matches!(child_resolved.text_transform, TextTransform::Uppercase));
+    assert!(matches!(
+        child_resolved.text_transform,
+        TextTransform::Uppercase
+    ));
 
     // Child with explicit text_transform should override
     let child_override = Style {
@@ -3280,7 +3282,10 @@ fn test_text_transform_resolves_with_inheritance() {
         ..Default::default()
     };
     let child_resolved = child_override.resolve(Some(&parent_resolved), 500.0);
-    assert!(matches!(child_resolved.text_transform, TextTransform::Lowercase));
+    assert!(matches!(
+        child_resolved.text_transform,
+        TextTransform::Lowercase
+    ));
 }
 
 // ─── Opacity ───────────────────────────────────────────────────
