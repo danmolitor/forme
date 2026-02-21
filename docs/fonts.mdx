@@ -1,0 +1,125 @@
+---
+title: Custom Fonts
+sidebarTitle: Fonts
+description: Register custom TrueType fonts for PDF embedding with automatic subsetting.
+---
+
+Forme includes three standard PDF font families by default: **Helvetica**, **Times**, and **Courier** (each with regular, bold, italic, and bold italic variants). For any other typeface, register a TrueType (`.ttf`) font file.
+
+Registered fonts are automatically subsetted — only glyphs used in the document are embedded, keeping file sizes small.
+
+## Font.register()
+
+Register fonts globally. Works like react-pdf's `Font.register()`.
+
+```tsx
+import { Font } from '@formepdf/react';
+
+Font.register({
+  family: 'Inter',
+  src: './fonts/Inter-Regular.ttf',
+});
+
+Font.register({
+  family: 'Inter',
+  src: './fonts/Inter-Bold.ttf',
+  fontWeight: 'bold',
+});
+
+Font.register({
+  family: 'Inter',
+  src: './fonts/Inter-Italic.ttf',
+  fontStyle: 'italic',
+});
+```
+
+Then use the font by name in any style:
+
+```tsx
+<Text style={{ fontFamily: 'Inter', fontSize: 14 }}>
+  Regular text in Inter
+</Text>
+<Text style={{ fontFamily: 'Inter', fontSize: 14, fontWeight: 'bold' }}>
+  Bold text in Inter
+</Text>
+```
+
+### Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `family` | `string` | (required) | Font family name to reference in `fontFamily` style |
+| `src` | `string \| Uint8Array` | (required) | Font source: file path, base64 data URI, or raw bytes |
+| `fontWeight` | `number \| "normal" \| "bold"` | `400` | Font weight. `"normal"` = 400, `"bold"` = 700. |
+| `fontStyle` | `"normal" \| "italic" \| "oblique"` | `"normal"` | Font style variant |
+
+### Font.clear()
+
+Remove all globally registered fonts. Useful in tests.
+
+```tsx
+Font.clear();
+```
+
+## Document fonts prop
+
+Register fonts per-document instead of globally:
+
+```tsx
+<Document fonts={[
+  { family: 'Roboto', src: './fonts/Roboto-Regular.ttf' },
+  { family: 'Roboto', src: './fonts/Roboto-Bold.ttf', fontWeight: 'bold' },
+  { family: 'Roboto', src: './fonts/Roboto-Italic.ttf', fontStyle: 'italic' },
+]}>
+  <Text style={{ fontFamily: 'Roboto' }}>Hello in Roboto</Text>
+</Document>
+```
+
+Document fonts and global fonts are merged. If both register the same family + weight + style combination, the document font wins.
+
+## Font sources
+
+The `src` option accepts three formats:
+
+| Format | Example | When to use |
+|--------|---------|-------------|
+| File path | `'./fonts/Inter.ttf'` | Local development, CLI dev server |
+| Data URI | `'data:font/ttf;base64,AAAA...'` | Pre-encoded fonts, bundled assets |
+| `Uint8Array` | `new Uint8Array(buffer)` | Fonts loaded from a database or API |
+
+File paths are resolved relative to the template file in the CLI dev server (`forme dev`), or relative to the working directory in `renderDocument()`.
+
+## Standard fonts
+
+These fonts are always available without registration:
+
+| Family | Weights | Styles |
+|--------|---------|--------|
+| `Helvetica` | 400, 700 | normal, italic |
+| `Times` | 400, 700 | normal, italic |
+| `Courier` | 400, 700 | normal, italic |
+
+If a `fontFamily` is not found, Forme falls back to Helvetica.
+
+## Example: Multiple weights
+
+```tsx
+import { Font, Document, Page, View, Text } from '@formepdf/react';
+import { renderDocument } from '@formepdf/core';
+
+Font.register({ family: 'Inter', src: './fonts/Inter-Regular.ttf' });
+Font.register({ family: 'Inter', src: './fonts/Inter-Medium.ttf', fontWeight: 500 });
+Font.register({ family: 'Inter', src: './fonts/Inter-SemiBold.ttf', fontWeight: 600 });
+Font.register({ family: 'Inter', src: './fonts/Inter-Bold.ttf', fontWeight: 700 });
+
+const pdf = await renderDocument(
+  <Document>
+    <Page size="A4" margin={54}>
+      <Text style={{ fontFamily: 'Inter', fontWeight: 400 }}>Regular (400)</Text>
+      <Text style={{ fontFamily: 'Inter', fontWeight: 500 }}>Medium (500)</Text>
+      <Text style={{ fontFamily: 'Inter', fontWeight: 600 }}>SemiBold (600)</Text>
+      <Text style={{ fontFamily: 'Inter', fontWeight: 700 }}>Bold (700)</Text>
+    </Page>
+  </Document>
+);
+```

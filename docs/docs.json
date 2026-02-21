@@ -22,7 +22,7 @@
       },
       {
         "group": "Reference",
-        "pages": ["components", "styles", "page-breaks", "charts"]
+        "pages": ["components", "styles", "fonts", "page-breaks", "charts"]
       },
       {
         "group": "Migration",
