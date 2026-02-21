@@ -64,6 +64,49 @@ Live preview with debug overlays. Click any element to inspect its computed styl
 - **Images**: JPEG and PNG with transparency support.
 - **Dynamic page numbers**: `{{pageNumber}}` and `{{totalPages}}` in any text element.
 
+## Custom Fonts
+
+Register TrueType fonts globally or per-document:
+
+```tsx
+import { Font, Document, Text } from '@formepdf/react';
+import { renderDocument } from '@formepdf/core';
+
+// Global registration (works like react-pdf)
+Font.register({
+  family: 'Inter',
+  src: './fonts/Inter-Regular.ttf',
+});
+
+Font.register({
+  family: 'Inter',
+  src: './fonts/Inter-Bold.ttf',
+  fontWeight: 'bold',
+});
+
+const pdf = await renderDocument(
+  <Document>
+    <Text style={{ fontFamily: 'Inter', fontSize: 16 }}>
+      Regular text
+    </Text>
+    <Text style={{ fontFamily: 'Inter', fontSize: 16, fontWeight: 'bold' }}>
+      Bold text
+    </Text>
+  </Document>
+);
+```
+
+Or pass fonts directly on the Document:
+
+```tsx
+<Document fonts={[
+  { family: 'Roboto', src: './fonts/Roboto-Regular.ttf' },
+  { family: 'Roboto', src: './fonts/Roboto-Italic.ttf', fontStyle: 'italic' },
+]}>
+```
+
+Font sources can be file paths, data URIs, or `Uint8Array`. Fonts are automatically subsetted — only glyphs used in the document are embedded.
+
 ## Components
 
 | Component | Description |

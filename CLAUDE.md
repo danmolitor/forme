@@ -33,7 +33,10 @@ forme/
     │   ├── src/index.ts    # JS API: renderDocument(), renderDocumentWithLayout()
     │   └── build.sh        # wasm-pack build + wasm-opt
     ├── react/              # JSX component library: <Document>, <Page>, <View>, etc.
-    │   └── src/index.tsx   # Components + serialize() to JSON document tree
+    │   └── src/
+    │       ├── index.ts    # Public exports
+    │       ├── font.ts     # Font.register() static API + global font store
+    │       └── serialize.ts # JSX → JSON document tree + font merging
     └── cli/                # `forme dev` and `forme build` commands
         ├── src/dev.ts      # Dev server with live reload, PDF + layout endpoints
         ├── src/preview/    # Browser UI: preview, overlays, click-to-inspect
@@ -123,6 +126,17 @@ During flex shrink in `layout_flex_row`, items cannot be compressed below their 
 
 ### Per-Run Text Decoration
 In multi-style text (`TextRun`), decorations like `line-through` and `underline` are applied per-glyph-group in the PDF serializer, not per-line. Each `PositionedGlyph` carries its own `text_decoration` field. This means `<Text>$42.00<Text style={{textDecoration: 'line-through'}}> $56.00</Text></Text>` only strikes through the second span.
+
+### Custom Font Registration
+Users register custom TrueType fonts via `Font.register()` (global, react-pdf compatible) or the `<Document fonts={[...]}>` prop (per-document). The data flow:
+
+1. **React layer** (`font.ts` + `serialize.ts`): `Font.register()` stores registrations globally. `serialize()` merges global + document fonts into a `fonts[]` array on the JSON output. Font sources (`src`) pass through unresolved — file paths, data URIs, or `Uint8Array`.
+2. **Rendering layer** (`core/index.ts` or `cli/dev.ts`): Resolves font sources to base64 before passing JSON to WASM. File paths are read from disk; `Uint8Array` is base64-encoded; data URIs pass through as-is. In the CLI dev server, file paths resolve relative to the template directory.
+3. **Engine** (`lib.rs`): `register_document_fonts()` decodes base64 from each `FontEntry` and calls `FontContext.registry_mut().register()` before layout. The existing `FontRegistry`, `CustomFontMetrics`, and PDF subsetting handle everything from there.
+
+Key files: `packages/react/src/font.ts`, `packages/react/src/serialize.ts` (mergeFonts), `packages/core/src/index.ts` (resolveFonts), `packages/cli/src/dev.ts` (resolveFontPaths), `engine/src/lib.rs` (register_document_fonts), `engine/src/model/mod.rs` (FontEntry).
+
+Merge strategy: fonts are keyed by `family:weight:italic`. Document fonts override global fonts on conflict.
 
 ## Known Issues & Limitations (Current State)
 
