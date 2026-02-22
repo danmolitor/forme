@@ -3,11 +3,7 @@ title: Templates
 description: Compile JSX templates to JSON for server-side PDF rendering without a JavaScript runtime.
 ---
 
-<Note>
-  **Most users don't need this.** If you're rendering PDFs from a Node.js app, the standard JSX path (`renderDocument()`) is simpler and works exactly as before. Templates are only useful when you need to render PDFs without a JavaScript runtime — for example, from a hosted API, a Rust service, or a stored template in a database.
-</Note>
-
-Templates let you separate your PDF layout from the data that fills it. You write a JSX template with dynamic placeholders, compile it to a JSON file, then render PDFs by pairing that template with data — no JavaScript runtime needed.
+When do you need templates? Most developers don't. If you're using the npm package, just write JSX and call `renderDocument()` — you can use any JavaScript you want (loops, math, formatting, conditionals). Templates are for when you need to render PDFs without a JavaScript runtime: a hosted API, a Rust/Go/Python backend, or stored templates that accept dynamic data at render time. Template-mode templates must be pure display — all computation happens in your data layer, not in the template.
 
 ## How it works
 
