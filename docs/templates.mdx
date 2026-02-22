@@ -1,0 +1,248 @@
+---
+title: Templates
+description: Compile JSX templates to JSON for server-side PDF rendering without a JavaScript runtime.
+---
+
+<Note>
+  **Most users don't need this.** If you're rendering PDFs from a Node.js app, the standard JSX path (`renderDocument()`) is simpler and works exactly as before. Templates are only useful when you need to render PDFs without a JavaScript runtime — for example, from a hosted API, a Rust service, or a stored template in a database.
+</Note>
+
+Templates let you separate your PDF layout from the data that fills it. You write a JSX template with dynamic placeholders, compile it to a JSON file, then render PDFs by pairing that template with data — no JavaScript runtime needed.
+
+## How it works
+
+```
+1. Write JSX template (uses data proxy)
+2. forme build --template → template.json (with $ref, $each, $if)
+3. renderTemplate(template, data) → PDF bytes
+```
+
+The template compiler traces your JSX with a recording proxy that captures property accesses and `.map()` calls, producing a JSON document with expression markers instead of concrete values.
+
+## 1. Write a template
+
+Export a function that receives `data` and returns a `<Document>`:
+
+```tsx
+import { Document, Page, View, Text } from '@formepdf/react';
+
+export default function Invoice(data: any) {
+  return (
+    <Document title={`Invoice ${data.invoiceNumber}`}>
+      <Page size="Letter" margin={54}>
+        <Text style={{ fontSize: 24, fontWeight: 700 }}>{data.title}</Text>
+        <Text style={{ fontSize: 10, color: '#64748b', marginTop: 8 }}>
+          Bill to: {data.customer.name}
+        </Text>
+
+        <View style={{ marginTop: 24 }}>
+          {data.items.map((item: any) => (
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
+              <Text style={{ fontSize: 10 }}>{item.name}</Text>
+              <Text style={{ fontSize: 10 }}>{item.price}</Text>
+            </View>
+          ))}
+        </View>
+
+        <View style={{ marginTop: 16, alignItems: 'flex-end' }}>
+          <Text style={{ fontSize: 14, fontWeight: 700 }}>Total: {data.total}</Text>
+        </View>
+      </Page>
+    </Document>
+  );
+}
+```
+
+This is the same JSX you'd use for a normal Forme PDF. The only difference is that `data` will be a recording proxy during compilation.
+
+## 2. Compile to template JSON
+
+```bash
+npx forme build invoice.tsx --template -o invoice.template.json
+```
+
+This produces a JSON file where dynamic values are expression nodes:
+
+```json
+{
+  "children": [{
+    "kind": { "type": "Text", "content": { "$ref": "title" } },
+    "style": { "fontSize": 24, "fontWeight": 700 },
+    "children": []
+  }]
+}
+```
+
+## 3. Render with data
+
+### In Node.js
+
+```ts
+import { renderTemplate } from '@formepdf/core';
+import { readFileSync } from 'fs';
+
+const template = readFileSync('invoice.template.json', 'utf-8');
+const data = JSON.stringify({
+  title: 'Invoice #001',
+  customer: { name: 'Jane Smith' },
+  items: [
+    { name: 'Website Redesign', price: '$3,500.00' },
+    { name: 'Hosting (12 months)', price: '$600.00' },
+  ],
+  total: '$4,100.00',
+});
+
+const pdfBytes = await renderTemplate(template, data);
+```
+
+### From any language
+
+The template JSON and data JSON are plain strings. Any language that can call the Forme WASM module or a future HTTP API can render templates.
+
+## Expression reference
+
+These expression nodes are what the compiler produces. You can also hand-write template JSON if you prefer.
+
+### $ref — Data lookup
+
+Dot-path traversal into the data object. Missing paths are silently omitted.
+
+```json
+{ "$ref": "customer.name" }
+{ "$ref": "items.0.price" }
+```
+
+### $each — Array iteration
+
+Iterates an array and renders the template for each item. Results are flattened into the parent array.
+
+```json
+{
+  "$each": { "$ref": "items" },
+  "as": "$item",
+  "template": {
+    "kind": { "type": "Text", "content": { "$ref": "$item.name" } },
+    "style": {},
+    "children": []
+  }
+}
+```
+
+The `as` field names the loop variable (default: `$item`). Inside the template, `$ref` paths starting with that name resolve to the current item.
+
+### $if / then / else — Conditional
+
+Renders `then` if the condition is truthy, `else` otherwise. The `else` branch is optional.
+
+```json
+{
+  "$if": { "$ref": "showDiscount" },
+  "then": { "kind": { "type": "Text", "content": "10% off!" }, "style": {}, "children": [] },
+  "else": { "kind": { "type": "View" }, "style": {}, "children": [] }
+}
+```
+
+### $cond — Ternary value
+
+Three-element array: `[condition, ifTrue, ifFalse]`.
+
+```json
+{ "$cond": [{ "$ref": "premium" }, "Gold", "Standard"] }
+```
+
+### Comparison operators
+
+Two-element arrays. Return `true` or `false`.
+
+| Operator | Example |
+|----------|---------|
+| `$eq` | `{ "$eq": [{ "$ref": "status" }, "active"] }` |
+| `$ne` | `{ "$ne": [{ "$ref": "count" }, 0] }` |
+| `$gt` | `{ "$gt": [{ "$ref": "total" }, 1000] }` |
+| `$lt` | `{ "$lt": [{ "$ref": "age" }, 18] }` |
+| `$gte` | `{ "$gte": [{ "$ref": "score" }, 90] }` |
+| `$lte` | `{ "$lte": [{ "$ref": "price" }, 50] }` |
+
+### Arithmetic operators
+
+Two-element arrays. Return a number.
+
+| Operator | Example |
+|----------|---------|
+| `$add` | `{ "$add": [{ "$ref": "subtotal" }, { "$ref": "tax" }] }` |
+| `$sub` | `{ "$sub": [{ "$ref": "price" }, { "$ref": "discount" }] }` |
+| `$mul` | `{ "$mul": [{ "$ref": "quantity" }, { "$ref": "unitPrice" }] }` |
+| `$div` | `{ "$div": [{ "$ref": "total" }, { "$ref": "count" }] }` |
+
+### String operators
+
+| Operator | Input | Example |
+|----------|-------|---------|
+| `$upper` | single value | `{ "$upper": { "$ref": "name" } }` |
+| `$lower` | single value | `{ "$lower": { "$ref": "email" } }` |
+| `$concat` | array | `{ "$concat": [{ "$ref": "first" }, " ", { "$ref": "last" }] }` |
+| `$format` | `[value, format]` | `{ "$format": [{ "$ref": "price" }, "0.00"] }` |
+| `$count` | array value | `{ "$count": { "$ref": "items" } }` |
+
+The `$format` operator formats a number. The format string determines decimal places: `"0.00"` gives 2 decimal places, `"0.0"` gives 1.
+
+## expr helpers
+
+For operations that a property-access proxy can't capture (comparisons, arithmetic, conditionals), use the `expr` helpers in your JSX template:
+
+```tsx
+import { Document, Page, View, Text, expr } from '@formepdf/react';
+
+export default function Report(data: any) {
+  return (
+    <Document>
+      <Page size="A4" margin={54}>
+        {expr.if(
+          expr.gt(data.total, 1000),
+          <Text style={{ color: '#16a34a' }}>Large order</Text>,
+          <Text style={{ color: '#64748b' }}>Standard order</Text>
+        )}
+
+        <Text>{expr.format(data.price, '0.00')}</Text>
+        <Text>{expr.concat(data.firstName, ' ', data.lastName)}</Text>
+        <Text>{expr.count(data.items)} items</Text>
+      </Page>
+    </Document>
+  );
+}
+```
+
+### Available helpers
+
+| Helper | Description | Output |
+|--------|-------------|--------|
+| `expr.eq(a, b)` | Equality | `{ $eq: [a, b] }` |
+| `expr.ne(a, b)` | Not equal | `{ $ne: [a, b] }` |
+| `expr.gt(a, b)` | Greater than | `{ $gt: [a, b] }` |
+| `expr.lt(a, b)` | Less than | `{ $lt: [a, b] }` |
+| `expr.gte(a, b)` | Greater or equal | `{ $gte: [a, b] }` |
+| `expr.lte(a, b)` | Less or equal | `{ $lte: [a, b] }` |
+| `expr.add(a, b)` | Addition | `{ $add: [a, b] }` |
+| `expr.sub(a, b)` | Subtraction | `{ $sub: [a, b] }` |
+| `expr.mul(a, b)` | Multiplication | `{ $mul: [a, b] }` |
+| `expr.div(a, b)` | Division | `{ $div: [a, b] }` |
+| `expr.upper(v)` | Uppercase | `{ $upper: v }` |
+| `expr.lower(v)` | Lowercase | `{ $lower: v }` |
+| `expr.concat(...args)` | Join strings | `{ $concat: [...] }` |
+| `expr.format(v, fmt)` | Format number | `{ $format: [v, fmt] }` |
+| `expr.cond(cond, t, f)` | Ternary | `{ $cond: [cond, t, f] }` |
+| `expr.if(cond, then, else?)` | Conditional | `{ $if, then, else }` |
+| `expr.count(v)` | Array length | `{ $count: v }` |
+
+## Truthiness
+
+For `$if` and `$cond`, values are truthy/falsy like JavaScript with one difference:
+
+| Value | Truthy? |
+|-------|---------|
+| `null` | No |
+| `false` | No |
+| `0` | No |
+| `""` (empty string) | No |
+| `[]` (empty array) | No |
+| Everything else | Yes |

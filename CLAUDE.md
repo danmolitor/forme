@@ -138,6 +138,17 @@ Key files: `packages/react/src/font.ts`, `packages/react/src/serialize.ts` (merg
 
 Merge strategy: fonts are keyed by `family:weight:italic`. Document fonts override global fonts on conflict.
 
+### Template Expression System
+Templates enable a hosted API workflow: store template JSON + dynamic data → produce PDFs without a JavaScript runtime. Three layers:
+
+1. **Rust expression evaluator** (`engine/src/template.rs`): `evaluate_template(template, data)` walks a `serde_json::Value` tree, resolving expression nodes (`$ref`, `$each`, `$if`, `$cond`, comparisons, arithmetic, string ops, `$format`, `$count`) against a data object. `EvalContext` holds root data + scoped bindings (from `$each` "as"). `$each` results use a `__flatten` marker so parent arrays flatten them inline. Missing `$ref` paths silently omit the value.
+
+2. **TypeScript template compiler** (`packages/react/src/template-proxy.ts`, `expr.ts`, `serialize.ts`): `createDataProxy()` returns a recording Proxy that captures property access as `$ref` markers and `.map()` calls as `$each` markers. `Symbol.toPrimitive` returns sentinel strings (`\0FORME_REF:path\0`) so JSX string interpolation produces detectable markers. `expr` helpers produce expression markers for operations Proxy can't capture (comparisons, arithmetic, conditionals). `serializeTemplate()` mirrors `serialize()` but uses `flattenTemplateChildren()` (bypasses React's `Children.forEach` which rejects proxy objects) and `processTemplateValue()` to detect markers.
+
+3. **Integration** (`packages/core/src/index.ts`, `packages/cli/src/template-build.ts`): `renderTemplate()` and `renderTemplateWithLayout()` call WASM template functions. CLI `forme build --template` bundles TSX → imports → creates proxy → calls template fn → `serializeTemplate()` → resolves fonts → writes JSON.
+
+Key files: `engine/src/template.rs`, `engine/src/lib.rs` (render_template), `engine/src/wasm.rs` (render_template_pdf), `packages/react/src/template-proxy.ts`, `packages/react/src/expr.ts`, `packages/react/src/serialize.ts` (serializeTemplate), `packages/core/src/index.ts` (renderTemplate), `packages/cli/src/template-build.ts` (buildTemplate), `packages/cli/src/index.ts` (--template flag).
+
 ## Known Issues & Limitations (Current State)
 
 1. No Knuth-Plass line breaking (using greedy algorithm — fine for documents).
