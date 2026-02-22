@@ -103,7 +103,9 @@ fn evaluate_node(node: &Value, ctx: &EvalContext) -> Option<Value> {
                 if let Some(evaluated) = evaluate_node(item, ctx) {
                     // $each results get flattened
                     if is_flatten_marker(&evaluated) {
-                        if let Value::Array(inner) = evaluated.get("__flatten").unwrap_or(&Value::Null) {
+                        if let Value::Array(inner) =
+                            evaluated.get("__flatten").unwrap_or(&Value::Null)
+                        {
                             result.extend(inner.clone());
                         }
                     } else {
@@ -151,22 +153,52 @@ fn evaluate_expr_object(map: &Map<String, Value>, ctx: &EvalContext) -> Option<O
     }
 
     // Comparison operators
-    if let Some(args) = map.get("$eq") { return Some(evaluate_comparison(args, ctx, CompareOp::Eq)); }
-    if let Some(args) = map.get("$ne") { return Some(evaluate_comparison(args, ctx, CompareOp::Ne)); }
-    if let Some(args) = map.get("$gt") { return Some(evaluate_comparison(args, ctx, CompareOp::Gt)); }
-    if let Some(args) = map.get("$lt") { return Some(evaluate_comparison(args, ctx, CompareOp::Lt)); }
-    if let Some(args) = map.get("$gte") { return Some(evaluate_comparison(args, ctx, CompareOp::Gte)); }
-    if let Some(args) = map.get("$lte") { return Some(evaluate_comparison(args, ctx, CompareOp::Lte)); }
+    if let Some(args) = map.get("$eq") {
+        return Some(evaluate_comparison(args, ctx, CompareOp::Eq));
+    }
+    if let Some(args) = map.get("$ne") {
+        return Some(evaluate_comparison(args, ctx, CompareOp::Ne));
+    }
+    if let Some(args) = map.get("$gt") {
+        return Some(evaluate_comparison(args, ctx, CompareOp::Gt));
+    }
+    if let Some(args) = map.get("$lt") {
+        return Some(evaluate_comparison(args, ctx, CompareOp::Lt));
+    }
+    if let Some(args) = map.get("$gte") {
+        return Some(evaluate_comparison(args, ctx, CompareOp::Gte));
+    }
+    if let Some(args) = map.get("$lte") {
+        return Some(evaluate_comparison(args, ctx, CompareOp::Lte));
+    }
 
     // Arithmetic operators
-    if let Some(args) = map.get("$add") { return Some(evaluate_arithmetic(args, ctx, |a, b| a + b)); }
-    if let Some(args) = map.get("$sub") { return Some(evaluate_arithmetic(args, ctx, |a, b| a - b)); }
-    if let Some(args) = map.get("$mul") { return Some(evaluate_arithmetic(args, ctx, |a, b| a * b)); }
-    if let Some(args) = map.get("$div") { return Some(evaluate_arithmetic(args, ctx, |a, b| if b != 0.0 { a / b } else { 0.0 })); }
+    if let Some(args) = map.get("$add") {
+        return Some(evaluate_arithmetic(args, ctx, |a, b| a + b));
+    }
+    if let Some(args) = map.get("$sub") {
+        return Some(evaluate_arithmetic(args, ctx, |a, b| a - b));
+    }
+    if let Some(args) = map.get("$mul") {
+        return Some(evaluate_arithmetic(args, ctx, |a, b| a * b));
+    }
+    if let Some(args) = map.get("$div") {
+        return Some(evaluate_arithmetic(args, ctx, |a, b| {
+            if b != 0.0 {
+                a / b
+            } else {
+                0.0
+            }
+        }));
+    }
 
     // String transforms
-    if let Some(arg) = map.get("$upper") { return Some(evaluate_string_transform(arg, ctx, |s| s.to_uppercase())); }
-    if let Some(arg) = map.get("$lower") { return Some(evaluate_string_transform(arg, ctx, |s| s.to_lowercase())); }
+    if let Some(arg) = map.get("$upper") {
+        return Some(evaluate_string_transform(arg, ctx, |s| s.to_uppercase()));
+    }
+    if let Some(arg) = map.get("$lower") {
+        return Some(evaluate_string_transform(arg, ctx, |s| s.to_lowercase()));
+    }
 
     // $concat — string concatenation
     if let Some(args) = map.get("$concat") {
@@ -202,10 +234,7 @@ fn evaluate_each(source: &Value, map: &Map<String, Value>, ctx: &EvalContext) ->
         return Some(Value::Object(marker));
     }
 
-    let binding_name = map
-        .get("as")
-        .and_then(|v| v.as_str())
-        .unwrap_or("$item");
+    let binding_name = map.get("as").and_then(|v| v.as_str()).unwrap_or("$item");
 
     let template = map.get("template")?;
 
@@ -254,11 +283,7 @@ enum CompareOp {
     Lte,
 }
 
-fn evaluate_comparison(
-    args: &Value,
-    ctx: &EvalContext,
-    op: CompareOp,
-) -> Option<Value> {
+fn evaluate_comparison(args: &Value, ctx: &EvalContext, op: CompareOp) -> Option<Value> {
     let arr = args.as_array()?;
     if arr.len() != 2 {
         return None;
@@ -306,11 +331,7 @@ fn as_f64(v: &Value) -> Option<f64> {
     }
 }
 
-fn evaluate_arithmetic(
-    args: &Value,
-    ctx: &EvalContext,
-    op: fn(f64, f64) -> f64,
-) -> Option<Value> {
+fn evaluate_arithmetic(args: &Value, ctx: &EvalContext, op: fn(f64, f64) -> f64) -> Option<Value> {
     let arr = args.as_array()?;
     if arr.len() != 2 {
         return None;
@@ -357,7 +378,11 @@ fn evaluate_format(args: &Value, ctx: &EvalContext) -> Option<Value> {
         0
     };
 
-    Some(Value::String(format!("{:.prec$}", value, prec = decimal_places)))
+    Some(Value::String(format!(
+        "{:.prec$}",
+        value,
+        prec = decimal_places
+    )))
 }
 
 fn evaluate_count(arg: &Value, ctx: &EvalContext) -> Option<Value> {

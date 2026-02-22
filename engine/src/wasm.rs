@@ -23,8 +23,7 @@ pub fn render_pdf_with_layout(json: &str) -> Result<JsValue, JsValue> {
 
 #[wasm_bindgen]
 pub fn render_template_pdf(template_json: &str, data_json: &str) -> Result<Vec<u8>, JsValue> {
-    crate::render_template(template_json, data_json)
-        .map_err(|e| JsValue::from_str(&e.to_string()))
+    crate::render_template(template_json, data_json).map_err(|e| JsValue::from_str(&e.to_string()))
 }
 
 #[wasm_bindgen]
