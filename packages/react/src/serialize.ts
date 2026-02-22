@@ -942,7 +942,7 @@ function serializeTemplateChild(child: unknown, parent: ParentContext = null): u
 
   // Check for expr marker
   if (isExprMarker(child)) {
-    return getExpr(child);
+    return serializeExprValues(getExpr(child), parent);
   }
 
   // Check for ref sentinel strings
@@ -1135,6 +1135,28 @@ function flattenTemplateChildren(children: unknown): unknown[] {
   }
 
   result.push(children);
+  return result;
+}
+
+// ─── Expression value serialization ─────────────────────────────────
+
+/**
+ * Recursively process an expression object, serializing any React elements
+ * found in its values (e.g. $if then/else branches).
+ */
+function serializeExprValues(expr: Record<string, unknown>, parent: ParentContext): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const [key, val] of Object.entries(expr)) {
+    if (isValidElement(val as ReactElement)) {
+      result[key] = serializeTemplateChild(val, parent);
+    } else if (Array.isArray(val)) {
+      result[key] = val.map(v =>
+        isValidElement(v as ReactElement) ? serializeTemplateChild(v, parent) : v
+      );
+    } else {
+      result[key] = val;
+    }
+  }
   return result;
 }
 
