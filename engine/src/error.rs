@@ -17,6 +17,8 @@ pub enum FormeError {
     FontError(String),
     /// Layout or PDF generation failed.
     RenderError(String),
+    /// Template expression evaluation failed.
+    TemplateError(String),
 }
 
 impl fmt::Display for FormeError {
@@ -31,6 +33,7 @@ impl fmt::Display for FormeError {
             }
             FormeError::FontError(msg) => write!(f, "Font error: {}", msg),
             FormeError::RenderError(msg) => write!(f, "Render error: {}", msg),
+            FormeError::TemplateError(msg) => write!(f, "Template error: {}", msg),
         }
     }
 }

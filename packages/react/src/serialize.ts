@@ -1,6 +1,12 @@
 import { type ReactElement, isValidElement, Children, Fragment } from 'react';
 import { Document, Page, View, Text, Image, Table, Row, Cell, Fixed, Svg, PageBreak } from './components.js';
 import { Font, type FontRegistration } from './font.js';
+import {
+  isRefMarker, getRefPath,
+  isEachMarker, getEachPath, getEachTemplate,
+  isExprMarker, getExpr,
+  REF_SENTINEL, REF_SENTINEL_END,
+} from './template-proxy.js';
 import type {
   Style,
   Edges,
@@ -817,4 +823,479 @@ function mergeFonts(
   }
 
   return Array.from(map.values());
+}
+
+// ─── Template serialization ─────────────────────────────────────────
+//
+// Parallel to `serialize()` but detects proxy markers and expr markers,
+// converting them to `$ref`, `$each`, `$if`, and operator nodes.
+
+/**
+ * Serialize a React element tree into a Forme template JSON document.
+ * Like `serialize()` but with expression marker detection for template compilation.
+ */
+export function serializeTemplate(element: ReactElement): Record<string, unknown> {
+  if (element.type !== Document) {
+    throw new Error('Top-level element must be <Document>');
+  }
+
+  const props = element.props as { title?: string; author?: string; subject?: string; creator?: string; children?: unknown } & DocumentProps;
+  const childElements = flattenTemplateChildren(props.children);
+
+  const pageNodes: unknown[] = [];
+  const contentNodes: unknown[] = [];
+
+  for (const child of childElements) {
+    if (isValidElement(child) && child.type === Page) {
+      pageNodes.push(serializeTemplatePage(child));
+    } else {
+      const node = serializeTemplateChild(child, 'Document');
+      if (node !== null) contentNodes.push(node);
+    }
+  }
+
+  let children: unknown[];
+  if (pageNodes.length > 0) {
+    if (contentNodes.length > 0) {
+      const lastPage = pageNodes[pageNodes.length - 1] as { children: unknown[] };
+      lastPage.children.push(...contentNodes);
+    }
+    children = pageNodes;
+  } else if (contentNodes.length > 0) {
+    children = contentNodes;
+  } else {
+    children = [];
+  }
+
+  const metadata: Record<string, unknown> = {};
+  if (props.title !== undefined) metadata.title = processTemplateValue(props.title);
+  if (props.author !== undefined) metadata.author = processTemplateValue(props.author);
+  if (props.subject !== undefined) metadata.subject = processTemplateValue(props.subject);
+  if (props.creator !== undefined) metadata.creator = processTemplateValue(props.creator);
+
+  const mergedFonts = mergeFonts(Font.getRegistered(), props.fonts);
+
+  const result: Record<string, unknown> = {
+    children,
+    metadata,
+    defaultPage: {
+      size: 'A4',
+      margin: { top: 54, right: 54, bottom: 54, left: 54 },
+      wrap: true,
+    },
+  };
+
+  if (mergedFonts.length > 0) {
+    result.fonts = mergedFonts;
+  }
+
+  return result;
+}
+
+function serializeTemplatePage(element: ReactElement): Record<string, unknown> {
+  const props = element.props as { size?: string | { width: number; height: number }; margin?: number | Edges; children?: unknown };
+
+  let size: FormePageSize = 'A4';
+  if (props.size !== undefined) {
+    if (typeof props.size === 'string') {
+      size = props.size as FormePageSize;
+    } else {
+      size = { Custom: { width: props.size.width, height: props.size.height } };
+    }
+  }
+
+  let margin: FormeEdges = { top: 54, right: 54, bottom: 54, left: 54 };
+  if (props.margin !== undefined) {
+    margin = expandEdges(props.margin);
+  }
+
+  const config: FormePageConfig = { size, margin, wrap: true };
+  const childElements = flattenTemplateChildren(props.children);
+  const children = serializeTemplateChildren(childElements, 'Page');
+
+  return {
+    kind: { type: 'Page', config },
+    style: {},
+    children,
+  };
+}
+
+function serializeTemplateChild(child: unknown, parent: ParentContext = null): unknown | null {
+  if (child === null || child === undefined || typeof child === 'boolean') {
+    return null;
+  }
+
+  // Check for each marker (from .map() on proxy)
+  if (isEachMarker(child)) {
+    const path = getEachPath(child);
+    const template = getEachTemplate(child);
+    // The template is the JSX element returned from the .map() callback
+    const serializedTemplate = isValidElement(template as ReactElement)
+      ? serializeTemplateChild(template, parent)
+      : processTemplateValue(template);
+    return {
+      $each: { $ref: path },
+      as: '$item',
+      template: serializedTemplate,
+    };
+  }
+
+  // Check for expr marker
+  if (isExprMarker(child)) {
+    return getExpr(child);
+  }
+
+  // Check for ref sentinel strings
+  if (typeof child === 'string') {
+    const processed = processTemplateString(child);
+    if (processed !== null) return processed;
+    return {
+      kind: { type: 'Text', content: child },
+      style: {},
+      children: [],
+    };
+  }
+
+  if (typeof child === 'number') {
+    return {
+      kind: { type: 'Text', content: String(child) },
+      style: {},
+      children: [],
+    };
+  }
+
+  if (!isValidElement(child)) return null;
+
+  const element = child as ReactElement;
+
+  if (element.type === View) return serializeTemplateView(element, parent);
+  if (element.type === Text) return serializeTemplateText(element);
+  if (element.type === Image) return serializeTemplateImage(element);
+  if (element.type === Table) return serializeTemplateTable(element, parent);
+  if (element.type === Row) {
+    validateNesting('Row', parent);
+    return serializeTemplateRow(element);
+  }
+  if (element.type === Cell) {
+    validateNesting('Cell', parent);
+    return serializeTemplateCell(element);
+  }
+  if (element.type === Fixed) return serializeTemplateFixed(element);
+  if (element.type === Svg) return serializeSvg(element);
+  if (element.type === PageBreak) {
+    return { kind: { type: 'PageBreak' }, style: {}, children: [] };
+  }
+  if (element.type === Page) {
+    validateNesting('Page', parent);
+    return serializeTemplatePage(element);
+  }
+
+  // Unknown function component — call it
+  if (typeof element.type === 'function') {
+    const result = (element.type as (props: Record<string, unknown>) => unknown)(element.props as Record<string, unknown>);
+    if (isValidElement(result)) {
+      return serializeTemplateChild(result, parent);
+    }
+    return null;
+  }
+
+  return null;
+}
+
+function serializeTemplateView(element: ReactElement, _parent: ParentContext = null): Record<string, unknown> {
+  const props = element.props as { style?: Style; wrap?: boolean; bookmark?: string; href?: string; children?: unknown };
+  const style = mapTemplateStyle(props.style);
+  if (props.wrap !== undefined) style.wrap = props.wrap;
+  const childElements = flattenTemplateChildren(props.children);
+  const children = serializeTemplateChildren(childElements, 'View');
+
+  const node: Record<string, unknown> = { kind: { type: 'View' }, style, children };
+  if (props.bookmark) node.bookmark = props.bookmark;
+  if (props.href) node.href = props.href;
+  return node;
+}
+
+function serializeTemplateText(element: ReactElement): Record<string, unknown> {
+  const props = element.props as { style?: Style; href?: string; bookmark?: string; children?: unknown };
+  const childElements = flattenTemplateChildren(props.children);
+
+  const hasTextChild = childElements.some(
+    c => isValidElement(c) && c.type === Text
+  );
+
+  const kind: Record<string, unknown> = { type: 'Text', content: '' };
+
+  if (hasTextChild) {
+    const runs: Record<string, unknown>[] = [];
+    for (const child of childElements) {
+      if (typeof child === 'string' || typeof child === 'number') {
+        const processed = typeof child === 'string' ? processTemplateString(child) : null;
+        if (processed !== null) {
+          runs.push({ content: processed });
+        } else {
+          runs.push({ content: String(child) });
+        }
+      } else if (isValidElement(child) && child.type === Text) {
+        const childProps = child.props as { style?: Style; href?: string; children?: unknown };
+        const run: Record<string, unknown> = {
+          content: flattenTemplateTextContent(childProps.children),
+        };
+        if (childProps.style) run.style = mapTemplateStyle(childProps.style);
+        if (childProps.href) run.href = childProps.href;
+        runs.push(run);
+      }
+    }
+    kind.runs = runs;
+  } else {
+    kind.content = flattenTemplateTextContent(props.children);
+  }
+
+  if (props.href) kind.href = props.href;
+
+  const node: Record<string, unknown> = {
+    kind,
+    style: mapTemplateStyle(props.style),
+    children: [],
+  };
+  if (props.bookmark) node.bookmark = props.bookmark;
+  return node;
+}
+
+function serializeTemplateImage(element: ReactElement): Record<string, unknown> {
+  const props = element.props as { src: string | unknown; width?: number; height?: number; style?: Style };
+  const kind: Record<string, unknown> = { type: 'Image', src: processTemplateValue(props.src) };
+  if (props.width !== undefined) kind.width = processTemplateValue(props.width);
+  if (props.height !== undefined) kind.height = processTemplateValue(props.height);
+  return { kind, style: mapTemplateStyle(props.style), children: [] };
+}
+
+function serializeTemplateTable(element: ReactElement, _parent: ParentContext = null): Record<string, unknown> {
+  const props = element.props as { columns?: ColumnDef[]; style?: Style; children?: unknown };
+  const columns: FormeColumnDef[] = (props.columns ?? []).map(col => ({
+    width: mapColumnWidth(col.width),
+  }));
+  const childElements = flattenTemplateChildren(props.children);
+  const children = serializeTemplateChildren(childElements, 'Table');
+  return { kind: { type: 'Table', columns }, style: mapTemplateStyle(props.style), children };
+}
+
+function serializeTemplateRow(element: ReactElement): Record<string, unknown> {
+  const props = element.props as { header?: boolean; style?: Style; children?: unknown };
+  const childElements = flattenTemplateChildren(props.children);
+  const children = serializeTemplateChildren(childElements, 'Row');
+  return { kind: { type: 'TableRow', is_header: props.header ?? false }, style: mapTemplateStyle(props.style), children };
+}
+
+function serializeTemplateCell(element: ReactElement): Record<string, unknown> {
+  const props = element.props as { colSpan?: number; rowSpan?: number; style?: Style; children?: unknown };
+  const childElements = flattenTemplateChildren(props.children);
+  const children = serializeTemplateChildren(childElements, 'Cell');
+  return { kind: { type: 'TableCell', col_span: props.colSpan ?? 1, row_span: props.rowSpan ?? 1 }, style: mapTemplateStyle(props.style), children };
+}
+
+function serializeTemplateFixed(element: ReactElement): Record<string, unknown> {
+  const props = element.props as { position: 'header' | 'footer'; style?: Style; bookmark?: string; children?: unknown };
+  const position = props.position === 'header' ? 'Header' as const : 'Footer' as const;
+  const childElements = flattenTemplateChildren(props.children);
+  const children = serializeTemplateChildren(childElements, 'Fixed');
+  const node: Record<string, unknown> = { kind: { type: 'Fixed', position }, style: mapTemplateStyle(props.style), children };
+  if (props.bookmark) node.bookmark = props.bookmark;
+  return node;
+}
+
+function serializeTemplateChildren(children: unknown[], parent: ParentContext = null): unknown[] {
+  const nodes: unknown[] = [];
+  for (const child of children) {
+    const node = serializeTemplateChild(child, parent);
+    if (node !== null) nodes.push(node);
+  }
+  return nodes;
+}
+
+/**
+ * Flatten children without using React.Children.forEach, which rejects
+ * proxy objects and markers. Handles arrays, Fragments, and raw values.
+ */
+function flattenTemplateChildren(children: unknown): unknown[] {
+  if (children === null || children === undefined) return [];
+
+  const result: unknown[] = [];
+
+  if (Array.isArray(children)) {
+    for (const child of children) {
+      result.push(...flattenTemplateChildren(child));
+    }
+    return result;
+  }
+
+  // Fragment unwrapping
+  if (isValidElement(children) && children.type === Fragment) {
+    const fragProps = children.props as { children?: unknown };
+    return flattenTemplateChildren(fragProps.children);
+  }
+
+  result.push(children);
+  return result;
+}
+
+// ─── Template value processing ──────────────────────────────────────
+
+/**
+ * Process a value that may contain ref markers, expr markers, or proxy objects.
+ * Returns the expression form or the original value.
+ */
+function processTemplateValue(v: unknown): unknown {
+  if (typeof v === 'string') {
+    if (isRefMarker(v)) {
+      return { $ref: getRefPath(v) };
+    }
+    // Check for embedded sentinels in longer strings
+    if (v.includes(REF_SENTINEL)) {
+      return processTemplateInterpolatedString(v);
+    }
+    return v;
+  }
+  if (isExprMarker(v)) {
+    return getExpr(v);
+  }
+  if (isEachMarker(v)) {
+    return {
+      $each: { $ref: getEachPath(v) },
+      as: '$item',
+      template: processTemplateValue(getEachTemplate(v)),
+    };
+  }
+  // Proxy objects with toPrimitive
+  if (typeof v === 'object' && v !== null && Symbol.toPrimitive in (v as object)) {
+    const str = String(v);
+    if (isRefMarker(str)) {
+      return { $ref: getRefPath(str) };
+    }
+  }
+  return v;
+}
+
+/**
+ * Process a string that contains interpolated ref sentinels.
+ * e.g. "Hello \0FORME_REF:name\0!" → {$concat: ["Hello ", {$ref: "name"}, "!"]}
+ */
+function processTemplateInterpolatedString(s: string): unknown {
+  const parts: unknown[] = [];
+  let remaining = s;
+
+  while (remaining.length > 0) {
+    const startIdx = remaining.indexOf(REF_SENTINEL);
+    if (startIdx === -1) {
+      parts.push(remaining);
+      break;
+    }
+
+    if (startIdx > 0) {
+      parts.push(remaining.slice(0, startIdx));
+    }
+
+    const afterSentinel = remaining.slice(startIdx + REF_SENTINEL.length);
+    const endIdx = afterSentinel.indexOf(REF_SENTINEL_END);
+    if (endIdx === -1) {
+      parts.push(remaining);
+      break;
+    }
+
+    const path = afterSentinel.slice(0, endIdx);
+    parts.push({ $ref: path });
+    remaining = afterSentinel.slice(endIdx + REF_SENTINEL_END.length);
+  }
+
+  if (parts.length === 1) return parts[0];
+  return { $concat: parts };
+}
+
+/**
+ * Process a string that might be a pure ref sentinel.
+ * Returns the $ref node if it's a pure ref, null otherwise.
+ */
+function processTemplateString(s: string): unknown | null {
+  if (isRefMarker(s)) {
+    return { $ref: getRefPath(s) };
+  }
+  if (s.includes(REF_SENTINEL)) {
+    return processTemplateInterpolatedString(s);
+  }
+  return null;
+}
+
+/**
+ * Flatten text content within a <Text> element, detecting ref markers.
+ * Returns either a plain string or a $ref/$concat expression.
+ */
+function flattenTemplateTextContent(children: unknown): unknown {
+  if (children === null || children === undefined) return '';
+  if (typeof children === 'boolean') return '';
+
+  if (typeof children === 'string') {
+    if (isRefMarker(children)) return { $ref: getRefPath(children) };
+    if (children.includes(REF_SENTINEL)) return processTemplateInterpolatedString(children);
+    return children;
+  }
+
+  if (typeof children === 'number') return String(children);
+
+  if (isExprMarker(children)) return getExpr(children);
+
+  // Proxy with toPrimitive
+  if (typeof children === 'object' && children !== null && Symbol.toPrimitive in (children as object)) {
+    const str = String(children);
+    if (isRefMarker(str)) return { $ref: getRefPath(str) };
+    return str;
+  }
+
+  if (Array.isArray(children)) {
+    const parts = children.map(c => flattenTemplateTextContent(c));
+    // If all parts are strings, join them
+    if (parts.every(p => typeof p === 'string')) {
+      return (parts as string[]).join('');
+    }
+    // Otherwise produce a $concat
+    return { $concat: parts };
+  }
+
+  if (isValidElement(children)) {
+    const element = children as ReactElement;
+    if (element.type === Text) {
+      const props = element.props as { children?: unknown };
+      return flattenTemplateTextContent(props.children);
+    }
+    const props = element.props as { children?: unknown };
+    return flattenTemplateTextContent(props.children);
+  }
+
+  const arr: unknown[] = [];
+  Children.forEach(children as React.ReactNode, c => arr.push(c));
+  if (arr.length > 0) {
+    return flattenTemplateTextContent(arr);
+  }
+
+  return String(children);
+}
+
+/**
+ * Map style, processing values that may contain template expressions.
+ */
+function mapTemplateStyle(style?: Style): Record<string, unknown> {
+  if (!style) return {};
+  // Use the regular mapStyle but then post-process values that contain markers
+  const result = mapStyle(style) as Record<string, unknown>;
+  return processTemplateStyleValues(result);
+}
+
+function processTemplateStyleValues(obj: Record<string, unknown>): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const [key, val] of Object.entries(obj)) {
+    if (typeof val === 'object' && val !== null && !Array.isArray(val)) {
+      result[key] = processTemplateStyleValues(val as Record<string, unknown>);
+    } else {
+      result[key] = processTemplateValue(val);
+    }
+  }
+  return result;
 }

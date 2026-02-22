@@ -34,6 +34,7 @@ pub mod model;
 pub mod pdf;
 pub mod style;
 pub mod svg;
+pub mod template;
 pub mod text;
 
 #[cfg(feature = "wasm")]
@@ -105,5 +106,30 @@ pub fn render_json(json: &str) -> Result<Vec<u8>, FormeError> {
 /// Render a document described as JSON to PDF bytes along with layout metadata.
 pub fn render_json_with_layout(json: &str) -> Result<(Vec<u8>, LayoutInfo), FormeError> {
     let document: Document = serde_json::from_str(json)?;
+    render_with_layout(&document)
+}
+
+/// Render a template with data to PDF bytes.
+///
+/// Takes a template JSON tree (with `$ref`, `$each`, `$if`, operators) and
+/// a data JSON object. Evaluates all expressions, then renders the resulting
+/// document to PDF.
+pub fn render_template(template_json: &str, data_json: &str) -> Result<Vec<u8>, FormeError> {
+    let template: serde_json::Value = serde_json::from_str(template_json)?;
+    let data: serde_json::Value = serde_json::from_str(data_json)?;
+    let resolved = template::evaluate_template(&template, &data)?;
+    let document: Document = serde_json::from_value(resolved)?;
+    render(&document)
+}
+
+/// Render a template with data to PDF bytes along with layout metadata.
+pub fn render_template_with_layout(
+    template_json: &str,
+    data_json: &str,
+) -> Result<(Vec<u8>, LayoutInfo), FormeError> {
+    let template: serde_json::Value = serde_json::from_str(template_json)?;
+    let data: serde_json::Value = serde_json::from_str(data_json)?;
+    let resolved = template::evaluate_template(&template, &data)?;
+    let document: Document = serde_json::from_value(resolved)?;
     render_with_layout(&document)
 }

@@ -3537,3 +3537,294 @@ fn test_breakable_view_continuation_page_has_top_padding() {
         );
     }
 }
+
+// ─── Template expression evaluator tests ──────────────────────────────
+
+use forme::template::evaluate_template;
+use serde_json::json;
+
+#[test]
+fn test_template_ref_simple() {
+    let template = json!({
+        "children": [
+            {"kind": {"type": "Text", "content": {"$ref": "title"}}, "style": {}, "children": []}
+        ],
+        "metadata": {},
+        "defaultPage": {"size": "A4", "margin": {"top": 54, "right": 54, "bottom": 54, "left": 54}, "wrap": true}
+    });
+    let data = json!({"title": "Hello World"});
+    let result = evaluate_template(&template, &data).unwrap();
+    assert_eq!(result["children"][0]["kind"]["content"], "Hello World");
+}
+
+#[test]
+fn test_template_ref_nested_path() {
+    let template = json!({"$ref": "user.address.city"});
+    let data = json!({"user": {"address": {"city": "Portland"}}});
+    let result = evaluate_template(&template, &data).unwrap();
+    assert_eq!(result, json!("Portland"));
+}
+
+#[test]
+fn test_template_each_basic() {
+    let template = json!({
+        "children": [
+            {
+                "$each": {"$ref": "items"},
+                "as": "$item",
+                "template": {
+                    "kind": {"type": "Text", "content": {"$ref": "$item.name"}},
+                    "style": {},
+                    "children": []
+                }
+            }
+        ]
+    });
+    let data = json!({"items": [{"name": "A"}, {"name": "B"}, {"name": "C"}]});
+    let result = evaluate_template(&template, &data).unwrap();
+    let children = result["children"].as_array().unwrap();
+    assert_eq!(children.len(), 3);
+    assert_eq!(children[0]["kind"]["content"], "A");
+    assert_eq!(children[1]["kind"]["content"], "B");
+    assert_eq!(children[2]["kind"]["content"], "C");
+}
+
+#[test]
+fn test_template_each_nested() {
+    let template = json!({
+        "items": [
+            {
+                "$each": {"$ref": "groups"},
+                "as": "$group",
+                "template": {
+                    "name": {"$ref": "$group.name"},
+                    "members": [
+                        {
+                            "$each": {"$ref": "$group.members"},
+                            "as": "$member",
+                            "template": {"$ref": "$member"}
+                        }
+                    ]
+                }
+            }
+        ]
+    });
+    let data = json!({
+        "groups": [
+            {"name": "A", "members": ["x", "y"]},
+            {"name": "B", "members": ["z"]}
+        ]
+    });
+    let result = evaluate_template(&template, &data).unwrap();
+    let items = result["items"].as_array().unwrap();
+    assert_eq!(items.len(), 2);
+    assert_eq!(items[0]["name"], "A");
+    assert_eq!(items[0]["members"].as_array().unwrap().len(), 2);
+    assert_eq!(items[1]["members"].as_array().unwrap().len(), 1);
+}
+
+#[test]
+fn test_template_each_empty_array() {
+    let template = json!({
+        "children": [
+            {
+                "$each": {"$ref": "items"},
+                "as": "$item",
+                "template": {"$ref": "$item"}
+            }
+        ]
+    });
+    let data = json!({"items": []});
+    let result = evaluate_template(&template, &data).unwrap();
+    assert_eq!(result["children"].as_array().unwrap().len(), 0);
+}
+
+#[test]
+fn test_template_if_truthy() {
+    let template = json!({
+        "$if": {"$ref": "showTitle"},
+        "then": {"kind": {"type": "Text", "content": "Title"}, "style": {}, "children": []},
+        "else": {"kind": {"type": "Text", "content": "No Title"}, "style": {}, "children": []}
+    });
+    let data = json!({"showTitle": true});
+    let result = evaluate_template(&template, &data).unwrap();
+    assert_eq!(result["kind"]["content"], "Title");
+}
+
+#[test]
+fn test_template_if_falsy() {
+    let template = json!({
+        "$if": {"$ref": "showTitle"},
+        "then": "yes",
+        "else": "no"
+    });
+    let data = json!({"showTitle": false});
+    let result = evaluate_template(&template, &data).unwrap();
+    assert_eq!(result, json!("no"));
+}
+
+#[test]
+fn test_template_if_with_operator() {
+    let template = json!({
+        "$if": {"$gt": [{"$ref": "count"}, 10]},
+        "then": "many",
+        "else": "few"
+    });
+    let data = json!({"count": 25});
+    let result = evaluate_template(&template, &data).unwrap();
+    assert_eq!(result, json!("many"));
+}
+
+#[test]
+fn test_template_comparison_ops() {
+    let data = json!({"a": 5, "b": 10});
+
+    let eq = evaluate_template(&json!({"$eq": [{"$ref": "a"}, 5]}), &data).unwrap();
+    assert_eq!(eq, json!(true));
+
+    let ne = evaluate_template(&json!({"$ne": [{"$ref": "a"}, {"$ref": "b"}]}), &data).unwrap();
+    assert_eq!(ne, json!(true));
+
+    let gt = evaluate_template(&json!({"$gt": [{"$ref": "b"}, {"$ref": "a"}]}), &data).unwrap();
+    assert_eq!(gt, json!(true));
+
+    let lt = evaluate_template(&json!({"$lt": [{"$ref": "a"}, {"$ref": "b"}]}), &data).unwrap();
+    assert_eq!(lt, json!(true));
+
+    let gte = evaluate_template(&json!({"$gte": [{"$ref": "a"}, 5]}), &data).unwrap();
+    assert_eq!(gte, json!(true));
+
+    let lte = evaluate_template(&json!({"$lte": [{"$ref": "a"}, 5]}), &data).unwrap();
+    assert_eq!(lte, json!(true));
+}
+
+#[test]
+fn test_template_arithmetic_ops() {
+    let data = json!({"x": 10, "y": 3});
+
+    let add = evaluate_template(&json!({"$add": [{"$ref": "x"}, {"$ref": "y"}]}), &data).unwrap();
+    assert_eq!(add, json!(13.0));
+
+    let sub = evaluate_template(&json!({"$sub": [{"$ref": "x"}, {"$ref": "y"}]}), &data).unwrap();
+    assert_eq!(sub, json!(7.0));
+
+    let mul = evaluate_template(&json!({"$mul": [{"$ref": "x"}, {"$ref": "y"}]}), &data).unwrap();
+    assert_eq!(mul, json!(30.0));
+
+    let div = evaluate_template(&json!({"$div": [{"$ref": "x"}, {"$ref": "y"}]}), &data).unwrap();
+    let div_val = div.as_f64().unwrap();
+    assert!((div_val - 3.333333).abs() < 0.001);
+}
+
+#[test]
+fn test_template_string_ops() {
+    let data = json!({"name": "hello"});
+
+    let upper = evaluate_template(&json!({"$upper": {"$ref": "name"}}), &data).unwrap();
+    assert_eq!(upper, json!("HELLO"));
+
+    let lower = evaluate_template(&json!({"$lower": "WORLD"}), &data).unwrap();
+    assert_eq!(lower, json!("world"));
+}
+
+#[test]
+fn test_template_concat() {
+    let data = json!({"first": "John", "last": "Doe"});
+    let template = json!({"$concat": [{"$ref": "first"}, " ", {"$ref": "last"}]});
+    let result = evaluate_template(&template, &data).unwrap();
+    assert_eq!(result, json!("John Doe"));
+}
+
+#[test]
+fn test_template_format() {
+    let data = json!({"price": 42.5});
+    let template = json!({"$format": [{"$ref": "price"}, "0.00"]});
+    let result = evaluate_template(&template, &data).unwrap();
+    assert_eq!(result, json!("42.50"));
+}
+
+#[test]
+fn test_template_cond() {
+    let data = json!({"premium": true});
+    let template = json!({"$cond": [{"$ref": "premium"}, "gold", "standard"]});
+    let result = evaluate_template(&template, &data).unwrap();
+    assert_eq!(result, json!("gold"));
+}
+
+#[test]
+fn test_template_count() {
+    let data = json!({"items": [1, 2, 3, 4, 5]});
+    let template = json!({"$count": {"$ref": "items"}});
+    let result = evaluate_template(&template, &data).unwrap();
+    assert_eq!(result, json!(5));
+}
+
+#[test]
+fn test_template_missing_ref_omitted() {
+    let template = json!({"a": {"$ref": "exists"}, "b": {"$ref": "missing"}});
+    let data = json!({"exists": "yes"});
+    let result = evaluate_template(&template, &data).unwrap();
+    assert_eq!(result["a"], json!("yes"));
+    // Missing ref should be omitted from the object
+    assert!(result.get("b").is_none());
+}
+
+#[test]
+fn test_template_passthrough_primitives() {
+    let template = json!({
+        "type": "Text",
+        "content": "static",
+        "fontSize": 12,
+        "bold": true,
+        "empty": null
+    });
+    let data = json!({});
+    let result = evaluate_template(&template, &data).unwrap();
+    assert_eq!(result["type"], "Text");
+    assert_eq!(result["content"], "static");
+    assert_eq!(result["fontSize"], 12);
+    assert_eq!(result["bold"], true);
+    assert!(result["empty"].is_null());
+}
+
+#[test]
+fn test_template_full_render() {
+    // Full pipeline: template JSON + data → evaluate → render PDF
+    let template_json = serde_json::to_string(&json!({
+        "children": [
+            {
+                "kind": {"type": "Text", "content": {"$ref": "title"}},
+                "style": {"fontSize": 24},
+                "children": []
+            },
+            {
+                "kind": {"type": "View"},
+                "style": {},
+                "children": [
+                    {
+                        "$each": {"$ref": "items"},
+                        "as": "$item",
+                        "template": {
+                            "kind": {"type": "Text", "content": {"$ref": "$item"}},
+                            "style": {},
+                            "children": []
+                        }
+                    }
+                ]
+            }
+        ],
+        "metadata": {"title": {"$ref": "title"}},
+        "defaultPage": {"size": "A4", "margin": {"top": 54, "right": 54, "bottom": 54, "left": 54}, "wrap": true}
+    })).unwrap();
+    let data_json = r#"{"title": "Invoice #001", "items": ["Widget A", "Widget B"]}"#;
+
+    let pdf = forme::render_template(&template_json, data_json).unwrap();
+    assert_valid_pdf(&pdf);
+}
+
+#[test]
+fn test_template_div_by_zero() {
+    let data = json!({});
+    let result = evaluate_template(&json!({"$div": [10, 0]}), &data).unwrap();
+    assert_eq!(result, json!(0.0));
+}

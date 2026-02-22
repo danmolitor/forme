@@ -5,6 +5,7 @@ import { parseArgs } from 'node:util';
 import { resolve } from 'node:path';
 import { startDevServer } from './dev.js';
 import { buildPdf } from './build.js';
+import { buildTemplate } from './template-build.js';
 
 const USAGE = `
 forme - Page-native PDF rendering engine
@@ -14,8 +15,9 @@ Usage:
   forme build <file.tsx>  Render PDF to disk
 
 Options:
-  -o, --output <path>     Output PDF path (build only, default: output.pdf)
+  -o, --output <path>     Output path (default: output.pdf, or <name>.template.json with -t)
   -d, --data <path>       JSON data file to pass to template function
+  -t, --template          Compile to template JSON instead of rendering PDF
   -p, --port <number>     Dev server port (default: 4242)
   -h, --help              Show this help message
 
@@ -40,8 +42,9 @@ function main() {
   const { values, positionals } = parseArgs({
     allowPositionals: true,
     options: {
-      output: { type: 'string', short: 'o', default: 'output.pdf' },
+      output: { type: 'string', short: 'o' },
       data: { type: 'string', short: 'd' },
+      template: { type: 'boolean', short: 't', default: false },
       port: { type: 'string', short: 'p', default: '4242' },
       help: { type: 'boolean', short: 'h', default: false },
     },
@@ -82,7 +85,11 @@ function main() {
       startDevServer(inputPath, { port: Number(values.port), dataPath });
       break;
     case 'build':
-      buildPdf(inputPath, { output: values.output!, dataPath });
+      if (values.template) {
+        buildTemplate(inputPath, { output: values.output });
+      } else {
+        buildPdf(inputPath, { output: values.output ?? 'output.pdf', dataPath });
+      }
       break;
     default:
       console.error(`Unknown command: ${command}\n`);

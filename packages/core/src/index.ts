@@ -143,3 +143,18 @@ export async function renderDocumentWithLayout(element: ReactElement): Promise<R
   await resolveFonts(doc);
   return renderPdfWithLayout(JSON.stringify(doc));
 }
+
+// ── Template rendering ──────────────────────────────────────────────
+
+export async function renderTemplate(templateJson: string, dataJson: string): Promise<Uint8Array> {
+  await ensureInit();
+  const { render_template_pdf } = await import('../pkg/forme.js');
+  return render_template_pdf(templateJson, dataJson);
+}
+
+export async function renderTemplateWithLayout(templateJson: string, dataJson: string): Promise<RenderWithLayoutResult> {
+  await ensureInit();
+  const { render_template_pdf_with_layout } = await import('../pkg/forme.js');
+  const result = render_template_pdf_with_layout(templateJson, dataJson) as { pdf: Uint8Array; layout: LayoutInfo };
+  return result;
+}
