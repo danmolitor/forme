@@ -129,8 +129,8 @@ Font sources can be file paths, data URIs, or `Uint8Array`. Fonts are automatica
 | Table header repetition | Automatic on every page | Not built in | Inconsistent `<thead>` |
 | Live preview | Built-in dev server | Render to file | Run script, open file |
 | Click-to-inspect | VS Code, Cursor, WebStorm | No | No |
-| Render speed | ~10ms (WASM) | ~100-500ms | ~1-5s (Chrome boot) |
-| Memory per render | ~2-5MB | ~50-100MB | ~50-200MB |
+| Render speed | ~28ms (4-page report) | ~100-500ms | ~1-5s (Chrome boot) |
+| Memory per render | No browser process (WASM) | ~50-100MB | ~50-200MB |
 | SVG | Basic shapes and paths | Yes | Full browser SVG |
 | Links | `href` prop on Text/View | `<Link>` component | HTML `<a>` tags |
 | Bookmarks | `bookmark` prop on any element | Yes | No |
