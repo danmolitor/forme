@@ -6,7 +6,7 @@ PDF generation with JSX. Page breaks that actually work.
 
 ## Why
 
-Every PDF tool makes you choose: fight with CSS page breaks (react-pdf, Puppeteer) or use a drag-and-drop editor that can't handle dynamic data. Forme is a layout engine built for pages from the ground up. Page breaks that actually work. No headless browser. No Chrome dependency. No infinite canvas. Works in serverless environments with sub-100ms cold starts.
+Every PDF tool makes you choose: fight with CSS page breaks or use an editor that can't handle dynamic data. Forme is a layout engine built for pages. No headless browser. No Chrome. Renders in milliseconds. Runs anywhere Node runs.
 
 ## Quick Start
 
@@ -40,8 +40,6 @@ npx forme dev invoice.tsx --data sample.json
 ```
 
 Live preview with debug overlays. Click any element to inspect its computed styles.
-
-![Forme dev server](./assets/dev-server-screenshot.png)
 
 ## Features
 
@@ -153,7 +151,11 @@ See the [templates/](./templates) directory for production-ready examples:
 
 ## Documentation
 
-Full docs at [formepdf.com/docs](https://formepdf.com/docs)
+Full docs at [docs.formepdf.com](https://docs.formepdf.com)
+
+## Contributing
+
+Issues and PRs welcome.
 
 ## License
 
