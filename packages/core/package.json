@@ -9,7 +9,12 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    }
+    },
+    "./pkg/forme.js": {
+      "types": "./pkg/forme.d.ts",
+      "import": "./pkg/forme.js"
+    },
+    "./pkg/forme_bg.wasm": "./pkg/forme_bg.wasm"
   },
   "scripts": {
     "build:wasm": "./build.sh && rm -f pkg/.gitignore",
