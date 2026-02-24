@@ -1,6 +1,6 @@
 {
   "name": "@formepdf/core",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "WASM-powered PDF rendering engine for Forme",
   "type": "module",
   "main": "./dist/index.js",

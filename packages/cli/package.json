@@ -14,7 +14,7 @@
     "dist"
   ],
   "dependencies": {
-    "@formepdf/core": "0.4.0",
+    "@formepdf/core": "0.4.1",
     "@formepdf/react": "0.4.0",
     "esbuild": "^0.24.0",
     "chokidar": "^4.0.0",
