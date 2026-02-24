@@ -10,6 +10,12 @@
   "colors": {
     "primary": "#111827"
   },
+  "topbarLinks": [
+    {
+      "name": "Playground",
+      "url": "https://playground.formepdf.com/"
+    }
+  ],
   "topbarCtaButton": {
     "name": "Get Started",
     "url": "https://github.com/formepdf/forme"
