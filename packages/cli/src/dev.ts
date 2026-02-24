@@ -196,8 +196,11 @@ export function startDevServer(inputPath: string, options: DevOptions): void {
         }
       }
 
-      // Resolve font file paths relative to the template directory
-      await resolveFontPaths(doc, absoluteInput);
+      // Resolve font file paths and image URLs before rendering
+      await Promise.all([
+        resolveFontPaths(doc, absoluteInput),
+        resolveImageUrls(doc),
+      ]);
 
       const { pdf, layout } = await renderPdfWithLayout(JSON.stringify(doc));
 
@@ -370,6 +373,30 @@ function hasAnySourceLocation(doc: Record<string, unknown>): boolean {
 
 function uint8ArrayToBase64(bytes: Uint8Array): string {
   return Buffer.from(bytes).toString('base64');
+}
+
+async function resolveImageUrls(doc: Record<string, unknown>): Promise<void> {
+  const children = doc.children as Array<Record<string, unknown>> | undefined;
+  if (!children?.length) return;
+  await Promise.all(children.map(resolveImageUrlsInNode));
+}
+
+async function resolveImageUrlsInNode(node: Record<string, unknown>): Promise<void> {
+  const kind = node.kind as Record<string, unknown> | undefined;
+  if (kind?.type === 'Image' && typeof kind.src === 'string') {
+    const src = kind.src as string;
+    if (src.startsWith('http://') || src.startsWith('https://')) {
+      const res = await fetch(src);
+      if (!res.ok) throw new Error(`Failed to fetch image: ${src} (${res.status})`);
+      const contentType = res.headers.get('content-type') || 'image/png';
+      const buf = new Uint8Array(await res.arrayBuffer());
+      kind.src = `data:${contentType};base64,${uint8ArrayToBase64(buf)}`;
+    }
+  }
+  const children = node.children as Array<Record<string, unknown>> | undefined;
+  if (children?.length) {
+    await Promise.all(children.map(resolveImageUrlsInNode));
+  }
 }
 
 async function resolveFontPaths(doc: Record<string, unknown>, templatePath: string): Promise<void> {

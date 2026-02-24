@@ -115,6 +115,36 @@ async function resolveFonts(doc: Record<string, unknown>): Promise<void> {
   }
 }
 
+// ── Image resolution ─────────────────────────────────────────────
+
+async function resolveImages(doc: Record<string, unknown>): Promise<void> {
+  const children = doc.children as Array<Record<string, unknown>> | undefined;
+  if (!children?.length) return;
+  for (const child of children) {
+    await resolveImagesInNode(child);
+  }
+}
+
+async function resolveImagesInNode(node: Record<string, unknown>): Promise<void> {
+  const kind = node.kind as Record<string, unknown> | undefined;
+  if (kind?.type === 'Image' && typeof kind.src === 'string') {
+    const src = kind.src as string;
+    if (src.startsWith('http://') || src.startsWith('https://')) {
+      const res = await fetch(src);
+      if (!res.ok) throw new Error(`Failed to fetch image: ${src} (${res.status})`);
+      const contentType = res.headers.get('content-type') || 'image/png';
+      const buf = new Uint8Array(await res.arrayBuffer());
+      kind.src = `data:${contentType};base64,${uint8ArrayToBase64(buf)}`;
+    }
+  }
+  const children = node.children as Array<Record<string, unknown>> | undefined;
+  if (children?.length) {
+    for (const child of children) {
+      await resolveImagesInNode(child);
+    }
+  }
+}
+
 // ── Render functions ───────────────────────────────────────────────
 
 export async function renderPdf(json: string): Promise<Uint8Array> {
@@ -133,14 +163,14 @@ export async function renderPdfWithLayout(json: string): Promise<RenderWithLayou
 export async function renderDocument(element: ReactElement): Promise<Uint8Array> {
   const { serialize } = await import('@formepdf/react');
   const doc = serialize(element) as unknown as Record<string, unknown>;
-  await resolveFonts(doc);
+  await Promise.all([resolveFonts(doc), resolveImages(doc)]);
   return renderPdf(JSON.stringify(doc));
 }
 
 export async function renderDocumentWithLayout(element: ReactElement): Promise<RenderWithLayoutResult> {
   const { serialize } = await import('@formepdf/react');
   const doc = serialize(element) as unknown as Record<string, unknown>;
-  await resolveFonts(doc);
+  await Promise.all([resolveFonts(doc), resolveImages(doc)]);
   return renderPdfWithLayout(JSON.stringify(doc));
 }
 
