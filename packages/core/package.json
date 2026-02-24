@@ -23,7 +23,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@formepdf/react": "0.4.0"
+    "@formepdf/react": "0.4.1"
   },
   "peerDependencies": {
     "react": "^18 || ^19"

@@ -1,6 +1,6 @@
 {
   "name": "@formepdf/cli",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "CLI for Forme PDF rendering engine — dev server with live preview and build command",
   "type": "module",
   "bin": {
@@ -15,7 +15,7 @@
   ],
   "dependencies": {
     "@formepdf/core": "0.4.1",
-    "@formepdf/react": "0.4.0",
+    "@formepdf/react": "0.4.1",
     "esbuild": "^0.24.0",
     "chokidar": "^4.0.0",
     "ws": "^8.18.0",
