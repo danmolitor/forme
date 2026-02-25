@@ -2283,8 +2283,8 @@
 
   // -- Keyboard shortcuts ------------------------------------------
   document.addEventListener('keydown', (e) => {
-    // Don't intercept when typing in data editor
-    if (e.target === dataEditor) return;
+    // Don't intercept when typing in inputs or data editor
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target === dataEditor) return;
 
     if (!e.metaKey && !e.ctrlKey && !e.altKey) {
       if (e.key === '1') { e.preventDefault(); setMode('preview'); }

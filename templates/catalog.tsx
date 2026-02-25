@@ -28,7 +28,7 @@ function ProductCard({ product }: { product: any }) {
   const hasSale = product.originalPrice && product.originalPrice > product.price;
 
   return (
-    <View style={{ flexBasis: '48%', flexGrow: 0, flexShrink: 0, padding: 12, borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 6, marginBottom: 10 }} wrap={false}>
+    <View style={{ flexBasis: '48%', height: '100%', flexGrow: 0, flexShrink: 0, padding: 12, borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 6, marginBottom: 10 }} wrap={false}>
       {/* Badge — absolutely positioned top-right */}
       {product.badge && (
         <View style={{ position: 'absolute', top: -18, right: -18 }}>
@@ -69,7 +69,7 @@ function CategorySection({ category }: { category: any }) {
     <View bookmark={category.name} style={{ marginBottom: 20 }}>
       {/* Category heading */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10, paddingBottom: 6, borderBottomWidth: 2, borderColor: '#1e293b' }}>
-        <Text style={{ fontSize: 14, fontWeight: 700, color: '#1e293b', textTransform: 'uppercase', letterSpacing: 1 }}>{category.name}</Text>
+        <Text style={{ fontSize: 14, fontWeight: 700, color: '#1e293b', textTransform: 'uppercase', letterSpacing: 1, flex: 1 }}>{category.name}</Text>
       </View>
 
       {/* Product grid: 2 columns */}
