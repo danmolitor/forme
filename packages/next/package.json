@@ -1,0 +1,32 @@
+{
+  "name": "@formepdf/next",
+  "version": "0.4.4",
+  "description": "PDF route handlers and responses for Next.js App Router",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc"
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@formepdf/react": "0.4.4",
+    "@formepdf/core": "0.4.4"
+  },
+  "peerDependencies": {
+    "next": ">=14.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "react": "^19.0.0",
+    "typescript": "^5.7.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/formepdf/forme",
+    "directory": "packages/next"
+  }
+}
