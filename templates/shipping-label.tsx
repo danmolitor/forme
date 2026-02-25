@@ -18,12 +18,12 @@ export default function ShippingLabel(data: any) {
         {/* To Address */}
         <View style={{ padding: 12, marginBottom: 12 }}>
           <Text style={{ fontSize: 7, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>To</Text>
-          <Text style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>{data.to.name}</Text>
-          <Text style={{ fontSize: 12, color: '#0f172a', marginTop: 4 }}>{data.to.address}</Text>
+          <Text style={{ fontSize: 10, fontWeight: 700, color: '#0f172a' }}>{data.to.name}</Text>
+          <Text style={{ fontSize: 10, color: '#0f172a', marginTop: 4 }}>{data.to.address}</Text>
           {data.to.address2 && (
-            <Text style={{ fontSize: 12, color: '#0f172a' }}>{data.to.address2}</Text>
+            <Text style={{ fontSize: 10, color: '#0f172a' }}>{data.to.address2}</Text>
           )}
-          <Text style={{ fontSize: 12, fontWeight: 700, color: '#0f172a', marginTop: 2 }}>{data.to.cityStateZip}</Text>
+          <Text style={{ fontSize: 10, fontWeight: 700, color: '#0f172a', marginTop: 2 }}>{data.to.cityStateZip}</Text>
         </View>
 
         {/* Barcode Placeholder */}
@@ -58,7 +58,7 @@ export default function ShippingLabel(data: any) {
               <View style={{ width: 3, height: 40, backgroundColor: '#0f172a' }} />
             </View>
           </View>
-          <Text style={{ fontSize: 10, fontWeight: 700, color: '#0f172a', letterSpacing: 2, textAlign: 'center' }}>{data.tracking}</Text>
+          <Text style={{ fontSize: 8, fontWeight: 700, color: '#0f172a', letterSpacing: 2, textAlign: 'center' }}>{data.tracking}</Text>
         </View>
 
         {/* Divider */}
@@ -66,16 +66,16 @@ export default function ShippingLabel(data: any) {
 
         {/* Details Row */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', padding: 8 }}>
-          <View>
+          <View style={{ flex: 1, }}>
             <Text style={{ fontSize: 7, color: '#64748b', textTransform: 'uppercase', letterSpacing: 1 }}>Weight</Text>
             <Text style={{ fontSize: 10, fontWeight: 700, color: '#0f172a', marginTop: 2 }}>{data.weight}</Text>
           </View>
-          <View>
-            <Text style={{ fontSize: 7, color: '#64748b', textTransform: 'uppercase', letterSpacing: 1 }}>Dimensions</Text>
+          <View style={{ flex: 2, justifyContent: 'center', alignItems: 'center' }}>
+            <Text style={{ width: '100%', textAlign: 'center', fontSize: 7, color: '#64748b', textTransform: 'uppercase', letterSpacing: 1 }}>Dimensions</Text>
             <Text style={{ fontSize: 10, fontWeight: 700, color: '#0f172a', marginTop: 2 }}>{data.dimensions}</Text>
           </View>
-          <View>
-            <Text style={{ fontSize: 7, color: '#64748b', textTransform: 'uppercase', letterSpacing: 1 }}>Service</Text>
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'flex-end' }}>
+            <Text style={{ width: '100%', textAlign: 'right', fontSize: 7, color: '#64748b', textTransform: 'uppercase', letterSpacing: 1 }}>Service</Text>
             <Text style={{ fontSize: 10, fontWeight: 700, color: '#0f172a', marginTop: 2 }}>{data.service}</Text>
           </View>
         </View>
@@ -84,7 +84,7 @@ export default function ShippingLabel(data: any) {
         {data.stamps && data.stamps.length > 0 && (
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 8, padding: 8 }}>
             {data.stamps.map((stamp: string, i: number) => (
-              <View key={i} style={{ paddingVertical: 6, paddingHorizontal: 12, borderWidth: 2, borderColor: '#dc2626', borderRadius: 2 }}>
+              <View key={i} style={{ flex: 1, textAlign: 'center', paddingVertical: 6, paddingHorizontal: 12, borderWidth: 2, borderColor: '#dc2626', borderRadius: 2 }}>
                 <Text style={{ fontSize: 10, fontWeight: 700, color: '#dc2626', textTransform: 'uppercase' }}>{stamp}</Text>
               </View>
             ))}
