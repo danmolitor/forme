@@ -1,0 +1,34 @@
+{
+  "name": "@formepdf/mcp",
+  "version": "0.4.4",
+  "description": "MCP server for Forme PDF rendering — generate PDFs from AI tools",
+  "type": "module",
+  "bin": {
+    "forme-mcp": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc"
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.0",
+    "@formepdf/react": "0.4.4",
+    "@formepdf/core": "0.4.4",
+    "esbuild": "^0.24.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "react": "^19.0.0",
+    "typescript": "^5.7.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/formepdf/forme",
+    "directory": "packages/mcp"
+  }
+}
