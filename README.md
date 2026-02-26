@@ -58,10 +58,12 @@ Live preview with debug overlays. Click any element to inspect its computed styl
 - **Column flex**: `justifyContent` and `alignItems` work in both row and column directions.
 - **SVG**: Inline SVG rendering with support for `rect`, `circle`, `ellipse`, `line`, `polyline`, `polygon`, and `path` elements.
 - **Custom fonts**: TrueType font embedding with automatic subsetting.
-- **Links**: Add `href` to any `<Text>` or `<View>` for clickable PDF links.
+- **Links**: Add `href` to any `<Text>`, `<View>`, `<Image>`, or `<Svg>` for clickable PDF links.
 - **Bookmarks**: Add `bookmark` to any element for PDF outline entries. Navigate long documents from the bookmark panel.
 - **Inline text styling**: Nest `<Text>` inside `<Text>` to bold a word, change colors mid-sentence, or apply strikethrough.
-- **Images**: JPEG and PNG with transparency support.
+- **Images**: JPEG and PNG with transparency support. `alt` text for accessibility.
+- **CSS shorthands**: `border: "1px solid #000"`, `padding: "8 16"`, `margin: [20, 40]` — CSS-style shorthand strings and arrays parse automatically.
+- **Document language**: `<Document lang="en-US">` sets the PDF `/Lang` tag for accessibility.
 - **Dynamic page numbers**: `{{pageNumber}}` and `{{totalPages}}` in any text element.
 
 ## Custom Fonts
@@ -111,15 +113,15 @@ Font sources can be file paths, data URIs, or `Uint8Array`. Fonts are automatica
 
 | Component | Description |
 |-----------|-------------|
-| `<Document>` | Root element. Contains pages. |
-| `<Page>` | A page. Size, margins, orientation. |
-| `<View>` | Container. Flexbox layout. |
-| `<Text>` | Text content. Fonts, sizes, colors. |
-| `<Image>` | JPEG or PNG. Aspect ratio preserved. |
+| `<Document>` | Root element. `title`, `author`, `lang`, `fonts`. |
+| `<Page>` | A page. `size`, `margin` (number, string, array, or edges). |
+| `<View>` | Container. Flexbox layout. `href`, `bookmark`. |
+| `<Text>` | Text content. Fonts, sizes, colors. `href`, `bookmark`. |
+| `<Image>` | JPEG or PNG. `href`, `alt`. Aspect ratio preserved. |
 | `<Table>` | Table with column definitions. |
-| `<Row>` | Table row. |
-| `<Cell>` | Table cell. |
-| `<Svg>` | Inline SVG graphics. |
+| `<Row>` | Table row. `header` for repeating on page breaks. |
+| `<Cell>` | Table cell. `colSpan`, `rowSpan`. |
+| `<Svg>` | Inline SVG graphics. `href`, `alt`. |
 | `<Fixed>` | Repeating header or footer. |
 | `<PageBreak>` | Force a page break. |
 
@@ -134,7 +136,7 @@ Font sources can be file paths, data URIs, or `Uint8Array`. Fonts are automatica
 | Render speed | ~28ms (4-page report) | ~100-500ms | ~1-5s (Chrome boot) |
 | Memory per render | No browser process (WASM) | ~50-100MB | ~50-200MB |
 | SVG | Basic shapes and paths | Yes | Full browser SVG |
-| Links | `href` prop on Text/View | `<Link>` component | HTML `<a>` tags |
+| Links | `href` prop on Text/View/Image/Svg | `<Link>` component | HTML `<a>` tags |
 | Bookmarks | `bookmark` prop on any element | Yes | No |
 | Inline text styling | Nested `<Text>` elements | Nested `<Text>` elements | HTML/CSS |
 | Absolute positioning | Yes | Yes | Full CSS |

@@ -149,6 +149,22 @@ Templates enable a hosted API workflow: store template JSON + dynamic data → p
 
 Key files: `engine/src/template.rs`, `engine/src/lib.rs` (render_template), `engine/src/wasm.rs` (render_template_pdf), `packages/react/src/template-proxy.ts`, `packages/react/src/expr.ts`, `packages/react/src/serialize.ts` (serializeTemplate), `packages/core/src/index.ts` (renderTemplate), `packages/cli/src/template-build.ts` (buildTemplate), `packages/cli/src/index.ts` (--template flag).
 
+### CSS String Shorthands (React layer only)
+Parsed in `mapStyle()` in `serialize.ts` — no engine changes needed. Three capabilities:
+
+1. **Border shorthand**: `border: "1px solid #000"` → parses into `borderWidth` + `borderColor`. Per-side variants: `borderTop: "2px solid #f00"` or `borderBottom: 3` (number = width only). `parseBorderString()` tokenizes by whitespace, recognizes CSS border-style keywords (ignored), numeric tokens (width), and color tokens.
+2. **Edge strings**: `padding: "8 16"` or `margin: "8 16 24 32"` → CSS 1-4 value shorthand. Optional `px` suffix stripped. `parseCSSEdges()` handles the parsing.
+3. **Edge arrays**: `padding: [8, 16]` or `margin: [20, 40, 20, 40]` → same 1-4 value pattern as arrays.
+
+Cascade priority (highest wins): `borderTopWidth` > `borderWidth` > `borderTop: "..."` > `border: "..."`.
+
+Also widened `<Page margin>` to accept strings and arrays: `<Page margin="36 72">`.
+
+### Alt Text, Document Language, Clickable Images/SVGs
+- **Alt text**: `alt` prop on `<Image>` and `<Svg>` flows through `Node.alt` → `LayoutElement.alt`. Carried through the data model for future tagged PDF support (actual `/Alt` emission requires structure elements — follow-up scope).
+- **Document language**: `<Document lang="en-US">` → `Metadata.lang` → emitted as `/Lang (en-US)` in the PDF Catalog dictionary.
+- **Clickable images/SVGs**: `href` prop on `<Image>` and `<Svg>` passes through to layout via `node.href.clone()`. The PDF serializer already handles `href` on any `LayoutElement` — no PDF-side changes were needed.
+
 ## Known Issues & Limitations (Current State)
 
 1. No Knuth-Plass line breaking (using greedy algorithm — fine for documents).
