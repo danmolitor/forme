@@ -51,14 +51,14 @@ export interface Style {
   columnGap?: number;
 
   // Box model
-  padding?: number | Edges;
+  padding?: number | string | number[] | Edges;
   paddingTop?: number;
   paddingRight?: number;
   paddingBottom?: number;
   paddingLeft?: number;
   paddingHorizontal?: number;
   paddingVertical?: number;
-  margin?: number | Edges;
+  margin?: number | string | number[] | Edges;
   marginTop?: number;
   marginRight?: number;
   marginBottom?: number;
@@ -97,6 +97,18 @@ export interface Style {
   borderBottomRightRadius?: number;
   borderBottomLeftRadius?: number;
 
+  // Border shorthands (CSS-like string parsing)
+  /** CSS border shorthand, e.g. `"1px solid #000"` */
+  border?: string;
+  /** Per-side border shorthand: string parses as CSS, number sets width */
+  borderTop?: string | number;
+  /** Per-side border shorthand: string parses as CSS, number sets width */
+  borderRight?: string | number;
+  /** Per-side border shorthand: string parses as CSS, number sets width */
+  borderBottom?: string | number;
+  /** Per-side border shorthand: string parses as CSS, number sets width */
+  borderLeft?: string | number;
+
   // Positioning
   position?: 'relative' | 'absolute';
   top?: number;
@@ -118,13 +130,15 @@ export interface DocumentProps {
   author?: string;
   subject?: string;
   creator?: string;
+  /** Document language (BCP 47 tag, e.g. "en-US"). Emitted as /Lang in the PDF Catalog. */
+  lang?: string;
   fonts?: FontRegistration[];
   children?: ReactNode;
 }
 
 export interface PageProps {
   size?: 'A4' | 'A3' | 'A5' | 'Letter' | 'Legal' | 'Tabloid' | { width: number; height: number };
-  margin?: number | Edges;
+  margin?: number | string | number[] | Edges;
   children?: ReactNode;
 }
 
@@ -148,6 +162,10 @@ export interface ImageProps {
   width?: number;
   height?: number;
   style?: Style;
+  /** Optional hyperlink URL — makes the image clickable. */
+  href?: string;
+  /** Alt text for accessibility. */
+  alt?: string;
 }
 
 export interface ColumnDef {
@@ -186,6 +204,10 @@ export interface SvgProps {
   viewBox?: string;
   content: string;
   style?: Style;
+  /** Optional hyperlink URL — makes the SVG clickable. */
+  href?: string;
+  /** Alt text for accessibility. */
+  alt?: string;
 }
 
 /** A styled text segment within a <Text> element */
@@ -216,6 +238,7 @@ export interface FormeMetadata {
   author?: string;
   subject?: string;
   creator?: string;
+  lang?: string;
 }
 
 export interface FormePageConfig {
@@ -241,6 +264,7 @@ export interface FormeNode {
   children: FormeNode[];
   bookmark?: string;
   href?: string;
+  alt?: string;
   sourceLocation?: { file: string; line: number; column: number };
 }
 

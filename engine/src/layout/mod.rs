@@ -415,6 +415,8 @@ pub struct LayoutElement {
     pub href: Option<String>,
     /// Optional bookmark title for PDF outline entries.
     pub bookmark: Option<String>,
+    /// Optional alt text for images and SVGs (accessibility).
+    pub alt: Option<String>,
 }
 
 /// Return a human-readable name for a NodeKind variant.
@@ -984,6 +986,7 @@ impl LayoutEngine {
                 source_location: node.source_location.clone(),
                 href: node.href.clone(),
                 bookmark: node.bookmark.clone(),
+                alt: None,
             };
             cursor.elements.push(rect_element);
 
@@ -1041,6 +1044,7 @@ impl LayoutEngine {
                 source_location: None,
                 href: None,
                 bookmark: node.bookmark.clone(),
+                alt: None,
             });
         }
 
@@ -1098,6 +1102,7 @@ impl LayoutEngine {
                 source_location: node.source_location.clone(),
                 href: node.href.clone(),
                 bookmark: node.bookmark.clone(),
+                alt: None,
             });
         } else {
             // Page breaks occurred: wrap elements on each page with clone semantics
@@ -1122,6 +1127,7 @@ impl LayoutEngine {
                     source_location: node.source_location.clone(),
                     href: node.href.clone(),
                     bookmark: node.bookmark.clone(),
+                    alt: None,
                 });
             }
 
@@ -1147,6 +1153,7 @@ impl LayoutEngine {
                         source_location: node.source_location.clone(),
                         href: None,
                         bookmark: None,
+                        alt: None,
                     });
                 }
             }
@@ -1170,6 +1177,7 @@ impl LayoutEngine {
                     source_location: node.source_location.clone(),
                     href: None,
                     bookmark: None,
+                    alt: None,
                 });
             }
         }
@@ -1914,6 +1922,7 @@ impl LayoutEngine {
                 source_location: cell.source_location.clone(),
                 href: None,
                 bookmark: cell.bookmark.clone(),
+                alt: None,
             });
 
             cell_x += col_width;
@@ -1944,6 +1953,7 @@ impl LayoutEngine {
             source_location: row.source_location.clone(),
             href: None,
             bookmark: row.bookmark.clone(),
+            alt: None,
         });
 
         // Append any overflow pages from cells that exceeded page height
@@ -2071,6 +2081,7 @@ impl LayoutEngine {
                         } else {
                             None
                         },
+                        alt: None,
                     });
                     is_first_element = false;
                 }
@@ -2137,6 +2148,7 @@ impl LayoutEngine {
                 source_location: None,
                 href: href.map(|s| s.to_string()),
                 bookmark: None,
+                alt: None,
             });
 
             cursor.y += line_height;
@@ -2162,6 +2174,7 @@ impl LayoutEngine {
                 } else {
                     None
                 },
+                alt: None,
             });
         }
 
@@ -2275,6 +2288,7 @@ impl LayoutEngine {
                         } else {
                             None
                         },
+                        alt: None,
                     });
                     is_first_element = false;
                 }
@@ -2345,6 +2359,7 @@ impl LayoutEngine {
                 source_location: None,
                 href: parent_href.map(|s| s.to_string()),
                 bookmark: None,
+                alt: None,
             });
 
             cursor.y += line_height;
@@ -2369,6 +2384,7 @@ impl LayoutEngine {
                 } else {
                     None
                 },
+                alt: None,
             });
         }
     }
@@ -2451,8 +2467,9 @@ impl LayoutEngine {
             node_type: Some(node_kind_name(&node.kind).to_string()),
             resolved_style: Some(style.clone()),
             source_location: node.source_location.clone(),
-            href: None,
+            href: node.href.clone(),
             bookmark: node.bookmark.clone(),
+            alt: node.alt.clone(),
         });
 
         cursor.y += img_height + margin.bottom;
@@ -2508,8 +2525,9 @@ impl LayoutEngine {
             node_type: Some("Svg".to_string()),
             resolved_style: Some(style.clone()),
             source_location: node.source_location.clone(),
-            href: None,
+            href: node.href.clone(),
             bookmark: node.bookmark.clone(),
+            alt: node.alt.clone(),
         });
 
         cursor.y += svg_height + margin.bottom;
@@ -3066,6 +3084,7 @@ mod tests {
             source_location: None,
             bookmark: None,
             href: None,
+            alt: None,
         }
     }
 
@@ -3078,6 +3097,7 @@ mod tests {
             source_location: None,
             bookmark: None,
             href: None,
+            alt: None,
         }
     }
 
@@ -4178,6 +4198,7 @@ mod tests {
             source_location: None,
             bookmark: None,
             href: None,
+            alt: None,
         };
 
         let resolved = image_node.style.resolve(None, 0.0);

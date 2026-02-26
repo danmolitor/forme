@@ -291,14 +291,14 @@ impl PdfWriter {
         };
 
         // Write Catalog (object 1)
-        let catalog = if let Some(outlines_id) = outlines_obj_id {
-            format!(
-                "<< /Type /Catalog /Pages 2 0 R /Outlines {} 0 R /PageMode /UseOutlines >>",
-                outlines_id
-            )
-        } else {
-            "<< /Type /Catalog /Pages 2 0 R >>".to_string()
-        };
+        let mut catalog = String::from("<< /Type /Catalog /Pages 2 0 R");
+        if let Some(outlines_id) = outlines_obj_id {
+            write!(catalog, " /Outlines {} 0 R /PageMode /UseOutlines", outlines_id).unwrap();
+        }
+        if let Some(ref lang) = metadata.lang {
+            write!(catalog, " /Lang ({})", Self::escape_pdf_string(lang)).unwrap();
+        }
+        catalog.push_str(" >>");
         builder.objects[1].data = catalog.into_bytes();
 
         // Write Pages tree (object 2)
@@ -1819,6 +1819,7 @@ mod tests {
             author: Some("Forme".to_string()),
             subject: None,
             creator: None,
+            lang: None,
         };
         let bytes = writer.write(&pages, &metadata, &font_context).unwrap();
         let text = String::from_utf8_lossy(&bytes);
@@ -1872,6 +1873,7 @@ mod tests {
                     source_location: None,
                     href: None,
                     bookmark: None,
+                    alt: None,
                 },
                 LayoutElement {
                     x: 54.0,
@@ -1908,6 +1910,7 @@ mod tests {
                     source_location: None,
                     href: None,
                     bookmark: None,
+                    alt: None,
                 },
             ],
             fixed_header: vec![],
@@ -2055,6 +2058,7 @@ mod tests {
                 source_location: None,
                 href: None,
                 bookmark: None,
+                alt: None,
             }],
             fixed_header: vec![],
             fixed_footer: vec![],

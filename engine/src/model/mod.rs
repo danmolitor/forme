@@ -61,6 +61,9 @@ pub struct Metadata {
     pub author: Option<String>,
     pub subject: Option<String>,
     pub creator: Option<String>,
+    /// Document language (BCP 47 tag, e.g. "en-US"). Emitted as /Lang in the PDF Catalog.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lang: Option<String>,
 }
 
 /// Configuration for a page: size, margins, orientation.
@@ -191,6 +194,10 @@ pub struct Node {
     /// Optional hyperlink URL for this node (creates a PDF link annotation).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub href: Option<String>,
+
+    /// Optional alt text for images and SVGs (accessibility).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub alt: Option<String>,
 }
 
 /// The different kinds of nodes in the document tree.
@@ -344,6 +351,7 @@ impl Node {
             source_location: None,
             bookmark: None,
             href: None,
+            alt: None,
         }
     }
 
@@ -361,6 +369,7 @@ impl Node {
             source_location: None,
             bookmark: None,
             href: None,
+            alt: None,
         }
     }
 
@@ -374,6 +383,7 @@ impl Node {
             source_location: None,
             bookmark: None,
             href: None,
+            alt: None,
         }
     }
 

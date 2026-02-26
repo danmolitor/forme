@@ -32,6 +32,7 @@ fn make_text(content: &str, font_size: f64) -> Node {
         source_location: None,
         bookmark: None,
         href: None,
+        alt: None,
     }
 }
 
@@ -44,6 +45,7 @@ fn make_view(children: Vec<Node>) -> Node {
         source_location: None,
         bookmark: None,
         href: None,
+        alt: None,
     }
 }
 
@@ -56,6 +58,7 @@ fn make_styled_view(style: Style, children: Vec<Node>) -> Node {
         source_location: None,
         bookmark: None,
         href: None,
+        alt: None,
     }
 }
 
@@ -68,6 +71,7 @@ fn make_page_break() -> Node {
         source_location: None,
         bookmark: None,
         href: None,
+        alt: None,
     }
 }
 
@@ -80,6 +84,7 @@ fn make_table_row(is_header: bool, cells: Vec<Node>) -> Node {
         source_location: None,
         bookmark: None,
         href: None,
+        alt: None,
     }
 }
 
@@ -98,6 +103,7 @@ fn make_table_cell(children: Vec<Node>) -> Node {
         source_location: None,
         bookmark: None,
         href: None,
+        alt: None,
     }
 }
 
@@ -290,6 +296,7 @@ fn make_simple_table(header_cells: Vec<&str>, rows: Vec<Vec<&str>>) -> Node {
         source_location: None,
         bookmark: None,
         href: None,
+        alt: None,
     }
 }
 
@@ -518,6 +525,7 @@ fn test_metadata_in_output() {
             author: Some("Test Author".to_string()),
             subject: Some("Testing".to_string()),
             creator: None,
+            lang: None,
         },
         default_page: PageConfig::default(),
         fonts: vec![],
@@ -563,6 +571,7 @@ fn test_unbreakable_node_moves_to_next_page() {
         source_location: None,
         bookmark: None,
         href: None,
+        alt: None,
     };
     page_children.push(unbreakable);
 
@@ -648,6 +657,7 @@ fn render_with_custom_font(font_data: &[u8], text: &str) -> Vec<u8> {
             source_location: None,
             bookmark: None,
             href: None,
+            alt: None,
         }],
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
@@ -762,6 +772,7 @@ fn test_mixed_standard_and_custom_fonts() {
                 source_location: None,
                 bookmark: None,
                 href: None,
+                alt: None,
             },
             // Custom font text
             Node {
@@ -780,6 +791,7 @@ fn test_mixed_standard_and_custom_fonts() {
                 source_location: None,
                 bookmark: None,
                 href: None,
+                alt: None,
             },
         ],
         metadata: Metadata::default(),
@@ -904,6 +916,7 @@ fn make_image_node(src: &str, width: Option<f64>, height: Option<f64>) -> Node {
         source_location: None,
         bookmark: None,
         href: None,
+        alt: None,
     }
 }
 
@@ -1118,6 +1131,7 @@ fn make_fixed_header(text: &str) -> Node {
         source_location: None,
         bookmark: None,
         href: None,
+        alt: None,
     }
 }
 
@@ -1136,6 +1150,7 @@ fn make_fixed_footer(text: &str) -> Node {
         source_location: None,
         bookmark: None,
         href: None,
+        alt: None,
     }
 }
 
@@ -1246,6 +1261,7 @@ fn test_footer_reduces_content_area() {
         source_location: None,
         bookmark: None,
         href: None,
+        alt: None,
     };
     let mut children_with_footer = vec![big_footer];
     for i in 0..80 {
@@ -1610,6 +1626,7 @@ fn test_table_cell_overflow_does_not_panic() {
         source_location: None,
         bookmark: None,
         href: None,
+        alt: None,
     };
     children.push(table);
 
@@ -1722,6 +1739,7 @@ fn test_page_number_placeholder_single_page() {
                 source_location: None,
                 bookmark: None,
                 href: None,
+                alt: None,
             },
             make_text("Hello", 12.0),
         ],
@@ -1729,6 +1747,7 @@ fn test_page_number_placeholder_single_page() {
         source_location: None,
         bookmark: None,
         href: None,
+        alt: None,
     }]);
     let pdf_bytes = forme::render(&doc).unwrap();
     let pdf_str = String::from_utf8_lossy(&pdf_bytes);
@@ -1759,6 +1778,7 @@ fn test_page_number_placeholder_multi_page() {
         source_location: None,
         bookmark: None,
         href: None,
+        alt: None,
     }];
     for _ in 0..80 {
         page_children.push(make_text("Line of text to fill the page.", 12.0));
@@ -1774,6 +1794,7 @@ fn test_page_number_placeholder_multi_page() {
         source_location: None,
         bookmark: None,
         href: None,
+        alt: None,
     }]);
     let pdf_bytes = forme::render(&doc).unwrap();
     let pdf_str = String::from_utf8_lossy(&pdf_bytes);
@@ -1830,6 +1851,7 @@ fn test_text_with_href_produces_link_annotation() {
         source_location: None,
         bookmark: None,
         href: None,
+        alt: None,
     }]);
     let bytes = render_to_pdf(&doc);
     assert_valid_pdf(&bytes);
@@ -1876,6 +1898,7 @@ fn test_multiple_links_on_same_page() {
             source_location: None,
             bookmark: None,
             href: None,
+            alt: None,
         },
         Node {
             kind: NodeKind::Text {
@@ -1889,6 +1912,7 @@ fn test_multiple_links_on_same_page() {
             source_location: None,
             bookmark: None,
             href: None,
+            alt: None,
         },
     ]);
     let bytes = render_to_pdf(&doc);
@@ -1955,6 +1979,7 @@ fn test_text_runs_render_valid_pdf() {
         source_location: None,
         bookmark: None,
         href: None,
+        alt: None,
     }]);
     let bytes = render_to_pdf(&doc);
     assert_valid_pdf(&bytes);
@@ -1991,6 +2016,7 @@ fn test_text_runs_with_href_per_run() {
         source_location: None,
         bookmark: None,
         href: None,
+        alt: None,
     }]);
     let bytes = render_to_pdf(&doc);
     assert_valid_pdf(&bytes);
@@ -2030,6 +2056,7 @@ fn test_bookmarks_produce_outlines() {
             source_location: None,
             bookmark: Some("Chapter 1".to_string()),
             href: None,
+            alt: None,
         },
         make_text("Content for chapter 1", 12.0),
         Node {
@@ -2040,6 +2067,7 @@ fn test_bookmarks_produce_outlines() {
             source_location: None,
             bookmark: Some("Chapter 2".to_string()),
             href: None,
+            alt: None,
         },
         make_text("Content for chapter 2", 12.0),
     ]);
@@ -2111,6 +2139,7 @@ fn test_bookmarks_on_breakable_view() {
         source_location: None,
         bookmark: Some("Breakable Chapter".to_string()),
         href: None,
+        alt: None,
     };
     let doc = default_doc(vec![bookmarked_view]);
     let pages = layout_doc(&doc);
@@ -2153,6 +2182,7 @@ fn test_multiple_bookmarked_views_mixed_sizes() {
             source_location: None,
             bookmark: Some(name),
             href: None,
+            alt: None,
         });
     }
     let doc = default_doc(doc_children);
@@ -2198,6 +2228,7 @@ fn test_absolute_position_does_not_affect_flow() {
                 source_location: None,
                 bookmark: None,
                 href: None,
+                alt: None,
             },
             make_text("After absolute", 12.0),
         ],
@@ -2254,6 +2285,7 @@ fn test_svg_basic_rect() {
         source_location: None,
         bookmark: None,
         href: None,
+        alt: None,
     }]);
     let pages = layout_doc(&doc);
     assert_eq!(pages.len(), 1);
@@ -2278,6 +2310,7 @@ fn test_svg_circle_and_path() {
         source_location: None,
         bookmark: None,
         href: None,
+        alt: None,
     }]);
     let bytes = render_to_pdf(&doc);
     assert_valid_pdf(&bytes);
@@ -2323,6 +2356,7 @@ fn test_svg_page_break() {
         source_location: None,
         bookmark: None,
         href: None,
+        alt: None,
     });
     let doc = default_doc(children);
     let pages = layout_doc(&doc);
@@ -2349,6 +2383,7 @@ fn test_empty_svg_content() {
         source_location: None,
         bookmark: None,
         href: None,
+        alt: None,
     }]);
     let bytes = render_to_pdf(&doc);
     assert_valid_pdf(&bytes);
@@ -2384,6 +2419,7 @@ fn test_orphan_control_moves_paragraph_to_next_page() {
         source_location: None,
         bookmark: None,
         href: None,
+        alt: None,
     });
 
     let doc = default_doc(children);
@@ -2423,6 +2459,7 @@ fn test_widow_control_adjusts_split_point() {
         source_location: None,
         bookmark: None,
         href: None,
+        alt: None,
     };
     children.push(paragraph);
 
@@ -2462,6 +2499,7 @@ fn test_widow_orphan_with_custom_settings() {
         source_location: None,
         bookmark: None,
         href: None,
+        alt: None,
     });
 
     let doc = default_doc(children);
@@ -2687,6 +2725,7 @@ fn test_table_cell_overflow_preserves_content() {
         source_location: None,
         bookmark: None,
         href: None,
+        alt: None,
     };
 
     let doc = default_doc(vec![table]);
@@ -2737,6 +2776,7 @@ fn test_table_cell_overflow_near_page_bottom() {
         source_location: None,
         bookmark: None,
         href: None,
+        alt: None,
     };
     children.push(table);
 
@@ -2770,6 +2810,7 @@ fn test_internal_link_produces_goto_annotation() {
             source_location: None,
             bookmark: None,
             href: None,
+            alt: None,
         },
         make_page_break(),
         Node {
@@ -2780,6 +2821,7 @@ fn test_internal_link_produces_goto_annotation() {
             source_location: None,
             bookmark: Some("Chapter 1".to_string()),
             href: None,
+            alt: None,
         },
     ]);
     let bytes = render_to_pdf(&doc);
@@ -2811,6 +2853,7 @@ fn test_external_link_still_produces_uri() {
             source_location: None,
             bookmark: None,
             href: None,
+            alt: None,
         },
         Node {
             kind: NodeKind::View,
@@ -2820,6 +2863,7 @@ fn test_external_link_still_produces_uri() {
             source_location: None,
             bookmark: Some("Some section".to_string()),
             href: None,
+            alt: None,
         },
     ]);
     let bytes = render_to_pdf(&doc);
@@ -2850,6 +2894,7 @@ fn test_internal_link_no_matching_bookmark_skipped() {
         source_location: None,
         bookmark: None,
         href: None,
+        alt: None,
     }]);
     let bytes = render_to_pdf(&doc);
     assert_valid_pdf(&bytes);
@@ -2880,6 +2925,7 @@ fn test_multiple_internal_links_to_multiple_bookmarks() {
             source_location: None,
             bookmark: None,
             href: None,
+            alt: None,
         },
         Node {
             kind: NodeKind::Text {
@@ -2893,6 +2939,7 @@ fn test_multiple_internal_links_to_multiple_bookmarks() {
             source_location: None,
             bookmark: None,
             href: None,
+            alt: None,
         },
         make_page_break(),
         Node {
@@ -2903,6 +2950,7 @@ fn test_multiple_internal_links_to_multiple_bookmarks() {
             source_location: None,
             bookmark: Some("Section A".to_string()),
             href: None,
+            alt: None,
         },
         Node {
             kind: NodeKind::View,
@@ -2912,6 +2960,7 @@ fn test_multiple_internal_links_to_multiple_bookmarks() {
             source_location: None,
             bookmark: Some("Section B".to_string()),
             href: None,
+            alt: None,
         },
     ]);
     let bytes = render_to_pdf(&doc);
@@ -2940,6 +2989,7 @@ fn test_view_href_produces_link_annotation() {
             source_location: None,
             bookmark: None,
             href: Some("#Target".to_string()),
+            alt: None,
         },
         make_page_break(),
         Node {
@@ -2950,6 +3000,7 @@ fn test_view_href_produces_link_annotation() {
             source_location: None,
             bookmark: Some("Target".to_string()),
             href: None,
+            alt: None,
         },
     ]);
     let bytes = render_to_pdf(&doc);
@@ -3084,6 +3135,7 @@ fn test_breakable_view_background_does_not_overlap_footer() {
         source_location: None,
         bookmark: None,
         href: None,
+        alt: None,
     };
 
     let mut view_children = Vec::new();
@@ -3250,6 +3302,7 @@ fn test_text_transform_uppercase_in_pdf() {
         source_location: None,
         bookmark: None,
         href: None,
+        alt: None,
     }]);
 
     let pages = layout_doc(&doc);
@@ -3827,4 +3880,90 @@ fn test_template_div_by_zero() {
     let data = json!({});
     let result = evaluate_template(&json!({"$div": [10, 0]}), &data).unwrap();
     assert_eq!(result, json!(0.0));
+}
+
+// ─── Document lang ────────────────────────────────────────────
+
+#[test]
+fn test_document_lang_in_pdf_catalog() {
+    let doc = Document {
+        children: vec![make_text("Hello", 12.0)],
+        metadata: Metadata {
+            title: None,
+            author: None,
+            subject: None,
+            creator: None,
+            lang: Some("en-US".to_string()),
+        },
+        default_page: PageConfig::default(),
+        fonts: vec![],
+    };
+    let bytes = render_to_pdf(&doc);
+    assert_valid_pdf(&bytes);
+    let text = String::from_utf8_lossy(&bytes);
+    assert!(text.contains("/Lang (en-US)"), "PDF catalog should contain /Lang");
+}
+
+#[test]
+fn test_document_lang_omitted_when_none() {
+    let doc = default_doc(vec![make_text("Hello", 12.0)]);
+    let bytes = render_to_pdf(&doc);
+    assert_valid_pdf(&bytes);
+    let text = String::from_utf8_lossy(&bytes);
+    assert!(!text.contains("/Lang"), "PDF catalog should not contain /Lang when not set");
+}
+
+// ─── Image/SVG href passthrough ─────────────────────────────────
+
+#[test]
+fn test_image_href_produces_link_annotation() {
+    let one_px_png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+    let doc = default_doc(vec![Node {
+        kind: NodeKind::Image {
+            src: one_px_png.to_string(),
+            width: Some(100.0),
+            height: Some(50.0),
+        },
+        style: Style::default(),
+        children: vec![],
+        id: None,
+        source_location: None,
+        bookmark: None,
+        href: Some("https://example.com".to_string()),
+        alt: None,
+    }]);
+    let bytes = render_to_pdf(&doc);
+    assert_valid_pdf(&bytes);
+    let text = String::from_utf8_lossy(&bytes);
+    assert!(text.contains("/Annots"), "Image with href should produce annotations");
+    assert!(text.contains("https://example.com"), "Annotation should contain the URL");
+}
+
+// ─── Alt text on Node ───────────────────────────────────────────
+
+#[test]
+fn test_alt_deserializes_from_json() {
+    let json_str = r#"{
+        "children": [{
+            "kind": {"type": "Image", "src": "test.png", "width": 100, "height": 50},
+            "style": {},
+            "children": [],
+            "alt": "A test image"
+        }],
+        "metadata": {},
+        "defaultPage": {"size": "A4", "margin": {"top": 54, "right": 54, "bottom": 54, "left": 54}, "wrap": true}
+    }"#;
+    let doc: Document = serde_json::from_str(json_str).unwrap();
+    assert_eq!(doc.children[0].alt.as_deref(), Some("A test image"));
+}
+
+#[test]
+fn test_lang_deserializes_from_json() {
+    let json_str = r#"{
+        "children": [],
+        "metadata": {"lang": "fr-FR"},
+        "defaultPage": {"size": "A4", "margin": {"top": 54, "right": 54, "bottom": 54, "left": 54}, "wrap": true}
+    }"#;
+    let doc: Document = serde_json::from_str(json_str).unwrap();
+    assert_eq!(doc.metadata.lang.as_deref(), Some("fr-FR"));
 }

@@ -88,7 +88,7 @@ export function serialize(element: ReactElement): FormeDocument {
     throw new Error('Top-level element must be <Document>');
   }
 
-  const props = element.props as { title?: string; author?: string; subject?: string; creator?: string; children?: unknown };
+  const props = element.props as { title?: string; author?: string; subject?: string; creator?: string; lang?: string; children?: unknown };
   const childElements = flattenChildren(props.children);
 
   // Separate Page children from content children
@@ -124,6 +124,7 @@ export function serialize(element: ReactElement): FormeDocument {
   if (props.author !== undefined) metadata.author = props.author;
   if (props.subject !== undefined) metadata.subject = props.subject;
   if (props.creator !== undefined) metadata.creator = props.creator;
+  if (props.lang !== undefined) metadata.lang = props.lang;
 
   // Merge global + document fonts (document fonts override on conflict)
   const mergedFonts = mergeFonts(Font.getRegistered(), (props as DocumentProps).fonts);
@@ -148,7 +149,7 @@ export function serialize(element: ReactElement): FormeDocument {
 // ─── Page serialization ──────────────────────────────────────────────
 
 function serializePage(element: ReactElement): FormeNode {
-  const props = element.props as { size?: string | { width: number; height: number }; margin?: number | Edges; children?: unknown };
+  const props = element.props as { size?: string | { width: number; height: number }; margin?: number | string | number[] | Edges; children?: unknown };
 
   let size: FormePageSize = 'A4';
   if (props.size !== undefined) {
@@ -350,17 +351,20 @@ function serializeText(element: ReactElement): FormeNode {
 }
 
 function serializeImage(element: ReactElement): FormeNode {
-  const props = element.props as { src: string; width?: number; height?: number; style?: Style };
+  const props = element.props as { src: string; width?: number; height?: number; style?: Style; href?: string; alt?: string };
   const kind: FormeNodeKind = { type: 'Image', src: props.src };
   if (props.width !== undefined) (kind as { width?: number }).width = props.width;
   if (props.height !== undefined) (kind as { height?: number }).height = props.height;
 
-  return {
+  const node: FormeNode = {
     kind,
     style: mapStyle(props.style),
     children: [],
     sourceLocation: extractSourceLocation(element),
   };
+  if (props.href) node.href = props.href;
+  if (props.alt) node.alt = props.alt;
+  return node;
 }
 
 function serializeTable(element: ReactElement, _parent: ParentContext = null): FormeNode {
@@ -424,7 +428,7 @@ function serializeFixed(element: ReactElement): FormeNode {
 }
 
 function serializeSvg(element: ReactElement): FormeNode {
-  const props = element.props as { width: number; height: number; viewBox?: string; content: string; style?: Style };
+  const props = element.props as { width: number; height: number; viewBox?: string; content: string; style?: Style; href?: string; alt?: string };
   const kind: FormeNodeKind = {
     type: 'Svg',
     width: props.width,
@@ -433,12 +437,15 @@ function serializeSvg(element: ReactElement): FormeNode {
   };
   if (props.viewBox) (kind as { view_box?: string }).view_box = props.viewBox;
 
-  return {
+  const node: FormeNode = {
     kind,
     style: mapStyle(props.style),
     children: [],
     sourceLocation: extractSourceLocation(element),
   };
+  if (props.href) node.href = props.href;
+  if (props.alt) node.alt = props.alt;
+  return node;
 }
 
 // ─── Children helpers ────────────────────────────────────────────────
@@ -650,9 +657,37 @@ export function mapStyle(style?: Style): FormeStyle {
   if (style.backgroundColor !== undefined) result.backgroundColor = parseColor(style.backgroundColor);
   if (style.opacity !== undefined) result.opacity = style.opacity;
 
-  // Border
-  if (style.borderWidth !== undefined || style.borderTopWidth !== undefined || style.borderRightWidth !== undefined || style.borderBottomWidth !== undefined || style.borderLeftWidth !== undefined) {
-    const base = style.borderWidth !== undefined ? expandEdgeValues(style.borderWidth) : { top: 0, right: 0, bottom: 0, left: 0 };
+  // Border — cascade: border < borderTop/Right/Bottom/Left < borderWidth/borderColor < borderTopWidth/borderTopColor
+  // Step 1: Parse string shorthands into intermediate per-side values
+  let shortWidth: FormeEdgeValues<number | undefined> = { top: undefined, right: undefined, bottom: undefined, left: undefined };
+  let shortColor: FormeEdgeValues<FormeColor | undefined> = { top: undefined, right: undefined, bottom: undefined, left: undefined };
+
+  if (style.border !== undefined) {
+    const parsed = parseBorderString(style.border);
+    if (parsed.width !== undefined) shortWidth = { top: parsed.width, right: parsed.width, bottom: parsed.width, left: parsed.width };
+    if (parsed.color !== undefined) shortColor = { top: parsed.color, right: parsed.color, bottom: parsed.color, left: parsed.color };
+  }
+
+  // Per-side string shorthands override all-side shorthand
+  for (const [side, prop] of [['top', 'borderTop'], ['right', 'borderRight'], ['bottom', 'borderBottom'], ['left', 'borderLeft']] as const) {
+    const val = style[prop];
+    if (val === undefined) continue;
+    if (typeof val === 'number') {
+      shortWidth[side] = val;
+    } else {
+      const parsed = parseBorderString(val);
+      if (parsed.width !== undefined) shortWidth[side] = parsed.width;
+      if (parsed.color !== undefined) shortColor[side] = parsed.color;
+    }
+  }
+
+  // Step 2: Build borderWidth — existing borderWidth/borderTopWidth override shorthands
+  const hasBorderWidth = style.borderWidth !== undefined || style.borderTopWidth !== undefined || style.borderRightWidth !== undefined || style.borderBottomWidth !== undefined || style.borderLeftWidth !== undefined;
+  const hasShortWidth = shortWidth.top !== undefined || shortWidth.right !== undefined || shortWidth.bottom !== undefined || shortWidth.left !== undefined;
+  if (hasBorderWidth || hasShortWidth) {
+    const base = style.borderWidth !== undefined
+      ? expandEdgeValues(style.borderWidth)
+      : { top: shortWidth.top ?? 0, right: shortWidth.right ?? 0, bottom: shortWidth.bottom ?? 0, left: shortWidth.left ?? 0 };
     result.borderWidth = {
       top: style.borderTopWidth ?? base.top,
       right: style.borderRightWidth ?? base.right,
@@ -660,13 +695,22 @@ export function mapStyle(style?: Style): FormeStyle {
       left: style.borderLeftWidth ?? base.left,
     };
   }
-  if (style.borderColor !== undefined || style.borderTopColor !== undefined || style.borderRightColor !== undefined || style.borderBottomColor !== undefined || style.borderLeftColor !== undefined) {
+
+  // Step 3: Build borderColor — existing borderColor/borderTopColor override shorthands
+  const hasBorderColor = style.borderColor !== undefined || style.borderTopColor !== undefined || style.borderRightColor !== undefined || style.borderBottomColor !== undefined || style.borderLeftColor !== undefined;
+  const hasShortColor = shortColor.top !== undefined || shortColor.right !== undefined || shortColor.bottom !== undefined || shortColor.left !== undefined;
+  if (hasBorderColor || hasShortColor) {
     const defaultColor = parseColor('#000000');
-    let base = { top: defaultColor, right: defaultColor, bottom: defaultColor, left: defaultColor };
+    let base = {
+      top: shortColor.top ?? defaultColor,
+      right: shortColor.right ?? defaultColor,
+      bottom: shortColor.bottom ?? defaultColor,
+      left: shortColor.left ?? defaultColor,
+    };
     if (typeof style.borderColor === 'string') {
       const c = parseColor(style.borderColor);
       base = { top: c, right: c, bottom: c, left: c };
-    } else if (style.borderColor) {
+    } else if (style.borderColor && typeof style.borderColor === 'object') {
       base = {
         top: parseColor(style.borderColor.top),
         right: parseColor(style.borderColor.right),
@@ -755,9 +799,58 @@ export function parseColor(hex: string): FormeColor {
   return { r: 0, g: 0, b: 0, a: 1 };
 }
 
-export function expandEdges(val: number | Edges): FormeEdges {
+/**
+ * Parse a CSS-style 1-4 value edge shorthand.
+ * Accepts: `"8"`, `"8 16"`, `"8 16 24"`, `"8 16 24 32"` (with optional `px` suffix).
+ * Also accepts number arrays: `[8]`, `[8, 16]`, `[8, 16, 24]`, `[8, 16, 24, 32]`.
+ */
+function parseCSSEdges(val: string | number[]): FormeEdges {
+  const values: number[] = Array.isArray(val)
+    ? val
+    : val.trim().split(/\s+/).map(s => parseFloat(s.replace(/px$/i, '')));
+
+  switch (values.length) {
+    case 1: return { top: values[0], right: values[0], bottom: values[0], left: values[0] };
+    case 2: return { top: values[0], right: values[1], bottom: values[0], left: values[1] };
+    case 3: return { top: values[0], right: values[1], bottom: values[2], left: values[1] };
+    default: return { top: values[0], right: values[1], bottom: values[2], left: values[3] };
+  }
+}
+
+const BORDER_STYLE_KEYWORDS = new Set([
+  'solid', 'dashed', 'dotted', 'double', 'groove', 'ridge', 'inset', 'outset', 'none', 'hidden',
+]);
+
+/**
+ * Parse a CSS border shorthand string like `"1px solid #000"`.
+ * Returns extracted width and/or color. Style keywords are recognized but ignored.
+ */
+function parseBorderString(val: string): { width?: number; color?: FormeColor } {
+  const tokens = val.trim().split(/\s+/);
+  let width: number | undefined;
+  let color: FormeColor | undefined;
+
+  for (const token of tokens) {
+    const lower = token.toLowerCase();
+    if (BORDER_STYLE_KEYWORDS.has(lower)) continue;
+
+    const num = parseFloat(lower.replace(/px$/i, ''));
+    if (!isNaN(num) && /^[\d.]/.test(lower)) {
+      width = num;
+    } else {
+      color = parseColor(token);
+    }
+  }
+
+  return { width, color };
+}
+
+export function expandEdges(val: number | string | number[] | Edges): FormeEdges {
   if (typeof val === 'number') {
     return { top: val, right: val, bottom: val, left: val };
+  }
+  if (typeof val === 'string' || Array.isArray(val)) {
+    return parseCSSEdges(val);
   }
   return { top: val.top, right: val.right, bottom: val.bottom, left: val.left };
 }
@@ -872,6 +965,7 @@ export function serializeTemplate(element: ReactElement): Record<string, unknown
   if (props.author !== undefined) metadata.author = processTemplateValue(props.author);
   if (props.subject !== undefined) metadata.subject = processTemplateValue(props.subject);
   if (props.creator !== undefined) metadata.creator = processTemplateValue(props.creator);
+  if (props.lang !== undefined) metadata.lang = processTemplateValue(props.lang);
 
   const mergedFonts = mergeFonts(Font.getRegistered(), props.fonts);
 
@@ -893,7 +987,7 @@ export function serializeTemplate(element: ReactElement): Record<string, unknown
 }
 
 function serializeTemplatePage(element: ReactElement): Record<string, unknown> {
-  const props = element.props as { size?: string | { width: number; height: number }; margin?: number | Edges; children?: unknown };
+  const props = element.props as { size?: string | { width: number; height: number }; margin?: number | string | number[] | Edges; children?: unknown };
 
   let size: FormePageSize = 'A4';
   if (props.size !== undefined) {

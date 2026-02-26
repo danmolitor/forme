@@ -11,6 +11,7 @@ import {
   Cell,
   Fixed,
   PageBreak,
+  Svg,
   serialize,
   render,
   mapStyle,
@@ -948,5 +949,176 @@ describe('Font serialization', () => {
     Font.register({ family: 'Inter', src: bytes });
     const doc = serialize(<Document><Text>Hello</Text></Document>);
     expect(doc.fonts![0].src).toBeInstanceOf(Uint8Array);
+  });
+});
+
+// ─── CSS border shorthand ────────────────────────────────────────────
+
+describe('CSS border shorthand', () => {
+  it('border: "1px solid #000" sets width and color on all sides', () => {
+    const style = mapStyle({ border: '1px solid #000' });
+    expect(style.borderWidth).toEqual({ top: 1, right: 1, bottom: 1, left: 1 });
+    expect(style.borderColor).toEqual({
+      top: { r: 0, g: 0, b: 0, a: 1 },
+      right: { r: 0, g: 0, b: 0, a: 1 },
+      bottom: { r: 0, g: 0, b: 0, a: 1 },
+      left: { r: 0, g: 0, b: 0, a: 1 },
+    });
+  });
+
+  it('border: "2px #ff0000" sets width and color (no style keyword)', () => {
+    const style = mapStyle({ border: '2px #ff0000' });
+    expect(style.borderWidth).toEqual({ top: 2, right: 2, bottom: 2, left: 2 });
+    expect(style.borderColor!.top).toEqual({ r: 1, g: 0, b: 0, a: 1 });
+  });
+
+  it('border width-only: "3px" sets width, no borderColor emitted', () => {
+    const style = mapStyle({ border: '3px' });
+    expect(style.borderWidth).toEqual({ top: 3, right: 3, bottom: 3, left: 3 });
+    // No color token → borderColor not emitted (engine uses default black)
+    expect(style.borderColor).toBeUndefined();
+  });
+
+  it('per-side borderTop overrides all-side border', () => {
+    const style = mapStyle({ border: '1px solid #000', borderTop: '3px solid #ff0000' });
+    expect(style.borderWidth!.top).toBe(3);
+    expect(style.borderWidth!.right).toBe(1);
+    expect(style.borderColor!.top).toEqual({ r: 1, g: 0, b: 0, a: 1 });
+  });
+
+  it('per-side borderBottom as number sets width only', () => {
+    const style = mapStyle({ border: '1px solid #000', borderBottom: 5 });
+    expect(style.borderWidth!.bottom).toBe(5);
+    expect(style.borderWidth!.top).toBe(1);
+  });
+
+  it('borderWidth overrides border shorthand', () => {
+    const style = mapStyle({ border: '1px solid #000', borderWidth: 4 });
+    expect(style.borderWidth).toEqual({ top: 4, right: 4, bottom: 4, left: 4 });
+  });
+
+  it('borderTopWidth overrides border shorthand + borderWidth', () => {
+    const style = mapStyle({ border: '1px solid #000', borderWidth: 2, borderTopWidth: 8 });
+    expect(style.borderWidth!.top).toBe(8);
+    expect(style.borderWidth!.right).toBe(2);
+  });
+
+  it('borderColor overrides border shorthand color', () => {
+    const style = mapStyle({ border: '1px solid #ff0000', borderColor: '#00ff00' });
+    expect(style.borderColor!.top).toEqual({ r: 0, g: 1, b: 0, a: 1 });
+  });
+
+  it('borderTopColor overrides everything', () => {
+    const style = mapStyle({ border: '1px solid #000', borderColor: '#ff0000', borderTopColor: '#0000ff' });
+    expect(style.borderColor!.top).toEqual({ r: 0, g: 0, b: 1, a: 1 });
+    expect(style.borderColor!.right).toEqual({ r: 1, g: 0, b: 0, a: 1 });
+  });
+});
+
+// ─── CSS edge string/array shorthands ────────────────────────────────
+
+describe('CSS edge string/array shorthands', () => {
+  it('padding: "8" → all sides 8', () => {
+    expect(mapStyle({ padding: '8' }).padding).toEqual({ top: 8, right: 8, bottom: 8, left: 8 });
+  });
+
+  it('padding: "8 16" → vertical 8, horizontal 16', () => {
+    expect(mapStyle({ padding: '8 16' }).padding).toEqual({ top: 8, right: 16, bottom: 8, left: 16 });
+  });
+
+  it('padding: "8 16 24" → top 8, horizontal 16, bottom 24', () => {
+    expect(mapStyle({ padding: '8 16 24' }).padding).toEqual({ top: 8, right: 16, bottom: 24, left: 16 });
+  });
+
+  it('padding: "8 16 24 32" → top/right/bottom/left', () => {
+    expect(mapStyle({ padding: '8 16 24 32' }).padding).toEqual({ top: 8, right: 16, bottom: 24, left: 32 });
+  });
+
+  it('padding with px suffix: "8px 16px"', () => {
+    expect(mapStyle({ padding: '8px 16px' }).padding).toEqual({ top: 8, right: 16, bottom: 8, left: 16 });
+  });
+
+  it('margin array form: [20, 40, 20, 40]', () => {
+    expect(mapStyle({ margin: [20, 40, 20, 40] }).margin).toEqual({ top: 20, right: 40, bottom: 20, left: 40 });
+  });
+
+  it('margin array form: [8] → all sides', () => {
+    expect(mapStyle({ margin: [8] }).margin).toEqual({ top: 8, right: 8, bottom: 8, left: 8 });
+  });
+
+  it('margin array form: [8, 16] → vertical/horizontal', () => {
+    expect(mapStyle({ margin: [8, 16] }).margin).toEqual({ top: 8, right: 16, bottom: 8, left: 16 });
+  });
+
+  it('padding string + paddingTop override', () => {
+    expect(mapStyle({ padding: '8 16', paddingTop: 24 }).padding).toEqual({ top: 24, right: 16, bottom: 8, left: 16 });
+  });
+
+  it('Page margin="36 72"', () => {
+    const doc = serialize(<Document><Page margin="36 72"><Text>hi</Text></Page></Document>);
+    const config = (doc.children[0].kind as { config: { margin: unknown } }).config;
+    expect(config.margin).toEqual({ top: 36, right: 72, bottom: 36, left: 72 });
+  });
+
+  it('Page margin={[36, 72]}', () => {
+    const doc = serialize(<Document><Page margin={[36, 72]}><Text>hi</Text></Page></Document>);
+    const config = (doc.children[0].kind as { config: { margin: unknown } }).config;
+    expect(config.margin).toEqual({ top: 36, right: 72, bottom: 36, left: 72 });
+  });
+
+  it('expandEdges with string', () => {
+    expect(expandEdges('10 20')).toEqual({ top: 10, right: 20, bottom: 10, left: 20 });
+  });
+
+  it('expandEdges with array', () => {
+    expect(expandEdges([10, 20, 30, 40])).toEqual({ top: 10, right: 20, bottom: 30, left: 40 });
+  });
+});
+
+// ─── Image alt and href ─────────────────────────────────────────────
+
+describe('Image alt and href', () => {
+  it('Image with href produces node href', () => {
+    const doc = serialize(<Document><Image src="logo.png" href="https://example.com" /></Document>);
+    expect(doc.children[0].href).toBe('https://example.com');
+  });
+
+  it('Image with alt produces node alt', () => {
+    const doc = serialize(<Document><Image src="logo.png" alt="Company logo" /></Document>);
+    expect(doc.children[0].alt).toBe('Company logo');
+  });
+
+  it('Image without href/alt omits them', () => {
+    const doc = serialize(<Document><Image src="logo.png" /></Document>);
+    expect(doc.children[0].href).toBeUndefined();
+    expect(doc.children[0].alt).toBeUndefined();
+  });
+});
+
+// ─── SVG alt and href ───────────────────────────────────────────────
+
+describe('SVG alt and href', () => {
+  it('Svg with href produces node href', () => {
+    const doc = serialize(<Document><Svg width={100} height={100} content="<rect />" href="https://example.com" /></Document>);
+    expect(doc.children[0].href).toBe('https://example.com');
+  });
+
+  it('Svg with alt produces node alt', () => {
+    const doc = serialize(<Document><Svg width={100} height={100} content="<rect />" alt="Decorative icon" /></Document>);
+    expect(doc.children[0].alt).toBe('Decorative icon');
+  });
+});
+
+// ─── Document lang ──────────────────────────────────────────────────
+
+describe('Document lang', () => {
+  it('lang is included in metadata', () => {
+    const doc = serialize(<Document lang="en-US"><Text>Hello</Text></Document>);
+    expect(doc.metadata.lang).toBe('en-US');
+  });
+
+  it('lang is omitted when not set', () => {
+    const doc = serialize(<Document><Text>Hello</Text></Document>);
+    expect(doc.metadata.lang).toBeUndefined();
   });
 });
