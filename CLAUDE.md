@@ -43,6 +43,31 @@ forme/
         └── package.json    # Build: tsc + copy preview assets to dist/
 ```
 
+## Pre-Commit Rules
+
+Before every git commit, run the following and fix any issues:
+
+**Rust (if any `engine/` files changed):**
+```bash
+cd engine && cargo fmt && cargo clippy -- -W clippy::all
+```
+
+**TypeScript (if any `packages/` files changed):**
+```bash
+# Build affected packages (build order: react → core → cli)
+# Run tsc for each changed package, e.g.:
+cd packages/react && npm run build
+cd packages/core && npm run build
+cd packages/mcp && npm run build
+```
+
+Also run tests for any package with changes:
+```bash
+cd packages/react && npm test
+```
+
+Do not commit if any command produces warnings or errors.
+
 ## Build & Test
 
 ```bash
