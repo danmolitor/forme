@@ -3979,3 +3979,108 @@ fn test_lang_deserializes_from_json() {
     let doc: Document = serde_json::from_str(json_str).unwrap();
     assert_eq!(doc.metadata.lang.as_deref(), Some("fr-FR"));
 }
+
+// ─── Hyphenation Tests ──────────────────────────────────────────
+
+#[test]
+fn test_hyphenation_json_round_trip() {
+    let json_str = r#"{
+        "children": [{
+            "kind": {"type": "Page", "config": {"size": "A4", "margin": {"top": 54, "right": 54, "bottom": 54, "left": 54}, "wrap": true}},
+            "style": {},
+            "children": [{
+                "kind": {"type": "Text", "content": "extraordinary"},
+                "style": {"hyphens": "auto"},
+                "children": []
+            }]
+        }],
+        "metadata": {},
+        "defaultPage": {"size": "A4", "margin": {"top": 54, "right": 54, "bottom": 54, "left": 54}, "wrap": true}
+    }"#;
+    let doc: Document = serde_json::from_str(json_str).unwrap();
+    let text_node = &doc.children[0].children[0];
+    assert_eq!(text_node.style.hyphens, Some(Hyphens::Auto));
+}
+
+#[test]
+fn test_hyphenation_inherits() {
+    // Parent has hyphens: auto, child text inherits it
+    let parent_style = Style {
+        hyphens: Some(Hyphens::Auto),
+        ..Default::default()
+    };
+    let resolved_parent = parent_style.resolve(None, 500.0);
+    assert_eq!(resolved_parent.hyphens, Hyphens::Auto);
+
+    // Child with no hyphens set should inherit from parent
+    let child_style = Style::default();
+    let resolved_child = child_style.resolve(Some(&resolved_parent), 500.0);
+    assert_eq!(resolved_child.hyphens, Hyphens::Auto);
+
+    // Child with explicit override
+    let child_override = Style {
+        hyphens: Some(Hyphens::None),
+        ..Default::default()
+    };
+    let resolved_override = child_override.resolve(Some(&resolved_parent), 500.0);
+    assert_eq!(resolved_override.hyphens, Hyphens::None);
+}
+
+#[test]
+fn test_hyphenation_min_content_in_flex() {
+    // A flex row with a narrow child containing a long word + hyphens: auto
+    // should allow the child to shrink smaller than the full word width
+    let font_context = FontContext::new();
+    let engine = LayoutEngine::new();
+
+    // Without hyphenation: min-content is the full word
+    let text_no_hyphen = Node {
+        kind: NodeKind::Text {
+            content: "extraordinary".to_string(),
+            href: None,
+            runs: vec![],
+        },
+        style: Style {
+            font_size: Some(12.0),
+            hyphens: Some(Hyphens::Manual),
+            ..Default::default()
+        },
+        children: vec![],
+        id: None,
+        source_location: None,
+        bookmark: None,
+        href: None,
+        alt: None,
+    };
+    let style_no_hyphen = text_no_hyphen.style.resolve(None, 500.0);
+    let min_width_no_hyphen =
+        engine.measure_min_content_width(&text_no_hyphen, &style_no_hyphen, &font_context);
+
+    // With hyphenation: min-content is the widest syllable
+    let text_with_hyphen = Node {
+        kind: NodeKind::Text {
+            content: "extraordinary".to_string(),
+            href: None,
+            runs: vec![],
+        },
+        style: Style {
+            font_size: Some(12.0),
+            hyphens: Some(Hyphens::Auto),
+            ..Default::default()
+        },
+        children: vec![],
+        id: None,
+        source_location: None,
+        bookmark: None,
+        href: None,
+        alt: None,
+    };
+    let style_with_hyphen = text_with_hyphen.style.resolve(None, 500.0);
+    let min_width_with_hyphen =
+        engine.measure_min_content_width(&text_with_hyphen, &style_with_hyphen, &font_context);
+
+    assert!(
+        min_width_with_hyphen < min_width_no_hyphen,
+        "With auto hyphenation, min-content ({min_width_with_hyphen}) should be smaller than without ({min_width_no_hyphen})"
+    );
+}

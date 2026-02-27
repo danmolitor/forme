@@ -2011,6 +2011,7 @@ impl LayoutEngine {
             style.font_weight,
             style.font_style,
             style.letter_spacing,
+            style.hyphens,
         );
 
         let line_height = style.font_size * style.line_height;
@@ -2221,9 +2222,12 @@ impl LayoutEngine {
         }
 
         // Break into lines
-        let broken_lines =
-            self.text_layout
-                .break_runs_into_lines(font_context, &styled_chars, text_width);
+        let broken_lines = self.text_layout.break_runs_into_lines(
+            font_context,
+            &styled_chars,
+            text_width,
+            style.hyphens,
+        );
 
         let line_height = style.font_size * style.line_height;
 
@@ -2568,6 +2572,7 @@ impl LayoutEngine {
                         font_context,
                         &styled_chars,
                         measure_width,
+                        style.hyphens,
                     );
                     let line_height = style.font_size * style.line_height;
                     (broken_lines.len() as f64) * line_height + style.padding.vertical()
@@ -2581,6 +2586,7 @@ impl LayoutEngine {
                         style.font_weight,
                         style.font_style,
                         style.letter_spacing,
+                        style.hyphens,
                     );
                     let line_height = style.font_size * style.line_height;
                     (lines.len() as f64) * line_height + style.padding.vertical()
@@ -2844,7 +2850,7 @@ impl LayoutEngine {
     /// Measure the min-content width of a node — the minimum width needed
     /// to render without breaking unbreakable words. For Text nodes this is
     /// the widest single word; for containers it's the max of children.
-    fn measure_min_content_width(
+    pub fn measure_min_content_width(
         &self,
         node: &Node,
         style: &ResolvedStyle,
@@ -2865,6 +2871,7 @@ impl LayoutEngine {
                                 run_style.font_weight,
                                 run_style.font_style,
                                 run_style.letter_spacing,
+                                style.hyphens,
                             )
                         })
                         .fold(0.0f64, f64::max)
@@ -2877,6 +2884,7 @@ impl LayoutEngine {
                         style.font_weight,
                         style.font_style,
                         style.letter_spacing,
+                        style.hyphens,
                     )
                 };
                 word_width + style.padding.horizontal() + style.margin.horizontal()

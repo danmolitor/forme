@@ -16,6 +16,7 @@ thiserror = "2"
 ttf-parser = "0.25"         # Real font metrics + subsetting
 # unicode-linebreak = "0.1" # UAX#14 line break algorithm
 # unicode-script = "0.5"    # Script detection for BiDi
+hypher = { version = "0.1", default-features = false, features = ["english"] }
 quick-xml = "0.37"
 image = { version = "0.24", default-features = false, features = ["jpeg", "png", "webp"] }
 base64 = "0.22"

@@ -577,6 +577,12 @@ const TEXT_TRANSFORM_MAP: Record<string, string> = {
   'capitalize': 'Capitalize',
 };
 
+const HYPHENS_MAP: Record<string, string> = {
+  'none': 'none',
+  'manual': 'manual',
+  'auto': 'auto',
+};
+
 export function mapStyle(style?: Style): FormeStyle {
   if (!style) return {};
 
@@ -651,6 +657,7 @@ export function mapStyle(style?: Style): FormeStyle {
   if (style.letterSpacing !== undefined) result.letterSpacing = style.letterSpacing;
   if (style.textDecoration !== undefined) result.textDecoration = TEXT_DECORATION_MAP[style.textDecoration];
   if (style.textTransform !== undefined) result.textTransform = TEXT_TRANSFORM_MAP[style.textTransform];
+  if (style.hyphens !== undefined) result.hyphens = HYPHENS_MAP[style.hyphens];
 
   // Color
   if (style.color !== undefined) result.color = parseColor(style.color);

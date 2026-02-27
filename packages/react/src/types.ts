@@ -76,6 +76,7 @@ export interface Style {
   letterSpacing?: number;
   textDecoration?: 'none' | 'underline' | 'line-through';
   textTransform?: 'none' | 'uppercase' | 'lowercase' | 'capitalize';
+  hyphens?: 'none' | 'manual' | 'auto';
 
   // Visual
   color?: string;
@@ -346,6 +347,7 @@ export interface FormeStyle {
   letterSpacing?: number;
   textDecoration?: string;
   textTransform?: string;
+  hyphens?: string;
   color?: FormeColor;
   backgroundColor?: FormeColor;
   opacity?: number;

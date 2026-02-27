@@ -85,6 +85,8 @@ pub struct Style {
     pub text_decoration: Option<TextDecoration>,
     /// Text transform.
     pub text_transform: Option<TextTransform>,
+    /// Hyphenation mode (CSS `hyphens` property).
+    pub hyphens: Option<Hyphens>,
 
     // ── Color & Background ─────────────────────────────────────
     /// Text color.
@@ -239,6 +241,19 @@ pub enum TextTransform {
     Capitalize,
 }
 
+/// CSS `hyphens` property controlling word hyphenation.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Hyphens {
+    /// No hyphenation, not even at soft hyphens.
+    None,
+    /// Only break at soft hyphens (U+00AD) in the text.
+    #[default]
+    Manual,
+    /// Algorithmic hyphenation using language rules.
+    Auto,
+}
+
 /// An RGBA color.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Color {
@@ -382,6 +397,7 @@ pub struct ResolvedStyle {
     pub letter_spacing: f64,
     pub text_decoration: TextDecoration,
     pub text_transform: TextTransform,
+    pub hyphens: Hyphens,
 
     // Visual
     pub color: Color,
@@ -499,6 +515,9 @@ impl Style {
             text_transform: self
                 .text_transform
                 .unwrap_or(parent.map(|p| p.text_transform).unwrap_or_default()),
+            hyphens: self
+                .hyphens
+                .unwrap_or(parent.map(|p| p.hyphens).unwrap_or_default()),
 
             color: self.color.unwrap_or(parent_color),
             background_color: self.background_color,
