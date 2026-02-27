@@ -3901,7 +3901,10 @@ fn test_document_lang_in_pdf_catalog() {
     let bytes = render_to_pdf(&doc);
     assert_valid_pdf(&bytes);
     let text = String::from_utf8_lossy(&bytes);
-    assert!(text.contains("/Lang (en-US)"), "PDF catalog should contain /Lang");
+    assert!(
+        text.contains("/Lang (en-US)"),
+        "PDF catalog should contain /Lang"
+    );
 }
 
 #[test]
@@ -3910,7 +3913,10 @@ fn test_document_lang_omitted_when_none() {
     let bytes = render_to_pdf(&doc);
     assert_valid_pdf(&bytes);
     let text = String::from_utf8_lossy(&bytes);
-    assert!(!text.contains("/Lang"), "PDF catalog should not contain /Lang when not set");
+    assert!(
+        !text.contains("/Lang"),
+        "PDF catalog should not contain /Lang when not set"
+    );
 }
 
 // ─── Image/SVG href passthrough ─────────────────────────────────
@@ -3935,8 +3941,14 @@ fn test_image_href_produces_link_annotation() {
     let bytes = render_to_pdf(&doc);
     assert_valid_pdf(&bytes);
     let text = String::from_utf8_lossy(&bytes);
-    assert!(text.contains("/Annots"), "Image with href should produce annotations");
-    assert!(text.contains("https://example.com"), "Annotation should contain the URL");
+    assert!(
+        text.contains("/Annots"),
+        "Image with href should produce annotations"
+    );
+    assert!(
+        text.contains("https://example.com"),
+        "Annotation should contain the URL"
+    );
 }
 
 // ─── Alt text on Node ───────────────────────────────────────────

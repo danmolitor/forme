@@ -293,7 +293,12 @@ impl PdfWriter {
         // Write Catalog (object 1)
         let mut catalog = String::from("<< /Type /Catalog /Pages 2 0 R");
         if let Some(outlines_id) = outlines_obj_id {
-            write!(catalog, " /Outlines {} 0 R /PageMode /UseOutlines", outlines_id).unwrap();
+            write!(
+                catalog,
+                " /Outlines {} 0 R /PageMode /UseOutlines",
+                outlines_id
+            )
+            .unwrap();
         }
         if let Some(ref lang) = metadata.lang {
             write!(catalog, " /Lang ({})", Self::escape_pdf_string(lang)).unwrap();
