@@ -1,6 +1,6 @@
 [package]
 name = "forme"
-version = "0.1.0"
+version = "0.6.0"
 edition = "2021"
 description = "A page-native PDF rendering engine. Layout INTO pages, not onto an infinite canvas."
 

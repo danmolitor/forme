@@ -445,7 +445,7 @@ impl PdfWriter {
             if let Some(ref subject) = metadata.subject {
                 let _ = write!(info, "/Subject ({}) ", Self::escape_pdf_string(subject));
             }
-            let _ = write!(info, "/Producer (Forme 0.1) /Creator (Forme) >>");
+            let _ = write!(info, "/Producer (Forme 0.6) /Creator (Forme) >>");
             builder.objects.push(PdfObject {
                 id,
                 data: info.into_bytes(),

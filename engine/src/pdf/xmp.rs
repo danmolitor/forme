@@ -37,7 +37,7 @@ pub fn generate_xmp(metadata: &Metadata, conformance: &PdfAConformance) -> Strin
         </rdf:Seq>
       </dc:creator>
       <xmp:CreatorTool>Forme</xmp:CreatorTool>
-      <pdf:Producer>Forme 0.1</pdf:Producer>
+      <pdf:Producer>Forme 0.6</pdf:Producer>
       <pdfaid:part>{part}</pdfaid:part>
       <pdfaid:conformance>{conf}</pdfaid:conformance>
     </rdf:Description>
