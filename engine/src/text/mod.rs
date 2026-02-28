@@ -4,8 +4,11 @@
 //!
 //! Uses real font metrics from the FontContext for accurate character widths.
 
+pub mod knuth_plass;
+
 use crate::font::FontContext;
 use crate::style::{Color, FontStyle, Hyphens, TextDecoration};
+use unicode_linebreak::{linebreaks, BreakOpportunity};
 
 /// A line of text after line-breaking.
 #[derive(Debug, Clone)]
@@ -42,6 +45,91 @@ pub struct RunBrokenLine {
     pub width: f64,
 }
 
+/// Compute UAX#14 break opportunities indexed by char position.
+///
+/// Returns a vec of length `text.chars().count()`. Each entry is the break
+/// opportunity *before* that character position (i.e. "can we break before
+/// char[i]?"). Index 0 is always `None` (no break before the first char).
+fn compute_break_opportunities(text: &str) -> Vec<Option<BreakOpportunity>> {
+    let char_count = text.chars().count();
+    let mut result = vec![None; char_count];
+
+    // linebreaks() yields (byte_offset, opportunity) where byte_offset is the
+    // position AFTER the break — i.e. the start of the next segment.
+    // We need to convert byte offsets to char indices.
+    let byte_to_char: Vec<usize> = {
+        let mut map = vec![0usize; text.len() + 1];
+        let mut char_idx = 0;
+        for (byte_idx, _) in text.char_indices() {
+            map[byte_idx] = char_idx;
+            char_idx += 1;
+        }
+        map[text.len()] = char_idx;
+        map
+    };
+
+    for (byte_offset, opp) in linebreaks(text) {
+        let char_idx = byte_to_char[byte_offset];
+        if char_idx < char_count {
+            result[char_idx] = Some(opp);
+        }
+        // byte_offset == text.len() means "break at end" — we ignore that
+    }
+
+    result
+}
+
+/// Map a BCP 47 language tag to a `hypher::Lang` for hyphenation.
+///
+/// Returns `Some(lang)` for supported languages, `None` for unsupported ones
+/// (which disables algorithmic hyphenation). Defaults to English when no tag
+/// is provided, for backward compatibility.
+fn resolve_hypher_lang(lang: Option<&str>) -> Option<hypher::Lang> {
+    let tag = match lang {
+        Some(t) => t,
+        None => return Some(hypher::Lang::English),
+    };
+    let primary = tag.split('-').next().unwrap_or(tag).to_lowercase();
+    match primary.as_str() {
+        "af" => Some(hypher::Lang::Afrikaans),
+        "sq" => Some(hypher::Lang::Albanian),
+        "be" => Some(hypher::Lang::Belarusian),
+        "bg" => Some(hypher::Lang::Bulgarian),
+        "ca" => Some(hypher::Lang::Catalan),
+        "hr" => Some(hypher::Lang::Croatian),
+        "cs" => Some(hypher::Lang::Czech),
+        "da" => Some(hypher::Lang::Danish),
+        "nl" => Some(hypher::Lang::Dutch),
+        "en" => Some(hypher::Lang::English),
+        "et" => Some(hypher::Lang::Estonian),
+        "fi" => Some(hypher::Lang::Finnish),
+        "fr" => Some(hypher::Lang::French),
+        "ka" => Some(hypher::Lang::Georgian),
+        "de" => Some(hypher::Lang::German),
+        "el" => Some(hypher::Lang::Greek),
+        "hu" => Some(hypher::Lang::Hungarian),
+        "is" => Some(hypher::Lang::Icelandic),
+        "it" => Some(hypher::Lang::Italian),
+        "ku" => Some(hypher::Lang::Kurmanji),
+        "la" => Some(hypher::Lang::Latin),
+        "lt" => Some(hypher::Lang::Lithuanian),
+        "mn" => Some(hypher::Lang::Mongolian),
+        "nb" | "nn" | "no" => Some(hypher::Lang::Norwegian),
+        "pl" => Some(hypher::Lang::Polish),
+        "pt" => Some(hypher::Lang::Portuguese),
+        "ru" => Some(hypher::Lang::Russian),
+        "sr" => Some(hypher::Lang::Serbian),
+        "sk" => Some(hypher::Lang::Slovak),
+        "sl" => Some(hypher::Lang::Slovenian),
+        "es" => Some(hypher::Lang::Spanish),
+        "sv" => Some(hypher::Lang::Swedish),
+        "tr" => Some(hypher::Lang::Turkish),
+        "tk" => Some(hypher::Lang::Turkmen),
+        "uk" => Some(hypher::Lang::Ukrainian),
+        _ => None,
+    }
+}
+
 pub struct TextLayout;
 
 impl Default for TextLayout {
@@ -73,6 +161,7 @@ impl TextLayout {
         font_style: FontStyle,
         letter_spacing: f64,
         hyphens: Hyphens,
+        lang: Option<&str>,
     ) -> Vec<BrokenLine> {
         if text.is_empty() {
             return vec![BrokenLine {
@@ -108,34 +197,61 @@ impl TextLayout {
         let mut _last_break_width = 0.0;
 
         let chars: Vec<char> = text.chars().collect();
+        let break_opps = compute_break_opportunities(text);
 
         for (i, &ch) in chars.iter().enumerate() {
             let char_width = char_widths[i];
 
-            // Track potential break points (after spaces, hyphens)
-            // Soft hyphens are break points for Manual and Auto modes
-            if ch == ' ' || ch == '-' || ch == '\t' {
-                last_break_point = Some(i);
-                _last_break_width = line_width + char_width;
-            } else if ch == '\u{00AD}' && hyphens != Hyphens::None {
-                last_break_point = Some(i);
-                _last_break_width = line_width; // soft hyphen has zero width when not breaking
+            // UAX#14 break opportunities: a break *before* char[i] means
+            // we can end the previous line at char[i-1].
+            // We record break points at i-1 (the char before the break).
+            if i > 0 {
+                if let Some(opp) = break_opps[i] {
+                    match opp {
+                        BreakOpportunity::Mandatory => {
+                            // Mandatory break: flush the current line
+                            let end = if chars[i - 1] == '\n'
+                                || chars[i - 1] == '\r'
+                                || chars[i - 1] == '\u{2028}'
+                                || chars[i - 1] == '\u{2029}'
+                            {
+                                i - 1
+                            } else {
+                                i
+                            };
+                            let line_chars = self.filter_soft_hyphens(&chars[line_start..end]);
+                            let line_widths = self.filter_soft_hyphen_widths(
+                                &chars[line_start..end],
+                                &char_widths[line_start..end],
+                            );
+                            lines.push(self.make_line(&line_chars, &line_widths));
+                            line_start = i;
+                            line_width = 0.0;
+                            last_break_point = None;
+                            // Don't skip — still need to process char[i] width below
+                        }
+                        BreakOpportunity::Allowed => {
+                            // Record the char BEFORE this position as a break point
+                            last_break_point = Some(i - 1);
+                            _last_break_width = line_width;
+                        }
+                    }
+                }
             }
 
-            // Explicit newline
-            if ch == '\n' {
-                let line_chars = self.filter_soft_hyphens(&chars[line_start..i]);
-                let line_widths = self
-                    .filter_soft_hyphen_widths(&chars[line_start..i], &char_widths[line_start..i]);
-                lines.push(self.make_line(&line_chars, &line_widths));
-                line_start = i + 1;
-                line_width = 0.0;
-                last_break_point = None;
-                continue;
+            // Soft hyphens are additional break points for Manual and Auto modes
+            if ch == '\u{00AD}' && hyphens != Hyphens::None {
+                last_break_point = Some(i);
+                _last_break_width = line_width;
             }
 
             // Soft hyphens are zero-width when not at a break
             if ch == '\u{00AD}' {
+                continue;
+            }
+
+            // Skip newline/CR chars (already handled by mandatory break above)
+            if ch == '\n' || ch == '\r' || ch == '\u{2028}' || ch == '\u{2029}' {
                 continue;
             }
 
@@ -154,7 +270,8 @@ impl TextLayout {
                             line_widths.push(hyphen_width);
                             lines.push(self.make_line(&line_chars, &line_widths));
                         } else {
-                            let break_at = if chars[bp] == ' ' { bp } else { bp + 1 };
+                            // bp is the last char on this line (UAX#14 break is *after* bp)
+                            let break_at = bp + 1;
                             let line_chars = self.filter_soft_hyphens(&chars[line_start..break_at]);
                             let line_widths = self.filter_soft_hyphen_widths(
                                 &chars[line_start..break_at],
@@ -187,6 +304,7 @@ impl TextLayout {
                             line_width,
                             max_width,
                             hyphen_width,
+                            lang,
                         )
                     {
                         lines.push(self.make_line(&hyphen_line_chars, &hyphen_line_widths));
@@ -284,6 +402,7 @@ impl TextLayout {
         _line_width: f64,
         max_width: f64,
         hyphen_width: f64,
+        lang: Option<&str>,
     ) -> Option<(Vec<char>, Vec<f64>, usize)> {
         // Find the start of the current word (scan backward from overflow)
         let mut word_start = overflow_at;
@@ -298,7 +417,8 @@ impl TextLayout {
         }
 
         let word: String = chars[word_start..word_end].iter().collect();
-        let syllables = hypher::hyphenate(&word, hypher::Lang::English);
+        let hypher_lang = resolve_hypher_lang(lang)?;
+        let syllables = hypher::hyphenate(&word, hypher_lang);
 
         let syllables: Vec<&str> = syllables.collect();
         if syllables.len() < 2 {
@@ -376,6 +496,7 @@ impl TextLayout {
         chars: &[StyledChar],
         max_width: f64,
         hyphens: Hyphens,
+        lang: Option<&str>,
     ) -> Vec<RunBrokenLine> {
         if chars.is_empty() {
             return vec![RunBrokenLine {
@@ -405,32 +526,56 @@ impl TextLayout {
         let mut line_width = 0.0;
         let mut last_break_point: Option<usize> = None;
 
+        // Build plain text for UAX#14 break analysis
+        let plain_text: String = chars.iter().map(|sc| sc.ch).collect();
+        let break_opps = compute_break_opportunities(&plain_text);
+
         for (i, sc) in chars.iter().enumerate() {
             let char_width = char_widths[i];
 
-            if sc.ch == ' '
-                || sc.ch == '-'
-                || sc.ch == '\t'
-                || (sc.ch == '\u{00AD}' && hyphens != Hyphens::None)
-            {
-                last_break_point = Some(i);
+            // UAX#14 break opportunities
+            if i > 0 {
+                if let Some(opp) = break_opps[i] {
+                    match opp {
+                        BreakOpportunity::Mandatory => {
+                            let end = if chars[i - 1].ch == '\n'
+                                || chars[i - 1].ch == '\r'
+                                || chars[i - 1].ch == '\u{2028}'
+                                || chars[i - 1].ch == '\u{2029}'
+                            {
+                                i - 1
+                            } else {
+                                i
+                            };
+                            let filtered = self.filter_soft_hyphens_runs(&chars[line_start..end]);
+                            let filtered_widths = self.filter_soft_hyphen_widths_runs(
+                                &chars[line_start..end],
+                                &char_widths[line_start..end],
+                            );
+                            lines.push(self.make_run_line(&filtered, &filtered_widths));
+                            line_start = i;
+                            line_width = 0.0;
+                            last_break_point = None;
+                        }
+                        BreakOpportunity::Allowed => {
+                            last_break_point = Some(i - 1);
+                        }
+                    }
+                }
             }
 
-            if sc.ch == '\n' {
-                let filtered = self.filter_soft_hyphens_runs(&chars[line_start..i]);
-                let filtered_widths = self.filter_soft_hyphen_widths_runs(
-                    &chars[line_start..i],
-                    &char_widths[line_start..i],
-                );
-                lines.push(self.make_run_line(&filtered, &filtered_widths));
-                line_start = i + 1;
-                line_width = 0.0;
-                last_break_point = None;
-                continue;
+            // Soft hyphens are additional break points
+            if sc.ch == '\u{00AD}' && hyphens != Hyphens::None {
+                last_break_point = Some(i);
             }
 
             // Soft hyphens are zero-width when not at a break
             if sc.ch == '\u{00AD}' {
+                continue;
+            }
+
+            // Skip newline/CR chars (already handled by mandatory break above)
+            if sc.ch == '\n' || sc.ch == '\r' || sc.ch == '\u{2028}' || sc.ch == '\u{2029}' {
                 continue;
             }
 
@@ -468,7 +613,8 @@ impl TextLayout {
                             filtered_widths.push(hw);
                             lines.push(self.make_run_line(&filtered, &filtered_widths));
                         } else {
-                            let break_at = if chars[bp].ch == ' ' { bp } else { bp + 1 };
+                            // bp is the last char on this line (UAX#14 break after bp)
+                            let break_at = bp + 1;
                             let filtered =
                                 self.filter_soft_hyphens_runs(&chars[line_start..break_at]);
                             let filtered_widths = self.filter_soft_hyphen_widths_runs(
@@ -521,6 +667,7 @@ impl TextLayout {
                         line_width,
                         max_width,
                         hyphen_width,
+                        lang,
                     ) {
                         // Build the run line with hyphen
                         let mut filtered =
@@ -634,43 +781,47 @@ impl TextLayout {
         font_style: FontStyle,
         letter_spacing: f64,
         hyphens: Hyphens,
+        lang: Option<&str>,
     ) -> f64 {
         if hyphens == Hyphens::Auto {
-            // With auto hyphenation, min-content is the widest syllable
-            text.split_whitespace()
-                .flat_map(|word| {
-                    let syllables = hypher::hyphenate(word, hypher::Lang::English);
-                    syllables
-                        .into_iter()
-                        .map(|s| {
-                            self.measure_width(
-                                font_context,
-                                s,
-                                font_size,
-                                font_family,
-                                font_weight,
-                                font_style,
-                                letter_spacing,
-                            )
-                        })
-                        .collect::<Vec<_>>()
-                })
-                .fold(0.0f64, f64::max)
-        } else {
-            text.split_whitespace()
-                .map(|word| {
-                    self.measure_width(
-                        font_context,
-                        word,
-                        font_size,
-                        font_family,
-                        font_weight,
-                        font_style,
-                        letter_spacing,
-                    )
-                })
-                .fold(0.0f64, f64::max)
+            if let Some(hypher_lang) = resolve_hypher_lang(lang) {
+                // With auto hyphenation, min-content is the widest syllable
+                return text
+                    .split_whitespace()
+                    .flat_map(|word| {
+                        let syllables = hypher::hyphenate(word, hypher_lang);
+                        syllables
+                            .into_iter()
+                            .map(|s| {
+                                self.measure_width(
+                                    font_context,
+                                    s,
+                                    font_size,
+                                    font_family,
+                                    font_weight,
+                                    font_style,
+                                    letter_spacing,
+                                )
+                            })
+                            .collect::<Vec<_>>()
+                    })
+                    .fold(0.0f64, f64::max);
+            }
+            // Unsupported language — fall through to word-level measurement
         }
+        text.split_whitespace()
+            .map(|word| {
+                self.measure_width(
+                    font_context,
+                    word,
+                    font_size,
+                    font_family,
+                    font_weight,
+                    font_style,
+                    letter_spacing,
+                )
+            })
+            .fold(0.0f64, f64::max)
     }
 
     /// Measure the width of a string on a single line.
@@ -697,6 +848,298 @@ impl TextLayout {
         .iter()
         .sum()
     }
+
+    /// Break text into lines using the Knuth-Plass optimal algorithm.
+    ///
+    /// Falls back to greedy breaking if KP finds no feasible solution.
+    #[allow(clippy::too_many_arguments)]
+    pub fn break_into_lines_optimal(
+        &self,
+        font_context: &FontContext,
+        text: &str,
+        max_width: f64,
+        font_size: f64,
+        font_family: &str,
+        font_weight: u32,
+        font_style: FontStyle,
+        letter_spacing: f64,
+        hyphens: Hyphens,
+        lang: Option<&str>,
+        justify: bool,
+    ) -> Vec<BrokenLine> {
+        if text.is_empty() {
+            return vec![BrokenLine {
+                chars: vec![],
+                text: String::new(),
+                char_positions: vec![],
+                width: 0.0,
+            }];
+        }
+
+        let char_widths = self.measure_chars(
+            font_context,
+            text,
+            font_size,
+            font_family,
+            font_weight,
+            font_style,
+            letter_spacing,
+        );
+
+        let hyphen_width = font_context.char_width(
+            '-',
+            font_family,
+            font_weight,
+            matches!(font_style, FontStyle::Italic | FontStyle::Oblique),
+            font_size,
+        ) + letter_spacing;
+
+        let chars: Vec<char> = text.chars().collect();
+        let break_opps = compute_break_opportunities(text);
+
+        // Check for mandatory breaks — if present, handle each segment separately
+        let mut segments = Vec::new();
+        let mut seg_start = 0;
+        for (i, opp) in break_opps.iter().enumerate() {
+            if let Some(BreakOpportunity::Mandatory) = opp {
+                // End of previous segment is just before this char
+                // But the mandatory break could be at \n, so the end is i-1 or earlier
+                let end = if i > 0
+                    && (chars[i - 1] == '\n'
+                        || chars[i - 1] == '\r'
+                        || chars[i - 1] == '\u{2028}'
+                        || chars[i - 1] == '\u{2029}')
+                {
+                    i - 1
+                } else {
+                    i
+                };
+                segments.push(seg_start..end);
+                seg_start = i;
+            }
+        }
+        segments.push(seg_start..chars.len());
+
+        if segments.len() > 1 {
+            // Multiple mandatory-break segments: run KP on each
+            let mut all_lines = Vec::new();
+            for seg in &segments {
+                if seg.is_empty() {
+                    all_lines.push(BrokenLine {
+                        chars: vec![],
+                        text: String::new(),
+                        char_positions: vec![],
+                        width: 0.0,
+                    });
+                    continue;
+                }
+                let seg_chars: Vec<char> = chars[seg.clone()]
+                    .iter()
+                    .copied()
+                    .filter(|c| *c != '\n' && *c != '\r' && *c != '\u{2028}' && *c != '\u{2029}')
+                    .collect();
+                if seg_chars.is_empty() {
+                    continue;
+                }
+                let seg_text: String = seg_chars.iter().collect();
+                let seg_lines = self.break_into_lines_optimal(
+                    font_context,
+                    &seg_text,
+                    max_width,
+                    font_size,
+                    font_family,
+                    font_weight,
+                    font_style,
+                    letter_spacing,
+                    hyphens,
+                    lang,
+                    justify,
+                );
+                all_lines.extend(seg_lines);
+            }
+            return all_lines;
+        }
+
+        // Single segment — run KP
+        let items = knuth_plass::build_items(
+            &chars,
+            &char_widths,
+            hyphen_width,
+            hyphens,
+            &break_opps,
+            lang,
+        );
+        let config = knuth_plass::Config {
+            line_width: max_width,
+            ..Default::default()
+        };
+
+        if let Some(solutions) = knuth_plass::find_breaks(&items, &config) {
+            knuth_plass::reconstruct_lines(
+                &solutions,
+                &items,
+                &chars,
+                &char_widths,
+                max_width,
+                justify,
+            )
+        } else {
+            // Fallback to greedy
+            self.break_into_lines(
+                font_context,
+                text,
+                max_width,
+                font_size,
+                font_family,
+                font_weight,
+                font_style,
+                letter_spacing,
+                hyphens,
+                lang,
+            )
+        }
+    }
+
+    /// Break multi-style text into lines using the Knuth-Plass optimal algorithm.
+    ///
+    /// Falls back to greedy breaking if KP finds no feasible solution.
+    pub fn break_runs_into_lines_optimal(
+        &self,
+        font_context: &FontContext,
+        chars: &[StyledChar],
+        max_width: f64,
+        hyphens: Hyphens,
+        lang: Option<&str>,
+        justify: bool,
+    ) -> Vec<RunBrokenLine> {
+        if chars.is_empty() {
+            return vec![RunBrokenLine {
+                chars: vec![],
+                char_positions: vec![],
+                width: 0.0,
+            }];
+        }
+
+        let char_widths: Vec<f64> = chars
+            .iter()
+            .map(|sc| {
+                let italic = matches!(sc.font_style, FontStyle::Italic | FontStyle::Oblique);
+                font_context.char_width(
+                    sc.ch,
+                    &sc.font_family,
+                    sc.font_weight,
+                    italic,
+                    sc.font_size,
+                ) + sc.letter_spacing
+            })
+            .collect();
+
+        // Use the first char's style for hyphen width
+        let hyphen_width = if !chars.is_empty() {
+            let sc = &chars[0];
+            let italic = matches!(sc.font_style, FontStyle::Italic | FontStyle::Oblique);
+            font_context.char_width('-', &sc.font_family, sc.font_weight, italic, sc.font_size)
+                + sc.letter_spacing
+        } else {
+            0.0
+        };
+
+        let plain_text: String = chars.iter().map(|sc| sc.ch).collect();
+        let break_opps = compute_break_opportunities(&plain_text);
+
+        // Handle mandatory breaks by splitting into segments
+        let plain_chars: Vec<char> = chars.iter().map(|sc| sc.ch).collect();
+        let has_mandatory = break_opps
+            .iter()
+            .any(|o| matches!(o, Some(BreakOpportunity::Mandatory)));
+
+        if has_mandatory {
+            let mut all_lines = Vec::new();
+            let mut seg_start = 0;
+
+            for (i, opp) in break_opps.iter().enumerate() {
+                if let Some(BreakOpportunity::Mandatory) = opp {
+                    let end = if i > 0
+                        && (plain_chars[i - 1] == '\n'
+                            || plain_chars[i - 1] == '\r'
+                            || plain_chars[i - 1] == '\u{2028}'
+                            || plain_chars[i - 1] == '\u{2029}')
+                    {
+                        i - 1
+                    } else {
+                        i
+                    };
+                    let seg_chars: Vec<StyledChar> = chars[seg_start..end]
+                        .iter()
+                        .filter(|sc| {
+                            sc.ch != '\n'
+                                && sc.ch != '\r'
+                                && sc.ch != '\u{2028}'
+                                && sc.ch != '\u{2029}'
+                        })
+                        .cloned()
+                        .collect();
+                    let seg_lines = self.break_runs_into_lines_optimal(
+                        font_context,
+                        &seg_chars,
+                        max_width,
+                        hyphens,
+                        lang,
+                        justify,
+                    );
+                    all_lines.extend(seg_lines);
+                    seg_start = i;
+                }
+            }
+            // Last segment
+            let seg_chars: Vec<StyledChar> = chars[seg_start..]
+                .iter()
+                .filter(|sc| {
+                    sc.ch != '\n' && sc.ch != '\r' && sc.ch != '\u{2028}' && sc.ch != '\u{2029}'
+                })
+                .cloned()
+                .collect();
+            if !seg_chars.is_empty() {
+                let seg_lines = self.break_runs_into_lines_optimal(
+                    font_context,
+                    &seg_chars,
+                    max_width,
+                    hyphens,
+                    lang,
+                    justify,
+                );
+                all_lines.extend(seg_lines);
+            }
+            return all_lines;
+        }
+
+        let items = knuth_plass::build_items_styled(
+            chars,
+            &char_widths,
+            hyphen_width,
+            hyphens,
+            &break_opps,
+            lang,
+        );
+        let config = knuth_plass::Config {
+            line_width: max_width,
+            ..Default::default()
+        };
+
+        if let Some(solutions) = knuth_plass::find_breaks(&items, &config) {
+            knuth_plass::reconstruct_run_lines(
+                &solutions,
+                &items,
+                chars,
+                &char_widths,
+                max_width,
+                justify,
+            )
+        } else {
+            // Fallback to greedy
+            self.break_runs_into_lines(font_context, chars, max_width, hyphens, lang)
+        }
+    }
 }
 
 #[cfg(test)]
@@ -721,6 +1164,7 @@ mod tests {
             FontStyle::Normal,
             0.0,
             Hyphens::Manual,
+            None,
         );
         assert_eq!(lines.len(), 1);
         assert_eq!(lines[0].text, "Hello");
@@ -740,6 +1184,7 @@ mod tests {
             FontStyle::Normal,
             0.0,
             Hyphens::Manual,
+            None,
         );
         assert!(lines.len() >= 2);
     }
@@ -758,6 +1203,7 @@ mod tests {
             FontStyle::Normal,
             0.0,
             Hyphens::Manual,
+            None,
         );
         assert_eq!(lines.len(), 2);
         assert_eq!(lines[0].text, "Hello");
@@ -778,6 +1224,7 @@ mod tests {
             FontStyle::Normal,
             0.0,
             Hyphens::Manual,
+            None,
         );
         assert_eq!(lines.len(), 1);
         assert_eq!(lines[0].width, 0.0);
@@ -826,6 +1273,7 @@ mod tests {
             FontStyle::Normal,
             0.0,
             Hyphens::Auto,
+            None,
         );
         // Should break into multiple lines with hyphens
         assert!(
@@ -855,6 +1303,7 @@ mod tests {
             FontStyle::Normal,
             0.0,
             Hyphens::None,
+            None,
         );
         // Should still break (force break), but NO hyphens inserted
         assert!(lines.len() >= 2);
@@ -881,6 +1330,7 @@ mod tests {
             FontStyle::Normal,
             0.0,
             Hyphens::Manual,
+            None,
         );
         assert!(
             lines.len() >= 2,
@@ -917,6 +1367,7 @@ mod tests {
             FontStyle::Normal,
             0.0,
             Hyphens::Auto,
+            None,
         );
         assert!(lines.len() >= 2);
         // First line should break at the space, not hyphenate "Hello"
@@ -940,6 +1391,7 @@ mod tests {
             FontStyle::Normal,
             0.0,
             Hyphens::Auto,
+            None,
         );
         let manual_width = tl.measure_widest_word(
             &fc,
@@ -950,10 +1402,124 @@ mod tests {
             FontStyle::Normal,
             0.0,
             Hyphens::Manual,
+            None,
         );
         assert!(
             auto_width < manual_width,
             "Auto hyphenation min-content ({auto_width}) should be less than manual ({manual_width})"
+        );
+    }
+
+    #[test]
+    fn test_cjk_break_opportunities() {
+        // UAX#14 should identify break opportunities between CJK chars
+        let opps = compute_break_opportunities("\u{4F60}\u{597D}\u{4E16}\u{754C}"); // 你好世界
+                                                                                    // Between CJK ideographs, UAX#14 should allow breaks
+        let allowed_count = opps
+            .iter()
+            .filter(|o| matches!(o, Some(BreakOpportunity::Allowed)))
+            .count();
+        assert!(
+            allowed_count >= 2,
+            "Should have at least 2 break opportunities between 4 CJK chars, got {}",
+            allowed_count
+        );
+    }
+
+    #[test]
+    fn test_hyphenation_german() {
+        let tl = TextLayout::new();
+        let fc = ctx();
+        // German compound word — should hyphenate with lang "de"
+        let lines = tl.break_into_lines(
+            &fc,
+            "Donaudampfschifffahrt",
+            60.0,
+            12.0,
+            "Helvetica",
+            400,
+            FontStyle::Normal,
+            0.0,
+            Hyphens::Auto,
+            Some("de"),
+        );
+        assert!(
+            lines.len() >= 2,
+            "German word should hyphenate with lang='de', got {} lines",
+            lines.len()
+        );
+        assert!(
+            lines[0].text.ends_with('-'),
+            "First line should end with hyphen, got: '{}'",
+            lines[0].text
+        );
+    }
+
+    #[test]
+    fn test_hyphenation_unsupported_lang() {
+        // Unknown lang disables algorithmic hyphenation
+        let lang = resolve_hypher_lang(Some("xx-unknown"));
+        assert!(lang.is_none(), "Unsupported language should return None");
+    }
+
+    #[test]
+    fn test_resolve_hypher_lang_mapping() {
+        assert!(matches!(
+            resolve_hypher_lang(None),
+            Some(hypher::Lang::English)
+        ));
+        assert!(matches!(
+            resolve_hypher_lang(Some("en")),
+            Some(hypher::Lang::English)
+        ));
+        assert!(matches!(
+            resolve_hypher_lang(Some("en-US")),
+            Some(hypher::Lang::English)
+        ));
+        assert!(matches!(
+            resolve_hypher_lang(Some("de")),
+            Some(hypher::Lang::German)
+        ));
+        assert!(matches!(
+            resolve_hypher_lang(Some("fr")),
+            Some(hypher::Lang::French)
+        ));
+        assert!(matches!(
+            resolve_hypher_lang(Some("es")),
+            Some(hypher::Lang::Spanish)
+        ));
+        assert!(matches!(
+            resolve_hypher_lang(Some("nb")),
+            Some(hypher::Lang::Norwegian)
+        ));
+        assert!(matches!(
+            resolve_hypher_lang(Some("nn")),
+            Some(hypher::Lang::Norwegian)
+        ));
+        assert!(resolve_hypher_lang(Some("zz")).is_none());
+    }
+
+    #[test]
+    fn test_knuth_plass_fallback_to_greedy() {
+        let tl = TextLayout::new();
+        let fc = ctx();
+        // Very narrow width — KP may fail, should fall back to greedy
+        let lines = tl.break_into_lines_optimal(
+            &fc,
+            "Hello World",
+            1.0, // impossibly narrow
+            12.0,
+            "Helvetica",
+            400,
+            FontStyle::Normal,
+            0.0,
+            Hyphens::Manual,
+            None,
+            false,
+        );
+        assert!(
+            !lines.is_empty(),
+            "Should still produce lines via greedy fallback"
         );
     }
 
@@ -970,6 +1536,7 @@ mod tests {
             FontStyle::Normal,
             0.0,
             Hyphens::Manual,
+            None,
         );
         let full_width = tl.measure_width(
             &fc,

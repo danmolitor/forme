@@ -4084,3 +4084,167 @@ fn test_hyphenation_min_content_in_flex() {
         "With auto hyphenation, min-content ({min_width_with_hyphen}) should be smaller than without ({min_width_no_hyphen})"
     );
 }
+
+// ─── Justified text ─────────────────────────────────────────────
+
+#[test]
+fn test_justified_text_produces_valid_pdf() {
+    let doc = Document {
+        children: vec![Node {
+            kind: NodeKind::Page {
+                config: PageConfig {
+                    size: PageSize::Letter,
+                    margin: Edges { top: 36.0, right: 36.0, bottom: 36.0, left: 36.0 },
+                    wrap: true,
+                },
+            },
+            style: Style::default(),
+            children: vec![Node {
+                kind: NodeKind::Text {
+                    content: "The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog again.".to_string(),
+                    href: None,
+                    runs: vec![],
+                },
+                style: Style {
+                    text_align: Some(TextAlign::Justify),
+                    font_size: Some(12.0),
+                    ..Default::default()
+                },
+                children: vec![],
+                id: None,
+                source_location: None,
+                bookmark: None,
+                href: None,
+                alt: None,
+            }],
+            id: None,
+            source_location: None,
+            bookmark: None,
+            href: None,
+            alt: None,
+        }],
+        metadata: Metadata::default(),
+        default_page: PageConfig {
+            size: PageSize::Letter,
+            margin: Edges { top: 72.0, right: 72.0, bottom: 72.0, left: 72.0 },
+            wrap: true,
+        },
+        fonts: vec![],
+    };
+
+    let bytes = forme::render(&doc).expect("Should render justified text");
+    assert!(bytes.len() > 100);
+    assert!(bytes.starts_with(b"%PDF"));
+}
+
+// ─── Language inheritance ────────────────────────────────────────
+
+#[test]
+fn test_lang_inherits_to_text_nodes() {
+    // Document lang should cascade to child styles
+    let doc = Document {
+        children: vec![Node {
+            kind: NodeKind::Page {
+                config: PageConfig {
+                    size: PageSize::A4,
+                    margin: Edges {
+                        top: 36.0,
+                        right: 36.0,
+                        bottom: 36.0,
+                        left: 36.0,
+                    },
+                    wrap: true,
+                },
+            },
+            style: Style::default(),
+            children: vec![make_text("Hallo Welt", 12.0)],
+            id: None,
+            source_location: None,
+            bookmark: None,
+            href: None,
+            alt: None,
+        }],
+        metadata: Metadata {
+            lang: Some("de".to_string()),
+            ..Default::default()
+        },
+        default_page: PageConfig {
+            size: PageSize::A4,
+            margin: Edges {
+                top: 72.0,
+                right: 72.0,
+                bottom: 72.0,
+                left: 72.0,
+            },
+            wrap: true,
+        },
+        fonts: vec![],
+    };
+
+    // Just verify it renders without error — lang cascading is tested at the unit level
+    let bytes = forme::render(&doc).expect("Should render with document lang");
+    assert!(bytes.starts_with(b"%PDF"));
+}
+
+#[test]
+fn test_per_node_lang_override() {
+    // A child node should be able to override the document lang
+    let doc = Document {
+        children: vec![Node {
+            kind: NodeKind::Page {
+                config: PageConfig {
+                    size: PageSize::A4,
+                    margin: Edges {
+                        top: 36.0,
+                        right: 36.0,
+                        bottom: 36.0,
+                        left: 36.0,
+                    },
+                    wrap: true,
+                },
+            },
+            style: Style::default(),
+            children: vec![Node {
+                kind: NodeKind::Text {
+                    content: "Bonjour le monde".to_string(),
+                    href: None,
+                    runs: vec![],
+                },
+                style: Style {
+                    lang: Some("fr".to_string()),
+                    font_size: Some(12.0),
+                    ..Default::default()
+                },
+                children: vec![],
+                id: None,
+                source_location: None,
+                bookmark: None,
+                href: None,
+                alt: None,
+            }],
+            id: None,
+            source_location: None,
+            bookmark: None,
+            href: None,
+            alt: None,
+        }],
+        metadata: Metadata {
+            lang: Some("de".to_string()),
+            ..Default::default()
+        },
+        default_page: PageConfig {
+            size: PageSize::A4,
+            margin: Edges {
+                top: 72.0,
+                right: 72.0,
+                bottom: 72.0,
+                left: 72.0,
+            },
+            wrap: true,
+        },
+        fonts: vec![],
+    };
+
+    let bytes = forme::render(&doc).expect("Should render with per-node lang override");
+    assert!(bytes.starts_with(b"%PDF"));
+}

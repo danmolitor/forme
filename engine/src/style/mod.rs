@@ -87,6 +87,8 @@ pub struct Style {
     pub text_transform: Option<TextTransform>,
     /// Hyphenation mode (CSS `hyphens` property).
     pub hyphens: Option<Hyphens>,
+    /// BCP 47 language tag for hyphenation and line breaking.
+    pub lang: Option<String>,
 
     // ── Color & Background ─────────────────────────────────────
     /// Text color.
@@ -398,6 +400,7 @@ pub struct ResolvedStyle {
     pub text_decoration: TextDecoration,
     pub text_transform: TextTransform,
     pub hyphens: Hyphens,
+    pub lang: Option<String>,
 
     // Visual
     pub color: Color,
@@ -518,6 +521,10 @@ impl Style {
             hyphens: self
                 .hyphens
                 .unwrap_or(parent.map(|p| p.hyphens).unwrap_or_default()),
+            lang: self
+                .lang
+                .clone()
+                .or_else(|| parent.and_then(|p| p.lang.clone())),
 
             color: self.color.unwrap_or(parent_color),
             background_color: self.background_color,

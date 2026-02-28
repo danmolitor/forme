@@ -737,6 +737,13 @@ impl LayoutEngine {
         let mut pages: Vec<LayoutPage> = Vec::new();
         let mut cursor = PageCursor::new(&document.default_page);
 
+        // Build a root resolved style carrying document-level lang
+        let root_style = Style {
+            lang: document.metadata.lang.clone(),
+            ..Default::default()
+        }
+        .resolve(None, cursor.content_width);
+
         for node in &document.children {
             match &node.kind {
                 NodeKind::Page { config } => {
@@ -744,6 +751,13 @@ impl LayoutEngine {
                         pages.push(cursor.finalize());
                     }
                     cursor = PageCursor::new(config);
+
+                    // Build a page-level root style that carries document lang
+                    // AND has a fixed height matching the page content area.
+                    // The fixed height ensures flex-grow page-level detection
+                    // works correctly (layout_children uses parent height).
+                    let mut page_root = root_style.clone();
+                    page_root.height = SizeConstraint::Fixed(cursor.content_height);
 
                     let cx = cursor.content_x;
                     let cw = cursor.content_width;
@@ -754,7 +768,7 @@ impl LayoutEngine {
                         &mut pages,
                         cx,
                         cw,
-                        None,
+                        Some(&page_root),
                         font_context,
                     );
                 }
@@ -765,7 +779,15 @@ impl LayoutEngine {
                 _ => {
                     let cx = cursor.content_x;
                     let cw = cursor.content_width;
-                    self.layout_node(node, &mut cursor, &mut pages, cx, cw, None, font_context);
+                    self.layout_node(
+                        node,
+                        &mut cursor,
+                        &mut pages,
+                        cx,
+                        cw,
+                        Some(&root_style),
+                        font_context,
+                    );
                 }
             }
         }
@@ -2002,7 +2024,8 @@ impl LayoutEngine {
         }
 
         let transformed = apply_text_transform(content, style.text_transform);
-        let lines = self.text_layout.break_into_lines(
+        let justify = matches!(style.text_align, TextAlign::Justify);
+        let lines = self.text_layout.break_into_lines_optimal(
             font_context,
             &transformed,
             text_width,
@@ -2012,6 +2035,8 @@ impl LayoutEngine {
             style.font_style,
             style.letter_spacing,
             style.hyphens,
+            style.lang.as_deref(),
+            justify,
         );
 
         let line_height = style.font_size * style.line_height;
@@ -2222,11 +2247,14 @@ impl LayoutEngine {
         }
 
         // Break into lines
-        let broken_lines = self.text_layout.break_runs_into_lines(
+        let justify = matches!(style.text_align, TextAlign::Justify);
+        let broken_lines = self.text_layout.break_runs_into_lines_optimal(
             font_context,
             &styled_chars,
             text_width,
             style.hyphens,
+            style.lang.as_deref(),
+            justify,
         );
 
         let line_height = style.font_size * style.line_height;
@@ -2573,6 +2601,7 @@ impl LayoutEngine {
                         &styled_chars,
                         measure_width,
                         style.hyphens,
+                        style.lang.as_deref(),
                     );
                     let line_height = style.font_size * style.line_height;
                     (broken_lines.len() as f64) * line_height + style.padding.vertical()
@@ -2587,6 +2616,7 @@ impl LayoutEngine {
                         style.font_style,
                         style.letter_spacing,
                         style.hyphens,
+                        style.lang.as_deref(),
                     );
                     let line_height = style.font_size * style.line_height;
                     (lines.len() as f64) * line_height + style.padding.vertical()
@@ -2872,6 +2902,7 @@ impl LayoutEngine {
                                 run_style.font_style,
                                 run_style.letter_spacing,
                                 style.hyphens,
+                                style.lang.as_deref(),
                             )
                         })
                         .fold(0.0f64, f64::max)
@@ -2885,6 +2916,7 @@ impl LayoutEngine {
                         style.font_style,
                         style.letter_spacing,
                         style.hyphens,
+                        style.lang.as_deref(),
                     )
                 };
                 word_width + style.padding.horizontal() + style.margin.horizontal()

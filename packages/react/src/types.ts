@@ -77,6 +77,8 @@ export interface Style {
   textDecoration?: 'none' | 'underline' | 'line-through';
   textTransform?: 'none' | 'uppercase' | 'lowercase' | 'capitalize';
   hyphens?: 'none' | 'manual' | 'auto';
+  /** Language tag (BCP 47, e.g. "en-US", "de"). Controls hyphenation dictionary. */
+  lang?: string;
 
   // Visual
   color?: string;
@@ -348,6 +350,7 @@ export interface FormeStyle {
   textDecoration?: string;
   textTransform?: string;
   hyphens?: string;
+  lang?: string;
   color?: FormeColor;
   backgroundColor?: FormeColor;
   opacity?: number;

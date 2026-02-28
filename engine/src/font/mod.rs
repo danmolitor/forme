@@ -83,10 +83,6 @@ impl CustomFontMetrics {
                     }
                 }
             }
-            // Stop after Basic Multilingual Plane common range
-            if code > 0x024F && advance_widths.len() > 200 {
-                break;
-            }
         }
 
         if default_advance == 0 {
