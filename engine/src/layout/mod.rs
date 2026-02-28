@@ -3684,7 +3684,6 @@ impl LayoutEngine {
 
         // Layout each row
         for (row, &row_height) in row_heights.iter().enumerate().take(num_rows) {
-
             // Check page break: treat each row as unbreakable
             if row_height > cursor.remaining_height() && row > 0 {
                 pages.push(cursor.finalize());
