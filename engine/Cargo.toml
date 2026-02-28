@@ -26,6 +26,7 @@ serde-wasm-bindgen = { version = "0.6", optional = true }
 
 [features]
 wasm = ["wasm-bindgen", "js-sys", "serde-wasm-bindgen"]
+visual-tests = []
 
 [lib]
 name = "forme"

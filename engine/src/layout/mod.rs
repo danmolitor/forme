@@ -417,6 +417,8 @@ pub struct LayoutElement {
     pub bookmark: Option<String>,
     /// Optional alt text for images and SVGs (accessibility).
     pub alt: Option<String>,
+    /// Whether this is a table header row (for tagged PDF: TH vs TD).
+    pub is_header_row: bool,
 }
 
 /// Return a human-readable name for a NodeKind variant.
@@ -1009,6 +1011,7 @@ impl LayoutEngine {
                 href: node.href.clone(),
                 bookmark: node.bookmark.clone(),
                 alt: None,
+                is_header_row: false,
             };
             cursor.elements.push(rect_element);
 
@@ -1067,6 +1070,7 @@ impl LayoutEngine {
                 href: None,
                 bookmark: node.bookmark.clone(),
                 alt: None,
+                is_header_row: false,
             });
         }
 
@@ -1125,6 +1129,7 @@ impl LayoutEngine {
                 href: node.href.clone(),
                 bookmark: node.bookmark.clone(),
                 alt: None,
+                is_header_row: false,
             });
         } else {
             // Page breaks occurred: wrap elements on each page with clone semantics
@@ -1150,6 +1155,7 @@ impl LayoutEngine {
                     href: node.href.clone(),
                     bookmark: node.bookmark.clone(),
                     alt: None,
+                    is_header_row: false,
                 });
             }
 
@@ -1176,6 +1182,7 @@ impl LayoutEngine {
                         href: None,
                         bookmark: None,
                         alt: None,
+                        is_header_row: false,
                     });
                 }
             }
@@ -1200,6 +1207,7 @@ impl LayoutEngine {
                     href: None,
                     bookmark: None,
                     alt: None,
+                    is_header_row: false,
                 });
             }
         }
@@ -1867,6 +1875,8 @@ impl LayoutEngine {
         let row_y = cursor.content_y + cursor.y;
         let total_width: f64 = col_widths.iter().sum();
 
+        let is_header = matches!(row.kind, NodeKind::TableRow { is_header: true });
+
         // Snapshot before laying out cells — we'll collect them as row children
         let row_snapshot = cursor.elements.len();
 
@@ -1945,6 +1955,7 @@ impl LayoutEngine {
                 href: None,
                 bookmark: cell.bookmark.clone(),
                 alt: None,
+                is_header_row: is_header,
             });
 
             cell_x += col_width;
@@ -1952,7 +1963,6 @@ impl LayoutEngine {
 
         // Collect all cell elements as row children
         let row_children: Vec<LayoutElement> = cursor.elements.drain(row_snapshot..).collect();
-
         cursor.elements.push(LayoutElement {
             x: start_x,
             y: row_y,
@@ -1976,6 +1986,7 @@ impl LayoutEngine {
             href: None,
             bookmark: row.bookmark.clone(),
             alt: None,
+            is_header_row: is_header,
         });
 
         // Append any overflow pages from cells that exceeded page height
@@ -2108,6 +2119,7 @@ impl LayoutEngine {
                             None
                         },
                         alt: None,
+                        is_header_row: false,
                     });
                     is_first_element = false;
                 }
@@ -2175,6 +2187,7 @@ impl LayoutEngine {
                 href: href.map(|s| s.to_string()),
                 bookmark: None,
                 alt: None,
+                is_header_row: false,
             });
 
             cursor.y += line_height;
@@ -2201,6 +2214,7 @@ impl LayoutEngine {
                     None
                 },
                 alt: None,
+                is_header_row: false,
             });
         }
 
@@ -2321,6 +2335,7 @@ impl LayoutEngine {
                             None
                         },
                         alt: None,
+                        is_header_row: false,
                     });
                     is_first_element = false;
                 }
@@ -2392,6 +2407,7 @@ impl LayoutEngine {
                 href: parent_href.map(|s| s.to_string()),
                 bookmark: None,
                 alt: None,
+                is_header_row: false,
             });
 
             cursor.y += line_height;
@@ -2417,6 +2433,7 @@ impl LayoutEngine {
                     None
                 },
                 alt: None,
+                is_header_row: false,
             });
         }
     }
@@ -2502,6 +2519,7 @@ impl LayoutEngine {
             href: node.href.clone(),
             bookmark: node.bookmark.clone(),
             alt: node.alt.clone(),
+            is_header_row: false,
         });
 
         cursor.y += img_height + margin.bottom;
@@ -2560,6 +2578,7 @@ impl LayoutEngine {
             href: node.href.clone(),
             bookmark: node.bookmark.clone(),
             alt: node.alt.clone(),
+            is_header_row: false,
         });
 
         cursor.y += svg_height + margin.bottom;
@@ -3355,6 +3374,8 @@ mod tests {
             metadata: Default::default(),
             default_page: PageConfig::default(),
             fonts: vec![],
+            tagged: false,
+            pdfa: None,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -3406,6 +3427,8 @@ mod tests {
             metadata: Default::default(),
             default_page: PageConfig::default(),
             fonts: vec![],
+            tagged: false,
+            pdfa: None,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -3458,6 +3481,8 @@ mod tests {
             metadata: Default::default(),
             default_page: PageConfig::default(),
             fonts: vec![],
+            tagged: false,
+            pdfa: None,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -3521,6 +3546,8 @@ mod tests {
             metadata: Default::default(),
             default_page: PageConfig::default(),
             fonts: vec![],
+            tagged: false,
+            pdfa: None,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -3663,6 +3690,8 @@ mod tests {
             metadata: Default::default(),
             default_page: PageConfig::default(),
             fonts: vec![],
+            tagged: false,
+            pdfa: None,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -3725,6 +3754,8 @@ mod tests {
             metadata: Default::default(),
             default_page: PageConfig::default(),
             fonts: vec![],
+            tagged: false,
+            pdfa: None,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -3799,6 +3830,8 @@ mod tests {
             metadata: Default::default(),
             default_page: PageConfig::default(),
             fonts: vec![],
+            tagged: false,
+            pdfa: None,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -3851,6 +3884,8 @@ mod tests {
             metadata: Default::default(),
             default_page: PageConfig::default(),
             fonts: vec![],
+            tagged: false,
+            pdfa: None,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -3914,6 +3949,8 @@ mod tests {
             metadata: Default::default(),
             default_page: PageConfig::default(),
             fonts: vec![],
+            tagged: false,
+            pdfa: None,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -3988,6 +4025,8 @@ mod tests {
             metadata: Default::default(),
             default_page: PageConfig::default(),
             fonts: vec![],
+            tagged: false,
+            pdfa: None,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -4061,6 +4100,8 @@ mod tests {
             metadata: Default::default(),
             default_page: PageConfig::default(),
             fonts: vec![],
+            tagged: false,
+            pdfa: None,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -4128,6 +4169,8 @@ mod tests {
             metadata: Default::default(),
             default_page: PageConfig::default(),
             fonts: vec![],
+            tagged: false,
+            pdfa: None,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -4187,6 +4230,8 @@ mod tests {
             metadata: Default::default(),
             default_page: PageConfig::default(),
             fonts: vec![],
+            tagged: false,
+            pdfa: None,
         };
 
         let pages = engine.layout(&doc, &font_context);

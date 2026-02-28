@@ -33,6 +33,25 @@ pub struct Document {
     /// the font family name, base64-encoded font data, weight, and style.
     #[serde(default)]
     pub fonts: Vec<FontEntry>,
+
+    /// Whether to produce a tagged (accessible) PDF with structure tree.
+    #[serde(default)]
+    pub tagged: bool,
+
+    /// PDF/A conformance level. When set, forces `tagged = true` for "2a".
+    #[serde(default)]
+    pub pdfa: Option<PdfAConformance>,
+}
+
+/// PDF/A conformance level.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum PdfAConformance {
+    /// PDF/A-2a: full accessibility (requires tagging).
+    #[serde(rename = "2a")]
+    A2a,
+    /// PDF/A-2b: basic compliance (visual appearance only).
+    #[serde(rename = "2b")]
+    A2b,
 }
 
 /// A custom font to register with the engine.

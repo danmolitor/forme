@@ -113,6 +113,8 @@ fn default_doc(children: Vec<Node>) -> Document {
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
         fonts: vec![],
+        tagged: false,
+        pdfa: None,
     }
 }
 
@@ -529,6 +531,8 @@ fn test_metadata_in_output() {
         },
         default_page: PageConfig::default(),
         fonts: vec![],
+        tagged: false,
+        pdfa: None,
     };
     let bytes = render_to_pdf(&doc);
     assert_valid_pdf(&bytes);
@@ -662,12 +666,22 @@ fn render_with_custom_font(font_data: &[u8], text: &str) -> Vec<u8> {
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
         fonts: vec![],
+        tagged: false,
+        pdfa: None,
     };
 
     let engine = LayoutEngine::new();
     let pages = engine.layout(&doc, &font_context);
     let writer = PdfWriter::new();
-    writer.write(&pages, &doc.metadata, &font_context).unwrap()
+    writer
+        .write(
+            &pages,
+            &doc.metadata,
+            &font_context,
+            doc.tagged,
+            doc.pdfa.as_ref(),
+        )
+        .unwrap()
 }
 
 #[test]
@@ -797,12 +811,16 @@ fn test_mixed_standard_and_custom_fonts() {
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
         fonts: vec![],
+        tagged: false,
+        pdfa: None,
     };
 
     let engine = LayoutEngine::new();
     let pages = engine.layout(&doc, &font_context);
     let writer = PdfWriter::new();
-    let bytes = writer.write(&pages, &doc.metadata, &font_context).unwrap();
+    let bytes = writer
+        .write(&pages, &doc.metadata, &font_context, false, None)
+        .unwrap();
 
     assert_valid_pdf(&bytes);
     let text = String::from_utf8_lossy(&bytes);
@@ -3090,6 +3108,8 @@ fn test_breakable_view_with_background_splits_across_pages() {
             wrap: true,
         },
         fonts: vec![],
+        tagged: false,
+        pdfa: None,
     };
 
     let pages = layout_doc(&doc);
@@ -3162,6 +3182,8 @@ fn test_breakable_view_background_does_not_overlap_footer() {
             wrap: true,
         },
         fonts: vec![],
+        tagged: false,
+        pdfa: None,
     };
 
     let pages = layout_doc(&doc);
@@ -3225,6 +3247,8 @@ fn test_breakable_view_without_visual_stays_unwrapped() {
             wrap: true,
         },
         fonts: vec![],
+        tagged: false,
+        pdfa: None,
     };
 
     let pages = layout_doc(&doc);
@@ -3548,6 +3572,8 @@ fn test_breakable_view_continuation_page_has_top_padding() {
         metadata: Metadata::default(),
         default_page: page_config,
         fonts: vec![],
+        tagged: false,
+        pdfa: None,
     };
 
     let pages = layout_doc(&doc);
@@ -3897,6 +3923,8 @@ fn test_document_lang_in_pdf_catalog() {
         },
         default_page: PageConfig::default(),
         fonts: vec![],
+        tagged: false,
+        pdfa: None,
     };
     let bytes = render_to_pdf(&doc);
     assert_valid_pdf(&bytes);
@@ -4130,6 +4158,8 @@ fn test_justified_text_produces_valid_pdf() {
             wrap: true,
         },
         fonts: vec![],
+        tagged: false,
+        pdfa: None,
     };
 
     let bytes = forme::render(&doc).expect("Should render justified text");
@@ -4179,6 +4209,8 @@ fn test_lang_inherits_to_text_nodes() {
             wrap: true,
         },
         fonts: vec![],
+        tagged: false,
+        pdfa: None,
     };
 
     // Just verify it renders without error — lang cascading is tested at the unit level
@@ -4243,8 +4275,300 @@ fn test_per_node_lang_override() {
             wrap: true,
         },
         fonts: vec![],
+        tagged: false,
+        pdfa: None,
     };
 
     let bytes = forme::render(&doc).expect("Should render with per-node lang override");
     assert!(bytes.starts_with(b"%PDF"));
+}
+
+// ─── Tagged PDF Integration Tests ────────────────────────────────
+
+#[test]
+fn test_tagged_pdf_has_struct_tree_root() {
+    let doc = Document {
+        children: vec![Node::page(
+            PageConfig::default(),
+            Style::default(),
+            vec![make_text("Hello World", 16.0)],
+        )],
+        metadata: Default::default(),
+        default_page: PageConfig::default(),
+        fonts: vec![],
+        tagged: true,
+        pdfa: None,
+    };
+
+    let bytes = forme::render(&doc).unwrap();
+    let pdf_str = String::from_utf8_lossy(&bytes);
+
+    // Catalog must contain /MarkInfo and /StructTreeRoot
+    assert!(
+        pdf_str.contains("/MarkInfo << /Marked true >>"),
+        "Tagged PDF must have /MarkInfo in Catalog"
+    );
+    assert!(
+        pdf_str.contains("/StructTreeRoot"),
+        "Tagged PDF must have /StructTreeRoot in Catalog"
+    );
+    // Structure tree root must be present
+    assert!(
+        pdf_str.contains("/Type /StructTreeRoot"),
+        "Tagged PDF must have StructTreeRoot object"
+    );
+    // RoleMap must exist
+    assert!(
+        pdf_str.contains("/Document /Document"),
+        "Tagged PDF must have RoleMap with Document role"
+    );
+}
+
+#[test]
+fn test_tagged_pdf_parent_tree_consistency() {
+    // Generate enough text to span 2+ pages to test ParentTree across pages
+    let mut children = Vec::new();
+    for i in 0..60 {
+        children.push(make_text(
+            &format!(
+                "Paragraph {}: Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
+                i + 1
+            ),
+            11.0,
+        ));
+    }
+
+    let doc = Document {
+        children: vec![Node::page(
+            PageConfig::default(),
+            Style::default(),
+            children,
+        )],
+        metadata: Default::default(),
+        default_page: PageConfig::default(),
+        fonts: vec![],
+        tagged: true,
+        pdfa: None,
+    };
+
+    let bytes = forme::render(&doc).unwrap();
+    let pdf_str = String::from_utf8_lossy(&bytes);
+
+    // Each page must have /StructParents
+    assert!(
+        pdf_str.contains("/StructParents 0"),
+        "First page must have /StructParents 0"
+    );
+
+    // ParentTree must have /Nums array
+    assert!(
+        pdf_str.contains("/Nums ["),
+        "ParentTree must have /Nums array"
+    );
+
+    // Structure elements must reference marked content via MCR entries
+    assert!(
+        pdf_str.contains("/Type /MCR"),
+        "Tagged PDF must have marked content references in structure elements"
+    );
+
+    // Verify MCID references exist in structure elements
+    assert!(
+        pdf_str.contains("/MCID 0"),
+        "Tagged PDF must have MCID 0 reference in structure elements"
+    );
+}
+
+#[test]
+fn test_tagged_pdf_nested_text_roles() {
+    // Nested Text inside Text: outer → P, inner → Span
+    let outer_text = Node {
+        kind: NodeKind::Text {
+            content: "Hello ".to_string(),
+            href: None,
+            runs: vec![TextRun {
+                content: "bold world".to_string(),
+                style: Style {
+                    font_weight: Some(700),
+                    ..Default::default()
+                },
+                href: None,
+            }],
+        },
+        style: Style {
+            font_size: Some(12.0),
+            ..Default::default()
+        },
+        children: vec![],
+        id: None,
+        source_location: None,
+        bookmark: None,
+        href: None,
+        alt: None,
+    };
+
+    let doc = Document {
+        children: vec![Node::page(
+            PageConfig::default(),
+            Style::default(),
+            vec![outer_text],
+        )],
+        metadata: Default::default(),
+        default_page: PageConfig::default(),
+        fonts: vec![],
+        tagged: true,
+        pdfa: None,
+    };
+
+    let bytes = forme::render(&doc).unwrap();
+    let pdf_str = String::from_utf8_lossy(&bytes);
+
+    // Must have both P and Span structure elements
+    assert!(pdf_str.contains("/S /P"), "Outer Text should map to /S /P");
+    assert!(
+        pdf_str.contains("/S /Span"),
+        "TextLine elements should map to /S /Span"
+    );
+
+    // StructTreeRoot must exist
+    assert!(pdf_str.contains("/Type /StructTreeRoot"));
+}
+
+#[test]
+fn test_tagged_pdf_table_th_td() {
+    // Table with header row and body rows
+    let header_row = Node {
+        kind: NodeKind::TableRow { is_header: true },
+        style: Style::default(),
+        children: vec![Node {
+            kind: NodeKind::TableCell {
+                col_span: 1,
+                row_span: 1,
+            },
+            style: Style::default(),
+            children: vec![make_text("Name", 10.0)],
+            id: None,
+            source_location: None,
+            bookmark: None,
+            href: None,
+            alt: None,
+        }],
+        id: None,
+        source_location: None,
+        bookmark: None,
+        href: None,
+        alt: None,
+    };
+
+    let body_row = Node {
+        kind: NodeKind::TableRow { is_header: false },
+        style: Style::default(),
+        children: vec![Node {
+            kind: NodeKind::TableCell {
+                col_span: 1,
+                row_span: 1,
+            },
+            style: Style::default(),
+            children: vec![make_text("Alice", 10.0)],
+            id: None,
+            source_location: None,
+            bookmark: None,
+            href: None,
+            alt: None,
+        }],
+        id: None,
+        source_location: None,
+        bookmark: None,
+        href: None,
+        alt: None,
+    };
+
+    let table = Node {
+        kind: NodeKind::Table {
+            columns: vec![ColumnDef {
+                width: ColumnWidth::Fraction(1.0),
+            }],
+        },
+        style: Style::default(),
+        children: vec![header_row, body_row],
+        id: None,
+        source_location: None,
+        bookmark: None,
+        href: None,
+        alt: None,
+    };
+
+    let doc = Document {
+        children: vec![Node::page(
+            PageConfig::default(),
+            Style::default(),
+            vec![table],
+        )],
+        metadata: Default::default(),
+        default_page: PageConfig::default(),
+        fonts: vec![],
+        tagged: true,
+        pdfa: None,
+    };
+
+    let bytes = forme::render(&doc).unwrap();
+    let pdf_str = String::from_utf8_lossy(&bytes);
+
+    // Must have TR, TH, and TD structure elements
+    // Note: layout_table doesn't create a wrapper Table element (rows are direct children)
+    assert!(
+        pdf_str.contains("/S /TR"),
+        "Must have /S /TR structure element"
+    );
+    assert!(
+        pdf_str.contains("/S /TH"),
+        "Header cells must map to /S /TH"
+    );
+    assert!(pdf_str.contains("/S /TD"), "Body cells must map to /S /TD");
+}
+
+#[test]
+fn test_tagged_pdf_figure_alt_text() {
+    // An SVG with alt text should produce a Figure element with /Alt
+    let svg_node = Node {
+        kind: NodeKind::Svg {
+            width: 100.0,
+            height: 100.0,
+            view_box: None,
+            content: r#"<rect width="100" height="100" fill="red"/>"#.to_string(),
+        },
+        style: Style::default(),
+        children: vec![],
+        id: None,
+        source_location: None,
+        bookmark: None,
+        href: None,
+        alt: Some("A red square".to_string()),
+    };
+
+    let doc = Document {
+        children: vec![Node::page(
+            PageConfig::default(),
+            Style::default(),
+            vec![svg_node],
+        )],
+        metadata: Default::default(),
+        default_page: PageConfig::default(),
+        fonts: vec![],
+        tagged: true,
+        pdfa: None,
+    };
+
+    let bytes = forme::render(&doc).unwrap();
+    let pdf_str = String::from_utf8_lossy(&bytes);
+
+    // Must have Figure structure element with alt text
+    assert!(
+        pdf_str.contains("/S /Figure"),
+        "SVG with alt text must produce /S /Figure"
+    );
+    assert!(
+        pdf_str.contains("/Alt (A red square)"),
+        "Figure must carry /Alt text"
+    );
 }

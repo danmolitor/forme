@@ -57,7 +57,14 @@ pub fn render(document: &Document) -> Result<Vec<u8>, FormeError> {
     let engine = LayoutEngine::new();
     let pages = engine.layout(document, &font_context);
     let writer = PdfWriter::new();
-    writer.write(&pages, &document.metadata, &font_context)
+    let tagged = document.tagged || matches!(document.pdfa, Some(model::PdfAConformance::A2a));
+    writer.write(
+        &pages,
+        &document.metadata,
+        &font_context,
+        tagged,
+        document.pdfa.as_ref(),
+    )
 }
 
 /// Render a document to PDF bytes along with layout metadata.
@@ -71,7 +78,14 @@ pub fn render_with_layout(document: &Document) -> Result<(Vec<u8>, LayoutInfo), 
     let pages = engine.layout(document, &font_context);
     let layout_info = LayoutInfo::from_pages(&pages);
     let writer = PdfWriter::new();
-    let pdf = writer.write(&pages, &document.metadata, &font_context)?;
+    let tagged = document.tagged || matches!(document.pdfa, Some(model::PdfAConformance::A2a));
+    let pdf = writer.write(
+        &pages,
+        &document.metadata,
+        &font_context,
+        tagged,
+        document.pdfa.as_ref(),
+    )?;
     Ok((pdf, layout_info))
 }
 

@@ -26,6 +26,9 @@
 //! producing 5 PDF objects per font: FontFile2, FontDescriptor, CIDFont,
 //! ToUnicode CMap, and the root Type0 dictionary.
 
+pub(crate) mod tagged;
+pub(crate) mod xmp;
+
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write as FmtWrite; // for write! on String
 use std::io::Write as IoWrite; // for write! on Vec<u8>
@@ -87,10 +90,10 @@ struct PdfBuilder {
     ext_gstate_map: HashMap<u64, (usize, String)>,
 }
 
-struct PdfObject {
+pub(crate) struct PdfObject {
     #[allow(dead_code)]
-    id: usize,
-    data: Vec<u8>,
+    pub(crate) id: usize,
+    pub(crate) data: Vec<u8>,
 }
 
 impl Default for PdfWriter {
@@ -110,6 +113,8 @@ impl PdfWriter {
         pages: &[LayoutPage],
         metadata: &Metadata,
         font_context: &FontContext,
+        tagged: bool,
+        pdfa: Option<&PdfAConformance>,
     ) -> Result<Vec<u8>, FormeError> {
         let mut builder = PdfBuilder {
             objects: Vec::new(),
@@ -141,11 +146,31 @@ impl PdfWriter {
         // Register the fonts actually used across all pages
         self.register_fonts(&mut builder, pages, font_context)?;
 
+        // PDF/A: validate that all fonts are embedded (no standard fonts)
+        if pdfa.is_some() {
+            for (key, _) in &builder.font_objects {
+                if !builder.custom_font_data.contains_key(key) {
+                    return Err(FormeError::RenderError(format!(
+                        "PDF/A requires all fonts to be embedded. Register a custom font for \
+                         family '{}' using Font.register().",
+                        key.family
+                    )));
+                }
+            }
+        }
+
         // Register images as XObject PDF objects
         self.register_images(&mut builder, pages);
 
         // Register ExtGState objects for opacity
         self.register_ext_gstates(&mut builder, pages);
+
+        // Create tag builder for accessibility if requested
+        let mut tag_builder = if tagged {
+            Some(tagged::TagBuilder::new(pages.len()))
+        } else {
+            None
+        };
 
         // Two-pass page processing:
         // Pass 1: Build content streams, page objects, collect bookmarks + annotations
@@ -164,6 +189,7 @@ impl PdfWriter {
                 &builder,
                 page_idx + 1,
                 pages.len(),
+                tag_builder.as_mut(),
             );
             let compressed = compress_to_vec_zlib(content.as_bytes(), 6);
 
@@ -271,14 +297,20 @@ impl PdfWriter {
 
             let page_obj_id = page_obj_ids[page_idx];
             let content_obj_id = per_page_content_obj_ids[page_idx];
+            let struct_parents_str = if tagged {
+                format!(" /StructParents {}", page_idx)
+            } else {
+                String::new()
+            };
             let page_dict = format!(
                 "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {:.2} {:.2}] \
-                 /Contents {} 0 R /Resources << {} >>{} >>",
+                 /Contents {} 0 R /Resources << {} >>{}{} >>",
                 pages[page_idx].width,
                 pages[page_idx].height,
                 content_obj_id,
                 per_page_resources[page_idx],
-                annots_str
+                annots_str,
+                struct_parents_str
             );
             builder.objects[page_obj_id].data = page_dict.into_bytes();
         }
@@ -286,6 +318,73 @@ impl PdfWriter {
         // Build outline tree if bookmarks exist
         let outlines_obj_id = if !all_bookmarks.is_empty() {
             Some(self.write_outline_tree(&mut builder, &all_bookmarks))
+        } else {
+            None
+        };
+
+        // Build structure tree for tagged PDF
+        let struct_tree_root_id = if let Some(ref tb) = tag_builder {
+            let (root_id, _parent_tree_id) = tb.write_objects(&mut builder.objects, &page_obj_ids);
+            Some(root_id)
+        } else {
+            None
+        };
+
+        // PDF/A: write XMP metadata stream and ICC output intent
+        let xmp_metadata_id = if let Some(conf) = pdfa {
+            let xmp_xml = xmp::generate_xmp(metadata, conf);
+            let xmp_bytes = xmp_xml.as_bytes();
+            let xmp_obj_id = builder.objects.len();
+            // XMP metadata stream must NOT be compressed (PDF/A requirement)
+            let xmp_data = format!(
+                "<< /Type /Metadata /Subtype /XML /Length {} >>\nstream\n",
+                xmp_bytes.len()
+            );
+            let mut xmp_obj_data: Vec<u8> = xmp_data.into_bytes();
+            xmp_obj_data.extend_from_slice(xmp_bytes);
+            xmp_obj_data.extend_from_slice(b"\nendstream");
+            builder.objects.push(PdfObject {
+                id: xmp_obj_id,
+                data: xmp_obj_data,
+            });
+            Some(xmp_obj_id)
+        } else {
+            None
+        };
+
+        let output_intent_id = if pdfa.is_some() {
+            // Embed sRGB ICC profile
+            static SRGB_ICC: &[u8] = include_bytes!("srgb2014.icc");
+            let compressed_icc = compress_to_vec_zlib(SRGB_ICC, 6);
+
+            let icc_obj_id = builder.objects.len();
+            let mut icc_data: Vec<u8> = Vec::new();
+            let _ = write!(
+                icc_data,
+                "<< /N 3 /Length {} /Filter /FlateDecode >>\nstream\n",
+                compressed_icc.len()
+            );
+            icc_data.extend_from_slice(&compressed_icc);
+            icc_data.extend_from_slice(b"\nendstream");
+            builder.objects.push(PdfObject {
+                id: icc_obj_id,
+                data: icc_data,
+            });
+
+            // OutputIntent dictionary
+            let oi_obj_id = builder.objects.len();
+            let oi_data = format!(
+                "<< /Type /OutputIntent /S /GTS_PDFA1 \
+                 /OutputConditionIdentifier (sRGB IEC61966-2.1) \
+                 /RegistryName (http://www.color.org) \
+                 /DestOutputProfile {} 0 R >>",
+                icc_obj_id
+            );
+            builder.objects.push(PdfObject {
+                id: oi_obj_id,
+                data: oi_data.into_bytes(),
+            });
+            Some(oi_obj_id)
         } else {
             None
         };
@@ -302,6 +401,20 @@ impl PdfWriter {
         }
         if let Some(ref lang) = metadata.lang {
             write!(catalog, " /Lang ({})", Self::escape_pdf_string(lang)).unwrap();
+        }
+        if let Some(struct_root_id) = struct_tree_root_id {
+            write!(
+                catalog,
+                " /MarkInfo << /Marked true >> /StructTreeRoot {} 0 R",
+                struct_root_id
+            )
+            .unwrap();
+        }
+        if let Some(xmp_id) = xmp_metadata_id {
+            write!(catalog, " /Metadata {} 0 R", xmp_id).unwrap();
+        }
+        if let Some(oi_id) = output_intent_id {
+            write!(catalog, " /OutputIntents [{} 0 R]", oi_id).unwrap();
         }
         catalog.push_str(" >>");
         builder.objects[1].data = catalog.into_bytes();
@@ -353,6 +466,7 @@ impl PdfWriter {
         builder: &PdfBuilder,
         page_number: usize,
         total_pages: usize,
+        mut tag_builder: Option<&mut tagged::TagBuilder>,
     ) -> String {
         let mut stream = String::new();
         let page_height = page.height;
@@ -368,6 +482,7 @@ impl PdfWriter {
                 &mut element_counter,
                 page_number,
                 total_pages,
+                tag_builder.as_deref_mut(),
             );
         }
 
@@ -386,7 +501,24 @@ impl PdfWriter {
         element_counter: &mut usize,
         page_number: usize,
         total_pages: usize,
+        mut tag_builder: Option<&mut tagged::TagBuilder>,
     ) {
+        // Tagged PDF: emit BDC (begin marked content) for elements with a node_type
+        let tagged_mcid = if let Some(ref mut tb) = tag_builder {
+            if let Some(ref nt) = element.node_type {
+                let is_header = element.is_header_row;
+                // For TableCell, inherit is_header_row from its parent row
+                let mcid = tb.begin_element(nt, is_header, element.alt.as_deref(), page_idx);
+                let role = tb.map_role_public(nt, is_header);
+                let _ = writeln!(stream, "/{} <</MCID {}>> BDC", role, mcid);
+                Some(mcid)
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
         match &element.draw {
             DrawCommand::None => {}
 
@@ -662,6 +794,12 @@ impl PdfWriter {
                         x, y, element.width, element.height
                     );
                 }
+                if tagged_mcid.is_some() {
+                    let _ = writeln!(stream, "EMC");
+                    if let Some(ref mut tb) = tag_builder {
+                        tb.end_element();
+                    }
+                }
                 return; // Don't increment counter again for children
             }
 
@@ -674,6 +812,12 @@ impl PdfWriter {
                     "q\n0.9 0.9 0.9 rg\n{:.2} {:.2} {:.2} {:.2} re\nf\nQ\n",
                     x, y, element.width, element.height
                 );
+                if tagged_mcid.is_some() {
+                    let _ = writeln!(stream, "EMC");
+                    if let Some(ref mut tb) = tag_builder {
+                        tb.end_element();
+                    }
+                }
                 return;
             }
 
@@ -702,6 +846,12 @@ impl PdfWriter {
                 Self::write_svg_commands(stream, commands);
 
                 let _ = writeln!(stream, "Q");
+                if tagged_mcid.is_some() {
+                    let _ = writeln!(stream, "EMC");
+                    if let Some(ref mut tb) = tag_builder {
+                        tb.end_element();
+                    }
+                }
                 return;
             }
         }
@@ -716,7 +866,16 @@ impl PdfWriter {
                 element_counter,
                 page_number,
                 total_pages,
+                tag_builder.as_deref_mut(),
             );
+        }
+
+        // Tagged PDF: emit EMC (end marked content)
+        if tagged_mcid.is_some() {
+            let _ = writeln!(stream, "EMC");
+            if let Some(ref mut tb) = tag_builder {
+                tb.end_element();
+            }
         }
     }
 
@@ -1684,7 +1843,7 @@ impl PdfWriter {
     }
 
     /// Escape special characters in a PDF string.
-    fn escape_pdf_string(s: &str) -> String {
+    pub(crate) fn escape_pdf_string(s: &str) -> String {
         s.replace('\\', "\\\\")
             .replace('(', "\\(")
             .replace(')', "\\)")
@@ -1799,7 +1958,9 @@ mod tests {
             config: PageConfig::default(),
         }];
         let metadata = Metadata::default();
-        let bytes = writer.write(&pages, &metadata, &font_context).unwrap();
+        let bytes = writer
+            .write(&pages, &metadata, &font_context, false, None)
+            .unwrap();
 
         assert!(bytes.starts_with(b"%PDF-1.7"));
         assert!(bytes.windows(5).any(|w| w == b"%%EOF"));
@@ -1826,7 +1987,9 @@ mod tests {
             creator: None,
             lang: None,
         };
-        let bytes = writer.write(&pages, &metadata, &font_context).unwrap();
+        let bytes = writer
+            .write(&pages, &metadata, &font_context, false, None)
+            .unwrap();
         let text = String::from_utf8_lossy(&bytes);
 
         assert!(text.contains("/Title (Test Document)"));
@@ -1879,6 +2042,7 @@ mod tests {
                     href: None,
                     bookmark: None,
                     alt: None,
+                    is_header_row: false,
                 },
                 LayoutElement {
                     x: 54.0,
@@ -1916,6 +2080,7 @@ mod tests {
                     href: None,
                     bookmark: None,
                     alt: None,
+                    is_header_row: false,
                 },
             ],
             fixed_header: vec![],
@@ -1924,7 +2089,9 @@ mod tests {
         }];
 
         let metadata = Metadata::default();
-        let bytes = writer.write(&pages, &metadata, &font_context).unwrap();
+        let bytes = writer
+            .write(&pages, &metadata, &font_context, false, None)
+            .unwrap();
         let text = String::from_utf8_lossy(&bytes);
 
         // Should have both Helvetica and Helvetica-Bold registered
@@ -2064,6 +2231,7 @@ mod tests {
                 href: None,
                 bookmark: None,
                 alt: None,
+                is_header_row: false,
             }],
             fixed_header: vec![],
             fixed_footer: vec![],
@@ -2071,7 +2239,9 @@ mod tests {
         }];
 
         let metadata = Metadata::default();
-        let bytes = writer.write(&pages, &metadata, &font_context).unwrap();
+        let bytes = writer
+            .write(&pages, &metadata, &font_context, false, None)
+            .unwrap();
         let text = String::from_utf8_lossy(&bytes);
 
         // Standard fonts should use Type1, not CIDFontType2

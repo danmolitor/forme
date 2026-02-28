@@ -88,7 +88,7 @@ export function serialize(element: ReactElement): FormeDocument {
     throw new Error('Top-level element must be <Document>');
   }
 
-  const props = element.props as { title?: string; author?: string; subject?: string; creator?: string; lang?: string; children?: unknown };
+  const props = element.props as { title?: string; author?: string; subject?: string; creator?: string; lang?: string; tagged?: boolean; pdfa?: '2a' | '2b'; children?: unknown };
   const childElements = flattenChildren(props.children);
 
   // Separate Page children from content children
@@ -138,6 +138,9 @@ export function serialize(element: ReactElement): FormeDocument {
       wrap: true,
     },
   };
+
+  if (props.tagged !== undefined) result.tagged = props.tagged;
+  if (props.pdfa !== undefined) result.pdfa = props.pdfa;
 
   if (mergedFonts.length > 0) {
     result.fonts = mergedFonts;
@@ -986,6 +989,9 @@ export function serializeTemplate(element: ReactElement): Record<string, unknown
       wrap: true,
     },
   };
+
+  if (props.tagged !== undefined) result.tagged = props.tagged;
+  if (props.pdfa !== undefined) result.pdfa = props.pdfa;
 
   if (mergedFonts.length > 0) {
     result.fonts = mergedFonts;

@@ -135,6 +135,10 @@ export interface DocumentProps {
   creator?: string;
   /** Document language (BCP 47 tag, e.g. "en-US"). Emitted as /Lang in the PDF Catalog. */
   lang?: string;
+  /** Whether to produce a tagged (accessible) PDF with structure tree. */
+  tagged?: boolean;
+  /** PDF/A conformance level. "2a" requires tagging, "2b" is visual-only compliance. */
+  pdfa?: '2a' | '2b';
   fonts?: FontRegistration[];
   children?: ReactNode;
 }
@@ -234,6 +238,8 @@ export interface FormeDocument {
   metadata: FormeMetadata;
   defaultPage: FormePageConfig;
   fonts?: FormeFont[];
+  tagged?: boolean;
+  pdfa?: '2a' | '2b';
 }
 
 export interface FormeMetadata {
