@@ -14,6 +14,7 @@ import type {
   EdgeColors,
   ColumnDef,
   TextRun,
+  GridTrackSize,
   DocumentProps,
   FormeDocument,
   FormeFont,
@@ -29,6 +30,8 @@ import type {
   FormeColor,
   FormeEdgeValues,
   FormeCornerValues,
+  FormeGridTrackSize,
+  FormeGridPlacement,
 } from './types.js';
 
 // ─── Nesting validation ──────────────────────────────────────────────
@@ -648,6 +651,38 @@ export function mapStyle(style?: Style): FormeStyle {
   if (style.rowGap !== undefined) result.rowGap = style.rowGap;
   if (style.columnGap !== undefined) result.columnGap = style.columnGap;
 
+  // Display mode
+  if (style.display !== undefined) {
+    result.display = style.display === 'grid' ? 'Grid' : 'Flex';
+  }
+
+  // CSS Grid
+  if (style.gridTemplateColumns !== undefined) {
+    result.gridTemplateColumns = parseGridTemplate(style.gridTemplateColumns);
+  }
+  if (style.gridTemplateRows !== undefined) {
+    result.gridTemplateRows = parseGridTemplate(style.gridTemplateRows);
+  }
+  if (style.gridAutoRows !== undefined) {
+    result.gridAutoRows = mapGridTrack(style.gridAutoRows);
+  }
+  if (style.gridAutoColumns !== undefined) {
+    result.gridAutoColumns = mapGridTrack(style.gridAutoColumns);
+  }
+  // Grid placement (individual props → single gridPlacement object)
+  if (style.gridColumnStart !== undefined || style.gridColumnEnd !== undefined ||
+      style.gridRowStart !== undefined || style.gridRowEnd !== undefined ||
+      style.gridColumnSpan !== undefined || style.gridRowSpan !== undefined) {
+    const placement: FormeGridPlacement = {};
+    if (style.gridColumnStart !== undefined) placement.columnStart = style.gridColumnStart;
+    if (style.gridColumnEnd !== undefined) placement.columnEnd = style.gridColumnEnd;
+    if (style.gridRowStart !== undefined) placement.rowStart = style.gridRowStart;
+    if (style.gridRowEnd !== undefined) placement.rowEnd = style.gridRowEnd;
+    if (style.gridColumnSpan !== undefined) placement.columnSpan = style.gridColumnSpan;
+    if (style.gridRowSpan !== undefined) placement.rowSpan = style.gridRowSpan;
+    result.gridPlacement = placement;
+  }
+
   // Typography
   if (style.fontFamily !== undefined) result.fontFamily = style.fontFamily;
   if (style.fontSize !== undefined) result.fontSize = style.fontSize;
@@ -662,6 +697,7 @@ export function mapStyle(style?: Style): FormeStyle {
   if (style.textTransform !== undefined) result.textTransform = TEXT_TRANSFORM_MAP[style.textTransform];
   if (style.hyphens !== undefined) result.hyphens = HYPHENS_MAP[style.hyphens];
   if (style.lang !== undefined) result.lang = style.lang;
+  if (style.direction !== undefined) result.direction = style.direction;
 
   // Color
   if (style.color !== undefined) result.color = parseColor(style.color);
@@ -762,6 +798,44 @@ export function mapStyle(style?: Style): FormeStyle {
   if (style.minOrphanLines !== undefined) result.minOrphanLines = style.minOrphanLines;
 
   return result;
+}
+
+// ─── Grid helpers ───────────────────────────────────────────────────
+
+/** Convert a single GridTrackSize to the Forme JSON format. */
+function mapGridTrack(track: GridTrackSize): FormeGridTrackSize {
+  if (typeof track === 'number') return { Pt: track };
+  if (track === 'auto') return 'Auto';
+  if (typeof track === 'string') {
+    const frMatch = track.match(/^([0-9.]+)fr$/);
+    if (frMatch) return { Fr: parseFloat(frMatch[1]) };
+    // Try numeric string
+    const num = parseFloat(track);
+    if (!isNaN(num)) return { Pt: num };
+    return 'Auto';
+  }
+  if (typeof track === 'object' && 'min' in track && 'max' in track) {
+    return { MinMax: [mapGridTrack(track.min), mapGridTrack(track.max)] };
+  }
+  return 'Auto';
+}
+
+/**
+ * Parse a grid template string shorthand into an array of FormeGridTrackSize.
+ * E.g. `"1fr 2fr 200"` → `[{Fr:1}, {Fr:2}, {Pt:200}]`
+ */
+function parseGridTemplate(value: string | GridTrackSize[]): FormeGridTrackSize[] {
+  if (Array.isArray(value)) {
+    return value.map(mapGridTrack);
+  }
+  return value.split(/\s+/).filter(Boolean).map((token) => {
+    if (token === 'auto') return 'Auto' as FormeGridTrackSize;
+    const frMatch = token.match(/^([0-9.]+)fr$/);
+    if (frMatch) return { Fr: parseFloat(frMatch[1]) } as FormeGridTrackSize;
+    const num = parseFloat(token);
+    if (!isNaN(num)) return { Pt: num } as FormeGridTrackSize;
+    return 'Auto' as FormeGridTrackSize;
+  });
 }
 
 export function mapDimension(val: number | string): FormeDimension {

@@ -22,6 +22,7 @@ export { render, renderToObject } from './render.js';
 export type {
   // Developer-facing
   Style,
+  GridTrackSize,
   Edges,
   Corners,
   EdgeColors,
@@ -53,4 +54,6 @@ export type {
   FormeColor,
   FormeEdgeValues,
   FormeCornerValues,
+  FormeGridTrackSize,
+  FormeGridPlacement,
 } from './types.js';

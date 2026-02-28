@@ -32,6 +32,7 @@
 //! halves. We run flex AFTER splitting.
 
 pub mod flex;
+pub mod grid;
 pub mod page_break;
 
 use std::cell::RefCell;
@@ -42,7 +43,9 @@ use serde::Serialize;
 use crate::font::FontContext;
 use crate::model::*;
 use crate::style::*;
-use crate::text::{StyledChar, TextLayout};
+use crate::text::bidi;
+use crate::text::shaping;
+use crate::text::{BrokenLine, RunBrokenLine, StyledChar, TextLayout};
 
 /// A bookmark entry collected during layout.
 #[derive(Debug, Clone, Serialize)]
@@ -343,7 +346,18 @@ impl LayoutInfo {
                     DrawCommand::Text { lines, .. } => {
                         let text: String = lines
                             .iter()
-                            .flat_map(|line| line.glyphs.iter().map(|g| g.char_value))
+                            .flat_map(|line| {
+                                line.glyphs.iter().flat_map(|g| {
+                                    // Use cluster_text for ligatures (e.g., "fi" → 2 chars)
+                                    g.cluster_text.as_deref().unwrap_or("").chars().chain(
+                                        if g.cluster_text.is_none() {
+                                            Some(g.char_value)
+                                        } else {
+                                            None
+                                        },
+                                    )
+                                })
+                            })
                             .collect();
                         if text.is_empty() {
                             None
@@ -487,12 +501,20 @@ pub struct TextLine {
 
 #[derive(Debug, Clone)]
 pub struct PositionedGlyph {
+    /// Glyph ID. For custom fonts with shaping, this is a real GID from GSUB.
+    /// For standard fonts, this is `char as u16` (Unicode codepoint).
     pub glyph_id: u16,
+    /// X position relative to line start.
     pub x_offset: f64,
+    /// Y offset from GPOS (e.g., mark positioning). Usually 0.0.
+    pub y_offset: f64,
+    /// Actual advance width of this glyph in points (from shaping or font metrics).
+    pub x_advance: f64,
     pub font_size: f64,
     pub font_family: String,
     pub font_weight: u32,
     pub font_style: FontStyle,
+    /// The character this glyph represents. For ligatures, the first char of the cluster.
     pub char_value: char,
     /// Per-glyph color (for text runs with different colors).
     pub color: Option<Color>,
@@ -502,6 +524,9 @@ pub struct PositionedGlyph {
     pub text_decoration: TextDecoration,
     /// Letter spacing applied to this glyph.
     pub letter_spacing: f64,
+    /// For ligature glyphs, the full cluster text (e.g., "fi" for an fi ligature).
+    /// `None` for 1:1 char-to-glyph mappings.
+    pub cluster_text: Option<String>,
 }
 
 /// Shift a layout element and all its nested content (children, text lines)
@@ -978,16 +1003,30 @@ impl LayoutEngine {
             cursor.y += margin.top + padding.top + border.top;
 
             let children_x = node_x + padding.left + border.left;
-            self.layout_children(
-                &node.children,
-                &node.style,
-                cursor,
-                pages,
-                children_x,
-                inner_width,
-                Some(style),
-                font_context,
-            );
+            let is_grid =
+                matches!(style.display, Display::Grid) && style.grid_template_columns.is_some();
+            if is_grid {
+                self.layout_grid_children(
+                    &node.children,
+                    style,
+                    cursor,
+                    pages,
+                    children_x,
+                    inner_width,
+                    font_context,
+                );
+            } else {
+                self.layout_children(
+                    &node.children,
+                    &node.style,
+                    cursor,
+                    pages,
+                    children_x,
+                    inner_width,
+                    Some(style),
+                    font_context,
+                );
+            }
 
             // Collect child elements that were pushed during layout
             let child_elements: Vec<LayoutElement> = cursor.elements.drain(snapshot..).collect();
@@ -1075,16 +1114,30 @@ impl LayoutEngine {
         }
 
         let children_x = node_x + padding.left + border.left;
-        self.layout_children(
-            &node.children,
-            &node.style,
-            cursor,
-            pages,
-            children_x,
-            inner_width,
-            Some(style),
-            font_context,
-        );
+        let is_grid =
+            matches!(style.display, Display::Grid) && style.grid_template_columns.is_some();
+        if is_grid {
+            self.layout_grid_children(
+                &node.children,
+                style,
+                cursor,
+                pages,
+                children_x,
+                inner_width,
+                font_context,
+            );
+        } else {
+            self.layout_children(
+                &node.children,
+                &node.style,
+                cursor,
+                pages,
+                children_x,
+                inner_width,
+                Some(style),
+                font_context,
+            );
+        }
 
         cursor.continuation_top_offset = prev_continuation_offset;
 
@@ -2139,27 +2192,7 @@ impl LayoutEngine {
                 TextAlign::Justify => text_x,
             };
 
-            let glyphs: Vec<PositionedGlyph> = line
-                .chars
-                .iter()
-                .enumerate()
-                .map(|(j, ch)| {
-                    let glyph_x = line.char_positions.get(j).copied().unwrap_or(0.0);
-                    PositionedGlyph {
-                        glyph_id: *ch as u16,
-                        x_offset: glyph_x,
-                        font_size: style.font_size,
-                        font_family: style.font_family.clone(),
-                        font_weight: style.font_weight,
-                        font_style: style.font_style,
-                        char_value: *ch,
-                        color: Some(style.color),
-                        href: href.map(|s| s.to_string()),
-                        text_decoration: style.text_decoration,
-                        letter_spacing: style.letter_spacing,
-                    }
-                })
-                .collect();
+            let glyphs = self.build_positioned_glyphs_single_style(line, style, href, font_context);
 
             let text_line = TextLine {
                 x: line_x,
@@ -2354,24 +2387,7 @@ impl LayoutEngine {
                 TextAlign::Justify => text_x,
             };
 
-            let glyphs: Vec<PositionedGlyph> = run_line
-                .chars
-                .iter()
-                .enumerate()
-                .map(|(j, sc)| PositionedGlyph {
-                    glyph_id: sc.ch as u16,
-                    x_offset: run_line.char_positions.get(j).copied().unwrap_or(0.0),
-                    font_size: sc.font_size,
-                    font_family: sc.font_family.clone(),
-                    font_weight: sc.font_weight,
-                    font_style: sc.font_style,
-                    char_value: sc.ch,
-                    color: Some(sc.color),
-                    href: sc.href.clone(),
-                    text_decoration: sc.text_decoration,
-                    letter_spacing: sc.letter_spacing,
-                })
-                .collect();
+            let glyphs = self.build_positioned_glyphs_runs(run_line, font_context, style.direction);
 
             let text_line = TextLine {
                 x: line_x,
@@ -2436,6 +2452,454 @@ impl LayoutEngine {
                 is_header_row: false,
             });
         }
+    }
+
+    /// Build PositionedGlyphs for a single-style BrokenLine.
+    /// For custom fonts, shapes the line text to get real glyph IDs.
+    /// For standard fonts, uses char-as-u16 glyph IDs.
+    fn build_positioned_glyphs_single_style(
+        &self,
+        line: &BrokenLine,
+        style: &ResolvedStyle,
+        href: Option<&str>,
+        font_context: &FontContext,
+    ) -> Vec<PositionedGlyph> {
+        let italic = matches!(style.font_style, FontStyle::Italic | FontStyle::Oblique);
+        let line_text: String = line.chars.iter().collect();
+        let direction = style.direction;
+
+        // Check if BiDi processing is needed
+        let has_bidi = !bidi::is_pure_ltr(&line_text, direction);
+
+        // Try shaping for custom fonts
+        if let Some(font_data) =
+            font_context.font_data(&style.font_family, style.font_weight, italic)
+        {
+            if has_bidi {
+                // BiDi path: analyze runs, shape each with correct direction
+                let bidi_runs = bidi::analyze_bidi(&line_text, direction);
+                let units_per_em =
+                    font_context.units_per_em(&style.font_family, style.font_weight, italic);
+                let scale = style.font_size / units_per_em as f64;
+
+                let mut all_glyphs = Vec::new();
+                let mut bidi_levels = Vec::new();
+                let mut x = 0.0_f64;
+
+                for run in &bidi_runs {
+                    let run_chars: Vec<char> = line.chars[run.char_start..run.char_end].to_vec();
+                    let run_text: String = run_chars.iter().collect();
+
+                    if let Some(shaped) =
+                        shaping::shape_text_with_direction(&run_text, font_data, run.is_rtl)
+                    {
+                        for sg in &shaped {
+                            let cluster = sg.cluster as usize;
+                            let char_value = run_chars.get(cluster).copied().unwrap_or(' ');
+
+                            let cluster_text = if shaped.len() < run_chars.len() {
+                                let cluster_end =
+                                    self.find_cluster_end(&shaped, sg, run_chars.len());
+                                if cluster_end > cluster + 1 {
+                                    Some(run_chars[cluster..cluster_end].iter().collect::<String>())
+                                } else {
+                                    None
+                                }
+                            } else {
+                                None
+                            };
+
+                            let glyph_x = x + sg.x_offset as f64 * scale;
+                            let glyph_y = sg.y_offset as f64 * scale;
+                            let advance = sg.x_advance as f64 * scale + style.letter_spacing;
+
+                            all_glyphs.push(PositionedGlyph {
+                                glyph_id: sg.glyph_id,
+                                x_offset: glyph_x,
+                                y_offset: glyph_y,
+                                x_advance: advance,
+                                font_size: style.font_size,
+                                font_family: style.font_family.clone(),
+                                font_weight: style.font_weight,
+                                font_style: style.font_style,
+                                char_value,
+                                color: Some(style.color),
+                                href: href.map(|s| s.to_string()),
+                                text_decoration: style.text_decoration,
+                                letter_spacing: style.letter_spacing,
+                                cluster_text,
+                            });
+                            bidi_levels.push(run.level);
+
+                            x += advance;
+                        }
+                    }
+                }
+
+                // Reorder glyphs visually and reposition
+                let mut glyphs = bidi::reorder_line_glyphs(all_glyphs, &bidi_levels);
+                bidi::reposition_after_reorder(&mut glyphs, 0.0);
+                return glyphs;
+            }
+
+            // Pure LTR path: shape normally
+            if let Some(shaped) = shaping::shape_text(&line_text, font_data) {
+                let units_per_em =
+                    font_context.units_per_em(&style.font_family, style.font_weight, italic);
+                let scale = style.font_size / units_per_em as f64;
+
+                return self.shaped_glyphs_to_positioned(
+                    &shaped,
+                    &line.chars,
+                    &line.char_positions,
+                    scale,
+                    style.font_size,
+                    &style.font_family,
+                    style.font_weight,
+                    style.font_style,
+                    Some(style.color),
+                    href,
+                    style.text_decoration,
+                    style.letter_spacing,
+                );
+            }
+        }
+
+        // Fallback: standard fonts or shaping failure
+        let mut glyphs: Vec<PositionedGlyph> = line
+            .chars
+            .iter()
+            .enumerate()
+            .map(|(j, ch)| {
+                let glyph_x = line.char_positions.get(j).copied().unwrap_or(0.0);
+                let char_width = font_context.char_width(
+                    *ch,
+                    &style.font_family,
+                    style.font_weight,
+                    italic,
+                    style.font_size,
+                );
+                PositionedGlyph {
+                    glyph_id: *ch as u16,
+                    x_offset: glyph_x,
+                    y_offset: 0.0,
+                    x_advance: char_width,
+                    font_size: style.font_size,
+                    font_family: style.font_family.clone(),
+                    font_weight: style.font_weight,
+                    font_style: style.font_style,
+                    char_value: *ch,
+                    color: Some(style.color),
+                    href: href.map(|s| s.to_string()),
+                    text_decoration: style.text_decoration,
+                    letter_spacing: style.letter_spacing,
+                    cluster_text: None,
+                }
+            })
+            .collect();
+
+        // For standard fonts with BiDi text, still reorder visually
+        if has_bidi && !glyphs.is_empty() {
+            let bidi_runs = bidi::analyze_bidi(&line_text, direction);
+            let mut levels = Vec::with_capacity(glyphs.len());
+            let mut char_idx = 0;
+            for run in &bidi_runs {
+                for _ in run.char_start..run.char_end {
+                    if char_idx < glyphs.len() {
+                        levels.push(run.level);
+                        char_idx += 1;
+                    }
+                }
+            }
+            // Pad if needed
+            while levels.len() < glyphs.len() {
+                levels.push(unicode_bidi::Level::ltr());
+            }
+            glyphs = bidi::reorder_line_glyphs(glyphs, &levels);
+            bidi::reposition_after_reorder(&mut glyphs, 0.0);
+        }
+
+        glyphs
+    }
+
+    /// Build PositionedGlyphs for a multi-style RunBrokenLine.
+    /// Shapes contiguous runs of the same custom font, with BiDi support.
+    fn build_positioned_glyphs_runs(
+        &self,
+        run_line: &RunBrokenLine,
+        font_context: &FontContext,
+        direction: Direction,
+    ) -> Vec<PositionedGlyph> {
+        let chars = &run_line.chars;
+        if chars.is_empty() {
+            return vec![];
+        }
+
+        let line_text: String = chars.iter().map(|c| c.ch).collect();
+        let has_bidi = !bidi::is_pure_ltr(&line_text, direction);
+        let bidi_runs = if has_bidi {
+            Some(bidi::analyze_bidi(&line_text, direction))
+        } else {
+            None
+        };
+
+        let mut glyphs = Vec::new();
+        let mut bidi_levels = Vec::new();
+        let mut i = 0;
+
+        while i < chars.len() {
+            let sc = &chars[i];
+            let italic = matches!(sc.font_style, FontStyle::Italic | FontStyle::Oblique);
+
+            // Determine if this char is in an RTL BiDi run
+            let is_rtl = bidi_runs.as_ref().is_some_and(|runs| {
+                runs.iter()
+                    .any(|r| i >= r.char_start && i < r.char_end && r.is_rtl)
+            });
+
+            // Check for custom font with shaping
+            if let Some(font_data) = font_context.font_data(&sc.font_family, sc.font_weight, italic)
+            {
+                // Find contiguous run with same font AND same BiDi direction
+                let run_start = i;
+                let mut run_end = i + 1;
+                while run_end < chars.len() {
+                    let next = &chars[run_end];
+                    let next_italic =
+                        matches!(next.font_style, FontStyle::Italic | FontStyle::Oblique);
+                    let next_is_rtl = bidi_runs.as_ref().is_some_and(|runs| {
+                        runs.iter()
+                            .any(|r| run_end >= r.char_start && run_end < r.char_end && r.is_rtl)
+                    });
+                    if next.font_family == sc.font_family
+                        && next.font_weight == sc.font_weight
+                        && next_italic == italic
+                        && (next.font_size - sc.font_size).abs() < 0.001
+                        && next_is_rtl == is_rtl
+                    {
+                        run_end += 1;
+                    } else {
+                        break;
+                    }
+                }
+
+                let run_text: String = chars[run_start..run_end].iter().map(|c| c.ch).collect();
+                if let Some(shaped) =
+                    shaping::shape_text_with_direction(&run_text, font_data, is_rtl)
+                {
+                    let units_per_em =
+                        font_context.units_per_em(&sc.font_family, sc.font_weight, italic);
+                    let scale = sc.font_size / units_per_em as f64;
+
+                    // Build char positions for this run segment
+                    let run_chars: Vec<char> =
+                        chars[run_start..run_end].iter().map(|c| c.ch).collect();
+                    let run_positions: Vec<f64> = (run_start..run_end)
+                        .map(|j| run_line.char_positions.get(j).copied().unwrap_or(0.0))
+                        .collect();
+
+                    let run_glyphs = self.shaped_glyphs_to_positioned_runs(
+                        &shaped,
+                        &chars[run_start..run_end],
+                        &run_chars,
+                        &run_positions,
+                        scale,
+                    );
+                    // Track BiDi levels for each glyph
+                    let run_level = if is_rtl {
+                        unicode_bidi::Level::rtl()
+                    } else {
+                        unicode_bidi::Level::ltr()
+                    };
+                    for _ in &run_glyphs {
+                        bidi_levels.push(run_level);
+                    }
+                    glyphs.extend(run_glyphs);
+                    i = run_end;
+                    continue;
+                }
+            }
+
+            // Fallback: unshaped glyph
+            let glyph_x = run_line.char_positions.get(i).copied().unwrap_or(0.0);
+            let char_width = font_context.char_width(
+                sc.ch,
+                &sc.font_family,
+                sc.font_weight,
+                italic,
+                sc.font_size,
+            );
+            glyphs.push(PositionedGlyph {
+                glyph_id: sc.ch as u16,
+                x_offset: glyph_x,
+                y_offset: 0.0,
+                x_advance: char_width,
+                font_size: sc.font_size,
+                font_family: sc.font_family.clone(),
+                font_weight: sc.font_weight,
+                font_style: sc.font_style,
+                char_value: sc.ch,
+                color: Some(sc.color),
+                href: sc.href.clone(),
+                text_decoration: sc.text_decoration,
+                letter_spacing: sc.letter_spacing,
+                cluster_text: None,
+            });
+            bidi_levels.push(if is_rtl {
+                unicode_bidi::Level::rtl()
+            } else {
+                unicode_bidi::Level::ltr()
+            });
+            i += 1;
+        }
+
+        // Apply BiDi visual reordering if needed
+        if has_bidi && !glyphs.is_empty() {
+            glyphs = bidi::reorder_line_glyphs(glyphs, &bidi_levels);
+            bidi::reposition_after_reorder(&mut glyphs, 0.0);
+        }
+
+        glyphs
+    }
+
+    /// Convert shaped glyphs to PositionedGlyphs for single-style text.
+    #[allow(clippy::too_many_arguments)]
+    fn shaped_glyphs_to_positioned(
+        &self,
+        shaped: &[shaping::ShapedGlyph],
+        chars: &[char],
+        _char_positions: &[f64],
+        scale: f64,
+        font_size: f64,
+        font_family: &str,
+        font_weight: u32,
+        font_style: FontStyle,
+        color: Option<Color>,
+        href: Option<&str>,
+        text_decoration: TextDecoration,
+        letter_spacing: f64,
+    ) -> Vec<PositionedGlyph> {
+        let mut result = Vec::with_capacity(shaped.len());
+        let mut x = 0.0_f64;
+
+        for sg in shaped {
+            let cluster = sg.cluster as usize;
+            let char_value = chars.get(cluster).copied().unwrap_or(' ');
+
+            // Determine cluster text for ligatures
+            let cluster_text = if shaped.len() < chars.len() {
+                // There are fewer glyphs than chars: likely ligatures.
+                // Find end of this cluster.
+                let cluster_end = self.find_cluster_end(shaped, sg, chars.len());
+                if cluster_end > cluster + 1 {
+                    Some(chars[cluster..cluster_end].iter().collect::<String>())
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+
+            // Use shaped position
+            let glyph_x = x + sg.x_offset as f64 * scale;
+            let glyph_y = sg.y_offset as f64 * scale;
+            let advance = sg.x_advance as f64 * scale + letter_spacing;
+
+            result.push(PositionedGlyph {
+                glyph_id: sg.glyph_id,
+                x_offset: glyph_x,
+                y_offset: glyph_y,
+                x_advance: advance,
+                font_size,
+                font_family: font_family.to_string(),
+                font_weight,
+                font_style,
+                char_value,
+                color,
+                href: href.map(|s| s.to_string()),
+                text_decoration,
+                letter_spacing,
+                cluster_text,
+            });
+
+            x += advance;
+        }
+
+        result
+    }
+
+    /// Convert shaped glyphs to PositionedGlyphs for multi-style runs.
+    fn shaped_glyphs_to_positioned_runs(
+        &self,
+        shaped: &[shaping::ShapedGlyph],
+        styled_chars: &[StyledChar],
+        chars: &[char],
+        char_positions: &[f64],
+        scale: f64,
+    ) -> Vec<PositionedGlyph> {
+        let mut result = Vec::with_capacity(shaped.len());
+        // Use the first char position as the base offset for this run
+        let base_x = char_positions.first().copied().unwrap_or(0.0);
+        let mut x = 0.0_f64;
+
+        for sg in shaped {
+            let cluster = sg.cluster as usize;
+            let sc = styled_chars.get(cluster).unwrap_or(&styled_chars[0]);
+            let char_value = chars.get(cluster).copied().unwrap_or(' ');
+
+            let cluster_text = if shaped.len() < chars.len() {
+                let cluster_end = self.find_cluster_end(shaped, sg, chars.len());
+                if cluster_end > cluster + 1 {
+                    Some(chars[cluster..cluster_end].iter().collect::<String>())
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+
+            let glyph_x = base_x + x + sg.x_offset as f64 * scale;
+            let glyph_y = sg.y_offset as f64 * scale;
+            let advance = sg.x_advance as f64 * scale + sc.letter_spacing;
+
+            result.push(PositionedGlyph {
+                glyph_id: sg.glyph_id,
+                x_offset: glyph_x,
+                y_offset: glyph_y,
+                x_advance: advance,
+                font_size: sc.font_size,
+                font_family: sc.font_family.clone(),
+                font_weight: sc.font_weight,
+                font_style: sc.font_style,
+                char_value,
+                color: Some(sc.color),
+                href: sc.href.clone(),
+                text_decoration: sc.text_decoration,
+                letter_spacing: sc.letter_spacing,
+                cluster_text,
+            });
+
+            x += advance;
+        }
+
+        result
+    }
+
+    /// Find the end index of a cluster in shaped glyphs.
+    fn find_cluster_end(
+        &self,
+        shaped: &[shaping::ShapedGlyph],
+        current: &shaping::ShapedGlyph,
+        num_chars: usize,
+    ) -> usize {
+        // Find the next glyph's cluster value
+        for sg in shaped {
+            if sg.cluster > current.cluster {
+                return sg.cluster as usize;
+            }
+        }
+        // Last glyph: cluster extends to end of text
+        num_chars
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -3111,6 +3575,155 @@ impl LayoutEngine {
             // Clean up internal fields
             page.fixed_header.clear();
             page.fixed_footer.clear();
+        }
+    }
+
+    /// Layout children as a CSS Grid.
+    ///
+    /// Uses the grid track definitions from the parent style to create a 2D grid,
+    /// places children into cells, and lays out each child within its cell bounds.
+    #[allow(clippy::too_many_arguments)]
+    fn layout_grid_children(
+        &self,
+        children: &[Node],
+        parent_style: &ResolvedStyle,
+        cursor: &mut PageCursor,
+        pages: &mut Vec<LayoutPage>,
+        x: f64,
+        available_width: f64,
+        font_context: &FontContext,
+    ) {
+        let template_cols = match &parent_style.grid_template_columns {
+            Some(cols) => cols,
+            None => return, // No columns defined, nothing to do
+        };
+
+        let num_columns = template_cols.len();
+        if num_columns == 0 || children.is_empty() {
+            return;
+        }
+
+        let col_gap = parent_style.column_gap;
+        let row_gap = parent_style.row_gap;
+
+        // Resolve column widths
+        // For auto tracks, we need content sizes. Use a rough measure.
+        let content_sizes: Vec<f64> = template_cols
+            .iter()
+            .map(|track| {
+                if matches!(track, GridTrackSize::Auto) {
+                    // Measure the widest child that falls in this column
+                    // (approximation: use available_width / num_columns)
+                    available_width / num_columns as f64
+                } else {
+                    0.0
+                }
+            })
+            .collect();
+
+        let col_widths =
+            grid::resolve_tracks(template_cols, available_width, col_gap, &content_sizes);
+
+        // Collect grid placements from children's styles
+        let placements: Vec<Option<&GridPlacement>> = children
+            .iter()
+            .map(|child| child.style.grid_placement.as_ref())
+            .collect();
+
+        // Place items in the grid
+        let item_placements = grid::place_items(&placements, num_columns);
+        let num_rows = grid::compute_num_rows(&item_placements);
+
+        if num_rows == 0 {
+            return;
+        }
+
+        // Measure each item's height at its resolved cell width
+        let mut item_heights: Vec<f64> = vec![0.0; children.len()];
+        for placement in &item_placements {
+            let cell_width =
+                grid::span_width(placement.col_start, placement.col_end, &col_widths, col_gap);
+            let child = &children[placement.child_index];
+            let child_style = child.style.resolve(Some(parent_style), cell_width);
+            item_heights[placement.child_index] =
+                self.measure_node_height(child, cell_width, &child_style, font_context);
+        }
+
+        // Compute row heights: max height of all items in each row
+        let template_rows = parent_style.grid_template_rows.as_deref();
+        let mut row_heights = vec![0.0_f64; num_rows];
+        for placement in &item_placements {
+            let h = item_heights[placement.child_index];
+            let span = placement.row_end - placement.row_start;
+            let per_row = h / span as f64;
+            for rh in row_heights
+                .iter_mut()
+                .take(placement.row_end.min(num_rows))
+                .skip(placement.row_start)
+            {
+                if per_row > *rh {
+                    *rh = per_row;
+                }
+            }
+        }
+
+        // Apply template row sizes if provided
+        if let Some(template) = template_rows {
+            let auto_row = parent_style.grid_auto_rows.as_ref();
+            for (r, rh) in row_heights.iter_mut().enumerate() {
+                let track = template.get(r).or(auto_row);
+                if let Some(track) = track {
+                    match track {
+                        GridTrackSize::Pt(pts) => *rh = *pts,
+                        GridTrackSize::Auto => {} // keep computed
+                        _ => {}                   // Fr for rows is complex, skip for now
+                    }
+                }
+            }
+        }
+
+        // Layout each row
+        for (row, &row_height) in row_heights.iter().enumerate().take(num_rows) {
+
+            // Check page break: treat each row as unbreakable
+            if row_height > cursor.remaining_height() && row > 0 {
+                pages.push(cursor.finalize());
+                *cursor = cursor.new_page();
+            }
+
+            // Layout items in this row
+            for placement in &item_placements {
+                if placement.row_start != row {
+                    continue; // Only process items starting in this row
+                }
+
+                let cell_x = x + grid::column_x_offset(placement.col_start, &col_widths, col_gap);
+                let cell_width =
+                    grid::span_width(placement.col_start, placement.col_end, &col_widths, col_gap);
+
+                let child = &children[placement.child_index];
+
+                // Save cursor state, layout child in cell bounds
+                let saved_y = cursor.y;
+                self.layout_node(
+                    child,
+                    cursor,
+                    pages,
+                    cell_x,
+                    cell_width,
+                    Some(parent_style),
+                    font_context,
+                );
+                // Restore y to row baseline (items don't affect each other's y)
+                cursor.y = saved_y;
+            }
+
+            cursor.y += row_height + row_gap;
+        }
+
+        // Remove trailing gap
+        if num_rows > 0 {
+            cursor.y -= row_gap;
         }
     }
 }

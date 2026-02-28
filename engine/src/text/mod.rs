@@ -4,7 +4,9 @@
 //!
 //! Uses real font metrics from the FontContext for accurate character widths.
 
+pub mod bidi;
 pub mod knuth_plass;
+pub mod shaping;
 
 use crate::font::FontContext;
 use crate::style::{Color, FontStyle, Hyphens, TextDecoration};
@@ -469,6 +471,10 @@ impl TextLayout {
     }
 
     /// Measure individual character widths using real font metrics.
+    ///
+    /// For custom fonts with available font data, uses OpenType shaping via
+    /// rustybuzz to produce accurate widths that account for kerning and
+    /// ligatures. For standard fonts, uses per-char width lookup.
     #[allow(clippy::too_many_arguments)]
     fn measure_chars(
         &self,
@@ -481,12 +487,116 @@ impl TextLayout {
         letter_spacing: f64,
     ) -> Vec<f64> {
         let italic = matches!(font_style, FontStyle::Italic | FontStyle::Oblique);
+
+        // Try shaping for custom fonts
+        if let Some(font_data) = font_context.font_data(font_family, font_weight, italic) {
+            if let Some(shaped) = shaping::shape_text(text, font_data) {
+                let num_chars = text.chars().count();
+                let units_per_em = font_context.units_per_em(font_family, font_weight, italic);
+                return shaping::cluster_widths(
+                    &shaped,
+                    num_chars,
+                    units_per_em,
+                    font_size,
+                    letter_spacing,
+                );
+            }
+        }
+
+        // Fallback: per-char measurement (standard fonts or shaping failure)
         text.chars()
             .map(|ch| {
                 font_context.char_width(ch, font_family, font_weight, italic, font_size)
                     + letter_spacing
             })
             .collect()
+    }
+
+    /// Shape text and return shaped glyphs for a custom font.
+    /// Returns `None` for standard fonts or if shaping fails.
+    #[allow(clippy::too_many_arguments)]
+    pub fn shape_text(
+        &self,
+        font_context: &FontContext,
+        text: &str,
+        font_family: &str,
+        font_weight: u32,
+        font_style: FontStyle,
+    ) -> Option<Vec<shaping::ShapedGlyph>> {
+        let italic = matches!(font_style, FontStyle::Italic | FontStyle::Oblique);
+        let font_data = font_context.font_data(font_family, font_weight, italic)?;
+        shaping::shape_text(text, font_data)
+    }
+
+    /// Measure widths for styled chars, using shaping for contiguous runs
+    /// that share the same custom font. Falls back to per-char measurement
+    /// for standard fonts or when shaping fails.
+    fn measure_styled_chars(&self, font_context: &FontContext, chars: &[StyledChar]) -> Vec<f64> {
+        if chars.is_empty() {
+            return vec![];
+        }
+
+        let mut widths = vec![0.0_f64; chars.len()];
+        let mut i = 0;
+
+        while i < chars.len() {
+            let sc = &chars[i];
+            let italic = matches!(sc.font_style, FontStyle::Italic | FontStyle::Oblique);
+
+            // Check if this char's font is a custom font with shaping data
+            if let Some(font_data) = font_context.font_data(&sc.font_family, sc.font_weight, italic)
+            {
+                // Find the end of the contiguous run with the same font
+                let run_start = i;
+                let mut run_end = i + 1;
+                while run_end < chars.len() {
+                    let next = &chars[run_end];
+                    let next_italic =
+                        matches!(next.font_style, FontStyle::Italic | FontStyle::Oblique);
+                    if next.font_family == sc.font_family
+                        && next.font_weight == sc.font_weight
+                        && next_italic == italic
+                        && (next.font_size - sc.font_size).abs() < 0.001
+                    {
+                        run_end += 1;
+                    } else {
+                        break;
+                    }
+                }
+
+                // Shape this run
+                let run_text: String = chars[run_start..run_end].iter().map(|c| c.ch).collect();
+                if let Some(shaped) = shaping::shape_text(&run_text, font_data) {
+                    let num_chars = run_end - run_start;
+                    let units_per_em =
+                        font_context.units_per_em(&sc.font_family, sc.font_weight, italic);
+                    let cluster_w = shaping::cluster_widths(
+                        &shaped,
+                        num_chars,
+                        units_per_em,
+                        sc.font_size,
+                        sc.letter_spacing,
+                    );
+                    for (j, w) in cluster_w.into_iter().enumerate() {
+                        widths[run_start + j] = w;
+                    }
+                    i = run_end;
+                    continue;
+                }
+            }
+
+            // Fallback: per-char measurement
+            widths[i] = font_context.char_width(
+                sc.ch,
+                &sc.font_family,
+                sc.font_weight,
+                italic,
+                sc.font_size,
+            ) + sc.letter_spacing;
+            i += 1;
+        }
+
+        widths
     }
 
     /// Break multi-style text (runs) into lines that fit within `max_width`.
@@ -506,20 +616,8 @@ impl TextLayout {
             }];
         }
 
-        // Measure each character width using its own font/style
-        let char_widths: Vec<f64> = chars
-            .iter()
-            .map(|sc| {
-                let italic = matches!(sc.font_style, FontStyle::Italic | FontStyle::Oblique);
-                font_context.char_width(
-                    sc.ch,
-                    &sc.font_family,
-                    sc.font_weight,
-                    italic,
-                    sc.font_size,
-                ) + sc.letter_spacing
-            })
-            .collect();
+        // Measure each character width using shaping for custom fonts
+        let char_widths = self.measure_styled_chars(font_context, chars);
 
         let mut lines = Vec::new();
         let mut line_start = 0;
@@ -1020,19 +1118,7 @@ impl TextLayout {
             }];
         }
 
-        let char_widths: Vec<f64> = chars
-            .iter()
-            .map(|sc| {
-                let italic = matches!(sc.font_style, FontStyle::Italic | FontStyle::Oblique);
-                font_context.char_width(
-                    sc.ch,
-                    &sc.font_family,
-                    sc.font_weight,
-                    italic,
-                    sc.font_size,
-                ) + sc.letter_spacing
-            })
-            .collect();
+        let char_widths = self.measure_styled_chars(font_context, chars);
 
         // Use the first char's style for hyphen width
         let hyphen_width = if !chars.is_empty() {

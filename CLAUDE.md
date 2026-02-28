@@ -192,11 +192,11 @@ Also widened `<Page margin>` to accept strings and arrays: `<Page margin="36 72"
 
 ## Known Issues & Limitations (Current State)
 
-1. No Knuth-Plass line breaking (using greedy algorithm — fine for documents).
-2. No hyphenation.
-3. No BiDi text support (Arabic, Hebrew).
-4. No CSS Grid.
-5. No PDF/A compliance.
+1. No PDF/A compliance.
+2. No variable font axis support.
+3. No vertical text layout (CJK writing modes).
+4. No `grid-template-areas` or `grid-auto-flow: dense`.
+5. No Canvas drawing primitive.
 
 ## How the Layout Engine Works (for making changes)
 

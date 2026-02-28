@@ -1122,3 +1122,85 @@ describe('Document lang', () => {
     expect(doc.metadata.lang).toBeUndefined();
   });
 });
+
+describe('CSS Grid serialization', () => {
+  it('maps display: grid', () => {
+    const doc = serialize(
+      <Document><View style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 200' }}><Text>A</Text></View></Document>
+    );
+    const view = doc.children[0];
+    expect(view.style.display).toBe('Grid');
+  });
+
+  it('parses gridTemplateColumns string shorthand', () => {
+    const doc = serialize(
+      <Document><View style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 200' }}><Text>A</Text></View></Document>
+    );
+    const view = doc.children[0];
+    expect(view.style.gridTemplateColumns).toEqual([{ Fr: 1 }, { Fr: 2 }, { Pt: 200 }]);
+  });
+
+  it('parses gridTemplateColumns array', () => {
+    const doc = serialize(
+      <Document><View style={{ display: 'grid', gridTemplateColumns: [100, '1fr', 'auto'] }}><Text>A</Text></View></Document>
+    );
+    const view = doc.children[0];
+    expect(view.style.gridTemplateColumns).toEqual([{ Pt: 100 }, { Fr: 1 }, 'Auto']);
+  });
+
+  it('maps gridTemplateRows', () => {
+    const doc = serialize(
+      <Document><View style={{ display: 'grid', gridTemplateColumns: '1fr', gridTemplateRows: 'auto 100' }}><Text>A</Text></View></Document>
+    );
+    const view = doc.children[0];
+    expect(view.style.gridTemplateRows).toEqual(['Auto', { Pt: 100 }]);
+  });
+
+  it('maps gridAutoRows and gridAutoColumns', () => {
+    const doc = serialize(
+      <Document><View style={{ display: 'grid', gridTemplateColumns: '1fr', gridAutoRows: 50, gridAutoColumns: '2fr' }}><Text>A</Text></View></Document>
+    );
+    const view = doc.children[0];
+    expect(view.style.gridAutoRows).toEqual({ Pt: 50 });
+    expect(view.style.gridAutoColumns).toEqual({ Fr: 2 });
+  });
+
+  it('maps grid placement properties', () => {
+    const doc = serialize(
+      <Document>
+        <View style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr' }}>
+          <View style={{ gridColumnStart: 2, gridColumnEnd: 4, gridRowStart: 1 }}><Text>A</Text></View>
+        </View>
+      </Document>
+    );
+    const child = doc.children[0].children[0];
+    expect(child.style.gridPlacement).toEqual({
+      columnStart: 2,
+      columnEnd: 4,
+      rowStart: 1,
+    });
+  });
+
+  it('maps gridColumnSpan and gridRowSpan', () => {
+    const doc = serialize(
+      <Document>
+        <View style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
+          <View style={{ gridColumnSpan: 2, gridRowSpan: 3 }}><Text>A</Text></View>
+        </View>
+      </Document>
+    );
+    const child = doc.children[0].children[0];
+    expect(child.style.gridPlacement).toEqual({
+      columnSpan: 2,
+      rowSpan: 3,
+    });
+  });
+
+  it('display defaults to flex (omitted)', () => {
+    const doc = serialize(
+      <Document><View><Text>A</Text></View></Document>
+    );
+    const view = doc.children[0];
+    expect(view.style.display).toBeUndefined();
+  });
+});

@@ -14,8 +14,10 @@ thiserror = "2"
 
 # --- Future dependencies (uncomment when needed) ---
 ttf-parser = "0.25"         # Real font metrics + subsetting
+rustybuzz = "0.20"          # OpenType shaping (GSUB/GPOS) — pure Rust, WASM-safe
 unicode-linebreak = "0.1" # UAX#14 line break algorithm
-# unicode-script = "0.5"    # Script detection for BiDi
+unicode-bidi = "0.3"       # UAX#9 BiDi algorithm
+unicode-script = "0.5"     # Script detection for BiDi run splitting
 hypher = { version = "0.1", default-features = false, features = ["full"] }
 quick-xml = "0.37"
 image = { version = "0.24", default-features = false, features = ["jpeg", "png", "webp"] }

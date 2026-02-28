@@ -51,6 +51,11 @@ Live preview with debug overlays. Click any element to inspect its computed styl
 - **Click-to-inspect**: Select any element to see its box model, computed styles, and position.
 - **Debug overlays**: Toggle bounding boxes, margins, and page break points.
 - **Fast**: Rust engine compiled to WASM. Renders in milliseconds, not seconds.
+- **OpenType shaping**: Real GSUB/GPOS shaping via rustybuzz. Ligatures (fi, ffi), kerning (AV), and contextual forms render correctly with custom fonts.
+- **Optimal line breaking**: Knuth-Plass algorithm (the same one TeX uses) considers the entire paragraph to minimize awkward spacing. Falls back to greedy when needed.
+- **Hyphenation**: Automatic hyphenation in 35+ languages. Set `hyphens: 'auto'` and a `lang` tag. Uses the hypher crate with language-specific dictionaries.
+- **BiDi text**: Right-to-left text (Arabic, Hebrew) with automatic direction detection. Mixed LTR/RTL paragraphs reorder correctly. Set `direction: 'rtl'` or `direction: 'auto'`.
+- **CSS Grid**: 2D grid layout with `display: 'grid'`. Fixed, fractional (`fr`), and auto track sizing. Explicit placement, auto-placement, column/row spanning, and row-level page breaks.
 - **Flex wrap + align-content**: Flex containers wrap across pages correctly. `align-content` distributes wrapped lines (`center`, `space-between`, `space-around`, `space-evenly`, `flex-end`, `stretch`).
 - **Widow/orphan control**: Text paragraphs never leave a single orphan line at the bottom of a page or a single widow line at the top. Configurable via `minWidowLines` and `minOrphanLines`.
 - **Table overflow**: Table cells with content taller than a page are preserved across page breaks, not silently clipped.
@@ -61,7 +66,7 @@ Live preview with debug overlays. Click any element to inspect its computed styl
 - **Links**: Add `href` to any `<Text>`, `<View>`, `<Image>`, or `<Svg>` for clickable PDF links.
 - **Bookmarks**: Add `bookmark` to any element for PDF outline entries. Navigate long documents from the bookmark panel.
 - **Inline text styling**: Nest `<Text>` inside `<Text>` to bold a word, change colors mid-sentence, or apply strikethrough.
-- **Images**: JPEG and PNG with transparency support. `alt` text for accessibility.
+- **Images**: JPEG, PNG, and WebP with transparency support. `alt` text for accessibility.
 - **CSS shorthands**: `border: "1px solid #000"`, `padding: "8 16"`, `margin: [20, 40]` — CSS-style shorthand strings and arrays parse automatically.
 - **Document language**: `<Document lang="en-US">` sets the PDF `/Lang` tag for accessibility.
 - **Dynamic page numbers**: `{{pageNumber}}` and `{{totalPages}}` in any text element.
@@ -131,6 +136,11 @@ Font sources can be file paths, data URIs, or `Uint8Array`. Fonts are automatica
 |---|---|---|---|
 | Page breaks | Page-native (widow/orphan aware) | Broken for 7 years | CSS `page-break` (fragile) |
 | Table header repetition | Automatic on every page | Not built in | Inconsistent `<thead>` |
+| Line breaking | Knuth-Plass optimal (TeX algorithm) | Greedy | Browser engine |
+| Hyphenation | 35+ languages, automatic | Via callback | Browser engine |
+| Text shaping | OpenType GSUB/GPOS (ligatures, kerning) | Basic | Full browser shaping |
+| BiDi text | RTL, mixed LTR/RTL, auto-detection | No | Full browser BiDi |
+| CSS Grid | `display: 'grid'` with fr/auto/fixed tracks | No | Full CSS Grid |
 | Live preview | Built-in dev server | Render to file | Run script, open file |
 | Click-to-inspect | VS Code, Cursor, WebStorm | No | No |
 | Render speed | ~28ms (4-page report) | ~100-500ms | ~1-5s (Chrome boot) |
@@ -138,9 +148,7 @@ Font sources can be file paths, data URIs, or `Uint8Array`. Fonts are automatica
 | SVG | Basic shapes and paths | Yes | Full browser SVG |
 | Links | `href` prop on Text/View/Image/Svg | `<Link>` component | HTML `<a>` tags |
 | Bookmarks | `bookmark` prop on any element | Yes | No |
-| Inline text styling | Nested `<Text>` elements | Nested `<Text>` elements | HTML/CSS |
-| Absolute positioning | Yes | Yes | Full CSS |
-| Custom fonts | TTF with subsetting | Yes | Yes |
+| Custom fonts | TTF with OpenType shaping | Yes | Yes |
 | Dependencies | None (WASM) | yoga-layout | Chrome/Chromium |
 | Runs in-process | Yes | Yes | No (subprocess) |
 

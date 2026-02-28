@@ -19,6 +19,13 @@ export interface Corners {
   bottomLeft: number;
 }
 
+/** A single CSS Grid track size */
+export type GridTrackSize =
+  | number            // Fixed size in points
+  | `${number}fr`     // Fractional unit (e.g. "1fr", "2fr")
+  | 'auto'            // Content-sized
+  | { min: GridTrackSize; max: GridTrackSize };  // MinMax
+
 /** Per-edge colors for borderColor */
 export interface EdgeColors {
   top: string;
@@ -30,6 +37,7 @@ export interface EdgeColors {
 /** CSS-like style properties for Forme components */
 export interface Style {
   // Layout
+  display?: 'flex' | 'grid';
   width?: number | string;
   height?: number | string;
   minWidth?: number | string;
@@ -49,6 +57,28 @@ export interface Style {
   gap?: number;
   rowGap?: number;
   columnGap?: number;
+
+  // CSS Grid
+  /** Column track definitions. String shorthand: `"1fr 2fr 200"` or array of track sizes. */
+  gridTemplateColumns?: string | GridTrackSize[];
+  /** Row track definitions. String shorthand: `"auto 1fr"` or array of track sizes. */
+  gridTemplateRows?: string | GridTrackSize[];
+  /** Default size for auto-generated rows. */
+  gridAutoRows?: GridTrackSize;
+  /** Default size for auto-generated columns. */
+  gridAutoColumns?: GridTrackSize;
+  /** Grid column start line (1-based). */
+  gridColumnStart?: number;
+  /** Grid column end line (1-based). */
+  gridColumnEnd?: number;
+  /** Grid row start line (1-based). */
+  gridRowStart?: number;
+  /** Grid row end line (1-based). */
+  gridRowEnd?: number;
+  /** Number of columns to span. */
+  gridColumnSpan?: number;
+  /** Number of rows to span. */
+  gridRowSpan?: number;
 
   // Box model
   padding?: number | string | number[] | Edges;
@@ -79,6 +109,8 @@ export interface Style {
   hyphens?: 'none' | 'manual' | 'auto';
   /** Language tag (BCP 47, e.g. "en-US", "de"). Controls hyphenation dictionary. */
   lang?: string;
+  /** Text direction for BiDi support (Arabic, Hebrew). */
+  direction?: 'ltr' | 'rtl' | 'auto';
 
   // Visual
   color?: string;
@@ -324,8 +356,26 @@ export interface FormeCornerValues {
   bottom_left: number;
 }
 
+/** Grid track size in Forme JSON format (matches Rust GridTrackSize enum) */
+export type FormeGridTrackSize =
+  | { Pt: number }
+  | { Fr: number }
+  | 'Auto'
+  | { MinMax: [FormeGridTrackSize, FormeGridTrackSize] };
+
+/** Grid placement in Forme JSON format */
+export interface FormeGridPlacement {
+  columnStart?: number;
+  columnEnd?: number;
+  rowStart?: number;
+  rowEnd?: number;
+  columnSpan?: number;
+  rowSpan?: number;
+}
+
 /** Style in the Forme JSON format (camelCase field names, PascalCase enum values) */
 export interface FormeStyle {
+  display?: string;
   width?: FormeDimension;
   height?: FormeDimension;
   minWidth?: FormeDimension;
@@ -346,6 +396,11 @@ export interface FormeStyle {
   gap?: number;
   rowGap?: number;
   columnGap?: number;
+  gridTemplateColumns?: FormeGridTrackSize[];
+  gridTemplateRows?: FormeGridTrackSize[];
+  gridAutoRows?: FormeGridTrackSize;
+  gridAutoColumns?: FormeGridTrackSize;
+  gridPlacement?: FormeGridPlacement;
   fontFamily?: string;
   fontSize?: number;
   fontWeight?: number;
@@ -357,6 +412,7 @@ export interface FormeStyle {
   textTransform?: string;
   hyphens?: string;
   lang?: string;
+  direction?: string;
   color?: FormeColor;
   backgroundColor?: FormeColor;
   opacity?: number;

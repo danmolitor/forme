@@ -328,6 +328,28 @@ impl FontContext {
     pub fn registry_mut(&mut self) -> &mut FontRegistry {
         &mut self.registry
     }
+
+    /// Get the raw font data bytes for a custom font.
+    /// Returns `None` for standard fonts or if the font isn't found.
+    pub fn font_data(&self, family: &str, weight: u32, italic: bool) -> Option<&[u8]> {
+        let font_data = self.registry.resolve(family, weight, italic);
+        match font_data {
+            FontData::Custom { data, .. } => Some(data),
+            FontData::Standard(_) => None,
+        }
+    }
+
+    /// Get the units-per-em for a font. Returns 1000 for standard fonts.
+    pub fn units_per_em(&self, family: &str, weight: u32, italic: bool) -> u16 {
+        let font_data = self.registry.resolve(family, weight, italic);
+        match font_data {
+            FontData::Custom {
+                metrics: Some(m), ..
+            } => m.units_per_em,
+            FontData::Custom { metrics: None, .. } => 1000,
+            FontData::Standard(_) => 1000,
+        }
+    }
 }
 
 #[cfg(test)]

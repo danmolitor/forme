@@ -35,6 +35,10 @@ pub struct Style {
     #[serde(default)]
     pub margin: Option<Edges>,
 
+    // ── Display & Layout Mode ──────────────────────────────────
+    /// Display mode: flex (default) or grid.
+    pub display: Option<Display>,
+
     // ── Flexbox Layout ─────────────────────────────────────────
     /// Direction of the main axis.
     #[serde(default)]
@@ -66,6 +70,18 @@ pub struct Style {
     /// Column gap (overrides gap for columns).
     pub column_gap: Option<f64>,
 
+    // ── CSS Grid Layout ──────────────────────────────────────────
+    /// Column track definitions (e.g., `[Pt(100), Fr(1), Fr(2)]`).
+    pub grid_template_columns: Option<Vec<GridTrackSize>>,
+    /// Row track definitions.
+    pub grid_template_rows: Option<Vec<GridTrackSize>>,
+    /// Auto-generated row size.
+    pub grid_auto_rows: Option<GridTrackSize>,
+    /// Auto-generated column size.
+    pub grid_auto_columns: Option<GridTrackSize>,
+    /// Grid placement for this child item.
+    pub grid_placement: Option<GridPlacement>,
+
     // ── Typography ─────────────────────────────────────────────
     /// Font family name.
     pub font_family: Option<String>,
@@ -89,6 +105,8 @@ pub struct Style {
     pub hyphens: Option<Hyphens>,
     /// BCP 47 language tag for hyphenation and line breaking.
     pub lang: Option<String>,
+    /// Text direction (ltr, rtl, or auto).
+    pub direction: Option<Direction>,
 
     // ── Color & Background ─────────────────────────────────────
     /// Text color.
@@ -157,6 +175,47 @@ impl Dimension {
             Dimension::Auto => None,
         }
     }
+}
+
+/// Layout display mode.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Display {
+    /// Flexbox layout (default).
+    #[default]
+    Flex,
+    /// CSS Grid layout.
+    Grid,
+}
+
+/// A single grid track size definition.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum GridTrackSize {
+    /// Fixed size in points.
+    Pt(f64),
+    /// Fractional unit (distributes remaining space proportionally).
+    Fr(f64),
+    /// Size determined by content.
+    Auto,
+    /// Clamped between min and max.
+    MinMax(Box<GridTrackSize>, Box<GridTrackSize>),
+}
+
+/// Grid item placement.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GridPlacement {
+    /// Column start line (1-based).
+    pub column_start: Option<i32>,
+    /// Column end line (1-based).
+    pub column_end: Option<i32>,
+    /// Row start line (1-based).
+    pub row_start: Option<i32>,
+    /// Row end line (1-based).
+    pub row_end: Option<i32>,
+    /// Number of columns to span.
+    pub column_span: Option<u32>,
+    /// Number of rows to span.
+    pub row_span: Option<u32>,
 }
 
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
@@ -241,6 +300,19 @@ pub enum TextTransform {
     Uppercase,
     Lowercase,
     Capitalize,
+}
+
+/// Text direction for BiDi support.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Direction {
+    /// Left-to-right (default).
+    #[default]
+    Ltr,
+    /// Right-to-left (Arabic, Hebrew).
+    Rtl,
+    /// Auto-detect from first strong character.
+    Auto,
 }
 
 /// CSS `hyphens` property controlling word hyphenation.
@@ -375,6 +447,9 @@ pub struct ResolvedStyle {
     pub padding: Edges,
     pub margin: Edges,
 
+    // Display
+    pub display: Display,
+
     // Flex
     pub flex_direction: FlexDirection,
     pub justify_content: JustifyContent,
@@ -389,6 +464,13 @@ pub struct ResolvedStyle {
     pub row_gap: f64,
     pub column_gap: f64,
 
+    // Grid
+    pub grid_template_columns: Option<Vec<GridTrackSize>>,
+    pub grid_template_rows: Option<Vec<GridTrackSize>>,
+    pub grid_auto_rows: Option<GridTrackSize>,
+    pub grid_auto_columns: Option<GridTrackSize>,
+    pub grid_placement: Option<GridPlacement>,
+
     // Text
     pub font_family: String,
     pub font_size: f64,
@@ -401,6 +483,7 @@ pub struct ResolvedStyle {
     pub text_transform: TextTransform,
     pub hyphens: Hyphens,
     pub lang: Option<String>,
+    pub direction: Direction,
 
     // Visual
     pub color: Color,
@@ -477,6 +560,8 @@ impl Style {
             padding: self.padding.unwrap_or_default(),
             margin: self.margin.unwrap_or_default(),
 
+            display: self.display.unwrap_or_default(),
+
             flex_direction: self.flex_direction.unwrap_or_default(),
             justify_content: self.justify_content.unwrap_or_default(),
             align_items: self.align_items.unwrap_or_default(),
@@ -497,6 +582,12 @@ impl Style {
             row_gap: self.row_gap.or(self.gap).unwrap_or(0.0),
             column_gap: self.column_gap.or(self.gap).unwrap_or(0.0),
 
+            grid_template_columns: self.grid_template_columns.clone(),
+            grid_template_rows: self.grid_template_rows.clone(),
+            grid_auto_rows: self.grid_auto_rows.clone(),
+            grid_auto_columns: self.grid_auto_columns.clone(),
+            grid_placement: self.grid_placement.clone(),
+
             font_family: self.font_family.clone().unwrap_or(parent_font_family),
             font_size,
             font_weight: self
@@ -508,9 +599,18 @@ impl Style {
             line_height: self
                 .line_height
                 .unwrap_or(parent.map(|p| p.line_height).unwrap_or(1.4)),
-            text_align: self
-                .text_align
-                .unwrap_or(parent.map(|p| p.text_align).unwrap_or_default()),
+            text_align: {
+                let direction = self
+                    .direction
+                    .unwrap_or(parent.map(|p| p.direction).unwrap_or_default());
+                self.text_align.unwrap_or_else(|| {
+                    if matches!(direction, Direction::Rtl) {
+                        TextAlign::Right
+                    } else {
+                        parent.map(|p| p.text_align).unwrap_or_default()
+                    }
+                })
+            },
             letter_spacing: self.letter_spacing.unwrap_or(0.0),
             text_decoration: self
                 .text_decoration
@@ -525,6 +625,9 @@ impl Style {
                 .lang
                 .clone()
                 .or_else(|| parent.and_then(|p| p.lang.clone())),
+            direction: self
+                .direction
+                .unwrap_or(parent.map(|p| p.direction).unwrap_or_default()),
 
             color: self.color.unwrap_or(parent_color),
             background_color: self.background_color,

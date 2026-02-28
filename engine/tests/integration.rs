@@ -4572,3 +4572,227 @@ fn test_tagged_pdf_figure_alt_text() {
         "Figure must carry /Alt text"
     );
 }
+
+// ─── BiDi Text Tests ─────────────────────────────────────────
+
+#[test]
+fn test_direction_json_deserialization() {
+    let json = r#"{
+        "defaultPage": { "width": 612, "height": 792 },
+        "children": [{
+            "kind": { "type": "Text", "content": "مرحبا" },
+            "style": { "direction": "rtl", "fontSize": 14 }
+        }]
+    }"#;
+    let doc: Document = serde_json::from_str(json).unwrap();
+    let style = &doc.children[0].style;
+    assert!(matches!(style.direction, Some(Direction::Rtl)));
+}
+
+#[test]
+fn test_direction_auto_detection() {
+    let json = r#"{
+        "defaultPage": { "width": 612, "height": 792 },
+        "children": [{
+            "kind": { "type": "Text", "content": "Hello World" },
+            "style": { "direction": "auto", "fontSize": 14 }
+        }]
+    }"#;
+    let doc: Document = serde_json::from_str(json).unwrap();
+    assert!(matches!(
+        doc.children[0].style.direction,
+        Some(Direction::Auto)
+    ));
+    let bytes = forme::render(&doc).unwrap();
+    assert!(!bytes.is_empty());
+}
+
+#[test]
+fn test_rtl_text_produces_valid_pdf() {
+    let json = r#"{
+        "defaultPage": { "width": 612, "height": 792 },
+        "children": [{
+            "kind": { "type": "Text", "content": "مرحبا بالعالم" },
+            "style": { "fontSize": 14, "direction": "rtl" }
+        }]
+    }"#;
+    let doc: Document = serde_json::from_str(json).unwrap();
+    let bytes = forme::render(&doc).unwrap();
+    let pdf_str = String::from_utf8_lossy(&bytes);
+    assert!(pdf_str.starts_with("%PDF-1.7"));
+    assert!(pdf_str.contains("%%EOF"));
+}
+
+#[test]
+fn test_mixed_ltr_rtl_produces_valid_pdf() {
+    let json = r#"{
+        "defaultPage": { "width": 612, "height": 792 },
+        "children": [{
+            "kind": { "type": "Text", "content": "Hello مرحبا World" },
+            "style": { "fontSize": 14 }
+        }]
+    }"#;
+    let doc: Document = serde_json::from_str(json).unwrap();
+    let bytes = forme::render(&doc).unwrap();
+    let pdf_str = String::from_utf8_lossy(&bytes);
+    assert!(pdf_str.starts_with("%PDF-1.7"));
+}
+
+#[test]
+fn test_rtl_direction_defaults_text_align_right() {
+    let style = Style {
+        direction: Some(Direction::Rtl),
+        font_size: Some(12.0),
+        ..Default::default()
+    };
+    let resolved = style.resolve(None, 500.0);
+    assert!(
+        matches!(resolved.text_align, TextAlign::Right),
+        "RTL direction should default text-align to Right"
+    );
+}
+
+#[test]
+fn test_direction_inherits_from_parent() {
+    let parent_style = Style {
+        direction: Some(Direction::Rtl),
+        font_size: Some(14.0),
+        ..Default::default()
+    };
+    let parent_resolved = parent_style.resolve(None, 500.0);
+
+    let child_style = Style {
+        font_size: Some(12.0),
+        ..Default::default()
+    };
+    let child_resolved = child_style.resolve(Some(&parent_resolved), 500.0);
+    assert!(
+        matches!(child_resolved.direction, Direction::Rtl),
+        "Child should inherit direction from parent"
+    );
+}
+
+// ─── CSS Grid Tests ──────────────────────────────────────────
+
+#[test]
+fn test_grid_display_json_deserialization() {
+    let json = r#"{
+        "defaultPage": { "width": 612, "height": 792 },
+        "children": [{
+            "kind": { "type": "View" },
+            "style": {
+                "display": "Grid",
+                "gridTemplateColumns": [{ "Fr": 1.0 }, { "Fr": 1.0 }, { "Fr": 1.0 }]
+            },
+            "children": [
+                { "kind": { "type": "Text", "content": "A" }, "style": { "fontSize": 12 } },
+                { "kind": { "type": "Text", "content": "B" }, "style": { "fontSize": 12 } },
+                { "kind": { "type": "Text", "content": "C" }, "style": { "fontSize": 12 } }
+            ]
+        }]
+    }"#;
+    let doc: Document = serde_json::from_str(json).unwrap();
+    let bytes = forme::render(&doc).unwrap();
+    let pdf_str = String::from_utf8_lossy(&bytes);
+    assert!(pdf_str.starts_with("%PDF-1.7"));
+}
+
+#[test]
+fn test_grid_fixed_and_fr_columns() {
+    let json = r#"{
+        "defaultPage": { "width": 612, "height": 792 },
+        "children": [{
+            "kind": { "type": "View" },
+            "style": {
+                "display": "Grid",
+                "gridTemplateColumns": [{ "Pt": 100 }, { "Fr": 1.0 }, { "Fr": 2.0 }],
+                "gap": 10
+            },
+            "children": [
+                { "kind": { "type": "Text", "content": "Fixed" }, "style": { "fontSize": 12 } },
+                { "kind": { "type": "Text", "content": "1fr" }, "style": { "fontSize": 12 } },
+                { "kind": { "type": "Text", "content": "2fr" }, "style": { "fontSize": 12 } }
+            ]
+        }]
+    }"#;
+    let doc: Document = serde_json::from_str(json).unwrap();
+    let bytes = forme::render(&doc).unwrap();
+    assert!(!bytes.is_empty());
+}
+
+#[test]
+fn test_grid_multiple_rows() {
+    let json = r#"{
+        "defaultPage": { "width": 612, "height": 792 },
+        "children": [{
+            "kind": { "type": "View" },
+            "style": {
+                "display": "Grid",
+                "gridTemplateColumns": [{ "Fr": 1.0 }, { "Fr": 1.0 }],
+                "rowGap": 5,
+                "columnGap": 10
+            },
+            "children": [
+                { "kind": { "type": "Text", "content": "A" }, "style": { "fontSize": 12 } },
+                { "kind": { "type": "Text", "content": "B" }, "style": { "fontSize": 12 } },
+                { "kind": { "type": "Text", "content": "C" }, "style": { "fontSize": 12 } },
+                { "kind": { "type": "Text", "content": "D" }, "style": { "fontSize": 12 } }
+            ]
+        }]
+    }"#;
+    let doc: Document = serde_json::from_str(json).unwrap();
+    let bytes = forme::render(&doc).unwrap();
+    assert!(!bytes.is_empty());
+}
+
+#[test]
+fn test_grid_explicit_placement() {
+    let json = r#"{
+        "defaultPage": { "width": 612, "height": 792 },
+        "children": [{
+            "kind": { "type": "View" },
+            "style": {
+                "display": "Grid",
+                "gridTemplateColumns": [{ "Fr": 1.0 }, { "Fr": 1.0 }, { "Fr": 1.0 }]
+            },
+            "children": [
+                {
+                    "kind": { "type": "Text", "content": "Placed" },
+                    "style": {
+                        "fontSize": 12,
+                        "gridPlacement": { "columnStart": 2, "rowStart": 1 }
+                    }
+                },
+                { "kind": { "type": "Text", "content": "Auto 1" }, "style": { "fontSize": 12 } },
+                { "kind": { "type": "Text", "content": "Auto 2" }, "style": { "fontSize": 12 } }
+            ]
+        }]
+    }"#;
+    let doc: Document = serde_json::from_str(json).unwrap();
+    let bytes = forme::render(&doc).unwrap();
+    assert!(!bytes.is_empty());
+}
+
+#[test]
+fn test_grid_display_default_is_flex() {
+    let style = Style::default();
+    let resolved = style.resolve(None, 500.0);
+    assert!(
+        matches!(resolved.display, Display::Flex),
+        "Display should default to Flex"
+    );
+}
+
+#[test]
+fn test_grid_track_resolution() {
+    use forme::layout::grid;
+    let tracks = vec![
+        GridTrackSize::Pt(100.0),
+        GridTrackSize::Fr(1.0),
+        GridTrackSize::Fr(2.0),
+    ];
+    let sizes = grid::resolve_tracks(&tracks, 400.0, 0.0, &[]);
+    assert!((sizes[0] - 100.0).abs() < 0.001);
+    assert!((sizes[1] - 100.0).abs() < 0.001);
+    assert!((sizes[2] - 200.0).abs() < 0.001);
+}
