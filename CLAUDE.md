@@ -197,6 +197,12 @@ Key files: `engine/src/qrcode.rs`, `engine/src/model/mod.rs` (NodeKind::QrCode),
 ### Font Fallback Chains
 `fontFamily: "Inter, Helvetica"` tries each comma-separated family in order. `FontRegistry::resolve()` splits on commas, strips quotes, and tries each family with exact weight then snapped weight (400/700). Falls back to Helvetica if nothing matches. Backward-compatible: a single family name (no comma) behaves identically to the old code. `FontContext` methods (`char_width`, `measure_string`, `font_data`, etc.) get fallback support automatically since they delegate to `resolve()`.
 
+### Intrinsic Width and textTransform
+`measure_intrinsic_width()` and `measure_min_content_width()` apply `apply_text_transform()` before measuring text. Without this, containers sized via intrinsic measurement (e.g., auto-width children inside `align-items: center`) would be too narrow when `textTransform: 'uppercase'` is set, because uppercase glyphs are wider than their lowercase counterparts. The same transform is applied in `measure_min_content_width()` for flex shrink min-content calculations. QR codes also report their explicit `size` as intrinsic width (falls back to 0 when unset), fixing centering via `align-items: center`.
+
+### WinAnsi Width Mapping
+Standard font `char_width()` in `font/metrics.rs` maps Unicode codepoints through `unicode_to_winansi()` before looking up glyph widths. Characters like em-dash (U+2014), en-dash (U+2013), smart quotes, ellipsis, etc. have Unicode code points above 255 but their widths are stored at WinAnsi positions (0x80–0x9F). The shared `unicode_to_winansi()` function in `font/metrics.rs` is also used by `PdfSerializer` for PDF text encoding — single source of truth for the Windows-1252 mapping.
+
 ### Grid repeat() Syntax
 React-layer only. `expandRepeat()` in `serialize.ts` pre-processes grid template strings, expanding `repeat(N, tracks)` before the existing split-on-whitespace logic. Example: `repeat(3, 1fr)` → `1fr 1fr 1fr`. Supports mixed: `200 repeat(2, 1fr) 200` → `200 1fr 1fr 200`.
 
