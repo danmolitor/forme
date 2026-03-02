@@ -180,29 +180,42 @@ impl FontRegistry {
         Self { fonts }
     }
 
-    /// Look up a font, falling back to Helvetica if not found.
-    pub fn resolve(&self, family: &str, weight: u32, italic: bool) -> &FontData {
-        let key = FontKey {
-            family: family.to_string(),
-            weight,
-            italic,
-        };
-        if let Some(font) = self.fonts.get(&key) {
-            return font;
-        }
-
-        // Try with normalized weight (snap to 400 or 700)
+    /// Look up a font by family name (or comma-separated fallback chain),
+    /// falling back to Helvetica if none match.
+    ///
+    /// Supports CSS-style font family lists: `"Inter, Helvetica"` tries Inter
+    /// first, then Helvetica. Quoted families are unquoted automatically.
+    pub fn resolve(&self, families: &str, weight: u32, italic: bool) -> &FontData {
         let snapped_weight = if weight >= 600 { 700 } else { 400 };
-        let key = FontKey {
-            family: family.to_string(),
-            weight: snapped_weight,
-            italic,
-        };
-        if let Some(font) = self.fonts.get(&key) {
-            return font;
+
+        for family in families.split(',') {
+            let family = family.trim().trim_matches('"').trim_matches('\'');
+            if family.is_empty() {
+                continue;
+            }
+
+            // Try exact weight
+            let key = FontKey {
+                family: family.to_string(),
+                weight,
+                italic,
+            };
+            if let Some(font) = self.fonts.get(&key) {
+                return font;
+            }
+
+            // Try with normalized weight (snap to 400 or 700)
+            let key = FontKey {
+                family: family.to_string(),
+                weight: snapped_weight,
+                italic,
+            };
+            if let Some(font) = self.fonts.get(&key) {
+                return font;
+            }
         }
 
-        // Fallback to Helvetica
+        // Final fallback: Helvetica
         let key = FontKey {
             family: "Helvetica".to_string(),
             weight: snapped_weight,
@@ -392,5 +405,48 @@ mod tests {
         let w700 = ctx.char_width('A', "Helvetica", 700, false, 12.0);
         let w800 = ctx.char_width('A', "Helvetica", 800, false, 12.0);
         assert!((w700 - w800).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_font_fallback_chain_first_match() {
+        let ctx = FontContext::new();
+        let w1 = ctx.char_width('A', "Times", 400, false, 12.0);
+        let w2 = ctx.char_width('A', "Times, Helvetica", 400, false, 12.0);
+        assert!((w1 - w2).abs() < 0.001, "Should use Times (first in chain)");
+    }
+
+    #[test]
+    fn test_font_fallback_chain_second_match() {
+        let ctx = FontContext::new();
+        let w1 = ctx.char_width('A', "Helvetica", 400, false, 12.0);
+        let w2 = ctx.char_width('A', "Missing, Helvetica", 400, false, 12.0);
+        assert!((w1 - w2).abs() < 0.001, "Should fall back to Helvetica");
+    }
+
+    #[test]
+    fn test_font_fallback_chain_all_missing() {
+        let ctx = FontContext::new();
+        let w1 = ctx.char_width('A', "Helvetica", 400, false, 12.0);
+        let w2 = ctx.char_width('A', "Missing, AlsoMissing", 400, false, 12.0);
+        assert!((w1 - w2).abs() < 0.001, "Should fall back to Helvetica");
+    }
+
+    #[test]
+    fn test_font_fallback_chain_quoted_families() {
+        let ctx = FontContext::new();
+        let w1 = ctx.char_width('A', "Times", 400, false, 12.0);
+        let w2 = ctx.char_width('A', "'Times', \"Helvetica\"", 400, false, 12.0);
+        assert!((w1 - w2).abs() < 0.001, "Should strip quotes and use Times");
+    }
+
+    #[test]
+    fn test_font_fallback_single_family_unchanged() {
+        let ctx = FontContext::new();
+        let w1 = ctx.char_width('A', "Courier", 400, false, 12.0);
+        let w2 = ctx.char_width('A', "Courier", 400, false, 12.0);
+        assert!(
+            (w1 - w2).abs() < 0.001,
+            "Single family should work as before"
+        );
     }
 }

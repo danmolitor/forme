@@ -1,5 +1,5 @@
 import { type ReactElement, isValidElement, Children, Fragment } from 'react';
-import { Document, Page, View, Text, Image, Table, Row, Cell, Fixed, Svg, PageBreak } from './components.js';
+import { Document, Page, View, Text, Image, Table, Row, Cell, Fixed, Svg, QrCode, PageBreak } from './components.js';
 import { Font, type FontRegistration } from './font.js';
 import {
   isRefMarker, getRefPath,
@@ -32,6 +32,7 @@ import type {
   FormeCornerValues,
   FormeGridTrackSize,
   FormeGridPlacement,
+  QrCodeProps,
 } from './types.js';
 
 // ─── Nesting validation ──────────────────────────────────────────────
@@ -254,6 +255,9 @@ function serializeChild(child: unknown, parent: ParentContext = null): FormeNode
   if (element.type === Svg) {
     return serializeSvg(element);
   }
+  if (element.type === QrCode) {
+    return serializeQrCode(element);
+  }
   if (element.type === PageBreak) {
     return {
       kind: { type: 'PageBreak' },
@@ -454,6 +458,20 @@ function serializeSvg(element: ReactElement): FormeNode {
   return node;
 }
 
+function serializeQrCode(element: ReactElement): FormeNode {
+  const props = element.props as QrCodeProps;
+  const kind: FormeNodeKind = { type: 'QrCode', data: props.data } as FormeNodeKind;
+  if (props.size !== undefined) (kind as Record<string, unknown>).size = props.size;
+  const style = mapStyle(props.style);
+  if (props.color) style.color = parseColor(props.color);
+  return {
+    kind,
+    style,
+    children: [],
+    sourceLocation: extractSourceLocation(element),
+  };
+}
+
 // ─── Children helpers ────────────────────────────────────────────────
 
 function flattenChildren(children: unknown): unknown[] {
@@ -589,6 +607,12 @@ const HYPHENS_MAP: Record<string, string> = {
   'auto': 'auto',
 };
 
+const TEXT_OVERFLOW_MAP: Record<string, string> = {
+  'wrap': 'Wrap',
+  'ellipsis': 'Ellipsis',
+  'clip': 'Clip',
+};
+
 export function mapStyle(style?: Style): FormeStyle {
   if (!style) return {};
 
@@ -698,6 +722,7 @@ export function mapStyle(style?: Style): FormeStyle {
   if (style.hyphens !== undefined) result.hyphens = HYPHENS_MAP[style.hyphens];
   if (style.lang !== undefined) result.lang = style.lang;
   if (style.direction !== undefined) result.direction = style.direction;
+  if (style.textOverflow !== undefined) result.textOverflow = TEXT_OVERFLOW_MAP[style.textOverflow];
 
   // Color
   if (style.color !== undefined) result.color = parseColor(style.color);
@@ -821,14 +846,27 @@ function mapGridTrack(track: GridTrackSize): FormeGridTrackSize {
 }
 
 /**
+ * Expand `repeat(N, tracks)` in a grid template string.
+ * E.g. `"repeat(3, 1fr)"` → `"1fr 1fr 1fr"`
+ *       `"200 repeat(2, 1fr) 200"` → `"200 1fr 1fr 200"`
+ */
+function expandRepeat(input: string): string {
+  return input.replace(/repeat\(\s*(\d+)\s*,\s*([^)]+)\)/g, (_match, count, tracks) => {
+    return (tracks.trim() + ' ').repeat(parseInt(count, 10)).trim();
+  });
+}
+
+/**
  * Parse a grid template string shorthand into an array of FormeGridTrackSize.
  * E.g. `"1fr 2fr 200"` → `[{Fr:1}, {Fr:2}, {Pt:200}]`
+ * Supports `repeat(N, tracks)` syntax.
  */
 function parseGridTemplate(value: string | GridTrackSize[]): FormeGridTrackSize[] {
   if (Array.isArray(value)) {
     return value.map(mapGridTrack);
   }
-  return value.split(/\s+/).filter(Boolean).map((token) => {
+  const expanded = expandRepeat(value);
+  return expanded.split(/\s+/).filter(Boolean).map((token) => {
     if (token === 'auto') return 'Auto' as FormeGridTrackSize;
     const frMatch = token.match(/^([0-9.]+)fr$/);
     if (frMatch) return { Fr: parseFloat(frMatch[1]) } as FormeGridTrackSize;
@@ -1164,6 +1202,7 @@ function serializeTemplateChild(child: unknown, parent: ParentContext = null): u
   }
   if (element.type === Fixed) return serializeTemplateFixed(element);
   if (element.type === Svg) return serializeSvg(element);
+  if (element.type === QrCode) return serializeQrCode(element);
   if (element.type === PageBreak) {
     return { kind: { type: 'PageBreak' }, style: {}, children: [] };
   }

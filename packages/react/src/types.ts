@@ -111,6 +111,8 @@ export interface Style {
   lang?: string;
   /** Text direction for BiDi support (Arabic, Hebrew). */
   direction?: 'ltr' | 'rtl' | 'auto';
+  /** Text overflow behavior: 'wrap' (default), 'ellipsis' (truncate with ...), 'clip' (truncate). */
+  textOverflow?: 'wrap' | 'ellipsis' | 'clip';
 
   // Visual
   color?: string;
@@ -249,6 +251,16 @@ export interface SvgProps {
   alt?: string;
 }
 
+export interface QrCodeProps {
+  /** Data to encode (URL, text, etc.) */
+  data: string;
+  /** Display size in points (QR codes are square). Defaults to available width. */
+  size?: number;
+  /** QR code color. Default: black. */
+  color?: string;
+  style?: Style;
+}
+
 /** A styled text segment within a <Text> element */
 export interface TextRun {
   content: string;
@@ -319,6 +331,7 @@ export type FormeNodeKind =
   | { type: 'TableCell'; col_span: number; row_span: number }
   | { type: 'Fixed'; position: 'Header' | 'Footer' }
   | { type: 'Svg'; width: number; height: number; view_box?: string; content: string }
+  | { type: 'QrCode'; data: string; size?: number }
   | { type: 'PageBreak' };
 
 export interface FormeColumnDef {
@@ -413,6 +426,7 @@ export interface FormeStyle {
   hyphens?: string;
   lang?: string;
   direction?: string;
+  textOverflow?: string;
   color?: FormeColor;
   backgroundColor?: FormeColor;
   opacity?: number;

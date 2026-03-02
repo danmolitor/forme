@@ -12,6 +12,7 @@ import {
   Fixed,
   PageBreak,
   Svg,
+  QrCode,
   serialize,
   render,
   mapStyle,
@@ -1202,5 +1203,100 @@ describe('CSS Grid serialization', () => {
     );
     const view = doc.children[0];
     expect(view.style.display).toBeUndefined();
+  });
+
+  it('expands repeat(N, track) in gridTemplateColumns', () => {
+    const doc = serialize(
+      <Document><View style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)' }}><Text>A</Text></View></Document>
+    );
+    const view = doc.children[0];
+    expect(view.style.gridTemplateColumns).toEqual([{ Fr: 1 }, { Fr: 1 }, { Fr: 1 }]);
+  });
+
+  it('expands repeat with multiple tracks', () => {
+    const doc = serialize(
+      <Document><View style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 100 1fr)' }}><Text>A</Text></View></Document>
+    );
+    const view = doc.children[0];
+    expect(view.style.gridTemplateColumns).toEqual([{ Pt: 100 }, { Fr: 1 }, { Pt: 100 }, { Fr: 1 }]);
+  });
+
+  it('expands repeat mixed with other tracks', () => {
+    const doc = serialize(
+      <Document><View style={{ display: 'grid', gridTemplateColumns: '200 repeat(2, 1fr) 200' }}><Text>A</Text></View></Document>
+    );
+    const view = doc.children[0];
+    expect(view.style.gridTemplateColumns).toEqual([{ Pt: 200 }, { Fr: 1 }, { Fr: 1 }, { Pt: 200 }]);
+  });
+
+  it('handles repeat in gridTemplateRows', () => {
+    const doc = serialize(
+      <Document><View style={{ display: 'grid', gridTemplateColumns: '1fr', gridTemplateRows: 'repeat(3, 50)' }}><Text>A</Text></View></Document>
+    );
+    const view = doc.children[0];
+    expect(view.style.gridTemplateRows).toEqual([{ Pt: 50 }, { Pt: 50 }, { Pt: 50 }]);
+  });
+});
+
+describe('textOverflow serialization', () => {
+  it('maps textOverflow ellipsis', () => {
+    const doc = serialize(
+      <Document><Text style={{ textOverflow: 'ellipsis' }}>Long text</Text></Document>
+    );
+    expect(doc.children[0].style.textOverflow).toBe('Ellipsis');
+  });
+
+  it('maps textOverflow clip', () => {
+    const doc = serialize(
+      <Document><Text style={{ textOverflow: 'clip' }}>Long text</Text></Document>
+    );
+    expect(doc.children[0].style.textOverflow).toBe('Clip');
+  });
+
+  it('maps textOverflow wrap', () => {
+    const doc = serialize(
+      <Document><Text style={{ textOverflow: 'wrap' }}>Long text</Text></Document>
+    );
+    expect(doc.children[0].style.textOverflow).toBe('Wrap');
+  });
+
+  it('omits textOverflow when not set', () => {
+    const doc = serialize(
+      <Document><Text>hello</Text></Document>
+    );
+    expect(doc.children[0].style.textOverflow).toBeUndefined();
+  });
+});
+
+describe('QrCode serialization', () => {
+  it('produces correct kind with data', () => {
+    const doc = serialize(
+      <Document><QrCode data="https://formepdf.com" /></Document>
+    );
+    expect(doc.children[0].kind).toEqual({ type: 'QrCode', data: 'https://formepdf.com' });
+  });
+
+  it('includes size when provided', () => {
+    const doc = serialize(
+      <Document><QrCode data="test" size={100} /></Document>
+    );
+    const kind = doc.children[0].kind as { type: string; data: string; size?: number };
+    expect(kind.type).toBe('QrCode');
+    expect(kind.data).toBe('test');
+    expect(kind.size).toBe(100);
+  });
+
+  it('applies color prop to style', () => {
+    const doc = serialize(
+      <Document><QrCode data="test" color="#ff0000" /></Document>
+    );
+    expect(doc.children[0].style.color).toEqual({ r: 1, g: 0, b: 0, a: 1 });
+  });
+
+  it('applies style prop', () => {
+    const doc = serialize(
+      <Document><QrCode data="test" style={{ margin: 10 }} /></Document>
+    );
+    expect(doc.children[0].style.margin).toEqual({ top: 10, right: 10, bottom: 10, left: 10 });
   });
 });

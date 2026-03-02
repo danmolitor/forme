@@ -1226,6 +1226,359 @@ impl TextLayout {
             self.break_runs_into_lines(font_context, chars, max_width, hyphens, lang)
         }
     }
+
+    /// Truncate lines to a single line with ellipsis appended if it exceeds max_width.
+    #[allow(clippy::too_many_arguments)]
+    pub fn truncate_with_ellipsis(
+        &self,
+        font_context: &FontContext,
+        mut lines: Vec<BrokenLine>,
+        max_width: f64,
+        font_size: f64,
+        font_family: &str,
+        font_weight: u32,
+        font_style: FontStyle,
+        letter_spacing: f64,
+    ) -> Vec<BrokenLine> {
+        if lines.is_empty() {
+            return lines;
+        }
+
+        // Take only the first line's content; if there were multiple lines,
+        // reconstruct all chars from all lines into one
+        let mut all_chars: Vec<char> = Vec::new();
+        for line in &lines {
+            all_chars.extend(&line.chars);
+        }
+        lines.truncate(1);
+
+        let ellipsis = '\u{2026}'; // …
+        let italic = matches!(font_style, FontStyle::Italic | FontStyle::Oblique);
+        let ellipsis_width =
+            font_context.char_width(ellipsis, font_family, font_weight, italic, font_size)
+                + letter_spacing;
+
+        // Measure full first line — if it fits, return as-is
+        let char_widths = self.measure_chars(
+            font_context,
+            &all_chars.iter().collect::<String>(),
+            font_size,
+            font_family,
+            font_weight,
+            font_style,
+            letter_spacing,
+        );
+
+        let total_width: f64 = char_widths.iter().sum();
+        if total_width <= max_width {
+            // Fits — rebuild line with all chars
+            let mut x = 0.0;
+            let positions: Vec<f64> = char_widths
+                .iter()
+                .map(|w| {
+                    let pos = x;
+                    x += w;
+                    pos
+                })
+                .collect();
+            lines[0] = BrokenLine {
+                chars: all_chars.clone(),
+                text: all_chars.iter().collect(),
+                char_positions: positions,
+                width: total_width,
+            };
+            return lines;
+        }
+
+        // Truncate: remove chars from end until line + ellipsis fits
+        let target_width = max_width - ellipsis_width;
+        let mut width = 0.0;
+        let mut keep = 0;
+        for (i, &cw) in char_widths.iter().enumerate() {
+            if width + cw > target_width {
+                break;
+            }
+            width += cw;
+            keep = i + 1;
+        }
+
+        // Trim trailing whitespace
+        while keep > 0 && all_chars[keep - 1].is_whitespace() {
+            keep -= 1;
+        }
+
+        let mut truncated_chars: Vec<char> = all_chars[..keep].to_vec();
+        truncated_chars.push(ellipsis);
+
+        let mut x = 0.0;
+        let mut positions: Vec<f64> = char_widths[..keep]
+            .iter()
+            .map(|w| {
+                let pos = x;
+                x += w;
+                pos
+            })
+            .collect();
+        positions.push(x);
+        let final_width = x + ellipsis_width;
+
+        lines[0] = BrokenLine {
+            text: truncated_chars.iter().collect(),
+            chars: truncated_chars,
+            char_positions: positions,
+            width: final_width,
+        };
+        lines
+    }
+
+    /// Truncate lines to a single line by clipping (no indicator appended).
+    #[allow(clippy::too_many_arguments)]
+    pub fn truncate_clip(
+        &self,
+        font_context: &FontContext,
+        mut lines: Vec<BrokenLine>,
+        max_width: f64,
+        font_size: f64,
+        font_family: &str,
+        font_weight: u32,
+        font_style: FontStyle,
+        letter_spacing: f64,
+    ) -> Vec<BrokenLine> {
+        if lines.is_empty() {
+            return lines;
+        }
+
+        let mut all_chars: Vec<char> = Vec::new();
+        for line in &lines {
+            all_chars.extend(&line.chars);
+        }
+        lines.truncate(1);
+
+        let char_widths = self.measure_chars(
+            font_context,
+            &all_chars.iter().collect::<String>(),
+            font_size,
+            font_family,
+            font_weight,
+            font_style,
+            letter_spacing,
+        );
+
+        let total_width: f64 = char_widths.iter().sum();
+        if total_width <= max_width {
+            let mut x = 0.0;
+            let positions: Vec<f64> = char_widths
+                .iter()
+                .map(|w| {
+                    let pos = x;
+                    x += w;
+                    pos
+                })
+                .collect();
+            lines[0] = BrokenLine {
+                chars: all_chars.clone(),
+                text: all_chars.iter().collect(),
+                char_positions: positions,
+                width: total_width,
+            };
+            return lines;
+        }
+
+        let mut width = 0.0;
+        let mut keep = 0;
+        for (i, &cw) in char_widths.iter().enumerate() {
+            if width + cw > max_width {
+                break;
+            }
+            width += cw;
+            keep = i + 1;
+        }
+
+        let truncated_chars: Vec<char> = all_chars[..keep].to_vec();
+        let mut x = 0.0;
+        let positions: Vec<f64> = char_widths[..keep]
+            .iter()
+            .map(|w| {
+                let pos = x;
+                x += w;
+                pos
+            })
+            .collect();
+
+        lines[0] = BrokenLine {
+            text: truncated_chars.iter().collect(),
+            chars: truncated_chars,
+            char_positions: positions,
+            width,
+        };
+        lines
+    }
+
+    /// Truncate multi-style run lines to a single line with ellipsis.
+    pub fn truncate_runs_with_ellipsis(
+        &self,
+        font_context: &FontContext,
+        mut lines: Vec<RunBrokenLine>,
+        max_width: f64,
+    ) -> Vec<RunBrokenLine> {
+        if lines.is_empty() {
+            return lines;
+        }
+
+        // Gather all chars from all lines
+        let mut all_chars: Vec<StyledChar> = Vec::new();
+        for line in &lines {
+            all_chars.extend(line.chars.iter().cloned());
+        }
+        lines.truncate(1);
+
+        let char_widths = self.measure_styled_chars(font_context, &all_chars);
+        let total_width: f64 = char_widths.iter().sum();
+
+        if total_width <= max_width {
+            let mut x = 0.0;
+            let positions: Vec<f64> = char_widths
+                .iter()
+                .map(|w| {
+                    let pos = x;
+                    x += w;
+                    pos
+                })
+                .collect();
+            lines[0] = RunBrokenLine {
+                chars: all_chars,
+                char_positions: positions,
+                width: total_width,
+            };
+            return lines;
+        }
+
+        // Measure ellipsis using the last char's style
+        let last_style = all_chars.last().unwrap();
+        let italic = matches!(
+            last_style.font_style,
+            FontStyle::Italic | FontStyle::Oblique
+        );
+        let ellipsis_width = font_context.char_width(
+            '\u{2026}',
+            &last_style.font_family,
+            last_style.font_weight,
+            italic,
+            last_style.font_size,
+        ) + last_style.letter_spacing;
+
+        let target_width = max_width - ellipsis_width;
+        let mut width = 0.0;
+        let mut keep = 0;
+        for (i, &cw) in char_widths.iter().enumerate() {
+            if width + cw > target_width {
+                break;
+            }
+            width += cw;
+            keep = i + 1;
+        }
+
+        while keep > 0 && all_chars[keep - 1].ch.is_whitespace() {
+            keep -= 1;
+        }
+
+        let mut truncated: Vec<StyledChar> = all_chars[..keep].to_vec();
+        // Add ellipsis char with the style of the last kept char (or last_style)
+        let ellipsis_style = if keep > 0 {
+            all_chars[keep - 1].clone()
+        } else {
+            last_style.clone()
+        };
+        truncated.push(StyledChar {
+            ch: '\u{2026}',
+            ..ellipsis_style
+        });
+
+        let mut x = 0.0;
+        let mut positions: Vec<f64> = char_widths[..keep]
+            .iter()
+            .map(|w| {
+                let pos = x;
+                x += w;
+                pos
+            })
+            .collect();
+        positions.push(x);
+
+        lines[0] = RunBrokenLine {
+            chars: truncated,
+            char_positions: positions,
+            width: x + ellipsis_width,
+        };
+        lines
+    }
+
+    /// Truncate multi-style run lines to a single line by clipping.
+    pub fn truncate_runs_clip(
+        &self,
+        font_context: &FontContext,
+        mut lines: Vec<RunBrokenLine>,
+        max_width: f64,
+    ) -> Vec<RunBrokenLine> {
+        if lines.is_empty() {
+            return lines;
+        }
+
+        let mut all_chars: Vec<StyledChar> = Vec::new();
+        for line in &lines {
+            all_chars.extend(line.chars.iter().cloned());
+        }
+        lines.truncate(1);
+
+        let char_widths = self.measure_styled_chars(font_context, &all_chars);
+        let total_width: f64 = char_widths.iter().sum();
+
+        if total_width <= max_width {
+            let mut x = 0.0;
+            let positions: Vec<f64> = char_widths
+                .iter()
+                .map(|w| {
+                    let pos = x;
+                    x += w;
+                    pos
+                })
+                .collect();
+            lines[0] = RunBrokenLine {
+                chars: all_chars,
+                char_positions: positions,
+                width: total_width,
+            };
+            return lines;
+        }
+
+        let mut width = 0.0;
+        let mut keep = 0;
+        for (i, &cw) in char_widths.iter().enumerate() {
+            if width + cw > max_width {
+                break;
+            }
+            width += cw;
+            keep = i + 1;
+        }
+
+        let truncated: Vec<StyledChar> = all_chars[..keep].to_vec();
+        let mut x = 0.0;
+        let positions: Vec<f64> = char_widths[..keep]
+            .iter()
+            .map(|w| {
+                let pos = x;
+                x += w;
+                pos
+            })
+            .collect();
+
+        lines[0] = RunBrokenLine {
+            chars: truncated,
+            char_positions: positions,
+            width,
+        };
+        lines
+    }
 }
 
 #[cfg(test)]
@@ -1636,6 +1989,117 @@ mod tests {
         assert!(
             (manual_width - full_width).abs() < 0.01,
             "Manual min-content ({manual_width}) should equal full word width ({full_width})"
+        );
+    }
+
+    #[test]
+    fn test_truncate_ellipsis_narrow() {
+        let tl = TextLayout::new();
+        let fc = ctx();
+        let lines = tl.break_into_lines(
+            &fc,
+            "Hello World this is a long text",
+            200.0,
+            12.0,
+            "Helvetica",
+            400,
+            FontStyle::Normal,
+            0.0,
+            Hyphens::Manual,
+            None,
+        );
+        // Multiple lines exist
+        assert!(lines.len() >= 1);
+
+        let truncated = tl.truncate_with_ellipsis(
+            &fc,
+            lines,
+            60.0, // Very narrow
+            12.0,
+            "Helvetica",
+            400,
+            FontStyle::Normal,
+            0.0,
+        );
+        assert_eq!(truncated.len(), 1, "Should be single line");
+        assert!(
+            truncated[0].text.ends_with('\u{2026}'),
+            "Should end with ellipsis: {:?}",
+            truncated[0].text
+        );
+        assert!(
+            truncated[0].width <= 60.0 + 0.1,
+            "Should fit within max_width"
+        );
+    }
+
+    #[test]
+    fn test_truncate_ellipsis_fits() {
+        let tl = TextLayout::new();
+        let fc = ctx();
+        let lines = tl.break_into_lines(
+            &fc,
+            "Hi",
+            200.0,
+            12.0,
+            "Helvetica",
+            400,
+            FontStyle::Normal,
+            0.0,
+            Hyphens::Manual,
+            None,
+        );
+        let truncated = tl.truncate_with_ellipsis(
+            &fc,
+            lines,
+            200.0,
+            12.0,
+            "Helvetica",
+            400,
+            FontStyle::Normal,
+            0.0,
+        );
+        assert_eq!(truncated.len(), 1);
+        assert_eq!(
+            truncated[0].text, "Hi",
+            "Short text should not get ellipsis"
+        );
+    }
+
+    #[test]
+    fn test_truncate_clip() {
+        let tl = TextLayout::new();
+        let fc = ctx();
+        let lines = tl.break_into_lines(
+            &fc,
+            "Hello World this is a long text",
+            200.0,
+            12.0,
+            "Helvetica",
+            400,
+            FontStyle::Normal,
+            0.0,
+            Hyphens::Manual,
+            None,
+        );
+        let truncated = tl.truncate_clip(
+            &fc,
+            lines,
+            60.0,
+            12.0,
+            "Helvetica",
+            400,
+            FontStyle::Normal,
+            0.0,
+        );
+        assert_eq!(truncated.len(), 1, "Should be single line");
+        assert!(
+            !truncated[0].text.contains('\u{2026}'),
+            "Clip should not have ellipsis"
+        );
+        assert!(
+            truncated[0].width <= 60.0 + 0.1,
+            "Should fit within max_width"
         );
     }
 }

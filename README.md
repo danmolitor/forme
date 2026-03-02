@@ -62,6 +62,9 @@ Live preview with debug overlays. Click any element to inspect its computed styl
 - **Absolute positioning**: `position: 'absolute'` with `top`, `right`, `bottom`, `left` relative to the parent View.
 - **Column flex**: `justifyContent` and `alignItems` work in both row and column directions.
 - **SVG**: Inline SVG rendering with support for `rect`, `circle`, `ellipse`, `line`, `polyline`, `polygon`, and `path` elements.
+- **QR codes**: Built-in `<QrCode>` component. Vector-based, crisp at any zoom level.
+- **Text overflow**: `textOverflow: 'ellipsis'` truncates single-line text with "..." when it exceeds available width. Also supports `'clip'`.
+- **Font fallback chains**: `fontFamily: "Inter, Helvetica"` tries each font in order, falling back automatically.
 - **Custom fonts**: TrueType font embedding with automatic subsetting.
 - **Links**: Add `href` to any `<Text>`, `<View>`, `<Image>`, or `<Svg>` for clickable PDF links.
 - **Bookmarks**: Add `bookmark` to any element for PDF outline entries. Navigate long documents from the bookmark panel.
@@ -127,6 +130,7 @@ Font sources can be file paths, data URIs, or `Uint8Array`. Fonts are automatica
 | `<Row>` | Table row. `header` for repeating on page breaks. |
 | `<Cell>` | Table cell. `colSpan`, `rowSpan`. |
 | `<Svg>` | Inline SVG graphics. `href`, `alt`. |
+| `<QrCode>` | QR code. `data`, `size`, `color`. Vector-based. |
 | `<Fixed>` | Repeating header or footer. |
 | `<PageBreak>` | Force a page break. |
 
@@ -148,6 +152,9 @@ Font sources can be file paths, data URIs, or `Uint8Array`. Fonts are automatica
 | SVG | Basic shapes and paths | Yes | Full browser SVG |
 | Links | `href` prop on Text/View/Image/Svg | `<Link>` component | HTML `<a>` tags |
 | Bookmarks | `bookmark` prop on any element | Yes | No |
+| QR codes | Built-in `<QrCode>` component | No | Via HTML/JS libraries |
+| Text overflow | `textOverflow: 'ellipsis'` | No | CSS `text-overflow` |
+| Font fallback | `fontFamily: "Inter, Helvetica"` | Single family only | Full CSS font stack |
 | Custom fonts | TTF with OpenType shaping | Yes | Yes |
 | Dependencies | None (WASM) | yoga-layout | Chrome/Chromium |
 | Runs in-process | Yes | Yes | No (subprocess) |

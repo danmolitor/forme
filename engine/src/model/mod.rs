@@ -299,6 +299,16 @@ pub enum NodeKind {
         /// SVG markup content (the inner XML).
         content: String,
     },
+
+    /// A QR code rendered as vector rectangles.
+    QrCode {
+        /// The data to encode (URL, text, etc.).
+        data: String,
+        /// Display size in points (QR codes are always square).
+        /// Defaults to available width if omitted.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        size: Option<f64>,
+    },
 }
 
 /// An inline styled run within a Text node.
@@ -415,6 +425,7 @@ impl Node {
             NodeKind::TableRow { .. } => true,
             NodeKind::Image { .. } => false,
             NodeKind::Svg { .. } => false,
+            NodeKind::QrCode { .. } => false,
             NodeKind::PageBreak => false,
             NodeKind::Fixed { .. } => false,
             NodeKind::Page { .. } => true,

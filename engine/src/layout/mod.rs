@@ -341,6 +341,7 @@ impl LayoutInfo {
                     DrawCommand::Image { .. } => "Image",
                     DrawCommand::ImagePlaceholder => "ImagePlaceholder",
                     DrawCommand::Svg { .. } => "Svg",
+                    DrawCommand::QrCode { .. } => "QrCode",
                 };
                 let text_content = match &elem.draw {
                     DrawCommand::Text { lines, .. } => {
@@ -453,6 +454,7 @@ fn node_kind_name(kind: &NodeKind) -> &'static str {
         NodeKind::Page { .. } => "Page",
         NodeKind::PageBreak => "PageBreak",
         NodeKind::Svg { .. } => "Svg",
+        NodeKind::QrCode { .. } => "QrCode",
     }
 }
 
@@ -487,6 +489,12 @@ pub enum DrawCommand {
         commands: Vec<crate::svg::SvgCommand>,
         width: f64,
         height: f64,
+    },
+    /// Draw a QR code as filled rectangles.
+    QrCode {
+        modules: Vec<Vec<bool>>,
+        module_size: f64,
+        color: Color,
     },
 }
 
@@ -952,6 +960,22 @@ impl LayoutEngine {
                     *svg_h,
                     view_box.as_deref(),
                     content,
+                );
+            }
+
+            NodeKind::QrCode {
+                data,
+                size: explicit_size,
+            } => {
+                self.layout_qrcode(
+                    node,
+                    &style,
+                    cursor,
+                    pages,
+                    x,
+                    available_width,
+                    data,
+                    *explicit_size,
                 );
             }
         }
@@ -2103,6 +2127,31 @@ impl LayoutEngine {
             justify,
         );
 
+        // Apply text overflow truncation (single-line modes)
+        let lines = match style.text_overflow {
+            TextOverflow::Ellipsis => self.text_layout.truncate_with_ellipsis(
+                font_context,
+                lines,
+                text_width,
+                style.font_size,
+                &style.font_family,
+                style.font_weight,
+                style.font_style,
+                style.letter_spacing,
+            ),
+            TextOverflow::Clip => self.text_layout.truncate_clip(
+                font_context,
+                lines,
+                text_width,
+                style.font_size,
+                &style.font_family,
+                style.font_weight,
+                style.font_style,
+                style.letter_spacing,
+            ),
+            TextOverflow::Wrap => lines,
+        };
+
         let line_height = style.font_size * style.line_height;
 
         // Widow/orphan control: decide how to break before placing lines
@@ -2303,6 +2352,19 @@ impl LayoutEngine {
             style.lang.as_deref(),
             justify,
         );
+
+        // Apply text overflow truncation (single-line modes)
+        let broken_lines = match style.text_overflow {
+            TextOverflow::Ellipsis => {
+                self.text_layout
+                    .truncate_runs_with_ellipsis(font_context, broken_lines, text_width)
+            }
+            TextOverflow::Clip => {
+                self.text_layout
+                    .truncate_runs_clip(font_context, broken_lines, text_width)
+            }
+            TextOverflow::Wrap => broken_lines,
+        };
 
         let line_height = style.font_size * style.line_height;
 
@@ -3048,6 +3110,61 @@ impl LayoutEngine {
         cursor.y += svg_height + margin.bottom;
     }
 
+    /// Layout a QR code as a square block of vector rectangles.
+    #[allow(clippy::too_many_arguments)]
+    fn layout_qrcode(
+        &self,
+        node: &Node,
+        style: &ResolvedStyle,
+        cursor: &mut PageCursor,
+        pages: &mut Vec<LayoutPage>,
+        x: f64,
+        available_width: f64,
+        data: &str,
+        explicit_size: Option<f64>,
+    ) {
+        let margin = &style.margin;
+        let display_size = explicit_size.unwrap_or(available_width - margin.horizontal());
+        let total_height = display_size + margin.vertical();
+
+        if total_height > cursor.remaining_height() {
+            pages.push(cursor.finalize());
+            *cursor = cursor.new_page();
+        }
+
+        cursor.y += margin.top;
+
+        let draw = match crate::qrcode::generate_qr(data) {
+            Ok(matrix) => {
+                let module_size = display_size / matrix.size as f64;
+                DrawCommand::QrCode {
+                    modules: matrix.modules,
+                    module_size,
+                    color: style.color,
+                }
+            }
+            Err(_) => DrawCommand::None,
+        };
+
+        cursor.elements.push(LayoutElement {
+            x: x + margin.left,
+            y: cursor.content_y + cursor.y,
+            width: display_size,
+            height: display_size,
+            draw,
+            children: vec![],
+            node_type: Some("QrCode".to_string()),
+            resolved_style: Some(style.clone()),
+            source_location: node.source_location.clone(),
+            href: node.href.clone(),
+            bookmark: node.bookmark.clone(),
+            alt: node.alt.clone(),
+            is_header_row: false,
+        });
+
+        cursor.y += display_size + margin.bottom;
+    }
+
     // ── Measurement helpers ─────────────────────────────────────
 
     fn measure_node_height(
@@ -3131,6 +3248,10 @@ impl LayoutEngine {
                 w * aspect + style.padding.vertical()
             }
             NodeKind::Svg { height, .. } => *height + style.margin.vertical(),
+            NodeKind::QrCode { size, .. } => {
+                let display_size = size.unwrap_or(available_width - style.margin.horizontal());
+                display_size + style.margin.vertical()
+            }
             _ => {
                 // If a fixed height is specified, use it directly
                 if let SizeConstraint::Fixed(h) = style.height {

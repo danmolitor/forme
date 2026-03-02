@@ -891,6 +891,37 @@ impl PdfWriter {
                 }
                 return;
             }
+
+            DrawCommand::QrCode {
+                modules,
+                module_size,
+                color,
+            } => {
+                *element_counter += 1;
+                let _ = writeln!(stream, "q");
+                let _ = writeln!(stream, "{:.3} {:.3} {:.3} rg", color.r, color.g, color.b);
+                for (row_idx, row) in modules.iter().enumerate() {
+                    for (col_idx, &dark) in row.iter().enumerate() {
+                        if dark {
+                            let mx = element.x + col_idx as f64 * module_size;
+                            let my = page_height - element.y - (row_idx as f64 + 1.0) * module_size;
+                            let _ = writeln!(
+                                stream,
+                                "{:.2} {:.2} {:.2} {:.2} re",
+                                mx, my, module_size, module_size
+                            );
+                        }
+                    }
+                }
+                let _ = writeln!(stream, "f\nQ");
+                if tagged_mcid.is_some() {
+                    let _ = writeln!(stream, "EMC");
+                    if let Some(ref mut tb) = tag_builder {
+                        tb.end_element();
+                    }
+                }
+                return;
+            }
         }
 
         for child in &element.children {

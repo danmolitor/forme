@@ -4,10 +4,10 @@ sidebarTitle: Components
 description: All Forme React components for PDF generation - Document, Page, View, Text, Image, Table, Row, Cell, Fixed, PageBreak, and Svg.
 ---
 
-Forme provides 11 components for building PDF documents. All components are imported from `@formepdf/react`.
+Forme provides 12 components for building PDF documents. All components are imported from `@formepdf/react`.
 
 ```tsx
-import { Document, Page, View, Text, Image, Svg, Table, Row, Cell, Fixed, PageBreak } from '@formepdf/react';
+import { Document, Page, View, Text, Image, Svg, QrCode, Table, Row, Cell, Fixed, PageBreak } from '@formepdf/react';
 ```
 
 ---
@@ -363,6 +363,36 @@ Renders inline SVG graphics. Supports basic SVG elements: `rect`, `circle`, `ell
 ```
 
 SVG content is rendered directly into the PDF using native PDF drawing operations, not rasterized. This produces crisp vector output at any zoom level.
+
+---
+
+## QrCode
+
+Renders a QR code from a data string. Output is vector-based (not a raster image), so it stays crisp at any zoom level.
+
+### Props
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `data` | `string` | (required) | The data to encode (URL, text, etc.) |
+| `size` | `number` | - | Display size in points. QR codes are always square. Defaults to the available width. |
+| `color` | `string` | `"#000000"` | Color of the dark modules |
+| `style` | `Style` | - | Additional style properties (margin, etc.) |
+
+### Example
+
+```tsx
+{/* QR code linking to a URL */}
+<QrCode data="https://formepdf.com" size={100} />
+
+{/* QR code with custom color */}
+<QrCode data="https://example.com/order/12345" size={80} color="#1e293b" />
+
+{/* QR code with margin */}
+<QrCode data="SKU-9876" size={60} style={{ marginTop: 12 }} />
+```
+
+QR codes are rendered as filled rectangles in the PDF — one rectangle per dark module. This is a native vector representation, not an embedded image, which keeps file sizes small and output sharp.
 
 ---
 

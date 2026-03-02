@@ -1,5 +1,5 @@
 // Components
-export { Document, Page, View, Text, Image, Table, Row, Cell, Fixed, Svg, PageBreak } from './components.js';
+export { Document, Page, View, Text, Image, Table, Row, Cell, Fixed, Svg, QrCode, PageBreak } from './components.js';
 
 // Serialization
 export { serialize, serializeTemplate, mapStyle, mapDimension, parseColor, expandEdges, expandCorners } from './serialize.js';
@@ -37,6 +37,7 @@ export type {
   CellProps,
   FixedProps,
   SvgProps,
+  QrCodeProps,
   TextRun,
   // Forme JSON output
   FormeDocument,

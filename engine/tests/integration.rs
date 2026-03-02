@@ -4796,3 +4796,233 @@ fn test_grid_track_resolution() {
     assert!((sizes[1] - 100.0).abs() < 0.001);
     assert!((sizes[2] - 200.0).abs() < 0.001);
 }
+
+// ─── QR Code Tests ───────────────────────────────────────────────
+
+#[test]
+fn test_qrcode_renders_to_pdf() {
+    let doc = Document {
+        children: vec![Node {
+            kind: NodeKind::QrCode {
+                data: "https://formepdf.com".to_string(),
+                size: Some(100.0),
+            },
+            style: Style::default(),
+            children: vec![],
+            id: None,
+            source_location: None,
+            bookmark: None,
+            href: None,
+            alt: None,
+        }],
+        metadata: Metadata::default(),
+        default_page: PageConfig::default(),
+        fonts: vec![],
+        tagged: false,
+        pdfa: None,
+    };
+
+    let pdf = forme::render(&doc).expect("QR code should render to PDF");
+    assert!(pdf.len() > 100, "PDF should have content");
+    assert!(pdf.starts_with(b"%PDF"), "Should be a valid PDF");
+}
+
+#[test]
+fn test_qrcode_with_explicit_size() {
+    let doc = Document {
+        children: vec![Node {
+            kind: NodeKind::QrCode {
+                data: "test".to_string(),
+                size: Some(50.0),
+            },
+            style: Style::default(),
+            children: vec![],
+            id: None,
+            source_location: None,
+            bookmark: None,
+            href: None,
+            alt: None,
+        }],
+        metadata: Metadata::default(),
+        default_page: PageConfig::default(),
+        fonts: vec![],
+        tagged: false,
+        pdfa: None,
+    };
+
+    let (pdf, layout) = forme::render_with_layout(&doc).expect("Should render");
+    assert!(pdf.starts_with(b"%PDF"));
+    assert_eq!(layout.pages.len(), 1);
+    // The QR code element should be 50x50
+    let qr_elem = &layout.pages[0].elements[0];
+    assert!((qr_elem.width - 50.0).abs() < 0.1);
+    assert!((qr_elem.height - 50.0).abs() < 0.1);
+}
+
+#[test]
+fn test_qrcode_page_break() {
+    // Fill a page almost to the bottom, then add a QR code that should overflow
+    let mut children: Vec<Node> = Vec::new();
+    // Add text to fill up the page
+    for _ in 0..50 {
+        children.push(make_text("Line of text to fill the page up", 12.0));
+    }
+    children.push(Node {
+        kind: NodeKind::QrCode {
+            data: "overflow".to_string(),
+            size: Some(200.0),
+        },
+        style: Style::default(),
+        children: vec![],
+        id: None,
+        source_location: None,
+        bookmark: None,
+        href: None,
+        alt: None,
+    });
+
+    let doc = Document {
+        children,
+        metadata: Metadata::default(),
+        default_page: PageConfig::default(),
+        fonts: vec![],
+        tagged: false,
+        pdfa: None,
+    };
+
+    let (pdf, layout) = forme::render_with_layout(&doc).expect("Should render");
+    assert!(pdf.starts_with(b"%PDF"));
+    assert!(layout.pages.len() >= 2, "QR code should cause a page break");
+}
+
+#[test]
+fn test_qrcode_json_deserialization() {
+    let json = r#"{
+        "children": [{
+            "kind": { "type": "QrCode", "data": "hello world", "size": 80 },
+            "style": {},
+            "children": []
+        }],
+        "metadata": {},
+        "defaultPage": {},
+        "fonts": []
+    }"#;
+    let pdf = forme::render_json(json).expect("QR code JSON should render");
+    assert!(pdf.starts_with(b"%PDF"));
+}
+
+// ─── Font Fallback Chain Tests ──────────────────────────────────
+
+#[test]
+fn test_font_fallback_chain_in_document() {
+    // Use "Missing, Helvetica" — should fall back to Helvetica
+    let doc = Document {
+        children: vec![Node {
+            kind: NodeKind::Text {
+                content: "Fallback test".to_string(),
+                href: None,
+                runs: vec![],
+            },
+            style: Style {
+                font_family: Some("Missing, Helvetica".to_string()),
+                font_size: Some(12.0),
+                ..Default::default()
+            },
+            children: vec![],
+            id: None,
+            source_location: None,
+            bookmark: None,
+            href: None,
+            alt: None,
+        }],
+        metadata: Metadata::default(),
+        default_page: PageConfig::default(),
+        fonts: vec![],
+        tagged: false,
+        pdfa: None,
+    };
+
+    let pdf = forme::render(&doc).expect("Fallback chain should render");
+    assert!(pdf.starts_with(b"%PDF"));
+}
+
+// ─── textOverflow Tests ──────────────────────────────────────────
+
+#[test]
+fn test_text_overflow_ellipsis_json() {
+    let json = r#"{
+        "children": [{
+            "kind": { "type": "Text", "content": "This is a very long text that should be truncated with ellipsis because the container is narrow" },
+            "style": { "textOverflow": "Ellipsis", "fontSize": 12 },
+            "children": []
+        }],
+        "metadata": {},
+        "defaultPage": { "size": { "Custom": { "width": 100, "height": 200 } }, "margin": { "top": 10, "right": 10, "bottom": 10, "left": 10 } },
+        "fonts": []
+    }"#;
+    let pdf = forme::render_json(json).expect("Ellipsis text should render");
+    assert!(pdf.starts_with(b"%PDF"));
+}
+
+#[test]
+fn test_text_overflow_clip_json() {
+    let json = r#"{
+        "children": [{
+            "kind": { "type": "Text", "content": "This is a long text that will be clipped" },
+            "style": { "textOverflow": "Clip", "fontSize": 12 },
+            "children": []
+        }],
+        "metadata": {},
+        "defaultPage": { "size": { "Custom": { "width": 100, "height": 200 } }, "margin": { "top": 10, "right": 10, "bottom": 10, "left": 10 } },
+        "fonts": []
+    }"#;
+    let pdf = forme::render_json(json).expect("Clip text should render");
+    assert!(pdf.starts_with(b"%PDF"));
+}
+
+#[test]
+fn test_text_overflow_ellipsis_single_line() {
+    let doc = Document {
+        children: vec![Node {
+            kind: NodeKind::Text {
+                content: "This is a long text that needs truncation".to_string(),
+                href: None,
+                runs: vec![],
+            },
+            style: Style {
+                font_size: Some(12.0),
+                text_overflow: Some(TextOverflow::Ellipsis),
+                ..Default::default()
+            },
+            children: vec![],
+            id: None,
+            source_location: None,
+            bookmark: None,
+            href: None,
+            alt: None,
+        }],
+        metadata: Metadata::default(),
+        default_page: PageConfig {
+            size: PageSize::Custom {
+                width: 100.0,
+                height: 200.0,
+            },
+            margin: Edges::uniform(10.0),
+            wrap: true,
+        },
+        fonts: vec![],
+        tagged: false,
+        pdfa: None,
+    };
+
+    let (_pdf, layout) = forme::render_with_layout(&doc).expect("Should render");
+    // With ellipsis, there should be exactly 1 page with 1 text container
+    assert_eq!(layout.pages.len(), 1);
+    // The Text container should only have 1 TextLine child (single line)
+    let text_elem = &layout.pages[0].elements[0];
+    assert_eq!(
+        text_elem.children.len(),
+        1,
+        "Ellipsis should produce exactly 1 line"
+    );
+}

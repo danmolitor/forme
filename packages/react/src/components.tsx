@@ -9,6 +9,7 @@ import type {
   CellProps,
   FixedProps,
   SvgProps,
+  QrCodeProps,
 } from './types.js';
 
 /**
@@ -226,6 +227,23 @@ export function Fixed(_props: FixedProps): null {
  * ```
  */
 export function Svg(_props: SvgProps): null {
+  return null;
+}
+
+/**
+ * A QR code rendered as crisp vector graphics in the PDF.
+ *
+ * @param props.data - The data to encode (URL, text, etc.)
+ * @param props.size - Display size in points. QR codes are square. Defaults to available width.
+ * @param props.color - QR code color. Default: black.
+ * @param props.style - Style properties for the QR code container.
+ *
+ * @example
+ * ```tsx
+ * <QrCode data="https://formepdf.com" size={100} />
+ * ```
+ */
+export function QrCode(_props: QrCodeProps): null {
   return null;
 }
 

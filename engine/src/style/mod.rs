@@ -107,6 +107,8 @@ pub struct Style {
     pub lang: Option<String>,
     /// Text direction (ltr, rtl, or auto).
     pub direction: Option<Direction>,
+    /// Text overflow behavior (wrap, ellipsis, clip).
+    pub text_overflow: Option<TextOverflow>,
 
     // ── Color & Background ─────────────────────────────────────
     /// Text color.
@@ -302,6 +304,18 @@ pub enum TextTransform {
     Capitalize,
 }
 
+/// Text overflow behavior when text exceeds available width.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TextOverflow {
+    /// Normal wrapping (default).
+    #[default]
+    Wrap,
+    /// Single-line truncation with "..." appended.
+    Ellipsis,
+    /// Single-line truncation without any indicator.
+    Clip,
+}
+
 /// Text direction for BiDi support.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -484,6 +498,7 @@ pub struct ResolvedStyle {
     pub hyphens: Hyphens,
     pub lang: Option<String>,
     pub direction: Direction,
+    pub text_overflow: TextOverflow,
 
     // Visual
     pub color: Color,
@@ -628,6 +643,7 @@ impl Style {
             direction: self
                 .direction
                 .unwrap_or(parent.map(|p| p.direction).unwrap_or_default()),
+            text_overflow: self.text_overflow.unwrap_or_default(),
 
             color: self.color.unwrap_or(parent_color),
             background_color: self.background_color,

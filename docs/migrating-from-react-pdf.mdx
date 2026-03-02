@@ -151,6 +151,12 @@ Both approaches produce the same result. Forme uses template placeholders instea
 
 8. **Inline text styling.** Nest `<Text>` inside `<Text>` to style individual words or spans. Bold a single word, change colors mid-sentence, or apply strikethrough to a price.
 
+9. **QR codes.** Built-in `<QrCode>` component renders vector-based QR codes. react-pdf has no equivalent.
+
+10. **Text overflow.** `textOverflow: 'ellipsis'` truncates single-line text with "..." when it exceeds available width. react-pdf does not support text truncation.
+
+11. **Font fallback chains.** `fontFamily: "Inter, Helvetica"` tries each font in order. react-pdf only accepts a single family name.
+
 ## What works in react-pdf but not Forme (yet)
 
 Be honest about these gaps before migrating:

@@ -32,6 +32,7 @@ pub mod image_loader;
 pub mod layout;
 pub mod model;
 pub mod pdf;
+pub mod qrcode;
 pub mod style;
 pub mod svg;
 pub mod template;

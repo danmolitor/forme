@@ -19,6 +19,7 @@ unicode-linebreak = "0.1" # UAX#14 line break algorithm
 unicode-bidi = "0.3"       # UAX#9 BiDi algorithm
 unicode-script = "0.5"     # Script detection for BiDi run splitting
 hypher = { version = "0.1", default-features = false, features = ["full"] }
+qrcode = "0.14"            # QR code generation — pure Rust, no_std compatible
 quick-xml = "0.37"
 image = { version = "0.24", default-features = false, features = ["jpeg", "png", "webp"] }
 base64 = "0.22"
