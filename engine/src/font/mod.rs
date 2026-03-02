@@ -8,7 +8,7 @@
 pub mod metrics;
 pub mod subset;
 
-pub use metrics::StandardFontMetrics;
+pub use metrics::{unicode_to_winansi, StandardFontMetrics};
 use std::collections::HashMap;
 
 /// A font registry that maps font family + weight + style to font data.

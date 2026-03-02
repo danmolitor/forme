@@ -167,6 +167,9 @@ See the [templates/](./templates) directory for production-ready examples:
 - Receipt
 - Report
 - Shipping Label
+- Typography
+- Grid Dashboard
+- Event Ticket
 
 ## Documentation
 

@@ -3278,6 +3278,75 @@ impl LayoutEngine {
         parent_style: &ResolvedStyle,
         font_context: &FontContext,
     ) -> f64 {
+        // Grid layout: measure using actual grid placement instead of stacking
+        if matches!(parent_style.display, Display::Grid) {
+            if let Some(template_cols) = &parent_style.grid_template_columns {
+                let num_columns = template_cols.len();
+                if num_columns > 0 && !children.is_empty() {
+                    let col_gap = parent_style.column_gap;
+                    let row_gap = parent_style.row_gap;
+
+                    let content_sizes: Vec<f64> = template_cols
+                        .iter()
+                        .map(|track| {
+                            if matches!(track, GridTrackSize::Auto) {
+                                available_width / num_columns as f64
+                            } else {
+                                0.0
+                            }
+                        })
+                        .collect();
+
+                    let col_widths = grid::resolve_tracks(
+                        template_cols,
+                        available_width,
+                        col_gap,
+                        &content_sizes,
+                    );
+
+                    let placements: Vec<Option<&GridPlacement>> = children
+                        .iter()
+                        .map(|child| child.style.grid_placement.as_ref())
+                        .collect();
+
+                    let item_placements = grid::place_items(&placements, num_columns);
+                    let num_rows = grid::compute_num_rows(&item_placements);
+
+                    if num_rows == 0 {
+                        return 0.0;
+                    }
+
+                    let mut row_heights = vec![0.0_f64; num_rows];
+                    for placement in &item_placements {
+                        let cell_width = grid::span_width(
+                            placement.col_start,
+                            placement.col_end,
+                            &col_widths,
+                            col_gap,
+                        );
+                        let child = &children[placement.child_index];
+                        let child_style = child.style.resolve(Some(parent_style), cell_width);
+                        let h =
+                            self.measure_node_height(child, cell_width, &child_style, font_context);
+                        let span = placement.row_end - placement.row_start;
+                        let per_row = h / span as f64;
+                        for rh in row_heights
+                            .iter_mut()
+                            .take(placement.row_end.min(num_rows))
+                            .skip(placement.row_start)
+                        {
+                            if per_row > *rh {
+                                *rh = per_row;
+                            }
+                        }
+                    }
+
+                    let total_row_gap = row_gap * (num_rows as f64 - 1.0).max(0.0);
+                    return row_heights.iter().sum::<f64>() + total_row_gap;
+                }
+            }
+        }
+
         let direction = parent_style.flex_direction;
         let row_gap = parent_style.row_gap;
         let column_gap = parent_style.column_gap;
@@ -3405,9 +3474,10 @@ impl LayoutEngine {
                 *width + style.padding.horizontal() + style.margin.horizontal()
             }
             NodeKind::Text { content, .. } => {
+                let transformed = apply_text_transform(content, style.text_transform);
                 let italic = matches!(style.font_style, FontStyle::Italic | FontStyle::Oblique);
                 let text_width = font_context.measure_string(
-                    content,
+                    &transformed,
                     &style.font_family,
                     style.font_weight,
                     italic,
@@ -3447,6 +3517,10 @@ impl LayoutEngine {
                     100.0
                 };
                 w + style.padding.horizontal() + style.margin.horizontal()
+            }
+            NodeKind::QrCode { size, .. } => {
+                let display_size = size.unwrap_or(0.0);
+                display_size + style.padding.horizontal() + style.margin.horizontal()
             }
             _ => {
                 // Recursively measure children's intrinsic widths
@@ -3497,9 +3571,11 @@ impl LayoutEngine {
                     runs.iter()
                         .map(|run| {
                             let run_style = run.style.resolve(Some(style), 0.0);
+                            let transformed =
+                                apply_text_transform(&run.content, run_style.text_transform);
                             self.text_layout.measure_widest_word(
                                 font_context,
-                                &run.content,
+                                &transformed,
                                 run_style.font_size,
                                 &run_style.font_family,
                                 run_style.font_weight,
@@ -3511,9 +3587,10 @@ impl LayoutEngine {
                         })
                         .fold(0.0f64, f64::max)
                 } else {
+                    let transformed = apply_text_transform(content, style.text_transform);
                     self.text_layout.measure_widest_word(
                         font_context,
-                        content,
+                        &transformed,
                         style.font_size,
                         &style.font_family,
                         style.font_weight,
