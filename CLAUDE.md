@@ -11,7 +11,7 @@ forme/
 ├── CLAUDE.md               # You are here
 ├── README.md               # Product readme
 ├── engine/                 # Rust rendering engine
-│   ├── Cargo.toml          # Deps: serde, serde_json, miniz_oxide, ttf-parser
+│   ├── Cargo.toml          # Deps: serde, serde_json, miniz_oxide, ttf-parser, qrcode
 │   ├── src/
 │   │   ├── lib.rs          # Public API: render(), render_json(), render_with_layout()
 │   │   ├── main.rs         # CLI binary + example invoice JSON
@@ -25,6 +25,7 @@ forme/
 │   │   ├── font/mod.rs     # Font registry + custom font subsetting
 │   │   ├── image_loader/   # JPEG/PNG decoding from file paths and data URIs
 │   │   ├── svg/mod.rs      # SVG parsing and rendering (rect, circle, line, path)
+│   │   ├── qrcode.rs       # QR code generation (qrcode crate → bool matrix)
 │   │   └── pdf/mod.rs      # PDF 1.7 serializer (from scratch)
 │   └── tests/
 │       └── integration.rs  # Full pipeline tests
@@ -185,6 +186,20 @@ Cascade priority (highest wins): `borderTopWidth` > `borderWidth` > `borderTop: 
 
 Also widened `<Page margin>` to accept strings and arrays: `<Page margin="36 72">`.
 
+### QR Codes
+`<QrCode data="..." size={100} />` renders a vector-based QR code. The engine module `qrcode.rs` uses the `qrcode` crate to generate a `QrMatrix` (bool grid). `NodeKind::QrCode { data, size }` is laid out by `layout_qrcode()` (follows the `layout_image` pattern — compute display size, check page fit, push element). PDF rendering emits filled rectangles (`re f`) for each dark module in the content stream — native vector, not raster. The `DrawCommand::QrCode { modules, module_size, color }` variant carries the matrix data.
+
+Key files: `engine/src/qrcode.rs`, `engine/src/model/mod.rs` (NodeKind::QrCode), `engine/src/layout/mod.rs` (layout_qrcode), `engine/src/pdf/mod.rs` (QrCode rendering), `packages/react/src/components.tsx` (QrCode), `packages/react/src/serialize.ts` (serializeQrCode).
+
+### Text Overflow (Ellipsis/Clip)
+`textOverflow: 'ellipsis'` truncates single-line text with "..." (U+2026) when it exceeds available width. `textOverflow: 'clip'` truncates without an indicator. `TextOverflow` enum in `style/mod.rs` with variants `Wrap` (default), `Ellipsis`, `Clip`. When not `Wrap`, `layout_text` and `layout_text_runs` take only the first line from line breaking, then call truncation methods on `TextLayout` (`truncate_with_ellipsis`, `truncate_clip`, `truncate_runs_with_ellipsis`, `truncate_runs_clip`) to fit within `available_width`. No PDF changes needed — text is already truncated before serialization.
+
+### Font Fallback Chains
+`fontFamily: "Inter, Helvetica"` tries each comma-separated family in order. `FontRegistry::resolve()` splits on commas, strips quotes, and tries each family with exact weight then snapped weight (400/700). Falls back to Helvetica if nothing matches. Backward-compatible: a single family name (no comma) behaves identically to the old code. `FontContext` methods (`char_width`, `measure_string`, `font_data`, etc.) get fallback support automatically since they delegate to `resolve()`.
+
+### Grid repeat() Syntax
+React-layer only. `expandRepeat()` in `serialize.ts` pre-processes grid template strings, expanding `repeat(N, tracks)` before the existing split-on-whitespace logic. Example: `repeat(3, 1fr)` → `1fr 1fr 1fr`. Supports mixed: `200 repeat(2, 1fr) 200` → `200 1fr 1fr 200`.
+
 ### Alt Text, Document Language, Clickable Images/SVGs
 - **Alt text**: `alt` prop on `<Image>` and `<Svg>` flows through `Node.alt` → `LayoutElement.alt`. Carried through the data model for future tagged PDF support (actual `/Alt` emission requires structure elements — follow-up scope).
 - **Document language**: `<Document lang="en-US">` → `Metadata.lang` → emitted as `/Lang (en-US)` in the PDF Catalog dictionary.
@@ -192,11 +207,11 @@ Also widened `<Page margin>` to accept strings and arrays: `<Page margin="36 72"
 
 ## Known Issues & Limitations (Current State)
 
-1. No PDF/A compliance.
-2. No variable font axis support.
-3. No vertical text layout (CJK writing modes).
-4. No `grid-template-areas` or `grid-auto-flow: dense`.
-5. No Canvas drawing primitive.
+1. No variable font axis support.
+2. No vertical text layout (CJK writing modes).
+3. No `grid-template-areas` or `grid-auto-flow: dense`.
+4. No Canvas drawing primitive.
+5. No per-character font fallback (entire text block uses first matching family; individual missing glyphs don't trigger fallback to the next family).
 
 ## How the Layout Engine Works (for making changes)
 
@@ -210,6 +225,7 @@ fn layout_node(&self, node, cursor, pages, x, available_width, parent_style) {
         Table { columns } => layout_table(node, ...),       // Row-by-row with headers
         Image { .. } => layout_image(node, ...),            // Block placement
         Svg { .. } => layout_svg(node, ...),                // SVG rendering
+        QrCode { data, size } => layout_qrcode(node, ...), // Vector QR code
         PageBreak => { pages.push(cursor.finalize()); *cursor = cursor.new_page(); }
         Fixed { position } => { store in cursor for repetition }
     }
@@ -268,9 +284,11 @@ Engine (Rust):
 - `serde` + `serde_json`: JSON deserialization of document tree
 - `miniz_oxide`: DEFLATE compression for PDF content streams
 - `ttf-parser`: Font file parsing for real glyph metrics and subsetting
-
-To add:
-- `unicode-linebreak`: UAX#14 line break algorithm (proper Unicode line breaking)
+- `qrcode`: QR code generation (pure Rust, WASM-safe)
+- `rustybuzz`: OpenType shaping (GSUB/GPOS)
+- `unicode-bidi` + `unicode-script`: Bidirectional text support
+- `unicode-linebreak`: UAX#14 line break algorithm
+- `hypher`: Hyphenation dictionaries (35+ languages)
 
 ## Code Style
 
