@@ -1,5 +1,5 @@
 import { type ReactElement, isValidElement, Children, Fragment } from 'react';
-import { Document, Page, View, Text, Image, Table, Row, Cell, Fixed, Svg, QrCode, PageBreak } from './components.js';
+import { Document, Page, View, Text, Image, Table, Row, Cell, Fixed, Svg, QrCode, Canvas, Watermark, PageBreak } from './components.js';
 import { Font, type FontRegistration } from './font.js';
 import {
   isRefMarker, getRefPath,
@@ -33,6 +33,10 @@ import type {
   FormeGridTrackSize,
   FormeGridPlacement,
   QrCodeProps,
+  CanvasProps,
+  CanvasOp,
+  CanvasContext,
+  WatermarkProps,
 } from './types.js';
 
 // ─── Nesting validation ──────────────────────────────────────────────
@@ -258,6 +262,12 @@ function serializeChild(child: unknown, parent: ParentContext = null): FormeNode
   if (element.type === QrCode) {
     return serializeQrCode(element);
   }
+  if (element.type === Canvas) {
+    return serializeCanvas(element);
+  }
+  if (element.type === Watermark) {
+    return serializeWatermark(element);
+  }
   if (element.type === PageBreak) {
     return {
       kind: { type: 'PageBreak' },
@@ -472,6 +482,74 @@ function serializeQrCode(element: ReactElement): FormeNode {
   };
 }
 
+function serializeCanvas(element: ReactElement): FormeNode {
+  const props = element.props as CanvasProps;
+  const operations: CanvasOp[] = [];
+
+  // Create a recording context that captures draw calls as CanvasOp[]
+  const ctx: CanvasContext = {
+    moveTo(x, y) { operations.push({ op: 'MoveTo', x, y }); },
+    lineTo(x, y) { operations.push({ op: 'LineTo', x, y }); },
+    bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x, y) {
+      operations.push({ op: 'BezierCurveTo', cp1x, cp1y, cp2x, cp2y, x, y });
+    },
+    quadraticCurveTo(cpx, cpy, x, y) {
+      operations.push({ op: 'QuadraticCurveTo', cpx, cpy, x, y });
+    },
+    closePath() { operations.push({ op: 'ClosePath' }); },
+    rect(x, y, w, h) { operations.push({ op: 'Rect', x, y, width: w, height: h }); },
+    circle(cx, cy, r) { operations.push({ op: 'Circle', cx, cy, r }); },
+    ellipse(cx, cy, rx, ry) { operations.push({ op: 'Ellipse', cx, cy, rx, ry }); },
+    arc(cx, cy, r, startAngle, endAngle) {
+      operations.push({ op: 'Arc', cx, cy, r, start_angle: startAngle, end_angle: endAngle });
+    },
+    stroke() { operations.push({ op: 'Stroke' }); },
+    fill() { operations.push({ op: 'Fill' }); },
+    fillAndStroke() { operations.push({ op: 'FillAndStroke' }); },
+    setFillColor(r, g, b) { operations.push({ op: 'SetFillColor', r, g, b }); },
+    setStrokeColor(r, g, b) { operations.push({ op: 'SetStrokeColor', r, g, b }); },
+    setLineWidth(w) { operations.push({ op: 'SetLineWidth', width: w }); },
+    setLineCap(cap) { operations.push({ op: 'SetLineCap', cap }); },
+    setLineJoin(join) { operations.push({ op: 'SetLineJoin', join }); },
+    save() { operations.push({ op: 'Save' }); },
+    restore() { operations.push({ op: 'Restore' }); },
+  };
+
+  // Execute the draw callback to record operations
+  props.draw(ctx);
+
+  return {
+    kind: { type: 'Canvas', width: props.width, height: props.height, operations },
+    style: mapStyle(props.style),
+    children: [],
+    sourceLocation: extractSourceLocation(element),
+  };
+}
+
+function serializeWatermark(element: ReactElement): FormeNode {
+  const props = element.props as WatermarkProps;
+  const fontSize = props.fontSize ?? 60;
+  const angle = props.angle ?? -45;
+  const colorStr = props.color ?? 'rgba(0,0,0,0.1)';
+
+  // Parse color — extract alpha for opacity
+  const parsedColor = parseColor(colorStr);
+  const style = mapStyle(props.style);
+  style.color = { r: parsedColor.r, g: parsedColor.g, b: parsedColor.b, a: 1 };
+  // Multiply color alpha with any existing opacity
+  const colorOpacity = parsedColor.a;
+  const styleOpacity = (style.opacity !== undefined) ? style.opacity as number : 1;
+  style.opacity = colorOpacity * styleOpacity;
+  style.fontSize = fontSize;
+
+  return {
+    kind: { type: 'Watermark', text: props.text, font_size: fontSize, angle },
+    style,
+    children: [],
+    sourceLocation: extractSourceLocation(element),
+  };
+}
+
 // ─── Children helpers ────────────────────────────────────────────────
 
 function flattenChildren(children: unknown): unknown[] {
@@ -613,6 +691,11 @@ const TEXT_OVERFLOW_MAP: Record<string, string> = {
   'clip': 'Clip',
 };
 
+const OVERFLOW_MAP: Record<string, string> = {
+  'visible': 'Visible',
+  'hidden': 'Hidden',
+};
+
 export function mapStyle(style?: Style): FormeStyle {
   if (!style) return {};
 
@@ -723,6 +806,7 @@ export function mapStyle(style?: Style): FormeStyle {
   if (style.lang !== undefined) result.lang = style.lang;
   if (style.direction !== undefined) result.direction = style.direction;
   if (style.textOverflow !== undefined) result.textOverflow = TEXT_OVERFLOW_MAP[style.textOverflow];
+  if (style.overflow !== undefined) result.overflow = OVERFLOW_MAP[style.overflow];
 
   // Color
   if (style.color !== undefined) result.color = parseColor(style.color);
@@ -894,7 +978,31 @@ export function mapDimension(val: number | string): FormeDimension {
 }
 
 export function parseColor(hex: string): FormeColor {
-  const h = hex.replace(/^#/, '');
+  const s = hex.trim();
+
+  // rgba(r, g, b, a)
+  const rgbaMatch = s.match(/^rgba\(\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*\)$/);
+  if (rgbaMatch) {
+    return {
+      r: parseFloat(rgbaMatch[1]) / 255,
+      g: parseFloat(rgbaMatch[2]) / 255,
+      b: parseFloat(rgbaMatch[3]) / 255,
+      a: parseFloat(rgbaMatch[4]),
+    };
+  }
+
+  // rgb(r, g, b)
+  const rgbMatch = s.match(/^rgb\(\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*\)$/);
+  if (rgbMatch) {
+    return {
+      r: parseFloat(rgbMatch[1]) / 255,
+      g: parseFloat(rgbMatch[2]) / 255,
+      b: parseFloat(rgbMatch[3]) / 255,
+      a: 1,
+    };
+  }
+
+  const h = s.replace(/^#/, '');
 
   if (h.length === 3) {
     const r = parseInt(h[0] + h[0], 16) / 255;
@@ -1203,6 +1311,8 @@ function serializeTemplateChild(child: unknown, parent: ParentContext = null): u
   if (element.type === Fixed) return serializeTemplateFixed(element);
   if (element.type === Svg) return serializeSvg(element);
   if (element.type === QrCode) return serializeQrCode(element);
+  if (element.type === Canvas) return serializeCanvas(element);
+  if (element.type === Watermark) return serializeWatermark(element);
   if (element.type === PageBreak) {
     return { kind: { type: 'PageBreak' }, style: {}, children: [] };
   }

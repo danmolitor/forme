@@ -211,13 +211,26 @@ React-layer only. `expandRepeat()` in `serialize.ts` pre-processes grid template
 - **Document language**: `<Document lang="en-US">` → `Metadata.lang` → emitted as `/Lang (en-US)` in the PDF Catalog dictionary.
 - **Clickable images/SVGs**: `href` prop on `<Image>` and `<Svg>` passes through to layout via `node.href.clone()`. The PDF serializer already handles `href` on any `LayoutElement` — no PDF-side changes were needed.
 
+### Per-Character Font Fallback
+`fontFamily: "Inter, NotoSansArabic, NotoSansSC"` now resolves fonts per-character, not per-block. Fast path: `!families.contains(',')` skips all per-char logic for single-font documents (zero regression). `FontData::has_char(ch)` checks glyph coverage. `FontRegistry::resolve_for_char()` walks comma-separated families per character. `fallback::segment_by_font()` groups consecutive same-font chars into `FontRun` segments. Integrated with BiDi: font segmentation happens within each BiDi run, not across runs. Key files: `engine/src/font/fallback.rs` (new), `engine/src/font/mod.rs` (has_char, resolve_for_char), `engine/src/text/mod.rs` (measure_chars), `engine/src/layout/mod.rs` (build_positioned_glyphs).
+
+### Overflow Hidden
+`overflow: 'hidden'` clips children to parent bounds via PDF clip path operators. Visual-only — layout is unaffected. PDF pattern: `q / x y w h re W n / (children) / Q`. Nested `overflow: hidden` composes correctly via the graphics state stack. `Overflow` enum in `style/mod.rs` with `Visible` (default) and `Hidden` variants. Field propagated to `LayoutElement` and set at all construction sites.
+
+### Canvas Drawing Primitive
+`<Canvas width={w} height={h} draw={(ctx) => { ... }} />` renders arbitrary vector graphics. `CanvasOp` enum (20 variants) in `model/mod.rs`. Layout follows `layout_svg` pattern (fixed-size leaf, page break check). Operations convert to `SvgCommand` via `canvas_ops_to_svg_commands()`, reusing the existing `DrawCommand::Svg` + `write_svg_commands()` PDF pipeline — no new PDF rendering code. React layer: recording `CanvasContext` executes `draw` callback during serialization, producing `CanvasOp[]` JSON. Key files: `engine/src/model/mod.rs` (CanvasOp, NodeKind::Canvas), `engine/src/layout/mod.rs` (canvas_ops_to_svg_commands, layout_canvas), `packages/react/src/serialize.ts` (serializeCanvas).
+
+### Chart Components (BarChart, LineChart, PieChart)
+Pure React-layer components in `packages/react/src/charts.tsx`. Return `<View>` + `<Svg>` + positioned `<Text>` children — no engine changes for the components themselves. Labels use positioned `<Text>` nodes (not SVG text, which is unsupported). SVG arc path (`A`/`a`) support was added to the engine for PieChart slices — `svg_arc_to_curves()` in `engine/src/svg/mod.rs` implements W3C SVG spec F.6.5/F.6.6 (endpoint-to-center parameterization → cubic bezier conversion). Helpers: `niceNumber()` for axis scaling, `lightenColor()` for area fills, `formatNumber()` for compact labels.
+
+### Watermarks
+`<Watermark text="DRAFT" fontSize={60} color="rgba(0,0,0,0.1)" angle={-45} />` renders rotated text behind all page content. Stored on `PageCursor.watermarks` (like fixed_header/fixed_footer), cloned on each page via `new_page()`. `inject_fixed_elements()` shapes the watermark text and creates `DrawCommand::Watermark` elements prepended before all page content. PDF rendering: `q` → opacity ExtGState → translate to page center → rotation matrix (`cos/sin cm`) → BT/Tf/Td/Tj/ET → `Q`. Color alpha from `rgba()` multiplied with style opacity. `parseColor()` in serialize.ts extended to handle `rgba(r,g,b,a)` and `rgb(r,g,b)` formats. Key files: `engine/src/model/mod.rs` (NodeKind::Watermark), `engine/src/layout/mod.rs` (PageCursor.watermarks, DrawCommand::Watermark), `engine/src/pdf/mod.rs` (Watermark rendering), `packages/react/src/serialize.ts` (serializeWatermark, parseColor rgba).
+
 ## Known Issues & Limitations (Current State)
 
 1. No variable font axis support.
 2. No vertical text layout (CJK writing modes).
 3. No `grid-template-areas` or `grid-auto-flow: dense`.
-4. No Canvas drawing primitive.
-5. No per-character font fallback (entire text block uses first matching family; individual missing glyphs don't trigger fallback to the next family).
 
 ## How the Layout Engine Works (for making changes)
 
@@ -232,6 +245,8 @@ fn layout_node(&self, node, cursor, pages, x, available_width, parent_style) {
         Image { .. } => layout_image(node, ...),            // Block placement
         Svg { .. } => layout_svg(node, ...),                // SVG rendering
         QrCode { data, size } => layout_qrcode(node, ...), // Vector QR code
+        Canvas { .. } => layout_canvas(node, ...),        // Arbitrary vector graphics
+        Watermark { .. } => { cursor.watermarks.push(node) } // Store for per-page injection
         PageBreak => { pages.push(cursor.finalize()); *cursor = cursor.new_page(); }
         Fixed { position } => { store in cursor for repetition }
     }

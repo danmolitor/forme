@@ -5,6 +5,7 @@
 //! For v1, we support the 14 standard PDF fonts (Helvetica, Times, Courier, etc.)
 //! which don't require embedding. Custom font support via ttf-parser comes next.
 
+pub mod fallback;
 pub mod metrics;
 pub mod subset;
 
@@ -117,6 +118,21 @@ pub enum StandardFont {
     CourierBoldOblique,
     Symbol,
     ZapfDingbats,
+}
+
+impl FontData {
+    /// Check whether this font has a glyph for the given character.
+    pub fn has_char(&self, ch: char) -> bool {
+        match self {
+            FontData::Custom {
+                metrics: Some(m), ..
+            } => m.glyph_ids.contains_key(&ch),
+            FontData::Custom { metrics: None, .. } => false,
+            FontData::Standard(_) => {
+                unicode_to_winansi(ch).is_some() || (ch as u32) >= 32 && (ch as u32) <= 255
+            }
+        }
+    }
 }
 
 impl StandardFont {
@@ -232,6 +248,69 @@ impl FontRegistry {
         })
     }
 
+    /// Resolve a font for a specific character from a comma-separated fallback chain.
+    ///
+    /// Walks the families in order, returning the first font that has a glyph for `ch`.
+    /// Falls back to Helvetica if no font covers the character.
+    /// Returns a tuple of (font_data, resolved_single_family_name).
+    pub fn resolve_for_char(
+        &self,
+        families: &str,
+        ch: char,
+        weight: u32,
+        italic: bool,
+    ) -> (&FontData, String) {
+        let snapped_weight = if weight >= 600 { 700 } else { 400 };
+
+        for family in families.split(',') {
+            let family = family.trim().trim_matches('"').trim_matches('\'');
+            if family.is_empty() {
+                continue;
+            }
+
+            // Try exact weight
+            let key = FontKey {
+                family: family.to_string(),
+                weight,
+                italic,
+            };
+            if let Some(font) = self.fonts.get(&key) {
+                if font.has_char(ch) {
+                    return (font, family.to_string());
+                }
+            }
+
+            // Try with normalized weight
+            let key = FontKey {
+                family: family.to_string(),
+                weight: snapped_weight,
+                italic,
+            };
+            if let Some(font) = self.fonts.get(&key) {
+                if font.has_char(ch) {
+                    return (font, family.to_string());
+                }
+            }
+        }
+
+        // Final fallback: Helvetica
+        let key = FontKey {
+            family: "Helvetica".to_string(),
+            weight: snapped_weight,
+            italic,
+        };
+        let font = self.fonts.get(&key).unwrap_or_else(|| {
+            self.fonts
+                .get(&FontKey {
+                    family: "Helvetica".to_string(),
+                    weight: 400,
+                    italic: false,
+                })
+                .expect("Helvetica must be registered")
+        });
+        (font, "Helvetica".to_string())
+    }
+
     /// Register a custom font.
     pub fn register(&mut self, family: &str, weight: u32, italic: bool, data: Vec<u8>) {
         let metrics = CustomFontMetrics::from_font_data(&data);
@@ -275,6 +354,9 @@ impl FontContext {
     }
 
     /// Get the advance width of a single character in points.
+    ///
+    /// When `family` contains a comma (font fallback chain), resolves the
+    /// best font for this specific character before measuring.
     pub fn char_width(
         &self,
         ch: char,
@@ -283,7 +365,13 @@ impl FontContext {
         italic: bool,
         font_size: f64,
     ) -> f64 {
-        let font_data = self.registry.resolve(family, weight, italic);
+        // Fast path: single font family (no comma) — skip per-char resolution
+        let font_data = if !family.contains(',') {
+            self.registry.resolve(family, weight, italic)
+        } else {
+            let (data, _) = self.registry.resolve_for_char(family, ch, weight, italic);
+            data
+        };
         match font_data {
             FontData::Standard(std_font) => std_font.metrics().char_width(ch, font_size),
             FontData::Custom {

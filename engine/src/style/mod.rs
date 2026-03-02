@@ -110,6 +110,9 @@ pub struct Style {
     /// Text overflow behavior (wrap, ellipsis, clip).
     pub text_overflow: Option<TextOverflow>,
 
+    /// Overflow behavior for container elements.
+    pub overflow: Option<Overflow>,
+
     // ── Color & Background ─────────────────────────────────────
     /// Text color.
     pub color: Option<Color>,
@@ -302,6 +305,16 @@ pub enum TextTransform {
     Uppercase,
     Lowercase,
     Capitalize,
+}
+
+/// Overflow behavior for container elements.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Overflow {
+    /// Content can overflow the container bounds (default).
+    #[default]
+    Visible,
+    /// Content is clipped to the container bounds.
+    Hidden,
 }
 
 /// Text overflow behavior when text exceeds available width.
@@ -504,6 +517,7 @@ pub struct ResolvedStyle {
     pub color: Color,
     pub background_color: Option<Color>,
     pub opacity: f64,
+    pub overflow: Overflow,
     pub border_width: Edges,
     pub border_color: EdgeValues<Color>,
     pub border_radius: CornerValues,
@@ -648,6 +662,7 @@ impl Style {
             color: self.color.unwrap_or(parent_color),
             background_color: self.background_color,
             opacity: self.opacity.unwrap_or(1.0),
+            overflow: self.overflow.unwrap_or_default(),
 
             border_width: self
                 .border_width

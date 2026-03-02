@@ -113,6 +113,8 @@ export interface Style {
   direction?: 'ltr' | 'rtl' | 'auto';
   /** Text overflow behavior: 'wrap' (default), 'ellipsis' (truncate with ...), 'clip' (truncate). */
   textOverflow?: 'wrap' | 'ellipsis' | 'clip';
+  /** Overflow behavior: 'visible' (default) or 'hidden' (clips children to bounds). */
+  overflow?: 'visible' | 'hidden';
 
   // Visual
   color?: string;
@@ -261,6 +263,128 @@ export interface QrCodeProps {
   style?: Style;
 }
 
+/** Data point for bar and line charts. */
+export interface ChartDataPoint {
+  label: string;
+  value: number;
+}
+
+/** Data point for pie charts with per-slice color. */
+export interface PieDataPoint {
+  label: string;
+  value: number;
+  color: string;
+}
+
+export interface BarChartProps {
+  width: number;
+  height: number;
+  data: ChartDataPoint[];
+  /** Bar color. Default: "#1a365d". */
+  color?: string;
+  /** Gap between bars in points. Default: 4. */
+  barGap?: number;
+  /** Show horizontal grid lines. Default: false. */
+  showGrid?: boolean;
+  /** Show value labels above bars. Default: false. */
+  showValues?: boolean;
+  /** Number of Y-axis ticks. Default: 5. */
+  yAxisTicks?: number;
+  style?: Style;
+}
+
+export interface LineChartProps {
+  width: number;
+  height: number;
+  data: ChartDataPoint[];
+  /** Line color. Default: "#2b6cb0". */
+  color?: string;
+  /** Line stroke width. Default: 2. */
+  strokeWidth?: number;
+  /** Show dots at data points. Default: false. */
+  showDots?: boolean;
+  /** Show horizontal grid lines. Default: false. */
+  showGrid?: boolean;
+  /** Show filled area under the line. Default: false. */
+  showArea?: boolean;
+  style?: Style;
+}
+
+export interface PieChartProps {
+  width: number;
+  height: number;
+  data: PieDataPoint[];
+  /** Show labels outside slices. Default: false. */
+  showLabels?: boolean;
+  /** Inner radius for donut charts. Default: 0 (full pie). */
+  innerRadius?: number;
+  style?: Style;
+}
+
+export interface WatermarkProps {
+  /** The watermark text (e.g. "DRAFT", "CONFIDENTIAL"). */
+  text: string;
+  /** Font size in points. Default: 60. */
+  fontSize?: number;
+  /** Text color with alpha. Use `rgba(r,g,b,a)` for opacity. Default: "rgba(0,0,0,0.1)". */
+  color?: string;
+  /** Rotation angle in degrees (negative = counterclockwise). Default: -45. */
+  angle?: number;
+  style?: Style;
+}
+
+/** Canvas drawing context for the draw callback. */
+export interface CanvasContext {
+  moveTo(x: number, y: number): void;
+  lineTo(x: number, y: number): void;
+  bezierCurveTo(cp1x: number, cp1y: number, cp2x: number, cp2y: number, x: number, y: number): void;
+  quadraticCurveTo(cpx: number, cpy: number, x: number, y: number): void;
+  closePath(): void;
+  rect(x: number, y: number, w: number, h: number): void;
+  circle(cx: number, cy: number, r: number): void;
+  ellipse(cx: number, cy: number, rx: number, ry: number): void;
+  arc(cx: number, cy: number, r: number, startAngle: number, endAngle: number): void;
+  stroke(): void;
+  fill(): void;
+  fillAndStroke(): void;
+  setFillColor(r: number, g: number, b: number): void;
+  setStrokeColor(r: number, g: number, b: number): void;
+  setLineWidth(w: number): void;
+  setLineCap(cap: number): void;
+  setLineJoin(join: number): void;
+  save(): void;
+  restore(): void;
+}
+
+/** A single canvas drawing operation (serialized to JSON). */
+export type CanvasOp =
+  | { op: 'MoveTo'; x: number; y: number }
+  | { op: 'LineTo'; x: number; y: number }
+  | { op: 'BezierCurveTo'; cp1x: number; cp1y: number; cp2x: number; cp2y: number; x: number; y: number }
+  | { op: 'QuadraticCurveTo'; cpx: number; cpy: number; x: number; y: number }
+  | { op: 'ClosePath' }
+  | { op: 'Rect'; x: number; y: number; width: number; height: number }
+  | { op: 'Circle'; cx: number; cy: number; r: number }
+  | { op: 'Ellipse'; cx: number; cy: number; rx: number; ry: number }
+  | { op: 'Arc'; cx: number; cy: number; r: number; start_angle: number; end_angle: number }
+  | { op: 'Stroke' }
+  | { op: 'Fill' }
+  | { op: 'FillAndStroke' }
+  | { op: 'SetFillColor'; r: number; g: number; b: number }
+  | { op: 'SetStrokeColor'; r: number; g: number; b: number }
+  | { op: 'SetLineWidth'; width: number }
+  | { op: 'SetLineCap'; cap: number }
+  | { op: 'SetLineJoin'; join: number }
+  | { op: 'Save' }
+  | { op: 'Restore' };
+
+export interface CanvasProps {
+  width: number;
+  height: number;
+  draw: (ctx: CanvasContext) => void;
+  style?: Style;
+}
+
 /** A styled text segment within a <Text> element */
 export interface TextRun {
   content: string;
@@ -332,6 +456,8 @@ export type FormeNodeKind =
   | { type: 'Fixed'; position: 'Header' | 'Footer' }
   | { type: 'Svg'; width: number; height: number; view_box?: string; content: string }
   | { type: 'QrCode'; data: string; size?: number }
+  | { type: 'Canvas'; width: number; height: number; operations: CanvasOp[] }
+  | { type: 'Watermark'; text: string; font_size: number; angle: number }
   | { type: 'PageBreak' };
 
 export interface FormeColumnDef {
@@ -427,6 +553,7 @@ export interface FormeStyle {
   lang?: string;
   direction?: string;
   textOverflow?: string;
+  overflow?: string;
   color?: FormeColor;
   backgroundColor?: FormeColor;
   opacity?: number;

@@ -300,6 +300,16 @@ pub enum NodeKind {
         content: String,
     },
 
+    /// A canvas drawing primitive with arbitrary vector operations.
+    Canvas {
+        /// Display width in points.
+        width: f64,
+        /// Display height in points.
+        height: f64,
+        /// Drawing operations to execute.
+        operations: Vec<CanvasOp>,
+    },
+
     /// A QR code rendered as vector rectangles.
     QrCode {
         /// The data to encode (URL, text, etc.).
@@ -309,6 +319,95 @@ pub enum NodeKind {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         size: Option<f64>,
     },
+
+    /// A watermark rendered as rotated text behind page content.
+    Watermark {
+        /// The watermark text (e.g. "DRAFT", "CONFIDENTIAL").
+        text: String,
+        /// Font size in points. Default: 60.
+        #[serde(default = "default_watermark_font_size")]
+        font_size: f64,
+        /// Rotation angle in degrees (negative = counterclockwise). Default: -45.
+        #[serde(default = "default_watermark_angle")]
+        angle: f64,
+    },
+}
+
+/// A canvas drawing operation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "op")]
+pub enum CanvasOp {
+    MoveTo {
+        x: f64,
+        y: f64,
+    },
+    LineTo {
+        x: f64,
+        y: f64,
+    },
+    BezierCurveTo {
+        cp1x: f64,
+        cp1y: f64,
+        cp2x: f64,
+        cp2y: f64,
+        x: f64,
+        y: f64,
+    },
+    QuadraticCurveTo {
+        cpx: f64,
+        cpy: f64,
+        x: f64,
+        y: f64,
+    },
+    ClosePath,
+    Rect {
+        x: f64,
+        y: f64,
+        width: f64,
+        height: f64,
+    },
+    Circle {
+        cx: f64,
+        cy: f64,
+        r: f64,
+    },
+    Ellipse {
+        cx: f64,
+        cy: f64,
+        rx: f64,
+        ry: f64,
+    },
+    Arc {
+        cx: f64,
+        cy: f64,
+        r: f64,
+        start_angle: f64,
+        end_angle: f64,
+    },
+    Stroke,
+    Fill,
+    FillAndStroke,
+    SetFillColor {
+        r: f64,
+        g: f64,
+        b: f64,
+    },
+    SetStrokeColor {
+        r: f64,
+        g: f64,
+        b: f64,
+    },
+    SetLineWidth {
+        width: f64,
+    },
+    SetLineCap {
+        cap: u32,
+    },
+    SetLineJoin {
+        join: u32,
+    },
+    Save,
+    Restore,
 }
 
 /// An inline styled run within a Text node.
@@ -332,6 +431,14 @@ pub enum Position {
 
 fn default_one() -> u32 {
     1
+}
+
+fn default_watermark_font_size() -> f64 {
+    60.0
+}
+
+fn default_watermark_angle() -> f64 {
+    -45.0
 }
 
 /// Column definition for tables.
@@ -425,7 +532,9 @@ impl Node {
             NodeKind::TableRow { .. } => true,
             NodeKind::Image { .. } => false,
             NodeKind::Svg { .. } => false,
+            NodeKind::Canvas { .. } => false,
             NodeKind::QrCode { .. } => false,
+            NodeKind::Watermark { .. } => false,
             NodeKind::PageBreak => false,
             NodeKind::Fixed { .. } => false,
             NodeKind::Page { .. } => true,

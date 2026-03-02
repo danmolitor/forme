@@ -139,6 +139,8 @@ pub struct ElementStyleInfo {
     pub bottom: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub left: Option<f64>,
+    // Overflow
+    pub overflow: Overflow,
     // Page behavior
     pub breakable: bool,
     pub break_before: bool,
@@ -212,6 +214,7 @@ impl ElementStyleInfo {
             right: style.right,
             bottom: style.bottom,
             left: style.left,
+            overflow: style.overflow,
             breakable: style.breakable,
             break_before: style.break_before,
             min_widow_lines: style.min_widow_lines,
@@ -263,6 +266,7 @@ impl Default for ElementStyleInfo {
             right: None,
             bottom: None,
             left: None,
+            overflow: Overflow::default(),
             breakable: false,
             break_before: false,
             min_widow_lines: 2,
@@ -342,6 +346,7 @@ impl LayoutInfo {
                     DrawCommand::ImagePlaceholder => "ImagePlaceholder",
                     DrawCommand::Svg { .. } => "Svg",
                     DrawCommand::QrCode { .. } => "QrCode",
+                    DrawCommand::Watermark { .. } => "Watermark",
                 };
                 let text_content = match &elem.draw {
                     DrawCommand::Text { lines, .. } => {
@@ -403,6 +408,8 @@ pub struct LayoutPage {
     pub(crate) fixed_header: Vec<(Node, f64)>,
     /// Fixed footer nodes to inject after layout (internal use).
     pub(crate) fixed_footer: Vec<(Node, f64)>,
+    /// Watermark nodes to inject after layout (internal use).
+    pub(crate) watermarks: Vec<Node>,
     /// Page config needed for fixed element layout (internal use).
     pub(crate) config: PageConfig,
 }
@@ -434,6 +441,8 @@ pub struct LayoutElement {
     pub alt: Option<String>,
     /// Whether this is a table header row (for tagged PDF: TH vs TD).
     pub is_header_row: bool,
+    /// Overflow behavior (Visible or Hidden). When Hidden, PDF clips children.
+    pub overflow: Overflow,
 }
 
 /// Return a human-readable name for a NodeKind variant.
@@ -454,7 +463,9 @@ fn node_kind_name(kind: &NodeKind) -> &'static str {
         NodeKind::Page { .. } => "Page",
         NodeKind::PageBreak => "PageBreak",
         NodeKind::Svg { .. } => "Svg",
+        NodeKind::Canvas { .. } => "Canvas",
         NodeKind::QrCode { .. } => "QrCode",
+        NodeKind::Watermark { .. } => "Watermark",
     }
 }
 
@@ -495,6 +506,15 @@ pub enum DrawCommand {
         modules: Vec<Vec<bool>>,
         module_size: f64,
         color: Color,
+    },
+    /// Draw a watermark (rotated text with opacity).
+    Watermark {
+        lines: Vec<TextLine>,
+        color: Color,
+        opacity: f64,
+        angle_rad: f64,
+        /// Font family used (for PDF font registration).
+        font_family: String,
     },
 }
 
@@ -682,6 +702,8 @@ struct PageCursor {
     elements: Vec<LayoutElement>,
     fixed_header: Vec<(Node, f64)>,
     fixed_footer: Vec<(Node, f64)>,
+    /// Watermark nodes stored for repetition on every page.
+    watermarks: Vec<Node>,
     content_x: f64,
     content_y: f64,
     /// Extra Y offset applied on continuation pages (e.g. parent view's padding+border)
@@ -702,6 +724,7 @@ impl PageCursor {
             elements: Vec::new(),
             fixed_header: Vec::new(),
             fixed_footer: Vec::new(),
+            watermarks: Vec::new(),
             content_x: config.margin.left,
             content_y: config.margin.top,
             continuation_top_offset: 0.0,
@@ -721,6 +744,7 @@ impl PageCursor {
             elements: self.elements.clone(),
             fixed_header: self.fixed_header.clone(),
             fixed_footer: self.fixed_footer.clone(),
+            watermarks: self.watermarks.clone(),
             config: self.config.clone(),
         }
     }
@@ -729,6 +753,7 @@ impl PageCursor {
         let mut cursor = PageCursor::new(&self.config);
         cursor.fixed_header = self.fixed_header.clone();
         cursor.fixed_footer = self.fixed_footer.clone();
+        cursor.watermarks = self.watermarks.clone();
         cursor.continuation_top_offset = self.continuation_top_offset;
 
         let header_height: f64 = cursor.fixed_header.iter().map(|(_, h)| *h).sum();
@@ -873,6 +898,11 @@ impl LayoutEngine {
                 }
             }
 
+            NodeKind::Watermark { .. } => {
+                // Watermarks take zero layout height — just store on cursor for injection
+                cursor.watermarks.push(node.clone());
+            }
+
             NodeKind::Text {
                 content,
                 href,
@@ -978,6 +1008,24 @@ impl LayoutEngine {
                     *explicit_size,
                 );
             }
+
+            NodeKind::Canvas {
+                width: canvas_w,
+                height: canvas_h,
+                operations,
+            } => {
+                self.layout_canvas(
+                    node,
+                    &style,
+                    cursor,
+                    pages,
+                    x,
+                    available_width,
+                    *canvas_w,
+                    *canvas_h,
+                    operations,
+                );
+            }
         }
     }
 
@@ -1075,6 +1123,7 @@ impl LayoutEngine {
                 bookmark: node.bookmark.clone(),
                 alt: None,
                 is_header_row: false,
+                overflow: style.overflow,
             };
             cursor.elements.push(rect_element);
 
@@ -1134,6 +1183,7 @@ impl LayoutEngine {
                 bookmark: node.bookmark.clone(),
                 alt: None,
                 is_header_row: false,
+                overflow: Overflow::default(),
             });
         }
 
@@ -1207,6 +1257,7 @@ impl LayoutEngine {
                 bookmark: node.bookmark.clone(),
                 alt: None,
                 is_header_row: false,
+                overflow: style.overflow,
             });
         } else {
             // Page breaks occurred: wrap elements on each page with clone semantics
@@ -1233,6 +1284,7 @@ impl LayoutEngine {
                     bookmark: node.bookmark.clone(),
                     alt: None,
                     is_header_row: false,
+                    overflow: Overflow::default(),
                 });
             }
 
@@ -1260,6 +1312,7 @@ impl LayoutEngine {
                         bookmark: None,
                         alt: None,
                         is_header_row: false,
+                        overflow: Overflow::default(),
                     });
                 }
             }
@@ -1285,6 +1338,7 @@ impl LayoutEngine {
                     bookmark: None,
                     alt: None,
                     is_header_row: false,
+                    overflow: Overflow::default(),
                 });
             }
         }
@@ -2033,6 +2087,7 @@ impl LayoutEngine {
                 bookmark: cell.bookmark.clone(),
                 alt: None,
                 is_header_row: is_header,
+                overflow: Overflow::default(),
             });
 
             cell_x += col_width;
@@ -2064,6 +2119,7 @@ impl LayoutEngine {
             bookmark: row.bookmark.clone(),
             alt: None,
             is_header_row: is_header,
+            overflow: row_style.overflow,
         });
 
         // Append any overflow pages from cells that exceeded page height
@@ -2222,6 +2278,7 @@ impl LayoutEngine {
                         },
                         alt: None,
                         is_header_row: false,
+                        overflow: Overflow::default(),
                     });
                     is_first_element = false;
                 }
@@ -2270,6 +2327,7 @@ impl LayoutEngine {
                 bookmark: None,
                 alt: None,
                 is_header_row: false,
+                overflow: Overflow::default(),
             });
 
             cursor.y += line_height;
@@ -2297,6 +2355,7 @@ impl LayoutEngine {
                 },
                 alt: None,
                 is_header_row: false,
+                overflow: Overflow::default(),
             });
         }
 
@@ -2431,6 +2490,7 @@ impl LayoutEngine {
                         },
                         alt: None,
                         is_header_row: false,
+                        overflow: Overflow::default(),
                     });
                     is_first_element = false;
                 }
@@ -2486,6 +2546,7 @@ impl LayoutEngine {
                 bookmark: None,
                 alt: None,
                 is_header_row: false,
+                overflow: Overflow::default(),
             });
 
             cursor.y += line_height;
@@ -2512,6 +2573,7 @@ impl LayoutEngine {
                 },
                 alt: None,
                 is_header_row: false,
+                overflow: Overflow::default(),
             });
         }
     }
@@ -2529,10 +2591,156 @@ impl LayoutEngine {
         let italic = matches!(style.font_style, FontStyle::Italic | FontStyle::Oblique);
         let line_text: String = line.chars.iter().collect();
         let direction = style.direction;
+        let has_fallback_chain = style.font_family.contains(',');
 
         // Check if BiDi processing is needed
         let has_bidi = !bidi::is_pure_ltr(&line_text, direction);
 
+        // Per-char fallback path: segment by font within each BiDi run
+        if has_fallback_chain {
+            let font_runs = crate::font::fallback::segment_by_font(
+                &line.chars,
+                &style.font_family,
+                style.font_weight,
+                italic,
+                font_context.registry(),
+            );
+
+            let bidi_runs = if has_bidi {
+                bidi::analyze_bidi(&line_text, direction)
+            } else {
+                vec![crate::text::bidi::BidiRun {
+                    char_start: 0,
+                    char_end: line.chars.len(),
+                    level: unicode_bidi::Level::ltr(),
+                    is_rtl: false,
+                }]
+            };
+
+            let mut all_glyphs = Vec::new();
+            let mut bidi_levels = Vec::new();
+            let mut x = 0.0_f64;
+
+            // Process each BiDi run
+            for bidi_run in &bidi_runs {
+                // Within this BiDi run, sub-segment by font
+                for font_run in &font_runs {
+                    // Intersect font_run with bidi_run
+                    let start = font_run.start.max(bidi_run.char_start);
+                    let end = font_run.end.min(bidi_run.char_end);
+                    if start >= end {
+                        continue;
+                    }
+
+                    let sub_chars: Vec<char> = line.chars[start..end].to_vec();
+                    let sub_text: String = sub_chars.iter().collect();
+                    let resolved_family = &font_run.family;
+
+                    if let Some(font_data) =
+                        font_context.font_data(resolved_family, style.font_weight, italic)
+                    {
+                        if let Some(shaped) = shaping::shape_text_with_direction(
+                            &sub_text,
+                            font_data,
+                            bidi_run.is_rtl,
+                        ) {
+                            let units_per_em = font_context.units_per_em(
+                                resolved_family,
+                                style.font_weight,
+                                italic,
+                            );
+                            let scale = style.font_size / units_per_em as f64;
+
+                            for sg in &shaped {
+                                let cluster = sg.cluster as usize;
+                                let char_value = sub_chars.get(cluster).copied().unwrap_or(' ');
+
+                                let cluster_text = if shaped.len() < sub_chars.len() {
+                                    let cluster_end =
+                                        self.find_cluster_end(&shaped, sg, sub_chars.len());
+                                    if cluster_end > cluster + 1 {
+                                        Some(
+                                            sub_chars[cluster..cluster_end]
+                                                .iter()
+                                                .collect::<String>(),
+                                        )
+                                    } else {
+                                        None
+                                    }
+                                } else {
+                                    None
+                                };
+
+                                let glyph_x = x + sg.x_offset as f64 * scale;
+                                let glyph_y = sg.y_offset as f64 * scale;
+                                let advance = sg.x_advance as f64 * scale + style.letter_spacing;
+
+                                all_glyphs.push(PositionedGlyph {
+                                    glyph_id: sg.glyph_id,
+                                    x_offset: glyph_x,
+                                    y_offset: glyph_y,
+                                    x_advance: advance,
+                                    font_size: style.font_size,
+                                    font_family: resolved_family.clone(),
+                                    font_weight: style.font_weight,
+                                    font_style: style.font_style,
+                                    char_value,
+                                    color: Some(style.color),
+                                    href: href.map(|s| s.to_string()),
+                                    text_decoration: style.text_decoration,
+                                    letter_spacing: style.letter_spacing,
+                                    cluster_text,
+                                });
+                                bidi_levels.push(bidi_run.level);
+                                x += advance;
+                            }
+                            continue;
+                        }
+                    }
+
+                    // Fallback: standard font or shaping failure for this sub-segment
+                    for i in start..end {
+                        let ch = line.chars[i];
+                        let glyph_x = x;
+                        let char_width = font_context.char_width(
+                            ch,
+                            resolved_family,
+                            style.font_weight,
+                            italic,
+                            style.font_size,
+                        );
+                        let advance = char_width + style.letter_spacing;
+                        all_glyphs.push(PositionedGlyph {
+                            glyph_id: ch as u16,
+                            x_offset: glyph_x,
+                            y_offset: 0.0,
+                            x_advance: advance,
+                            font_size: style.font_size,
+                            font_family: resolved_family.clone(),
+                            font_weight: style.font_weight,
+                            font_style: style.font_style,
+                            char_value: ch,
+                            color: Some(style.color),
+                            href: href.map(|s| s.to_string()),
+                            text_decoration: style.text_decoration,
+                            letter_spacing: style.letter_spacing,
+                            cluster_text: None,
+                        });
+                        bidi_levels.push(bidi_run.level);
+                        x += advance;
+                    }
+                }
+            }
+
+            // Apply BiDi visual reordering if needed
+            if has_bidi && !all_glyphs.is_empty() {
+                all_glyphs = bidi::reorder_line_glyphs(all_glyphs, &bidi_levels);
+                bidi::reposition_after_reorder(&mut all_glyphs, 0.0);
+            }
+            return all_glyphs;
+        }
+
+        // Original single-font path (no comma in font_family)
         // Try shaping for custom fonts
         if let Some(font_data) =
             font_context.font_data(&style.font_family, style.font_weight, italic)
@@ -2686,6 +2894,8 @@ impl LayoutEngine {
 
     /// Build PositionedGlyphs for a multi-style RunBrokenLine.
     /// Shapes contiguous runs of the same custom font, with BiDi support.
+    /// When a StyledChar has a comma-separated font_family, resolves each
+    /// character to a single font before grouping for shaping.
     fn build_positioned_glyphs_runs(
         &self,
         run_line: &RunBrokenLine,
@@ -2696,6 +2906,26 @@ impl LayoutEngine {
         if chars.is_empty() {
             return vec![];
         }
+
+        // Pre-resolve per-char font families from comma chains.
+        // This produces a vec of resolved single family names, one per char.
+        let resolved_families: Vec<String> = chars
+            .iter()
+            .map(|sc| {
+                if !sc.font_family.contains(',') {
+                    sc.font_family.clone()
+                } else {
+                    let italic = matches!(sc.font_style, FontStyle::Italic | FontStyle::Oblique);
+                    let (_, family) = font_context.registry().resolve_for_char(
+                        &sc.font_family,
+                        sc.ch,
+                        sc.font_weight,
+                        italic,
+                    );
+                    family
+                }
+            })
+            .collect();
 
         let line_text: String = chars.iter().map(|c| c.ch).collect();
         let has_bidi = !bidi::is_pure_ltr(&line_text, direction);
@@ -2712,6 +2942,7 @@ impl LayoutEngine {
         while i < chars.len() {
             let sc = &chars[i];
             let italic = matches!(sc.font_style, FontStyle::Italic | FontStyle::Oblique);
+            let resolved_family = &resolved_families[i];
 
             // Determine if this char is in an RTL BiDi run
             let is_rtl = bidi_runs.as_ref().is_some_and(|runs| {
@@ -2719,10 +2950,10 @@ impl LayoutEngine {
                     .any(|r| i >= r.char_start && i < r.char_end && r.is_rtl)
             });
 
-            // Check for custom font with shaping
-            if let Some(font_data) = font_context.font_data(&sc.font_family, sc.font_weight, italic)
+            // Check for custom font with shaping (using resolved single family)
+            if let Some(font_data) = font_context.font_data(resolved_family, sc.font_weight, italic)
             {
-                // Find contiguous run with same font AND same BiDi direction
+                // Find contiguous run with same resolved font AND same BiDi direction
                 let run_start = i;
                 let mut run_end = i + 1;
                 while run_end < chars.len() {
@@ -2733,7 +2964,8 @@ impl LayoutEngine {
                         runs.iter()
                             .any(|r| run_end >= r.char_start && run_end < r.char_end && r.is_rtl)
                     });
-                    if next.font_family == sc.font_family
+                    // Group by resolved family, not original comma chain
+                    if resolved_families[run_end] == *resolved_family
                         && next.font_weight == sc.font_weight
                         && next_italic == italic
                         && (next.font_size - sc.font_size).abs() < 0.001
@@ -2750,7 +2982,7 @@ impl LayoutEngine {
                     shaping::shape_text_with_direction(&run_text, font_data, is_rtl)
                 {
                     let units_per_em =
-                        font_context.units_per_em(&sc.font_family, sc.font_weight, italic);
+                        font_context.units_per_em(resolved_family, sc.font_weight, italic);
                     let scale = sc.font_size / units_per_em as f64;
 
                     // Build char positions for this run segment
@@ -2760,13 +2992,18 @@ impl LayoutEngine {
                         .map(|j| run_line.char_positions.get(j).copied().unwrap_or(0.0))
                         .collect();
 
-                    let run_glyphs = self.shaped_glyphs_to_positioned_runs(
+                    // Build glyphs with resolved single family on each glyph
+                    let mut run_glyphs = self.shaped_glyphs_to_positioned_runs(
                         &shaped,
                         &chars[run_start..run_end],
                         &run_chars,
                         &run_positions,
                         scale,
                     );
+                    // Override font_family to the resolved single family
+                    for g in &mut run_glyphs {
+                        g.font_family = resolved_family.clone();
+                    }
                     // Track BiDi levels for each glyph
                     let run_level = if is_rtl {
                         unicode_bidi::Level::rtl()
@@ -2782,11 +3019,11 @@ impl LayoutEngine {
                 }
             }
 
-            // Fallback: unshaped glyph
+            // Fallback: unshaped glyph (using resolved family)
             let glyph_x = run_line.char_positions.get(i).copied().unwrap_or(0.0);
             let char_width = font_context.char_width(
                 sc.ch,
-                &sc.font_family,
+                resolved_family,
                 sc.font_weight,
                 italic,
                 sc.font_size,
@@ -2797,7 +3034,7 @@ impl LayoutEngine {
                 y_offset: 0.0,
                 x_advance: char_width,
                 font_size: sc.font_size,
-                font_family: sc.font_family.clone(),
+                font_family: resolved_family.clone(),
                 font_weight: sc.font_weight,
                 font_style: sc.font_style,
                 char_value: sc.ch,
@@ -3046,6 +3283,7 @@ impl LayoutEngine {
             bookmark: node.bookmark.clone(),
             alt: node.alt.clone(),
             is_header_row: false,
+            overflow: style.overflow,
         });
 
         cursor.y += img_height + margin.bottom;
@@ -3105,9 +3343,173 @@ impl LayoutEngine {
             bookmark: node.bookmark.clone(),
             alt: node.alt.clone(),
             is_header_row: false,
+            overflow: style.overflow,
         });
 
         cursor.y += svg_height + margin.bottom;
+    }
+
+    /// Convert CanvasOps to SvgCommands, reusing the existing SVG rendering pipeline.
+    fn canvas_ops_to_svg_commands(operations: &[CanvasOp]) -> Vec<crate::svg::SvgCommand> {
+        use crate::svg::SvgCommand;
+
+        let mut commands = Vec::new();
+        let mut cur_x = 0.0_f64;
+        let mut cur_y = 0.0_f64;
+
+        for op in operations {
+            match op {
+                CanvasOp::MoveTo { x, y } => {
+                    commands.push(SvgCommand::MoveTo(*x, *y));
+                    cur_x = *x;
+                    cur_y = *y;
+                }
+                CanvasOp::LineTo { x, y } => {
+                    commands.push(SvgCommand::LineTo(*x, *y));
+                    cur_x = *x;
+                    cur_y = *y;
+                }
+                CanvasOp::BezierCurveTo {
+                    cp1x,
+                    cp1y,
+                    cp2x,
+                    cp2y,
+                    x,
+                    y,
+                } => {
+                    commands.push(SvgCommand::CurveTo(*cp1x, *cp1y, *cp2x, *cp2y, *x, *y));
+                    cur_x = *x;
+                    cur_y = *y;
+                }
+                CanvasOp::QuadraticCurveTo { cpx, cpy, x, y } => {
+                    // Convert quadratic to cubic bezier
+                    let cp1x = cur_x + 2.0 / 3.0 * (*cpx - cur_x);
+                    let cp1y = cur_y + 2.0 / 3.0 * (*cpy - cur_y);
+                    let cp2x = *x + 2.0 / 3.0 * (*cpx - *x);
+                    let cp2y = *y + 2.0 / 3.0 * (*cpy - *y);
+                    commands.push(SvgCommand::CurveTo(cp1x, cp1y, cp2x, cp2y, *x, *y));
+                    cur_x = *x;
+                    cur_y = *y;
+                }
+                CanvasOp::ClosePath => {
+                    commands.push(SvgCommand::ClosePath);
+                }
+                CanvasOp::Rect {
+                    x,
+                    y,
+                    width,
+                    height,
+                } => {
+                    commands.push(SvgCommand::MoveTo(*x, *y));
+                    commands.push(SvgCommand::LineTo(*x + *width, *y));
+                    commands.push(SvgCommand::LineTo(*x + *width, *y + *height));
+                    commands.push(SvgCommand::LineTo(*x, *y + *height));
+                    commands.push(SvgCommand::ClosePath);
+                    cur_x = *x;
+                    cur_y = *y;
+                }
+                CanvasOp::Circle { cx, cy, r } => {
+                    commands.extend(crate::svg::ellipse_commands(*cx, *cy, *r, *r));
+                }
+                CanvasOp::Ellipse { cx, cy, rx, ry } => {
+                    commands.extend(crate::svg::ellipse_commands(*cx, *cy, *rx, *ry));
+                }
+                CanvasOp::Arc {
+                    cx,
+                    cy,
+                    r,
+                    start_angle,
+                    end_angle,
+                } => {
+                    // Approximate arc with line segments
+                    let steps = 32;
+                    let sweep = end_angle - start_angle;
+                    for i in 0..=steps {
+                        let t = *start_angle + sweep * (i as f64 / steps as f64);
+                        let px = cx + r * t.cos();
+                        let py = cy + r * t.sin();
+                        if i == 0 {
+                            commands.push(SvgCommand::MoveTo(px, py));
+                        } else {
+                            commands.push(SvgCommand::LineTo(px, py));
+                        }
+                    }
+                }
+                CanvasOp::Stroke => commands.push(SvgCommand::Stroke),
+                CanvasOp::Fill => commands.push(SvgCommand::Fill),
+                CanvasOp::FillAndStroke => commands.push(SvgCommand::FillAndStroke),
+                CanvasOp::SetFillColor { r, g, b } => {
+                    commands.push(SvgCommand::SetFill(*r, *g, *b));
+                }
+                CanvasOp::SetStrokeColor { r, g, b } => {
+                    commands.push(SvgCommand::SetStroke(*r, *g, *b));
+                }
+                CanvasOp::SetLineWidth { width } => {
+                    commands.push(SvgCommand::SetStrokeWidth(*width));
+                }
+                CanvasOp::SetLineCap { cap } => {
+                    commands.push(SvgCommand::SetLineCap(*cap));
+                }
+                CanvasOp::SetLineJoin { join } => {
+                    commands.push(SvgCommand::SetLineJoin(*join));
+                }
+                CanvasOp::Save => commands.push(SvgCommand::SaveState),
+                CanvasOp::Restore => commands.push(SvgCommand::RestoreState),
+            }
+        }
+
+        commands
+    }
+
+    /// Layout a canvas element as a fixed-size box with vector graphics.
+    #[allow(clippy::too_many_arguments)]
+    fn layout_canvas(
+        &self,
+        node: &Node,
+        style: &ResolvedStyle,
+        cursor: &mut PageCursor,
+        pages: &mut Vec<LayoutPage>,
+        x: f64,
+        _available_width: f64,
+        canvas_width: f64,
+        canvas_height: f64,
+        operations: &[CanvasOp],
+    ) {
+        let margin = style.margin;
+        let total_height = canvas_height + margin.top + margin.bottom;
+
+        // Page break check
+        if cursor.remaining_height() < total_height && cursor.y > 0.0 {
+            pages.push(cursor.finalize());
+            *cursor = cursor.new_page();
+        }
+
+        cursor.y += margin.top;
+
+        let svg_commands = Self::canvas_ops_to_svg_commands(operations);
+
+        cursor.elements.push(LayoutElement {
+            x: x + margin.left,
+            y: cursor.content_y + cursor.y,
+            width: canvas_width,
+            height: canvas_height,
+            draw: DrawCommand::Svg {
+                commands: svg_commands,
+                width: canvas_width,
+                height: canvas_height,
+            },
+            children: vec![],
+            node_type: Some("Canvas".to_string()),
+            resolved_style: Some(style.clone()),
+            source_location: node.source_location.clone(),
+            href: node.href.clone(),
+            bookmark: node.bookmark.clone(),
+            alt: node.alt.clone(),
+            is_header_row: false,
+            overflow: style.overflow,
+        });
+
+        cursor.y += canvas_height + margin.bottom;
     }
 
     /// Layout a QR code as a square block of vector rectangles.
@@ -3160,6 +3562,7 @@ impl LayoutEngine {
             bookmark: node.bookmark.clone(),
             alt: node.alt.clone(),
             is_header_row: false,
+            overflow: style.overflow,
         });
 
         cursor.y += display_size + margin.bottom;
@@ -3252,6 +3655,8 @@ impl LayoutEngine {
                 let display_size = size.unwrap_or(available_width - style.margin.horizontal());
                 display_size + style.margin.vertical()
             }
+            NodeKind::Canvas { height, .. } => *height + style.margin.vertical(),
+            NodeKind::Watermark { .. } => 0.0, // Watermarks take zero layout height
             _ => {
                 // If a fixed height is specified, use it directly
                 if let SizeConstraint::Fixed(h) = style.height {
@@ -3522,6 +3927,10 @@ impl LayoutEngine {
                 let display_size = size.unwrap_or(0.0);
                 display_size + style.padding.horizontal() + style.margin.horizontal()
             }
+            NodeKind::Canvas { width, .. } => {
+                *width + style.padding.horizontal() + style.margin.horizontal()
+            }
+            NodeKind::Watermark { .. } => 0.0, // Watermarks take zero width
             _ => {
                 // Recursively measure children's intrinsic widths
                 if node.children.is_empty() {
@@ -3711,6 +4120,143 @@ impl LayoutEngine {
 
     fn inject_fixed_elements(&self, pages: &mut [LayoutPage], font_context: &FontContext) {
         for page in pages.iter_mut() {
+            // Inject watermarks behind all content
+            if !page.watermarks.is_empty() {
+                let (page_w, page_h) = page.config.size.dimensions();
+                let cx = page_w / 2.0;
+                let cy = page_h / 2.0;
+
+                let mut watermark_elements = Vec::new();
+                for wm_node in &page.watermarks {
+                    if let NodeKind::Watermark {
+                        text,
+                        font_size,
+                        angle,
+                    } = &wm_node.kind
+                    {
+                        let style = wm_node.style.resolve(None, page_w);
+                        let color = style.color;
+                        let opacity = style.opacity;
+                        let angle_rad = angle.to_radians();
+
+                        // Build positioned glyphs for the watermark text
+                        let italic =
+                            matches!(style.font_style, FontStyle::Italic | FontStyle::Oblique);
+
+                        // Try shaping, fall back to per-char measurement
+                        let shaped = self.text_layout.shape_text(
+                            font_context,
+                            text,
+                            &style.font_family,
+                            style.font_weight,
+                            style.font_style,
+                        );
+
+                        let mut glyphs = Vec::new();
+                        let mut x_pos = 0.0;
+                        let text_chars: Vec<char> = text.chars().collect();
+
+                        if let Some(shaped_glyphs) = shaped {
+                            // Use shaped glyphs (custom fonts)
+                            let units_per_em = font_context.units_per_em(
+                                &style.font_family,
+                                style.font_weight,
+                                italic,
+                            ) as f64;
+
+                            for sg in &shaped_glyphs {
+                                let advance = sg.x_advance as f64 / units_per_em * *font_size;
+                                let cluster_idx = sg.cluster as usize;
+                                let ch = text_chars.get(cluster_idx).copied().unwrap_or(' ');
+                                glyphs.push(PositionedGlyph {
+                                    glyph_id: sg.glyph_id,
+                                    char_value: ch,
+                                    x_offset: x_pos,
+                                    y_offset: 0.0,
+                                    x_advance: advance,
+                                    font_size: *font_size,
+                                    font_family: style.font_family.clone(),
+                                    font_weight: style.font_weight,
+                                    font_style: style.font_style,
+                                    color: Some(color),
+                                    href: None,
+                                    text_decoration: TextDecoration::None,
+                                    letter_spacing: style.letter_spacing,
+                                    cluster_text: None,
+                                });
+                                x_pos += advance + style.letter_spacing;
+                            }
+                        } else {
+                            // Per-char measurement (standard fonts)
+                            for &ch in &text_chars {
+                                let w = font_context.char_width(
+                                    ch,
+                                    &style.font_family,
+                                    style.font_weight,
+                                    italic,
+                                    *font_size,
+                                );
+                                glyphs.push(PositionedGlyph {
+                                    glyph_id: ch as u16,
+                                    char_value: ch,
+                                    x_offset: x_pos,
+                                    y_offset: 0.0,
+                                    x_advance: w,
+                                    font_size: *font_size,
+                                    font_family: style.font_family.clone(),
+                                    font_weight: style.font_weight,
+                                    font_style: style.font_style,
+                                    color: Some(color),
+                                    href: None,
+                                    text_decoration: TextDecoration::None,
+                                    letter_spacing: style.letter_spacing,
+                                    cluster_text: None,
+                                });
+                                x_pos += w + style.letter_spacing;
+                            }
+                        }
+
+                        let text_width = x_pos;
+
+                        let line = TextLine {
+                            x: 0.0,
+                            y: 0.0,
+                            glyphs,
+                            width: text_width,
+                            height: *font_size,
+                        };
+
+                        watermark_elements.push(LayoutElement {
+                            x: cx,
+                            y: cy,
+                            width: text_width,
+                            height: *font_size,
+                            draw: DrawCommand::Watermark {
+                                lines: vec![line],
+                                color,
+                                opacity,
+                                angle_rad,
+                                font_family: style.font_family.clone(),
+                            },
+                            children: vec![],
+                            node_type: Some("Watermark".to_string()),
+                            resolved_style: None,
+                            source_location: None,
+                            href: None,
+                            bookmark: None,
+                            alt: None,
+                            is_header_row: false,
+                            overflow: Overflow::default(),
+                        });
+                    }
+                }
+
+                // Prepend watermark elements so they render behind all content
+                watermark_elements.append(&mut page.elements);
+                page.elements = watermark_elements;
+                page.watermarks.clear();
+            }
+
             if page.fixed_header.is_empty() && page.fixed_footer.is_empty() {
                 continue;
             }

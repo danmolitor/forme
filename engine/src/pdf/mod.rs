@@ -38,7 +38,7 @@ use crate::font::subset::subset_ttf;
 use crate::font::{FontContext, FontData, FontKey};
 use crate::layout::*;
 use crate::model::*;
-use crate::style::{Color, FontStyle, TextDecoration};
+use crate::style::{Color, FontStyle, Overflow, TextDecoration};
 use crate::svg::SvgCommand;
 use miniz_oxide::deflate::compress_to_vec_zlib;
 
@@ -922,6 +922,106 @@ impl PdfWriter {
                 }
                 return;
             }
+            DrawCommand::Watermark {
+                lines,
+                color,
+                opacity,
+                angle_rad,
+                font_family: _,
+            } => {
+                let _ = writeln!(stream, "q");
+                // Set opacity via ExtGState if not fully opaque
+                if *opacity < 1.0 {
+                    if let Some((_, gs_name)) = builder.ext_gstate_map.get(&opacity.to_bits()) {
+                        let _ = writeln!(stream, "/{} gs", gs_name);
+                    }
+                }
+                // Translate to center position (element.x, element.y = page center)
+                let pdf_cx = element.x;
+                let pdf_cy = page_height - element.y;
+                let _ = writeln!(stream, "1 0 0 1 {:.2} {:.2} cm", pdf_cx, pdf_cy);
+                // Rotate by angle
+                let cos_a = angle_rad.cos();
+                let sin_a = angle_rad.sin();
+                let _ = writeln!(
+                    stream,
+                    "{:.6} {:.6} {:.6} {:.6} 0 0 cm",
+                    cos_a, sin_a, -sin_a, cos_a
+                );
+                // Render text centered on origin
+                let _ = writeln!(stream, "BT");
+                let _ = writeln!(stream, "{:.3} {:.3} {:.3} rg", color.r, color.g, color.b);
+                if let Some(line) = lines.first() {
+                    let groups = Self::group_glyphs_by_style(&line.glyphs);
+                    let text_width = line.width;
+                    let cap_height = line.height * 0.7;
+                    let _ = writeln!(
+                        stream,
+                        "{:.2} {:.2} Td",
+                        -text_width / 2.0,
+                        -cap_height / 2.0
+                    );
+                    for group in &groups {
+                        let first = &group[0];
+                        let italic =
+                            matches!(first.font_style, FontStyle::Italic | FontStyle::Oblique);
+                        let fk = FontKey {
+                            family: first.font_family.clone(),
+                            weight: if first.font_weight >= 600 { 700 } else { 400 },
+                            italic,
+                        };
+                        let idx = self.font_index(
+                            &first.font_family,
+                            first.font_weight,
+                            first.font_style,
+                            &builder.font_objects,
+                        );
+                        let font_name = format!("F{}", idx);
+                        let _ = writeln!(stream, "/{} {:.1} Tf", font_name, first.font_size);
+                        let is_custom = builder.custom_font_data.contains_key(&fk);
+                        if is_custom {
+                            if let Some(embed_data) = builder.custom_font_data.get(&fk) {
+                                let mut hex = String::new();
+                                for g in group.iter() {
+                                    let gid =
+                                        embed_data.gid_remap.get(&g.glyph_id).copied().unwrap_or(0);
+                                    let _ = write!(hex, "{:04X}", gid);
+                                }
+                                let _ = writeln!(stream, "<{}> Tj", hex);
+                            }
+                        } else {
+                            let hex_str: String = group
+                                .iter()
+                                .map(|g| format!("{:02X}", g.glyph_id as u8))
+                                .collect();
+                            let _ = writeln!(stream, "<{}> Tj", hex_str);
+                        }
+                    }
+                }
+                let _ = writeln!(stream, "ET");
+                let _ = writeln!(stream, "Q");
+                if tagged_mcid.is_some() {
+                    let _ = writeln!(stream, "EMC");
+                    if let Some(ref mut tb) = tag_builder {
+                        tb.end_element();
+                    }
+                }
+                return;
+            }
+        }
+
+        // Overflow clipping: wrap children in q/clip/Q when overflow is Hidden
+        let clip_overflow = matches!(element.overflow, Overflow::Hidden);
+        if clip_overflow {
+            let clip_x = element.x;
+            let clip_y = page_height - element.y - element.height;
+            let clip_w = element.width;
+            let clip_h = element.height;
+            let _ = writeln!(
+                stream,
+                "q\n{:.2} {:.2} {:.2} {:.2} re W n",
+                clip_x, clip_y, clip_w, clip_h
+            );
         }
 
         for child in &element.children {
@@ -936,6 +1036,10 @@ impl PdfWriter {
                 total_pages,
                 tag_builder.as_deref_mut(),
             );
+        }
+
+        if clip_overflow {
+            let _ = writeln!(stream, "Q");
         }
 
         // Tagged PDF: emit EMC (end marked content)
@@ -1172,7 +1276,12 @@ impl PdfWriter {
         font_usage: &mut HashMap<FontKey, FontUsage>,
     ) {
         for element in elements {
-            if let DrawCommand::Text { lines, .. } = &element.draw {
+            let lines_opt = match &element.draw {
+                DrawCommand::Text { lines, .. } => Some(lines),
+                DrawCommand::Watermark { lines, .. } => Some(lines),
+                _ => None,
+            };
+            if let Some(lines) = lines_opt {
                 for line in lines {
                     for glyph in &line.glyphs {
                         let italic =
@@ -1282,7 +1391,9 @@ impl PdfWriter {
     fn collect_opacities_recursive(elements: &[LayoutElement], opacities: &mut Vec<f64>) {
         for element in elements {
             match &element.draw {
-                DrawCommand::Rect { opacity, .. } | DrawCommand::Text { opacity, .. }
+                DrawCommand::Rect { opacity, .. }
+                | DrawCommand::Text { opacity, .. }
+                | DrawCommand::Watermark { opacity, .. }
                     if *opacity < 1.0 =>
                 {
                     opacities.push(*opacity);
@@ -1955,6 +2066,12 @@ impl PdfWriter {
                 SvgCommand::FillAndStroke => {
                     let _ = writeln!(stream, "B");
                 }
+                SvgCommand::SetLineCap(cap) => {
+                    let _ = writeln!(stream, "{} J", cap);
+                }
+                SvgCommand::SetLineJoin(join) => {
+                    let _ = writeln!(stream, "{} j", join);
+                }
                 SvgCommand::SaveState => {
                     let _ = writeln!(stream, "q");
                 }
@@ -2039,6 +2156,7 @@ mod tests {
             elements: vec![],
             fixed_header: vec![],
             fixed_footer: vec![],
+            watermarks: vec![],
             config: PageConfig::default(),
         }];
         let metadata = Metadata::default();
@@ -2062,6 +2180,7 @@ mod tests {
             elements: vec![],
             fixed_header: vec![],
             fixed_footer: vec![],
+            watermarks: vec![],
             config: PageConfig::default(),
         }];
         let metadata = Metadata {
@@ -2130,6 +2249,7 @@ mod tests {
                     bookmark: None,
                     alt: None,
                     is_header_row: false,
+                    overflow: Overflow::default(),
                 },
                 LayoutElement {
                     x: 54.0,
@@ -2171,10 +2291,12 @@ mod tests {
                     bookmark: None,
                     alt: None,
                     is_header_row: false,
+                    overflow: Overflow::default(),
                 },
             ],
             fixed_header: vec![],
             fixed_footer: vec![],
+            watermarks: vec![],
             config: PageConfig::default(),
         }];
 
@@ -2326,9 +2448,11 @@ mod tests {
                 bookmark: None,
                 alt: None,
                 is_header_row: false,
+                overflow: Overflow::default(),
             }],
             fixed_header: vec![],
             fixed_footer: vec![],
+            watermarks: vec![],
             config: PageConfig::default(),
         }];
 

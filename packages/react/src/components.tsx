@@ -10,6 +10,8 @@ import type {
   FixedProps,
   SvgProps,
   QrCodeProps,
+  CanvasProps,
+  WatermarkProps,
 } from './types.js';
 
 /**
@@ -244,6 +246,53 @@ export function Svg(_props: SvgProps): null {
  * ```
  */
 export function QrCode(_props: QrCodeProps): null {
+  return null;
+}
+
+/**
+ * A canvas drawing primitive for arbitrary vector graphics.
+ *
+ * The `draw` callback receives a `CanvasContext` that records drawing operations.
+ * These are serialized to JSON and rendered as native PDF vector commands.
+ *
+ * @param props.width - Canvas width in points
+ * @param props.height - Canvas height in points
+ * @param props.draw - Drawing callback that receives a `CanvasContext`
+ * @param props.style - Additional style properties
+ *
+ * @example
+ * ```tsx
+ * <Canvas width={200} height={100} draw={(ctx) => {
+ *   ctx.setFillColor(0, 0, 255);
+ *   ctx.rect(10, 10, 180, 80);
+ *   ctx.fill();
+ * }} />
+ * ```
+ */
+export function Canvas(_props: CanvasProps): null {
+  return null;
+}
+
+/**
+ * A watermark rendered as rotated text behind all page content.
+ *
+ * Appears on every page. Use `rgba()` colors for translucent watermarks.
+ *
+ * @param props.text - Watermark text (e.g. "DRAFT", "CONFIDENTIAL")
+ * @param props.fontSize - Font size in points. Default: 60.
+ * @param props.color - Text color. Use `rgba(0,0,0,0.1)` for subtle watermarks. Default: "rgba(0,0,0,0.1)".
+ * @param props.angle - Rotation angle in degrees. Default: -45.
+ * @param props.style - Additional style properties (fontFamily, etc.)
+ *
+ * @example
+ * ```tsx
+ * <Page size="A4" margin={40}>
+ *   <Watermark text="DRAFT" fontSize={60} color="rgba(0,0,0,0.1)" angle={-45} />
+ *   <Text>Document content here</Text>
+ * </Page>
+ * ```
+ */
+export function Watermark(_props: WatermarkProps): null {
   return null;
 }
 

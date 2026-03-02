@@ -2,7 +2,7 @@
 //!
 //! Parses a subset of SVG into drawing commands that can be rendered to PDF.
 //! Supports: rect, circle, ellipse, line, polyline, polygon, path, g (group).
-//! Path commands: M, L, H, V, C, Q, Z (absolute + relative).
+//! Path commands: M, L, H, V, C, Q, A, Z (absolute + relative).
 
 use quick_xml::events::Event;
 use quick_xml::Reader;
@@ -31,6 +31,8 @@ pub enum SvgCommand {
     Fill,
     Stroke,
     FillAndStroke,
+    SetLineCap(u32),
+    SetLineJoin(u32),
     SaveState,
     RestoreState,
 }
@@ -275,7 +277,7 @@ fn emit_shape(
 }
 
 /// Generate cubic bezier commands to approximate an ellipse.
-fn ellipse_commands(cx: f64, cy: f64, rx: f64, ry: f64) -> Vec<SvgCommand> {
+pub fn ellipse_commands(cx: f64, cy: f64, rx: f64, ry: f64) -> Vec<SvgCommand> {
     let k: f64 = 0.5522847498;
     let kx = rx * k;
     let ky = ry * k;
@@ -288,6 +290,146 @@ fn ellipse_commands(cx: f64, cy: f64, rx: f64, ry: f64) -> Vec<SvgCommand> {
         SvgCommand::CurveTo(cx + kx, cy - ry, cx + rx, cy - ky, cx + rx, cy),
         SvgCommand::ClosePath,
     ]
+}
+
+/// Convert an SVG arc command to cubic bezier curves.
+/// Implements W3C SVG spec F.6.5/F.6.6 (endpoint-to-center parameterization).
+#[allow(clippy::too_many_arguments)]
+fn svg_arc_to_curves(
+    x1: f64,
+    y1: f64,
+    mut rx: f64,
+    mut ry: f64,
+    x_rotation_deg: f64,
+    large_arc: bool,
+    sweep: bool,
+    x2: f64,
+    y2: f64,
+) -> Vec<SvgCommand> {
+    // F.6.2: If endpoints are identical, skip
+    if (x1 - x2).abs() < 1e-10 && (y1 - y2).abs() < 1e-10 {
+        return vec![];
+    }
+    // F.6.2: If either radius is zero, treat as line
+    if rx.abs() < 1e-10 || ry.abs() < 1e-10 {
+        return vec![SvgCommand::LineTo(x2, y2)];
+    }
+
+    rx = rx.abs();
+    ry = ry.abs();
+
+    let phi = x_rotation_deg.to_radians();
+    let cos_phi = phi.cos();
+    let sin_phi = phi.sin();
+
+    // F.6.5.1: Compute (x1', y1')
+    let dx = (x1 - x2) / 2.0;
+    let dy = (y1 - y2) / 2.0;
+    let x1p = cos_phi * dx + sin_phi * dy;
+    let y1p = -sin_phi * dx + cos_phi * dy;
+
+    // F.6.6.2: Ensure radii are large enough
+    let x1p2 = x1p * x1p;
+    let y1p2 = y1p * y1p;
+    let rx2 = rx * rx;
+    let ry2 = ry * ry;
+    let lambda = x1p2 / rx2 + y1p2 / ry2;
+    if lambda > 1.0 {
+        let lambda_sqrt = lambda.sqrt();
+        rx *= lambda_sqrt;
+        ry *= lambda_sqrt;
+    }
+
+    let rx2 = rx * rx;
+    let ry2 = ry * ry;
+
+    // F.6.5.2: Compute center point (cx', cy')
+    let num = (rx2 * ry2 - rx2 * y1p2 - ry2 * x1p2).max(0.0);
+    let den = rx2 * y1p2 + ry2 * x1p2;
+    let sq = if den.abs() < 1e-10 {
+        0.0
+    } else {
+        (num / den).sqrt()
+    };
+    let sign = if large_arc == sweep { -1.0 } else { 1.0 };
+    let cxp = sign * sq * (rx * y1p / ry);
+    let cyp = sign * sq * -(ry * x1p / rx);
+
+    // F.6.5.3: Compute center point (cx, cy)
+    let cx = cos_phi * cxp - sin_phi * cyp + (x1 + x2) / 2.0;
+    let cy = sin_phi * cxp + cos_phi * cyp + (y1 + y2) / 2.0;
+
+    // F.6.5.5/F.6.5.6: Compute theta1 and dtheta
+    let theta1 = angle_between(1.0, 0.0, (x1p - cxp) / rx, (y1p - cyp) / ry);
+    let mut dtheta = angle_between(
+        (x1p - cxp) / rx,
+        (y1p - cyp) / ry,
+        (-x1p - cxp) / rx,
+        (-y1p - cyp) / ry,
+    );
+
+    if !sweep && dtheta > 0.0 {
+        dtheta -= std::f64::consts::TAU;
+    } else if sweep && dtheta < 0.0 {
+        dtheta += std::f64::consts::TAU;
+    }
+
+    // Split arc into segments of at most PI/2
+    let n_segs = (dtheta.abs() / (std::f64::consts::FRAC_PI_2)).ceil() as usize;
+    let n_segs = n_segs.max(1);
+    let d_per_seg = dtheta / n_segs as f64;
+
+    let mut commands = Vec::new();
+    let mut theta = theta1;
+
+    for _ in 0..n_segs {
+        let t1 = theta;
+        let t2 = theta + d_per_seg;
+
+        // Cubic bezier approximation of arc segment
+        let alpha = (d_per_seg / 2.0).tan() * 4.0 / 3.0;
+
+        let cos_t1 = t1.cos();
+        let sin_t1 = t1.sin();
+        let cos_t2 = t2.cos();
+        let sin_t2 = t2.sin();
+
+        // Points on the unit circle
+        let ep1x = cos_t1 - alpha * sin_t1;
+        let ep1y = sin_t1 + alpha * cos_t1;
+        let ep2x = cos_t2 + alpha * sin_t2;
+        let ep2y = sin_t2 - alpha * cos_t2;
+
+        // Scale by radii, rotate, translate
+        let cp1x = cos_phi * rx * ep1x - sin_phi * ry * ep1y + cx;
+        let cp1y = sin_phi * rx * ep1x + cos_phi * ry * ep1y + cy;
+        let cp2x = cos_phi * rx * ep2x - sin_phi * ry * ep2y + cx;
+        let cp2y = sin_phi * rx * ep2x + cos_phi * ry * ep2y + cy;
+        let ex = cos_phi * rx * cos_t2 - sin_phi * ry * sin_t2 + cx;
+        let ey = sin_phi * rx * cos_t2 + cos_phi * ry * sin_t2 + cy;
+
+        commands.push(SvgCommand::CurveTo(cp1x, cp1y, cp2x, cp2y, ex, ey));
+
+        theta = t2;
+    }
+
+    commands
+}
+
+/// Compute the angle between two vectors.
+fn angle_between(ux: f64, uy: f64, vx: f64, vy: f64) -> f64 {
+    let dot = ux * vx + uy * vy;
+    let len = (ux * ux + uy * uy).sqrt() * (vx * vx + vy * vy).sqrt();
+    if len.abs() < 1e-10 {
+        return 0.0;
+    }
+    let cos_val = (dot / len).clamp(-1.0, 1.0);
+    let angle = cos_val.acos();
+    if ux * vy - uy * vx < 0.0 {
+        -angle
+    } else {
+        angle
+    }
 }
 
 /// Parse an SVG path `d` attribute into drawing commands.
@@ -449,6 +591,42 @@ fn parse_path_d(d: &str) -> Vec<SvgCommand> {
                     cur_y = end_y;
                     commands.push(SvgCommand::CurveTo(c1x, c1y, c2x, c2y, cur_x, cur_y));
                     i += 4;
+                }
+            }
+            "A" => {
+                i += 1;
+                while i + 6 < tokens.len() && is_number(&tokens[i]) {
+                    let rx = tokens[i].parse::<f64>().unwrap_or(0.0);
+                    let ry = tokens[i + 1].parse::<f64>().unwrap_or(0.0);
+                    let x_rotation = tokens[i + 2].parse::<f64>().unwrap_or(0.0);
+                    let large_arc = tokens[i + 3].parse::<f64>().unwrap_or(0.0) != 0.0;
+                    let sweep = tokens[i + 4].parse::<f64>().unwrap_or(0.0) != 0.0;
+                    let end_x = tokens[i + 5].parse::<f64>().unwrap_or(0.0);
+                    let end_y = tokens[i + 6].parse::<f64>().unwrap_or(0.0);
+                    commands.extend(svg_arc_to_curves(
+                        cur_x, cur_y, rx, ry, x_rotation, large_arc, sweep, end_x, end_y,
+                    ));
+                    cur_x = end_x;
+                    cur_y = end_y;
+                    i += 7;
+                }
+            }
+            "a" => {
+                i += 1;
+                while i + 6 < tokens.len() && is_number(&tokens[i]) {
+                    let rx = tokens[i].parse::<f64>().unwrap_or(0.0);
+                    let ry = tokens[i + 1].parse::<f64>().unwrap_or(0.0);
+                    let x_rotation = tokens[i + 2].parse::<f64>().unwrap_or(0.0);
+                    let large_arc = tokens[i + 3].parse::<f64>().unwrap_or(0.0) != 0.0;
+                    let sweep = tokens[i + 4].parse::<f64>().unwrap_or(0.0) != 0.0;
+                    let end_x = cur_x + tokens[i + 5].parse::<f64>().unwrap_or(0.0);
+                    let end_y = cur_y + tokens[i + 6].parse::<f64>().unwrap_or(0.0);
+                    commands.extend(svg_arc_to_curves(
+                        cur_x, cur_y, rx, ry, x_rotation, large_arc, sweep, end_x, end_y,
+                    ));
+                    cur_x = end_x;
+                    cur_y = end_y;
+                    i += 7;
                 }
             }
             "Z" | "z" => {

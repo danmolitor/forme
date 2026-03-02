@@ -488,28 +488,73 @@ impl TextLayout {
     ) -> Vec<f64> {
         let italic = matches!(font_style, FontStyle::Italic | FontStyle::Oblique);
 
-        // Try shaping for custom fonts
-        if let Some(font_data) = font_context.font_data(font_family, font_weight, italic) {
-            if let Some(shaped) = shaping::shape_text(text, font_data) {
-                let num_chars = text.chars().count();
-                let units_per_em = font_context.units_per_em(font_family, font_weight, italic);
-                return shaping::cluster_widths(
-                    &shaped,
-                    num_chars,
-                    units_per_em,
-                    font_size,
-                    letter_spacing,
-                );
+        // Fast path: single font family (no comma) — original behavior
+        if !font_family.contains(',') {
+            // Try shaping for custom fonts
+            if let Some(font_data) = font_context.font_data(font_family, font_weight, italic) {
+                if let Some(shaped) = shaping::shape_text(text, font_data) {
+                    let num_chars = text.chars().count();
+                    let units_per_em = font_context.units_per_em(font_family, font_weight, italic);
+                    return shaping::cluster_widths(
+                        &shaped,
+                        num_chars,
+                        units_per_em,
+                        font_size,
+                        letter_spacing,
+                    );
+                }
+            }
+
+            return text
+                .chars()
+                .map(|ch| {
+                    font_context.char_width(ch, font_family, font_weight, italic, font_size)
+                        + letter_spacing
+                })
+                .collect();
+        }
+
+        // Per-char fallback path: segment by font, shape each segment
+        let chars: Vec<char> = text.chars().collect();
+        let runs = crate::font::fallback::segment_by_font(
+            &chars,
+            font_family,
+            font_weight,
+            italic,
+            font_context.registry(),
+        );
+
+        let mut widths = vec![0.0_f64; chars.len()];
+        for run in &runs {
+            let run_text: String = chars[run.start..run.end].iter().collect();
+
+            if let Some(font_data) = font_context.font_data(&run.family, font_weight, italic) {
+                if let Some(shaped) = shaping::shape_text(&run_text, font_data) {
+                    let num_chars = run.end - run.start;
+                    let units_per_em = font_context.units_per_em(&run.family, font_weight, italic);
+                    let cluster_w = shaping::cluster_widths(
+                        &shaped,
+                        num_chars,
+                        units_per_em,
+                        font_size,
+                        letter_spacing,
+                    );
+                    for (j, w) in cluster_w.into_iter().enumerate() {
+                        widths[run.start + j] = w;
+                    }
+                    continue;
+                }
+            }
+
+            // Fallback: per-char measurement for this run
+            for i in run.start..run.end {
+                widths[i] =
+                    font_context.char_width(chars[i], &run.family, font_weight, italic, font_size)
+                        + letter_spacing;
             }
         }
 
-        // Fallback: per-char measurement (standard fonts or shaping failure)
-        text.chars()
-            .map(|ch| {
-                font_context.char_width(ch, font_family, font_weight, italic, font_size)
-                    + letter_spacing
-            })
-            .collect()
+        widths
     }
 
     /// Shape text and return shaped glyphs for a custom font.
