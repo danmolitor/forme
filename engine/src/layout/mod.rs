@@ -847,6 +847,7 @@ impl LayoutEngine {
                         cw,
                         Some(&root_style),
                         font_context,
+                        None,
                     );
                 }
             }
@@ -871,8 +872,17 @@ impl LayoutEngine {
         available_width: f64,
         parent_style: Option<&ResolvedStyle>,
         font_context: &FontContext,
+        cross_axis_height: Option<f64>,
     ) {
-        let style = node.style.resolve(parent_style, available_width);
+        let mut style = node.style.resolve(parent_style, available_width);
+
+        // When a flex row stretches a child, inject the cross-axis height so
+        // justify-content, flex-grow, and other height-dependent logic works.
+        if let Some(h) = cross_axis_height {
+            if matches!(style.height, SizeConstraint::Auto) {
+                style.height = SizeConstraint::Fixed(h);
+            }
+        }
 
         if style.break_before {
             pages.push(cursor.finalize());
@@ -1442,6 +1452,7 @@ impl LayoutEngine {
                         layout_w,
                         parent_style,
                         font_context,
+                        None,
                     );
 
                     child_ranges.push((child_start, cursor.elements.len()));
@@ -1638,6 +1649,7 @@ impl LayoutEngine {
                 child_width,
                 parent_style,
                 font_context,
+                None,
             );
 
             // Add absolute elements to the current cursor (renders on top)
@@ -1832,10 +1844,34 @@ impl LayoutEngine {
                     AlignItems::Baseline => 0.0,
                 };
 
+                // When stretch applies and item has no explicit height, pass
+                // the cross-axis height so inner layout sees a fixed container.
+                let cross_h = if matches!(align, AlignItems::Stretch)
+                    && matches!(item.style.height, SizeConstraint::Auto)
+                {
+                    let stretch_h = line_height - item.style.margin.vertical();
+                    if stretch_h > item_height {
+                        Some(stretch_h)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
+
                 let saved_y = cursor.y;
                 cursor.y = row_start_y + y_offset;
 
-                self.layout_node(item.node, cursor, pages, x, fw, parent_style, font_context);
+                self.layout_node(
+                    item.node,
+                    cursor,
+                    pages,
+                    x,
+                    fw,
+                    parent_style,
+                    font_context,
+                    cross_h,
+                );
 
                 cursor.y = saved_y;
                 x += fw;
@@ -2040,6 +2076,7 @@ impl LayoutEngine {
                     inner_width,
                     Some(&cell_style),
                     font_context,
+                    None,
                 );
             }
 
@@ -3421,9 +3458,15 @@ impl LayoutEngine {
                     start_angle,
                     end_angle,
                 } => {
-                    // Approximate arc with line segments
+                    // Approximate arc with line segments.
+                    // Default matches HTML Canvas (clockwise / counterclockwise=false):
+                    // In screen coords (Y down), clockwise = increasing angle.
+                    // If sweep is negative, add 2π to go the long way around.
                     let steps = 32;
-                    let sweep = end_angle - start_angle;
+                    let mut sweep = end_angle - start_angle;
+                    if sweep < 0.0 {
+                        sweep += 2.0 * std::f64::consts::PI;
+                    }
                     for i in 0..=steps {
                         let t = *start_angle + sweep * (i as f64 / steps as f64);
                         let px = cx + r * t.cos();
@@ -3439,10 +3482,11 @@ impl LayoutEngine {
                 CanvasOp::Fill => commands.push(SvgCommand::Fill),
                 CanvasOp::FillAndStroke => commands.push(SvgCommand::FillAndStroke),
                 CanvasOp::SetFillColor { r, g, b } => {
-                    commands.push(SvgCommand::SetFill(*r, *g, *b));
+                    // Canvas API uses 0-255, PDF/SVG pipeline uses 0-1
+                    commands.push(SvgCommand::SetFill(r / 255.0, g / 255.0, b / 255.0));
                 }
                 CanvasOp::SetStrokeColor { r, g, b } => {
-                    commands.push(SvgCommand::SetStroke(*r, *g, *b));
+                    commands.push(SvgCommand::SetStroke(r / 255.0, g / 255.0, b / 255.0));
                 }
                 CanvasOp::SetLineWidth { width } => {
                     commands.push(SvgCommand::SetStrokeWidth(*width));
@@ -4456,6 +4500,7 @@ impl LayoutEngine {
                     cell_width,
                     Some(parent_style),
                     font_context,
+                    None,
                 );
                 // Restore y to row baseline (items don't affect each other's y)
                 cursor.y = saved_y;

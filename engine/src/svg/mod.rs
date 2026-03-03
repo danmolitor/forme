@@ -387,7 +387,7 @@ fn svg_arc_to_curves(
         let t2 = theta + d_per_seg;
 
         // Cubic bezier approximation of arc segment
-        let alpha = (d_per_seg / 2.0).tan() * 4.0 / 3.0;
+        let alpha = (d_per_seg / 4.0).tan() * 4.0 / 3.0;
 
         let cos_t1 = t1.cos();
         let sin_t1 = t1.sin();

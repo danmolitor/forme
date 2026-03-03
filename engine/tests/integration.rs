@@ -5026,3 +5026,130 @@ fn test_text_overflow_ellipsis_single_line() {
         "Ellipsis should produce exactly 1 line"
     );
 }
+
+// ─── Cross-axis stretch enables justify-content / flex-grow ─────
+
+/// A flex row with `alignItems: stretch` (default) and two children of
+/// different heights.  The shorter child has `justifyContent: center`.
+/// Without the cross_axis_height fix, the shorter child's text stays at
+/// the top.  With the fix, it is vertically centered.
+#[test]
+fn test_flex_row_stretch_enables_justify_content() {
+    let left_child = make_styled_view(
+        Style {
+            flex_grow: Some(1.0),
+            justify_content: Some(JustifyContent::Center),
+            ..Default::default()
+        },
+        vec![make_text("Short", 12.0)],
+    );
+
+    let right_child = make_styled_view(
+        Style {
+            flex_grow: Some(1.0),
+            height: Some(Dimension::Pt(100.0)),
+            ..Default::default()
+        },
+        vec![make_text("Tall", 12.0)],
+    );
+
+    let row = make_styled_view(
+        Style {
+            flex_direction: Some(FlexDirection::Row),
+            ..Default::default()
+        },
+        vec![left_child, right_child],
+    );
+
+    let doc = default_doc(vec![row]);
+
+    let (_pdf, layout) = forme::render_with_layout(&doc).expect("Should render");
+    assert_eq!(layout.pages.len(), 1);
+
+    // page.elements[0] is the row View; its children are the two flex items
+    let page = &layout.pages[0];
+    let row_elem = &page.elements[0];
+    let left_col = &row_elem.children[0];
+    let right_col = &row_elem.children[1];
+
+    // Left child should be stretched to match right child's height
+    assert!(
+        (left_col.height - right_col.height).abs() < 1.0,
+        "Left col height ({}) should match right col height ({})",
+        left_col.height,
+        right_col.height,
+    );
+
+    // The text inside the left column should NOT be at y=0 offset from parent;
+    // justify-content: center should push it down.
+    let text_in_left = &left_col.children[0]; // The text container
+    let offset_from_top = text_in_left.y - left_col.y;
+    assert!(
+        offset_from_top > 1.0,
+        "Text should be vertically offset from top (offset={}), justifyContent:center should center it",
+        offset_from_top,
+    );
+}
+
+/// When a flex row stretches a child and that child has a flex-grow
+/// inner child, the inner child should expand to fill the stretched
+/// height.
+#[test]
+fn test_flex_row_stretch_enables_flex_grow() {
+    let inner_grow = make_styled_view(
+        Style {
+            flex_grow: Some(1.0),
+            ..Default::default()
+        },
+        vec![make_text("Grows", 12.0)],
+    );
+
+    let left_child = make_styled_view(
+        Style {
+            flex_grow: Some(1.0),
+            ..Default::default()
+        },
+        vec![inner_grow],
+    );
+
+    let right_child = make_styled_view(
+        Style {
+            flex_grow: Some(1.0),
+            height: Some(Dimension::Pt(120.0)),
+            ..Default::default()
+        },
+        vec![make_text("Tall", 12.0)],
+    );
+
+    let row = make_styled_view(
+        Style {
+            flex_direction: Some(FlexDirection::Row),
+            ..Default::default()
+        },
+        vec![left_child, right_child],
+    );
+
+    let doc = default_doc(vec![row]);
+
+    let (_pdf, layout) = forme::render_with_layout(&doc).expect("Should render");
+    assert_eq!(layout.pages.len(), 1);
+
+    let page = &layout.pages[0];
+    let row_elem = &page.elements[0];
+    let left_col = &row_elem.children[0];
+
+    // Left child should be stretched to ~120pt (matching right child)
+    assert!(
+        (left_col.height - 120.0).abs() < 1.0,
+        "Left col height ({}) should be ~120 (stretched to match right)",
+        left_col.height,
+    );
+
+    // Inner flex-grow child should fill the full stretched height
+    let inner = &left_col.children[0];
+    assert!(
+        inner.height > 100.0,
+        "Inner flex-grow child height ({}) should expand to fill stretched parent",
+        inner.height,
+    );
+}

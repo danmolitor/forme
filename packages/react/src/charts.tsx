@@ -49,7 +49,7 @@ function escapeXml(s: string): string {
 // Chart layout constants
 const AXIS_LABEL_FONT = 8;
 const LABEL_MARGIN = 4;
-const Y_AXIS_WIDTH = 40;
+const Y_AXIS_WIDTH = 28;
 const X_AXIS_HEIGHT = 20;
 
 // ─── BarChart ───────────────────────────────────────────────────────
@@ -142,8 +142,8 @@ export function BarChart(props: BarChartProps): React.ReactElement {
         style: {
           position: 'absolute' as const,
           top: plotTop + plotHeight + LABEL_MARGIN,
-          left: x,
-          width: barWidth,
+          left: x - barGap,
+          width: barWidth + barGap * 2,
           fontSize: AXIS_LABEL_FONT,
           textAlign: 'center' as const,
           color: '#4a5568',
