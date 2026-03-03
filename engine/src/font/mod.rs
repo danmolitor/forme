@@ -229,6 +229,17 @@ impl FontRegistry {
             if let Some(font) = self.fonts.get(&key) {
                 return font;
             }
+
+            // Try opposite weight (400 if bold requested, 700 if regular requested)
+            let opposite_weight = if snapped_weight == 700 { 400 } else { 700 };
+            let key = FontKey {
+                family: family.to_string(),
+                weight: opposite_weight,
+                italic,
+            };
+            if let Some(font) = self.fonts.get(&key) {
+                return font;
+            }
         }
 
         // Final fallback: Helvetica
@@ -284,6 +295,19 @@ impl FontRegistry {
             let key = FontKey {
                 family: family.to_string(),
                 weight: snapped_weight,
+                italic,
+            };
+            if let Some(font) = self.fonts.get(&key) {
+                if font.has_char(ch) {
+                    return (font, family.to_string());
+                }
+            }
+
+            // Try opposite weight (400 if bold requested, 700 if regular requested)
+            let opposite_weight = if snapped_weight == 700 { 400 } else { 700 };
+            let key = FontKey {
+                family: family.to_string(),
+                weight: opposite_weight,
                 italic,
             };
             if let Some(font) = self.fonts.get(&key) {

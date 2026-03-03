@@ -2229,4 +2229,74 @@ mod tests {
         );
         eprintln!("Found divergence: {}", divergence_info);
     }
+
+    #[test]
+    fn test_line_widths_do_not_exceed_available_width() {
+        let tl = TextLayout::new();
+        let fc = ctx();
+        let french = "Le chiffre d'affaires consolide a atteint douze virgule un millions de dollars, soit une augmentation de vingt-trois pour cent par rapport a l'exercice precedent. L'expansion dans trois nouveaux marches a contribue a une croissance trimestrielle de trente et un pour cent des nouvelles acquisitions de clients.";
+        let german = "Das vierte Quartal verzeichnete ein starkes Umsatzwachstum in allen Regionen. Die Kundenbindungsrate blieb mit vierundneunzig Prozent auf einem hervorragenden Niveau, was die kontinuierlichen Investitionen in Produktqualitat und Kundenbetreuung widerspiegelt.";
+
+        let max_width = 229.0;
+        let font_size = 8.0;
+
+        for (label, text, lang) in [("French", french, "fr"), ("German", german, "de")] {
+            // Test both greedy and optimal
+            let greedy = tl.break_into_lines(
+                &fc,
+                text,
+                max_width,
+                font_size,
+                "Helvetica",
+                400,
+                FontStyle::Normal,
+                0.0,
+                Hyphens::Auto,
+                Some(lang),
+            );
+            let optimal = tl.break_into_lines_optimal(
+                &fc,
+                text,
+                max_width,
+                font_size,
+                "Helvetica",
+                400,
+                FontStyle::Normal,
+                0.0,
+                Hyphens::Auto,
+                Some(lang),
+                true,
+            );
+
+            for (algo, lines) in [("greedy", &greedy), ("optimal", &optimal)] {
+                for (i, line) in lines.iter().enumerate() {
+                    // Check line.width
+                    assert!(
+                        line.width <= max_width + 0.01,
+                        "{} {} line {} width exceeds: {:.4} > {:.4} (text: {:?})",
+                        label,
+                        algo,
+                        i,
+                        line.width,
+                        max_width,
+                        line.text,
+                    );
+
+                    // Compute rendered_width same way as layout code
+                    if !line.chars.is_empty() {
+                        let last_idx = line.chars.len() - 1;
+                        let last_pos = line.char_positions.get(last_idx).copied().unwrap_or(0.0);
+                        let last_char = line.chars[last_idx];
+                        let last_advance =
+                            fc.char_width(last_char, "Helvetica", 400, false, font_size);
+                        let rendered_width = (last_pos + last_advance).max(line.width * 0.5);
+                        eprintln!(
+                            "{} {} line {}: width={:.4}, rendered={:.4}, max={:.4}, last_char={:?}, text={:?}",
+                            label, algo, i, line.width, rendered_width, max_width, last_char, line.text,
+                        );
+                    }
+                }
+            }
+        }
+    }
 }

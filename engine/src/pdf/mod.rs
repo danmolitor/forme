@@ -1255,10 +1255,21 @@ impl PdfWriter {
             match font_data {
                 FontData::Standard(std_font) => {
                     let obj_id = builder.objects.len();
+                    // Include /Widths so PDF viewers use our exact metrics
+                    // instead of substituting a system font with different widths
+                    let metrics = std_font.metrics();
+                    let widths_str: String = metrics
+                        .widths
+                        .iter()
+                        .map(|w| w.to_string())
+                        .collect::<Vec<_>>()
+                        .join(" ");
                     let font_dict = format!(
                         "<< /Type /Font /Subtype /Type1 /BaseFont /{} \
-                         /Encoding /WinAnsiEncoding >>",
-                        std_font.pdf_name()
+                         /Encoding /WinAnsiEncoding \
+                         /FirstChar 32 /LastChar 255 /Widths [{}] >>",
+                        std_font.pdf_name(),
+                        widths_str,
                     );
                     builder.objects.push(PdfObject {
                         id: obj_id,

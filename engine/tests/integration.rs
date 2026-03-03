@@ -5209,3 +5209,126 @@ fn test_line_breaking_mode_inherits() {
     assert_eq!(pages.len(), 1);
     assert!(!pages[0].elements.is_empty());
 }
+
+#[test]
+fn test_grid_justified_text_does_not_overflow() {
+    let french = "Le chiffre d'affaires consolide a atteint douze virgule un millions de dollars, soit une augmentation de vingt-trois pour cent par rapport a l'exercice precedent. L'expansion dans trois nouveaux marches a contribue a une croissance trimestrielle de trente et un pour cent des nouvelles acquisitions de clients.";
+
+    let text_node = Node {
+        kind: NodeKind::Text {
+            content: french.to_string(),
+            href: None,
+            runs: vec![],
+        },
+        style: Style {
+            font_size: Some(8.0),
+            line_height: Some(1.5),
+            text_align: Some(TextAlign::Justify),
+            hyphens: Some(Hyphens::Auto),
+            lang: Some("fr".to_string()),
+            ..Default::default()
+        },
+        children: vec![],
+        id: None,
+        source_location: None,
+        bookmark: None,
+        href: None,
+        alt: None,
+    };
+
+    let card = make_styled_view(
+        Style {
+            padding: Some(Edges::uniform(14.0)),
+            border_width: Some(EdgeValues::uniform(1.0)),
+            border_color: Some(EdgeValues::uniform(Color {
+                r: 0.73,
+                g: 0.97,
+                b: 0.83,
+                a: 1.0,
+            })),
+            background_color: Some(Color {
+                r: 0.94,
+                g: 0.99,
+                b: 0.96,
+                a: 1.0,
+            }),
+            ..Default::default()
+        },
+        vec![text_node],
+    );
+
+    let grid = make_styled_view(
+        Style {
+            display: Some(Display::Grid),
+            grid_template_columns: Some(vec![GridTrackSize::Fr(1.0), GridTrackSize::Fr(1.0)]),
+            gap: Some(14.0),
+            ..Default::default()
+        },
+        vec![card.clone(), card],
+    );
+
+    let doc = default_doc(vec![Node {
+        kind: NodeKind::Page {
+            config: PageConfig {
+                size: PageSize::Letter,
+                margin: Edges::uniform(40.0),
+                ..Default::default()
+            },
+        },
+        style: Style::default(),
+        children: vec![grid],
+        id: None,
+        source_location: None,
+        bookmark: None,
+        href: None,
+        alt: None,
+    }]);
+
+    let pages = layout_doc(&doc);
+    assert_eq!(pages.len(), 1);
+
+    fn check_overflow(el: &forme::layout::LayoutElement, depth: usize) {
+        let parent_right = el.x + el.width;
+        for child in &el.children {
+            let child_right = child.x + child.width;
+            if child_right > parent_right + 0.5 {
+                eprintln!(
+                    "OVERFLOW depth={}: child ({:.2}..{:.2} w={:.2}) > parent ({:.2}..{:.2} w={:.2}) by {:.2}pt type={:?}",
+                    depth, child.x, child_right, child.width,
+                    el.x, parent_right, el.width,
+                    child_right - parent_right, child.node_type,
+                );
+            }
+            check_overflow(child, depth + 1);
+        }
+    }
+
+    for el in &pages[0].elements {
+        check_overflow(el, 0);
+    }
+}
+
+#[test]
+fn test_arabic_text_with_font_fallback() {
+    let font_bytes = std::fs::read("/System/Library/Fonts/Supplemental/Arial Unicode.ttf")
+        .expect("Arial Unicode font not found");
+
+    let mut font_ctx = FontContext::new();
+    font_ctx
+        .registry_mut()
+        .register("ArialUnicode", 400, false, font_bytes);
+
+    let doc_json = r#"{
+        "defaultPage": { "width": 612, "height": 792 },
+        "children": [{
+            "kind": { "type": "Text", "content": "حقق الإيراد الموحد للربع الرابع" },
+            "style": { "fontFamily": "Helvetica, ArialUnicode", "fontSize": 12 }
+        }]
+    }"#;
+    let doc: Document = serde_json::from_str(doc_json).unwrap();
+    let engine = LayoutEngine::new();
+    let pages = engine.layout(&doc, &font_ctx);
+    assert!(!pages.is_empty());
+    let bytes = forme::render(&doc).unwrap();
+    assert!(!bytes.is_empty());
+}

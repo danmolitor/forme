@@ -55,16 +55,30 @@ pub fn shape_text_with_direction(
     let infos = output.glyph_infos();
     let positions = output.glyph_positions();
 
+    // rustybuzz returns byte offsets in cluster values, but downstream code
+    // indexes into char arrays. Convert byte offsets to char indices.
+    let byte_to_char: std::collections::HashMap<usize, usize> = text
+        .char_indices()
+        .enumerate()
+        .map(|(ci, (bi, _))| (bi, ci))
+        .collect();
+
     let glyphs = infos
         .iter()
         .zip(positions.iter())
-        .map(|(info, pos)| ShapedGlyph {
-            glyph_id: info.glyph_id as u16,
-            cluster: info.cluster,
-            x_advance: pos.x_advance,
-            y_advance: pos.y_advance,
-            x_offset: pos.x_offset,
-            y_offset: pos.y_offset,
+        .map(|(info, pos)| {
+            let char_idx = byte_to_char
+                .get(&(info.cluster as usize))
+                .copied()
+                .unwrap_or(0);
+            ShapedGlyph {
+                glyph_id: info.glyph_id as u16,
+                cluster: char_idx as u32,
+                x_advance: pos.x_advance,
+                y_advance: pos.y_advance,
+                x_offset: pos.x_offset,
+                y_offset: pos.y_offset,
+            }
         })
         .collect();
 

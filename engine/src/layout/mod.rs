@@ -2365,13 +2365,26 @@ impl LayoutEngine {
                 TextAlign::Justify => text_x,
             };
 
-            // Justify: compute extra word spacing so the line fills the column width
+            // Justify: compute extra word spacing so the line fills the column width.
+            // Use the sum of natural glyph advances (what PDF Tj actually renders)
+            // rather than KP-adjusted positions, which bake justification into
+            // char_positions and make slack ≈ 0.
             let is_last_line = line_idx == lines.len() - 1;
             let (justified_width, word_spacing) =
                 if matches!(style.text_align, TextAlign::Justify) && !is_last_line {
-                    let slack = text_width - rendered_width;
-                    let space_count = glyphs.iter().filter(|g| g.char_value == ' ').count();
-                    let ws = if space_count > 0 && slack > 0.01 {
+                    let last_non_space = glyphs.iter().rposition(|g| g.char_value != ' ');
+                    let (natural_width, space_count) = if let Some(idx) = last_non_space {
+                        let w: f64 = glyphs[..=idx].iter().map(|g| g.x_advance).sum();
+                        let s = glyphs[..=idx]
+                            .iter()
+                            .filter(|g| g.char_value == ' ')
+                            .count();
+                        (w, s)
+                    } else {
+                        (0.0, 0)
+                    };
+                    let slack = text_width - natural_width;
+                    let ws = if space_count > 0 && slack.abs() > 0.01 {
                         slack / space_count as f64
                     } else {
                         0.0
@@ -2602,13 +2615,25 @@ impl LayoutEngine {
 
             let glyphs = self.build_positioned_glyphs_runs(run_line, font_context, style.direction);
 
-            // Justify: compute extra word spacing so the line fills the column width
+            // Justify: compute extra word spacing so the line fills the column width.
+            // Use the sum of natural glyph advances (what PDF Tj actually renders)
+            // rather than KP-adjusted line width.
             let is_last_line = line_idx == broken_lines.len() - 1;
             let (justified_width, word_spacing) =
                 if matches!(style.text_align, TextAlign::Justify) && !is_last_line {
-                    let slack = text_width - run_line.width;
-                    let space_count = glyphs.iter().filter(|g| g.char_value == ' ').count();
-                    let ws = if space_count > 0 && slack > 0.01 {
+                    let last_non_space = glyphs.iter().rposition(|g| g.char_value != ' ');
+                    let (natural_width, space_count) = if let Some(idx) = last_non_space {
+                        let w: f64 = glyphs[..=idx].iter().map(|g| g.x_advance).sum();
+                        let s = glyphs[..=idx]
+                            .iter()
+                            .filter(|g| g.char_value == ' ')
+                            .count();
+                        (w, s)
+                    } else {
+                        (0.0, 0)
+                    };
+                    let slack = text_width - natural_width;
+                    let ws = if space_count > 0 && slack.abs() > 0.01 {
                         slack / space_count as f64
                     } else {
                         0.0

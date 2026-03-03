@@ -1,4 +1,9 @@
-import { Document, Page, View, Text, Svg, Fixed } from '@formepdf/react';
+import { Document, Page, View, Text, Svg, Fixed, Font } from '@formepdf/react';
+
+Font.register({
+  family: 'ArialUnicode',
+  src: '/System/Library/Fonts/Supplemental/Arial Unicode.ttf',
+});
 
 export default function GridDashboard(data: any) {
   const metrics = data.metrics || [];
@@ -46,9 +51,9 @@ export default function GridDashboard(data: any) {
         <View style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 10, marginBottom: 20 }}>
           {metrics.map((m: any, i: number) => (
             <View key={i} style={{ padding: 14, backgroundColor: '#f8fafc', borderRadius: 6, borderWidth: 1, borderColor: '#e2e8f0' }}>
-              <Text style={{ fontSize: 8, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.8 }}>{m.label}</Text>
-              <Text style={{ fontSize: 22, fontWeight: 700, color: '#0f172a', marginTop: 4 }}>{m.value}</Text>
-              <Text style={{ fontSize: 9, fontWeight: 700, color: m.up ? '#16a34a' : '#2563eb', marginTop: 4 }}>
+              <Text style={{ textAlign: 'center', fontSize: 8, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.8 }}>{m.label}</Text>
+              <Text style={{ textAlign: 'center', fontSize: 22, fontWeight: 700, color: '#0f172a', marginTop: 4 }}>{m.value}</Text>
+              <Text style={{ textAlign: 'center', fontSize: 9, fontWeight: 700, color: m.up ? '#16a34a' : '#2563eb', marginTop: 4 }}>
                 {m.change} vs Q3
               </Text>
             </View>
@@ -90,24 +95,12 @@ export default function GridDashboard(data: any) {
           </View>
         </View>
 
-        {/* Three-column grid: text sections with justified + hyphenation */}
-        <View style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
-          {data.insights.map((insight: any, i: number) => (
-            <View key={i} style={{ padding: 14, backgroundColor: '#f8fafc', borderRadius: 6 }}>
-              <Text style={{ fontSize: 10, fontWeight: 700, color: '#0f172a', marginBottom: 6 }}>{insight.heading}</Text>
-              <Text style={{ fontSize: 8, lineHeight: 1.5, color: '#334155', textAlign: 'justify', hyphens: 'auto' }}>
-                {insight.body}
-              </Text>
-            </View>
-          ))}
-        </View>
-
-        {/* Bottom row: 2-col grid with German + French text */}
-        <View style={{ marginTop: 20, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+        {/* Multilingual summaries (DE, FR, AR, JA) */}
+        <View style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
           {data.translations.map((t: any, i: number) => (
             <View key={i} style={{ padding: 14, backgroundColor: t.bgColor, borderRadius: 6, borderWidth: 1, borderColor: t.borderColor }}>
-              <Text style={{ fontSize: 10, fontWeight: 700, color: t.headingColor, marginBottom: 6 }}>{t.heading}</Text>
-              <Text style={{ fontSize: 8, lineHeight: 1.5, color: t.textColor, textAlign: 'justify', hyphens: 'auto', lang: t.lang }}>
+              <Text style={{ fontSize: 10, fontWeight: 700, color: t.headingColor, marginBottom: 6, fontFamily: 'Helvetica, ArialUnicode', ...(t.direction && { direction: t.direction, textAlign: 'right' }) }}>{t.heading}</Text>
+              <Text style={{ fontSize: 8, lineHeight: 1.5, color: t.textColor, textAlign: 'justify', hyphens: 'auto', lang: t.lang, fontFamily: 'Helvetica, ArialUnicode', ...(t.direction && { direction: t.direction, textAlign: 'right' }) }}>
                 {t.body}
               </Text>
             </View>

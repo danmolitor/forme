@@ -15,20 +15,6 @@
     { "name": "Asia Pacific", "revenue": "$480,000", "pct": 20 },
     { "name": "Middle East", "revenue": "$120,000", "pct": 5 }
   ],
-  "insights": [
-    {
-      "heading": "Growth Strategy",
-      "body": "Enterprise adoption accelerated through strategic partnerships and vertical-specific solutions. The new self-serve onboarding reduced time-to-value from fourteen days to under forty-eight hours, driving a measurable improvement in conversion rates across all acquisition channels."
-    },
-    {
-      "heading": "Product Updates",
-      "body": "The engineering team shipped twenty-three features including collaborative workspaces, advanced analytics dashboards, and a comprehensive API overhaul. Infrastructure reliability improved to 99.97% uptime, exceeding our enterprise service level agreements for the sixth consecutive quarter."
-    },
-    {
-      "heading": "Outlook",
-      "body": "Q1 2026 priorities include expanding the Asia Pacific sales organization, launching the enterprise tier with dedicated support and custom service level agreements, and establishing a certified partner program to extend distribution into underserved markets without proportional headcount growth."
-    }
-  ],
   "translations": [
     {
       "heading": "Zusammenfassung",
@@ -47,6 +33,25 @@
       "borderColor": "#bbf7d0",
       "headingColor": "#166534",
       "textColor": "#15803d"
+    },
+    {
+      "heading": "ملخص الأداء",
+      "lang": "ar",
+      "direction": "rtl",
+      "body": "حقق الإيراد الموحد للربع الرابع اثني عشر فاصلة واحد مليون دولار، مسجلاً زيادة بنسبة ثلاثة وعشرين بالمائة مقارنة بالعام السابق. وقد أسهم التوسع في ثلاثة أسواق جديدة في نمو ربع سنوي بنسبة واحد وثلاثين بالمائة في اكتساب العملاء الجدد. وبلغ معدل استبقاء العملاء أربعة وتسعين بالمائة.",
+      "bgColor": "#fdf2f8",
+      "borderColor": "#fbcfe8",
+      "headingColor": "#9d174d",
+      "textColor": "#be185d"
+    },
+    {
+      "heading": "業績概要",
+      "lang": "ja",
+      "body": "第四四半期の連結売上高は千二百十万ドルに達し、前年同期比で二十三パーセントの増収となりました。三つの新市場への展開が寄与し、新規顧客獲得数は前四半期比で三十一パーセント増加しました。製品品質と顧客対応への継続的な投資が、顧客維持率を九十四パーセントという高水準に保つ要因となっています。",
+      "bgColor": "#eff6ff",
+      "borderColor": "#bfdbfe",
+      "headingColor": "#1e40af",
+      "textColor": "#1d4ed8"
     }
   ]
 }
