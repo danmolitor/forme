@@ -11,6 +11,48 @@ npm install @formepdf/resend resend @formepdf/react @formepdf/core
 ## Quick Start
 
 ```typescript
+import { renderDocument } from '@formepdf/core';
+import { sendPdf } from '@formepdf/resend';
+import { MyInvoice } from './templates/invoice';
+
+// Render the PDF first — works in plain .ts files
+const pdfBytes = await renderDocument(MyInvoice({ customer, items }));
+
+// Then email it
+const { data, error } = await sendPdf({
+  resendApiKey: process.env.RESEND_API_KEY,
+  from: 'Acme Corp <billing@acme.com>',
+  to: customer.email,
+  subject: 'Invoice #001',
+  pdf: pdfBytes,
+  filename: 'invoice-001.pdf',
+});
+```
+
+Generate the PDF separately, email it with `sendPdf`. You control the rendering, and the same bytes can go to email + storage + whatever else. Returns Resend's `{ data, error }` directly.
+
+## Render Callback
+
+For one-liners in `.tsx` files:
+
+```typescript
+import { sendPdf } from '@formepdf/resend';
+import { MyTemplate } from './my-template';
+
+const { data, error } = await sendPdf({
+  resendApiKey: process.env.RESEND_API_KEY,
+  from: 'billing@acme.com',
+  to: 'customer@email.com',
+  subject: 'Your document',
+  render: () => MyTemplate({ name: 'Jane' }),
+});
+```
+
+## Built-in Templates
+
+Skip the render step and use a built-in template:
+
+```typescript
 import { sendPdf } from '@formepdf/resend';
 
 const { data, error } = await sendPdf({
@@ -32,27 +74,6 @@ const { data, error } = await sendPdf({
     taxRate: 0.08,
     paymentTerms: 'Net 30',
   },
-});
-
-if (error) {
-  console.error(error.message);
-}
-```
-
-One call. PDF rendered, email sent, invoice attached. Returns Resend's `{ data, error }` shape.
-
-## Custom Templates
-
-```typescript
-import { sendPdf } from '@formepdf/resend';
-import { MyTemplate } from './my-template';
-
-const { data, error } = await sendPdf({
-  resendApiKey: process.env.RESEND_API_KEY,
-  from: 'billing@acme.com',
-  to: 'customer@email.com',
-  subject: 'Your document',
-  render: () => MyTemplate({ name: 'Jane' }),
 });
 ```
 
@@ -88,9 +109,10 @@ Render a PDF and email it. Returns Resend's `{ data, error }` shape directly.
 | `from` | `string` | Yes | Sender address |
 | `to` | `string \| string[]` | Yes | Recipient(s) |
 | `subject` | `string` | Yes | Email subject |
-| `template` | `string` | One of template/render | Built-in template name |
+| `pdf` | `Uint8Array` | One of pdf/render/template | Pre-rendered PDF bytes |
+| `render` | `() => ReactElement` | One of pdf/render/template | Render callback |
+| `template` | `string` | One of pdf/render/template | Built-in template name |
 | `data` | `object` | With template | Data for the template |
-| `render` | `() => ReactElement` | One of template/render | Custom render function |
 | `filename` | `string` | No | PDF filename (default: `{template}.pdf`) |
 | `html` | `string` | No | Email body HTML |
 | `text` | `string` | No | Email body plain text |

@@ -7,25 +7,25 @@ import type { SendPdfOptions } from './types.js';
 export async function sendPdf(options: SendPdfOptions) {
   const {
     resendApiKey, from, to, subject,
-    template, data, render, filename,
-    html, text, react,
+    filename, html, text, react,
     cc, bcc, replyTo, tags, headers,
   } = options;
 
-  let element;
-  if (render) {
-    element = render();
-  } else if (template) {
-    const templateFn = getTemplate(template);
+  let pdfBytes: Uint8Array;
+  if ('pdf' in options && options.pdf) {
+    pdfBytes = options.pdf;
+  } else if ('render' in options && options.render) {
+    pdfBytes = await renderDocument(options.render());
+  } else if ('template' in options && options.template) {
+    const templateFn = getTemplate(options.template);
     if (!templateFn) {
-      throw new Error(`Unknown template: "${template}". Use listTemplates() to see available templates.`);
+      throw new Error(`Unknown template: "${options.template}". Use listTemplates() to see available templates.`);
     }
-    element = templateFn(data || {});
+    pdfBytes = await renderDocument(templateFn(options.data || {}));
   } else {
-    throw new Error('Either "template" or "render" must be provided.');
+    throw new Error('One of "pdf", "render", or "template" must be provided.');
   }
-
-  const pdfBytes = await renderDocument(element);
+  const template = 'template' in options ? options.template : undefined;
   const pdfFilename = filename || `${template || 'document'}.pdf`;
   const attachment = {
     filename: pdfFilename,
@@ -35,6 +35,7 @@ export async function sendPdf(options: SendPdfOptions) {
   let emailHtml = html;
   let emailText = text;
   if (!html && !text && !react) {
+    const data = 'data' in options ? options.data : undefined;
     const defaultEmail = buildDefaultEmail(template, data);
     emailHtml = defaultEmail.html;
     emailText = defaultEmail.text;

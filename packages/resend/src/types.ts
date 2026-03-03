@@ -16,19 +16,28 @@ interface BaseOptions {
   headers?: Record<string, string>;
 }
 
+interface PdfBytesOptions extends BaseOptions {
+  pdf: Uint8Array;
+  template?: never;
+  data?: never;
+  render?: never;
+}
+
 interface TemplateOptions extends BaseOptions {
+  pdf?: never;
   template: string;
   data?: Record<string, any>;
   render?: never;
 }
 
 interface RenderOptions extends BaseOptions {
+  pdf?: never;
   template?: never;
   data?: never;
   render: () => ReactElement;
 }
 
-export type SendPdfOptions = TemplateOptions | RenderOptions;
+export type SendPdfOptions = PdfBytesOptions | TemplateOptions | RenderOptions;
 
 export interface RenderAttachOptions {
   template?: string;
