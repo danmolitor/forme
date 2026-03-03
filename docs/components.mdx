@@ -450,3 +450,172 @@ None.
 ```
 
 PageBreak is useful for separating document sections (e.g., cover page from content, or chapters from each other).
+
+---
+
+## Canvas
+
+Renders arbitrary vector graphics via a `draw` callback. The callback receives a recording context with a Canvas-like API. All drawing commands are serialized and rendered as native PDF vector operations.
+
+### Props
+
+| Prop | Type | Description |
+|------|------|-------------|
+| `width` | `number` | Canvas width in points. |
+| `height` | `number` | Canvas height in points. |
+| `draw` | `(ctx: CanvasContext) => void` | Drawing callback. |
+
+### CanvasContext methods
+
+`moveTo(x, y)`, `lineTo(x, y)`, `bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x, y)`, `quadraticCurveTo(cpx, cpy, x, y)`, `arc(cx, cy, r, startAngle, endAngle)`, `circle(cx, cy, r)`, `rect(x, y, w, h)`, `ellipse(cx, cy, rx, ry)`, `closePath()`, `stroke()`, `fill()`, `setFillColor(r, g, b)`, `setStrokeColor(r, g, b)`, `setLineWidth(w)`, `setLineCap(cap)`, `setLineJoin(join)`, `save()`, `restore()`.
+
+Colors use 0-255 RGB values (like HTML Canvas).
+
+### Example
+
+```tsx
+<Canvas
+  width={200}
+  height={100}
+  draw={(ctx) => {
+    ctx.setFillColor(59, 130, 246);
+    ctx.rect(10, 10, 80, 80);
+    ctx.fill();
+
+    ctx.setStrokeColor(15, 23, 42);
+    ctx.setLineWidth(2);
+    ctx.arc(150, 50, 40, 0, Math.PI * 2);
+    ctx.stroke();
+  }}
+/>
+```
+
+---
+
+## BarChart
+
+A bar chart rendered as SVG with positioned text labels.
+
+### Props
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `width` | `number` | — | Chart width in points. |
+| `height` | `number` | — | Chart height in points. |
+| `data` | `{ label: string; value: number }[]` | — | Data points. |
+| `color` | `string` | `'#1a365d'` | Bar color (hex). |
+| `barGap` | `number` | `4` | Gap between bars in points. |
+| `showGrid` | `boolean` | `false` | Show horizontal grid lines. |
+| `showValues` | `boolean` | `false` | Show value labels above bars. |
+| `yAxisTicks` | `number` | `5` | Number of Y-axis tick marks. |
+
+### Example
+
+```tsx
+<BarChart
+  width={400}
+  height={200}
+  data={[
+    { label: 'Jan', value: 42 },
+    { label: 'Feb', value: 58 },
+    { label: 'Mar', value: 45 },
+  ]}
+  color="#3b82f6"
+  showGrid
+  showValues
+/>
+```
+
+---
+
+## LineChart
+
+A line chart rendered as SVG with optional dots and area fill.
+
+### Props
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `width` | `number` | — | Chart width in points. |
+| `height` | `number` | — | Chart height in points. |
+| `data` | `{ label: string; value: number }[]` | — | Data points. |
+| `color` | `string` | `'#1a365d'` | Line color (hex). |
+| `strokeWidth` | `number` | `2` | Line thickness. |
+| `showGrid` | `boolean` | `false` | Show horizontal grid lines. |
+| `showDots` | `boolean` | `false` | Show dots at data points. |
+| `showArea` | `boolean` | `false` | Fill area under the line. |
+| `yAxisTicks` | `number` | `5` | Number of Y-axis tick marks. |
+
+### Example
+
+```tsx
+<LineChart
+  width={400}
+  height={200}
+  data={[
+    { label: 'W1', value: 120 },
+    { label: 'W2', value: 190 },
+    { label: 'W3', value: 160 },
+  ]}
+  color="#0f172a"
+  showGrid
+  showDots
+  showArea
+/>
+```
+
+---
+
+## PieChart
+
+A pie or donut chart rendered as SVG with optional labels.
+
+### Props
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `width` | `number` | — | Chart width in points. |
+| `height` | `number` | — | Chart height in points. |
+| `data` | `{ label: string; value: number; color: string }[]` | — | Slices with colors. |
+| `innerRadius` | `number` | `0` | Inner radius for donut chart. `0` = full pie. |
+| `showLabels` | `boolean` | `false` | Show labels outside the chart. |
+
+### Example
+
+```tsx
+<PieChart
+  width={200}
+  height={200}
+  data={[
+    { label: 'Product', value: 42, color: '#3b82f6' },
+    { label: 'Services', value: 28, color: '#0f172a' },
+    { label: 'Other', value: 30, color: '#cbd5e1' },
+  ]}
+  innerRadius={30}
+  showLabels
+/>
+```
+
+---
+
+## Watermark
+
+Renders rotated text behind all page content. Automatically repeated on every page.
+
+### Props
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `text` | `string` | — | Watermark text. |
+| `fontSize` | `number` | `60` | Font size in points. |
+| `color` | `string` | `'rgba(0,0,0,0.1)'` | Text color (supports `rgba()`). |
+| `angle` | `number` | `-45` | Rotation angle in degrees. |
+
+### Example
+
+```tsx
+<Page size="Letter" margin={54}>
+  <Watermark text="DRAFT" fontSize={72} color="rgba(0,0,0,0.05)" angle={-45} />
+  <Text>Document content here...</Text>
+</Page>
+```

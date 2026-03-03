@@ -1,12 +1,50 @@
 ---
 title: "Charts"
 sidebarTitle: "Charts"
-description: "How to render charts in Forme PDFs using D3, Chart.js, or any library that outputs SVG."
+description: "Built-in chart components and custom charts via SVG."
 ---
 
 # Charts
 
-Forme renders SVG content via the `<Svg>` component. Any charting library that outputs SVG strings can be used to embed charts in your PDFs.
+Forme includes built-in chart components for common chart types. For more complex charts, you can use any library that outputs SVG strings.
+
+## Built-in chart components
+
+Forme provides `<BarChart>`, `<LineChart>`, and `<PieChart>` components that render directly to PDF vector graphics. No external dependencies needed.
+
+```tsx
+import { BarChart, LineChart, PieChart } from '@formepdf/react';
+
+const data = [
+  { label: 'Jan', value: 42 },
+  { label: 'Feb', value: 58 },
+  { label: 'Mar', value: 45 },
+];
+
+// Bar chart with grid lines and value labels
+<BarChart width={400} height={200} data={data} color="#3b82f6" showGrid showValues />
+
+// Line chart with dots and area fill
+<LineChart width={400} height={200} data={data} color="#0f172a" showGrid showDots showArea />
+
+// Donut chart with labels
+<PieChart
+  width={200} height={200}
+  data={[
+    { label: 'A', value: 40, color: '#3b82f6' },
+    { label: 'B', value: 30, color: '#0f172a' },
+    { label: 'C', value: 30, color: '#cbd5e1' },
+  ]}
+  innerRadius={30}
+  showLabels
+/>
+```
+
+See the [Components reference](/components#barchart) for full props documentation.
+
+## Custom charts with SVG
+
+For charts beyond what the built-in components offer, Forme renders SVG content via the `<Svg>` component. Any charting library that outputs SVG strings can be used to embed charts in your PDFs.
 
 ## The pattern
 
@@ -114,7 +152,7 @@ Forme's SVG renderer supports the following elements:
 - `<line>` - straight lines
 - `<polyline>` - connected line segments
 - `<polygon>` - closed shapes
-- `<path>` - arbitrary paths (M, L, H, V, C, Q, Z commands)
+- `<path>` - arbitrary paths (M, L, H, V, C, Q, A, Z commands)
 - `<g>` - groups with transform support
 
 Supported attributes: fill, stroke, stroke-width, transform (translate, scale, rotate), opacity.

@@ -131,6 +131,11 @@ Font sources can be file paths, data URIs, or `Uint8Array`. Fonts are automatica
 | `<Cell>` | Table cell. `colSpan`, `rowSpan`. |
 | `<Svg>` | Inline SVG graphics. `href`, `alt`. |
 | `<QrCode>` | QR code. `data`, `size`, `color`. Vector-based. |
+| `<Canvas>` | Arbitrary vector drawing via `draw` callback. |
+| `<BarChart>` | Bar chart. `data`, `color`, `showGrid`, `showValues`. |
+| `<LineChart>` | Line chart. `data`, `color`, `showDots`, `showArea`. |
+| `<PieChart>` | Pie/donut chart. `data`, `innerRadius`, `showLabels`. |
+| `<Watermark>` | Rotated text behind page content. `text`, `fontSize`, `color`, `angle`. |
 | `<Fixed>` | Repeating header or footer. |
 | `<PageBreak>` | Force a page break. |
 
@@ -153,6 +158,9 @@ Font sources can be file paths, data URIs, or `Uint8Array`. Fonts are automatica
 | Links | `href` prop on Text/View/Image/Svg | `<Link>` component | HTML `<a>` tags |
 | Bookmarks | `bookmark` prop on any element | Yes | No |
 | QR codes | Built-in `<QrCode>` component | No | Via HTML/JS libraries |
+| Charts | Built-in BarChart, LineChart, PieChart | No | Via HTML/JS libraries |
+| Canvas drawing | `<Canvas draw={...}>` for custom vector graphics | No | HTML Canvas (raster) |
+| Watermarks | Built-in `<Watermark>` component | No | Manual positioning |
 | Text overflow | `textOverflow: 'ellipsis'` | No | CSS `text-overflow` |
 | Font fallback | `fontFamily: "Inter, Helvetica"` | Single family only | Full CSS font stack |
 | Custom fonts | TTF with OpenType shaping | Yes | Yes |
