@@ -383,6 +383,8 @@ pub enum CanvasOp {
         r: f64,
         start_angle: f64,
         end_angle: f64,
+        #[serde(default)]
+        counterclockwise: bool,
     },
     Stroke,
     Fill,

@@ -862,6 +862,7 @@ impl PdfWriter {
                 commands,
                 width: svg_w,
                 height: svg_h,
+                clip,
             } => {
                 let x = element.x;
                 let y = page_height - element.y - element.height;
@@ -879,6 +880,15 @@ impl PdfWriter {
 
                 // Flip Y: SVG has Y increasing down, we need PDF Y increasing up
                 let _ = writeln!(stream, "1 0 0 -1 0 {:.2} cm", svg_h);
+
+                // Clip to canvas bounds (Canvas always clips, SVG does not)
+                if *clip {
+                    let _ = writeln!(
+                        stream,
+                        "0 0 {:.2} {:.2} re W n",
+                        svg_w, svg_h
+                    );
+                }
 
                 Self::write_svg_commands(stream, commands);
 

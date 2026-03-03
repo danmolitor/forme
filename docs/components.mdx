@@ -467,9 +467,9 @@ Renders arbitrary vector graphics via a `draw` callback. The callback receives a
 
 ### CanvasContext methods
 
-`moveTo(x, y)`, `lineTo(x, y)`, `bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x, y)`, `quadraticCurveTo(cpx, cpy, x, y)`, `arc(cx, cy, r, startAngle, endAngle)`, `circle(cx, cy, r)`, `rect(x, y, w, h)`, `ellipse(cx, cy, rx, ry)`, `closePath()`, `stroke()`, `fill()`, `setFillColor(r, g, b)`, `setStrokeColor(r, g, b)`, `setLineWidth(w)`, `setLineCap(cap)`, `setLineJoin(join)`, `save()`, `restore()`.
+`moveTo(x, y)`, `lineTo(x, y)`, `bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x, y)`, `quadraticCurveTo(cpx, cpy, x, y)`, `arc(cx, cy, r, startAngle, endAngle, counterclockwise?)`, `circle(cx, cy, r)`, `rect(x, y, w, h)`, `ellipse(cx, cy, rx, ry)`, `closePath()`, `stroke()`, `fill()`, `setFillColor(r, g, b)`, `setStrokeColor(r, g, b)`, `setLineWidth(w)`, `setLineCap(cap)`, `setLineJoin(join)`, `save()`, `restore()`.
 
-Colors use 0-255 RGB values (like HTML Canvas).
+Colors use 0-255 RGB values (like HTML Canvas). Content is clipped to the canvas bounds (matching HTML Canvas behavior).
 
 ### Example
 

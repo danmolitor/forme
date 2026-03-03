@@ -500,6 +500,8 @@ pub enum DrawCommand {
         commands: Vec<crate::svg::SvgCommand>,
         width: f64,
         height: f64,
+        /// When true, clip content to [0, 0, width, height] (used by Canvas).
+        clip: bool,
     },
     /// Draw a QR code as filled rectangles.
     QrCode {
@@ -3371,6 +3373,7 @@ impl LayoutEngine {
                 commands,
                 width: svg_width,
                 height: svg_height,
+                clip: false,
             },
             children: vec![],
             node_type: Some("Svg".to_string()),
@@ -3457,15 +3460,18 @@ impl LayoutEngine {
                     r,
                     start_angle,
                     end_angle,
+                    counterclockwise,
                 } => {
-                    // Approximate arc with line segments.
-                    // Default matches HTML Canvas (clockwise / counterclockwise=false):
-                    // In screen coords (Y down), clockwise = increasing angle.
-                    // If sweep is negative, add 2π to go the long way around.
+                    // Approximate arc with line segments matching HTML Canvas arc() semantics.
+                    // Canvas coords are Y-down (like HTML Canvas), and the PDF Y-flip
+                    // preserves visual positions, so standard trig (cy + r*sin) is correct.
                     let steps = 32;
                     let mut sweep = end_angle - start_angle;
-                    if sweep < 0.0 {
+                    if !counterclockwise && sweep < 0.0 {
                         sweep += 2.0 * std::f64::consts::PI;
+                    }
+                    if *counterclockwise && sweep > 0.0 {
+                        sweep -= 2.0 * std::f64::consts::PI;
                     }
                     for i in 0..=steps {
                         let t = *start_angle + sweep * (i as f64 / steps as f64);
@@ -3541,6 +3547,7 @@ impl LayoutEngine {
                 commands: svg_commands,
                 width: canvas_width,
                 height: canvas_height,
+                clip: true,
             },
             children: vec![],
             node_type: Some("Canvas".to_string()),

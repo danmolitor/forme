@@ -343,7 +343,7 @@ export interface CanvasContext {
   rect(x: number, y: number, w: number, h: number): void;
   circle(cx: number, cy: number, r: number): void;
   ellipse(cx: number, cy: number, rx: number, ry: number): void;
-  arc(cx: number, cy: number, r: number, startAngle: number, endAngle: number): void;
+  arc(cx: number, cy: number, r: number, startAngle: number, endAngle: number, counterclockwise?: boolean): void;
   stroke(): void;
   fill(): void;
   fillAndStroke(): void;
@@ -366,7 +366,7 @@ export type CanvasOp =
   | { op: 'Rect'; x: number; y: number; width: number; height: number }
   | { op: 'Circle'; cx: number; cy: number; r: number }
   | { op: 'Ellipse'; cx: number; cy: number; rx: number; ry: number }
-  | { op: 'Arc'; cx: number; cy: number; r: number; start_angle: number; end_angle: number }
+  | { op: 'Arc'; cx: number; cy: number; r: number; start_angle: number; end_angle: number; counterclockwise: boolean }
   | { op: 'Stroke' }
   | { op: 'Fill' }
   | { op: 'FillAndStroke' }

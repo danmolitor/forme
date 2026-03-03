@@ -500,8 +500,8 @@ function serializeCanvas(element: ReactElement): FormeNode {
     rect(x, y, w, h) { operations.push({ op: 'Rect', x, y, width: w, height: h }); },
     circle(cx, cy, r) { operations.push({ op: 'Circle', cx, cy, r }); },
     ellipse(cx, cy, rx, ry) { operations.push({ op: 'Ellipse', cx, cy, rx, ry }); },
-    arc(cx, cy, r, startAngle, endAngle) {
-      operations.push({ op: 'Arc', cx, cy, r, start_angle: startAngle, end_angle: endAngle });
+    arc(cx, cy, r, startAngle, endAngle, counterclockwise = false) {
+      operations.push({ op: 'Arc', cx, cy, r, start_angle: startAngle, end_angle: endAngle, counterclockwise });
     },
     stroke() { operations.push({ op: 'Stroke' }); },
     fill() { operations.push({ op: 'Fill' }); },
