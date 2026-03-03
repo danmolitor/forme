@@ -4,7 +4,7 @@ import { getTemplate } from './templates/index.js';
 import { buildDefaultEmail } from './default-email.js';
 import type { SendPdfOptions } from './types.js';
 
-export async function sendPdf(options: SendPdfOptions): Promise<{ id: string }> {
+export async function sendPdf(options: SendPdfOptions) {
   const {
     resendApiKey, from, to, subject,
     template, data, render, filename,
@@ -57,11 +57,5 @@ export async function sendPdf(options: SendPdfOptions): Promise<{ id: string }> 
   if (tags) emailPayload.tags = tags;
   if (headers) emailPayload.headers = headers;
 
-  const { data: result, error } = await resend.emails.send(emailPayload as any);
-
-  if (error) {
-    throw new Error(`Resend error: ${error.message}`);
-  }
-
-  return { id: result!.id };
+  return resend.emails.send(emailPayload as any);
 }

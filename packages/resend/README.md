@@ -13,7 +13,7 @@ npm install @formepdf/resend resend @formepdf/react @formepdf/core
 ```typescript
 import { sendPdf } from '@formepdf/resend';
 
-await sendPdf({
+const { data, error } = await sendPdf({
   resendApiKey: process.env.RESEND_API_KEY,
   from: 'Acme Corp <billing@acme.com>',
   to: 'customer@email.com',
@@ -33,9 +33,13 @@ await sendPdf({
     paymentTerms: 'Net 30',
   },
 });
+
+if (error) {
+  console.error(error.message);
+}
 ```
 
-One call. PDF rendered, email sent, invoice attached.
+One call. PDF rendered, email sent, invoice attached. Returns Resend's `{ data, error }` shape.
 
 ## Custom Templates
 
@@ -43,7 +47,7 @@ One call. PDF rendered, email sent, invoice attached.
 import { sendPdf } from '@formepdf/resend';
 import { MyTemplate } from './my-template';
 
-await sendPdf({
+const { data, error } = await sendPdf({
   resendApiKey: process.env.RESEND_API_KEY,
   from: 'billing@acme.com',
   to: 'customer@email.com',
@@ -76,7 +80,7 @@ await resend.emails.send({
 
 ### `sendPdf(options)`
 
-Render a PDF and email it. Returns `Promise<{ id: string }>` (Resend's email ID).
+Render a PDF and email it. Returns Resend's `{ data, error }` shape directly.
 
 | Option | Type | Required | Description |
 |--------|------|----------|-------------|
