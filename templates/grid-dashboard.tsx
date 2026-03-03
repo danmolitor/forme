@@ -68,11 +68,11 @@ export default function GridDashboard(data: any) {
             <View style={{ alignItems: 'center' }}>
               <Svg width={200} height={120} viewBox="0 0 200 120" content={barSvg} />
             </View>
-            <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 12, marginTop: 8 }}>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 8 }}>
               {regions.map((r: any, i: number) => (
-                <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <View style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: barColors[i] }} />
-                  <Text style={{ fontSize: 7, color: '#64748b' }}>{r.name}</Text>
+                <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                  <View style={{ width: 6, height: 6, borderRadius: 1, backgroundColor: barColors[i] }} />
+                  <Text style={{ fontSize: 6, color: '#64748b' }}>{r.name}</Text>
                 </View>
               ))}
             </View>
