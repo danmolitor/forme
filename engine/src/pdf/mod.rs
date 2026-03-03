@@ -883,11 +883,7 @@ impl PdfWriter {
 
                 // Clip to canvas bounds (Canvas always clips, SVG does not)
                 if *clip {
-                    let _ = writeln!(
-                        stream,
-                        "0 0 {:.2} {:.2} re W n",
-                        svg_w, svg_h
-                    );
+                    let _ = writeln!(stream, "0 0 {:.2} {:.2} re W n", svg_w, svg_h);
                 }
 
                 Self::write_svg_commands(stream, commands);
