@@ -451,6 +451,203 @@ fn visual_flex_layout() {
 }
 
 #[test]
+fn visual_justified_text() {
+    // Justified text with word spacing (Tw operator).
+    // Tests that justified non-last lines fill the column width evenly.
+    let paragraph = "The extraordinary effectiveness of mathematics in the natural sciences \
+        is something bordering on the mysterious. There is no rational explanation for it. \
+        It is not at all natural that laws of nature exist, much less that man is able to \
+        discover them. The miracle of the appropriateness of the language of mathematics \
+        for the formulation of the laws of physics is a wonderful gift which we neither \
+        understand nor deserve.";
+
+    let doc = Document {
+        children: vec![Node::page(
+            PageConfig::default(),
+            Style::default(),
+            vec![
+                make_text_node("Justified Text Test", 18.0),
+                Node {
+                    kind: NodeKind::Text {
+                        content: paragraph.to_string(),
+                        href: None,
+                        runs: vec![],
+                    },
+                    style: Style {
+                        font_size: Some(11.0),
+                        text_align: Some(TextAlign::Justify),
+                        line_height: Some(1.5),
+                        ..Default::default()
+                    },
+                    children: vec![],
+                    id: None,
+                    source_location: None,
+                    bookmark: None,
+                    href: None,
+                    alt: None,
+                },
+            ],
+        )],
+        metadata: Default::default(),
+        default_page: PageConfig::default(),
+        fonts: vec![],
+        tagged: false,
+        pdfa: None,
+    };
+
+    let pdf = forme::render(&doc).unwrap();
+    assert_visual_match(&pdf, "visual_justified_text", 0.01);
+}
+
+#[test]
+fn visual_line_breaking_greedy_vs_optimal() {
+    // Side-by-side comparison of greedy vs optimal line breaking.
+    // Tests that both modes produce valid output and differ visibly.
+    let paragraph = "The extraordinary effectiveness of mathematics in the natural sciences \
+        is something bordering on the mysterious. There is no rational explanation for it. \
+        It is not at all natural that laws of nature exist, much less that man is able to \
+        discover them.";
+
+    let make_column = |mode: LineBreaking, bg: &str| {
+        make_view_node(
+            Style {
+                width: Some(Dimension::Pt(200.0)),
+                background_color: Some(Color::hex(bg)),
+                padding: Some(Edges::uniform(8.0)),
+                ..Default::default()
+            },
+            vec![Node {
+                kind: NodeKind::Text {
+                    content: paragraph.to_string(),
+                    href: None,
+                    runs: vec![],
+                },
+                style: Style {
+                    font_size: Some(10.0),
+                    line_height: Some(1.5),
+                    line_breaking: Some(mode),
+                    hyphens: Some(Hyphens::Auto),
+                    lang: Some("en".to_string()),
+                    ..Default::default()
+                },
+                children: vec![],
+                id: None,
+                source_location: None,
+                bookmark: None,
+                href: None,
+                alt: None,
+            }],
+        )
+    };
+
+    let row = make_view_node(
+        Style {
+            flex_direction: Some(FlexDirection::Row),
+            gap: Some(16.0),
+            ..Default::default()
+        },
+        vec![
+            make_column(LineBreaking::Optimal, "#f0f4ff"),
+            make_column(LineBreaking::Greedy, "#fff4e6"),
+        ],
+    );
+
+    let doc = Document {
+        children: vec![Node::page(
+            PageConfig::default(),
+            Style::default(),
+            vec![
+                make_text_node("Line Breaking: Optimal vs Greedy", 16.0),
+                row,
+            ],
+        )],
+        metadata: Default::default(),
+        default_page: PageConfig::default(),
+        fonts: vec![],
+        tagged: false,
+        pdfa: None,
+    };
+
+    let pdf = forme::render(&doc).unwrap();
+    assert_visual_match(&pdf, "visual_line_breaking", 0.01);
+}
+
+#[test]
+fn visual_text_alignment() {
+    // Tests left, center, right, and justified text alignment.
+    let text = "The quick brown fox jumps over the lazy dog near the riverbank.";
+
+    let make_aligned = |align: TextAlign, label: &str| {
+        make_view_node(
+            Style {
+                margin: Some(Edges {
+                    bottom: 12.0,
+                    ..Default::default()
+                }),
+                ..Default::default()
+            },
+            vec![
+                make_text_node(label, 9.0),
+                Node {
+                    kind: NodeKind::Text {
+                        content: text.to_string(),
+                        href: None,
+                        runs: vec![],
+                    },
+                    style: Style {
+                        font_size: Some(11.0),
+                        text_align: Some(align),
+                        ..Default::default()
+                    },
+                    children: vec![],
+                    id: None,
+                    source_location: None,
+                    bookmark: None,
+                    href: None,
+                    alt: None,
+                },
+            ],
+        )
+    };
+
+    let doc = Document {
+        children: vec![Node::page(
+            PageConfig {
+                size: PageSize::Custom {
+                    width: 300.0,
+                    height: 400.0,
+                },
+                margin: Edges::uniform(24.0),
+                ..Default::default()
+            },
+            Style::default(),
+            vec![
+                make_text_node("Text Alignment Test", 14.0),
+                make_aligned(TextAlign::Left, "Left:"),
+                make_aligned(TextAlign::Center, "Center:"),
+                make_aligned(TextAlign::Right, "Right:"),
+                make_aligned(TextAlign::Justify, "Justify:"),
+            ],
+        )],
+        metadata: Default::default(),
+        default_page: PageConfig {
+            size: PageSize::Custom {
+                width: 300.0,
+                height: 400.0,
+            },
+            margin: Edges::uniform(24.0),
+            ..Default::default()
+        },
+        fonts: vec![],
+        tagged: false,
+        pdfa: None,
+    };
+
+    let pdf = forme::render(&doc).unwrap();
+    assert_visual_match(&pdf, "visual_text_alignment", 0.01);
+}
+
+#[test]
 fn visual_tagged_no_visual_change() {
     // Proves that tagging is purely structural — rendering is identical
     let children = vec![

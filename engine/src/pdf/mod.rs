@@ -625,6 +625,11 @@ impl PdfWriter {
 
                     let _ = writeln!(stream, "BT");
 
+                    // Set word spacing for justification (PDF Tw operator)
+                    if line.word_spacing.abs() > 0.001 {
+                        let _ = writeln!(stream, "{:.4} Tw", line.word_spacing);
+                    }
+
                     // Track current text matrix position for relative Td moves
                     let mut tm_x = 0.0_f64;
                     let mut tm_y = 0.0_f64;
@@ -736,8 +741,14 @@ impl PdfWriter {
                         let group_start_x = x_cursor;
 
                         // Advance x_cursor past this group using shaped advances
+                        // Account for word_spacing on spaces (Tw adds to each space char)
                         if let Some(last) = group.last() {
-                            x_cursor = line.x + last.x_offset + last.x_advance;
+                            let space_count_in_group =
+                                group.iter().filter(|g| g.char_value == ' ').count();
+                            x_cursor = line.x
+                                + last.x_offset
+                                + last.x_advance
+                                + space_count_in_group as f64 * line.word_spacing;
                         }
 
                         // Check if this group has text decoration
@@ -2242,6 +2253,7 @@ mod tests {
                                 letter_spacing: 0.0,
                                 cluster_text: None,
                             }],
+                            word_spacing: 0.0,
                         }],
                         color: Color::BLACK,
                         text_decoration: TextDecoration::None,
@@ -2284,6 +2296,7 @@ mod tests {
                                 letter_spacing: 0.0,
                                 cluster_text: None,
                             }],
+                            word_spacing: 0.0,
                         }],
                         color: Color::BLACK,
                         text_decoration: TextDecoration::None,
@@ -2441,6 +2454,7 @@ mod tests {
                             letter_spacing: 0.0,
                             cluster_text: None,
                         }],
+                        word_spacing: 0.0,
                     }],
                     color: Color::BLACK,
                     text_decoration: TextDecoration::None,

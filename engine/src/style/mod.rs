@@ -109,6 +109,8 @@ pub struct Style {
     pub direction: Option<Direction>,
     /// Text overflow behavior (wrap, ellipsis, clip).
     pub text_overflow: Option<TextOverflow>,
+    /// Line breaking algorithm: optimal (Knuth-Plass, default) or greedy.
+    pub line_breaking: Option<LineBreaking>,
 
     /// Overflow behavior for container elements.
     pub overflow: Option<Overflow>,
@@ -342,6 +344,17 @@ pub enum Direction {
     Auto,
 }
 
+/// Line breaking algorithm.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum LineBreaking {
+    /// Knuth-Plass optimal line breaking (default). Minimizes global raggedness.
+    #[default]
+    Optimal,
+    /// Simple greedy line breaking. Fills lines left-to-right, breaks at first overflow.
+    Greedy,
+}
+
 /// CSS `hyphens` property controlling word hyphenation.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -512,6 +525,7 @@ pub struct ResolvedStyle {
     pub lang: Option<String>,
     pub direction: Direction,
     pub text_overflow: TextOverflow,
+    pub line_breaking: LineBreaking,
 
     // Visual
     pub color: Color,
@@ -658,6 +672,9 @@ impl Style {
                 .direction
                 .unwrap_or(parent.map(|p| p.direction).unwrap_or_default()),
             text_overflow: self.text_overflow.unwrap_or_default(),
+            line_breaking: self
+                .line_breaking
+                .unwrap_or(parent.map(|p| p.line_breaking).unwrap_or_default()),
 
             color: self.color.unwrap_or(parent_color),
             background_color: self.background_color,

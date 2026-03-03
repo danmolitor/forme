@@ -8,7 +8,6 @@
 //! - Page breaks happen at the right places
 //! - Table header repetition works
 
-use base64::Engine as _;
 use forme::font::FontContext;
 use forme::layout::LayoutEngine;
 use forme::model::*;
@@ -5152,4 +5151,61 @@ fn test_flex_row_stretch_enables_flex_grow() {
         "Inner flex-grow child height ({}) should expand to fill stretched parent",
         inner.height,
     );
+}
+
+// ─── Line Breaking Mode Tests ─────────────────────────────────────
+
+#[test]
+fn test_line_breaking_greedy_vs_optimal_both_work() {
+    let paragraph = "The quick brown fox jumps over the lazy dog near the riverbank where the tall reeds sway gently in the warm afternoon breeze.";
+
+    let make_text_with_mode = |mode: LineBreaking| Node {
+        kind: NodeKind::Text {
+            content: paragraph.to_string(),
+            href: None,
+            runs: vec![],
+        },
+        style: Style {
+            font_size: Some(10.0),
+            line_breaking: Some(mode),
+            ..Default::default()
+        },
+        children: vec![],
+        id: None,
+        source_location: None,
+        bookmark: None,
+        href: None,
+        alt: None,
+    };
+
+    let doc_optimal = default_doc(vec![make_text_with_mode(LineBreaking::Optimal)]);
+    let doc_greedy = default_doc(vec![make_text_with_mode(LineBreaking::Greedy)]);
+
+    let pages_optimal = layout_doc(&doc_optimal);
+    let pages_greedy = layout_doc(&doc_greedy);
+
+    // Both should produce valid single-page output
+    assert_eq!(pages_optimal.len(), 1);
+    assert_eq!(pages_greedy.len(), 1);
+    assert!(!pages_optimal[0].elements.is_empty());
+    assert!(!pages_greedy[0].elements.is_empty());
+}
+
+#[test]
+fn test_line_breaking_mode_inherits() {
+    // lineBreaking set on a parent View should be inherited by child Text nodes
+    let doc = default_doc(vec![make_styled_view(
+        Style {
+            line_breaking: Some(LineBreaking::Greedy),
+            ..Default::default()
+        },
+        vec![make_text(
+            "Some text content that spans multiple lines in this narrow container.",
+            10.0,
+        )],
+    )]);
+
+    let pages = layout_doc(&doc);
+    assert_eq!(pages.len(), 1);
+    assert!(!pages[0].elements.is_empty());
 }

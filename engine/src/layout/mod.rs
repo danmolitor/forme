@@ -527,6 +527,8 @@ pub struct TextLine {
     pub glyphs: Vec<PositionedGlyph>,
     pub width: f64,
     pub height: f64,
+    /// Extra width added to each space character for justification (PDF `Tw` operator).
+    pub word_spacing: f64,
 }
 
 #[derive(Debug, Clone)]
@@ -2208,19 +2210,33 @@ impl LayoutEngine {
 
         let transformed = apply_text_transform(content, style.text_transform);
         let justify = matches!(style.text_align, TextAlign::Justify);
-        let lines = self.text_layout.break_into_lines_optimal(
-            font_context,
-            &transformed,
-            text_width,
-            style.font_size,
-            &style.font_family,
-            style.font_weight,
-            style.font_style,
-            style.letter_spacing,
-            style.hyphens,
-            style.lang.as_deref(),
-            justify,
-        );
+        let lines = match style.line_breaking {
+            LineBreaking::Optimal => self.text_layout.break_into_lines_optimal(
+                font_context,
+                &transformed,
+                text_width,
+                style.font_size,
+                &style.font_family,
+                style.font_weight,
+                style.font_style,
+                style.letter_spacing,
+                style.hyphens,
+                style.lang.as_deref(),
+                justify,
+            ),
+            LineBreaking::Greedy => self.text_layout.break_into_lines(
+                font_context,
+                &transformed,
+                text_width,
+                style.font_size,
+                &style.font_family,
+                style.font_weight,
+                style.font_style,
+                style.letter_spacing,
+                style.hyphens,
+                style.lang.as_deref(),
+            ),
+        };
 
         // Apply text overflow truncation (single-line modes)
         let lines = match style.text_overflow {
@@ -2330,27 +2346,54 @@ impl LayoutEngine {
                 container_start_y = cursor.content_y + cursor.y;
             }
 
+            let glyphs = self.build_positioned_glyphs_single_style(line, style, href, font_context);
+
+            // Use actual rendered width from glyphs for alignment (may differ from
+            // line.width when per-char measurement is used for line breaking but
+            // shaping is used for glyph placement).
+            let rendered_width = if glyphs.is_empty() {
+                line.width
+            } else {
+                let last = &glyphs[glyphs.len() - 1];
+                (last.x_offset + last.x_advance).max(line.width * 0.5)
+            };
+
             let line_x = match style.text_align {
                 TextAlign::Left => text_x,
-                TextAlign::Right => text_x + text_width - line.width,
-                TextAlign::Center => text_x + (text_width - line.width) / 2.0,
+                TextAlign::Right => text_x + text_width - rendered_width,
+                TextAlign::Center => text_x + (text_width - rendered_width) / 2.0,
                 TextAlign::Justify => text_x,
             };
 
-            let glyphs = self.build_positioned_glyphs_single_style(line, style, href, font_context);
+            // Justify: compute extra word spacing so the line fills the column width
+            let is_last_line = line_idx == lines.len() - 1;
+            let (justified_width, word_spacing) =
+                if matches!(style.text_align, TextAlign::Justify) && !is_last_line {
+                    let slack = text_width - rendered_width;
+                    let space_count = glyphs.iter().filter(|g| g.char_value == ' ').count();
+                    let ws = if space_count > 0 && slack > 0.01 {
+                        slack / space_count as f64
+                    } else {
+                        0.0
+                    };
+                    (text_width, ws)
+                } else {
+                    (rendered_width, 0.0)
+                };
 
             let text_line = TextLine {
                 x: line_x,
                 y: cursor.content_y + cursor.y + style.font_size,
                 glyphs,
-                width: line.width,
+                width: justified_width,
                 height: line_height,
+                word_spacing,
             };
 
             cursor.elements.push(LayoutElement {
                 x: line_x,
                 y: cursor.content_y + cursor.y,
-                width: line.width,
+                width: justified_width,
                 height: line_height,
                 draw: DrawCommand::Text {
                     lines: vec![text_line],
@@ -2442,14 +2485,23 @@ impl LayoutEngine {
 
         // Break into lines
         let justify = matches!(style.text_align, TextAlign::Justify);
-        let broken_lines = self.text_layout.break_runs_into_lines_optimal(
-            font_context,
-            &styled_chars,
-            text_width,
-            style.hyphens,
-            style.lang.as_deref(),
-            justify,
-        );
+        let broken_lines = match style.line_breaking {
+            LineBreaking::Optimal => self.text_layout.break_runs_into_lines_optimal(
+                font_context,
+                &styled_chars,
+                text_width,
+                style.hyphens,
+                style.lang.as_deref(),
+                justify,
+            ),
+            LineBreaking::Greedy => self.text_layout.break_runs_into_lines(
+                font_context,
+                &styled_chars,
+                text_width,
+                style.hyphens,
+                style.lang.as_deref(),
+            ),
+        };
 
         // Apply text overflow truncation (single-line modes)
         let broken_lines = match style.text_overflow {
@@ -2550,12 +2602,29 @@ impl LayoutEngine {
 
             let glyphs = self.build_positioned_glyphs_runs(run_line, font_context, style.direction);
 
+            // Justify: compute extra word spacing so the line fills the column width
+            let is_last_line = line_idx == broken_lines.len() - 1;
+            let (justified_width, word_spacing) =
+                if matches!(style.text_align, TextAlign::Justify) && !is_last_line {
+                    let slack = text_width - run_line.width;
+                    let space_count = glyphs.iter().filter(|g| g.char_value == ' ').count();
+                    let ws = if space_count > 0 && slack > 0.01 {
+                        slack / space_count as f64
+                    } else {
+                        0.0
+                    };
+                    (text_width, ws)
+                } else {
+                    (run_line.width, 0.0)
+                };
+
             let text_line = TextLine {
                 x: line_x,
                 y: cursor.content_y + cursor.y + style.font_size,
                 glyphs,
-                width: run_line.width,
+                width: justified_width,
                 height: line_height,
+                word_spacing,
             };
 
             // Determine text decoration: use the run's decoration if any glyph has one
@@ -2569,7 +2638,7 @@ impl LayoutEngine {
             cursor.elements.push(LayoutElement {
                 x: line_x,
                 y: cursor.content_y + cursor.y,
-                width: run_line.width,
+                width: justified_width,
                 height: line_height,
                 draw: DrawCommand::Text {
                     lines: vec![text_line],
@@ -4275,6 +4344,7 @@ impl LayoutEngine {
                             glyphs,
                             width: text_width,
                             height: *font_size,
+                            word_spacing: 0.0,
                         };
 
                         watermark_elements.push(LayoutElement {

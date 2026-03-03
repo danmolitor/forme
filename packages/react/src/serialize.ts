@@ -691,6 +691,11 @@ const TEXT_OVERFLOW_MAP: Record<string, string> = {
   'clip': 'Clip',
 };
 
+const LINE_BREAKING_MAP: Record<string, string> = {
+  'optimal': 'optimal',
+  'greedy': 'greedy',
+};
+
 const OVERFLOW_MAP: Record<string, string> = {
   'visible': 'Visible',
   'hidden': 'Hidden',
@@ -806,6 +811,7 @@ export function mapStyle(style?: Style): FormeStyle {
   if (style.lang !== undefined) result.lang = style.lang;
   if (style.direction !== undefined) result.direction = style.direction;
   if (style.textOverflow !== undefined) result.textOverflow = TEXT_OVERFLOW_MAP[style.textOverflow];
+  if (style.lineBreaking !== undefined) result.lineBreaking = LINE_BREAKING_MAP[style.lineBreaking];
   if (style.overflow !== undefined) result.overflow = OVERFLOW_MAP[style.overflow];
 
   // Color

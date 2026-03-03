@@ -113,6 +113,8 @@ export interface Style {
   direction?: 'ltr' | 'rtl' | 'auto';
   /** Text overflow behavior: 'wrap' (default), 'ellipsis' (truncate with ...), 'clip' (truncate). */
   textOverflow?: 'wrap' | 'ellipsis' | 'clip';
+  /** Line breaking algorithm: 'optimal' (Knuth-Plass, default) or 'greedy'. */
+  lineBreaking?: 'optimal' | 'greedy';
   /** Overflow behavior: 'visible' (default) or 'hidden' (clips children to bounds). */
   overflow?: 'visible' | 'hidden';
 
@@ -553,6 +555,7 @@ export interface FormeStyle {
   lang?: string;
   direction?: string;
   textOverflow?: string;
+  lineBreaking?: string;
   overflow?: string;
   color?: FormeColor;
   backgroundColor?: FormeColor;

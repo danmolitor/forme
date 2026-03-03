@@ -487,14 +487,61 @@ impl TextLayout {
         letter_spacing: f64,
     ) -> Vec<f64> {
         let italic = matches!(font_style, FontStyle::Italic | FontStyle::Oblique);
+        let chars: Vec<char> = text.chars().collect();
 
-        // Fast path: single font family (no comma) — original behavior
+        // Detect if BiDi shaping is needed (Arabic, Hebrew, etc.)
+        let has_bidi = !bidi::is_pure_ltr(text, crate::style::Direction::Auto);
+        let bidi_runs = if has_bidi {
+            bidi::analyze_bidi(text, crate::style::Direction::Auto)
+        } else {
+            vec![]
+        };
+
+        // Fast path: single font family (no comma)
         if !font_family.contains(',') {
-            // Try shaping for custom fonts
             if let Some(font_data) = font_context.font_data(font_family, font_weight, italic) {
+                let units_per_em = font_context.units_per_em(font_family, font_weight, italic);
+
+                if has_bidi {
+                    // Shape each BiDi run with correct direction to match glyph builder
+                    let mut widths = vec![0.0_f64; chars.len()];
+                    for bidi_run in &bidi_runs {
+                        let run_text: String = chars[bidi_run.char_start..bidi_run.char_end]
+                            .iter()
+                            .collect();
+                        if let Some(shaped) = shaping::shape_text_with_direction(
+                            &run_text,
+                            font_data,
+                            bidi_run.is_rtl,
+                        ) {
+                            let num_chars = bidi_run.char_end - bidi_run.char_start;
+                            let cluster_w = shaping::cluster_widths(
+                                &shaped,
+                                num_chars,
+                                units_per_em,
+                                font_size,
+                                letter_spacing,
+                            );
+                            for (j, w) in cluster_w.into_iter().enumerate() {
+                                widths[bidi_run.char_start + j] = w;
+                            }
+                        } else {
+                            for i in bidi_run.char_start..bidi_run.char_end {
+                                widths[i] = font_context.char_width(
+                                    chars[i],
+                                    font_family,
+                                    font_weight,
+                                    italic,
+                                    font_size,
+                                ) + letter_spacing;
+                            }
+                        }
+                    }
+                    return widths;
+                }
+
                 if let Some(shaped) = shaping::shape_text(text, font_data) {
-                    let num_chars = text.chars().count();
-                    let units_per_em = font_context.units_per_em(font_family, font_weight, italic);
+                    let num_chars = chars.len();
                     return shaping::cluster_widths(
                         &shaped,
                         num_chars,
@@ -514,47 +561,19 @@ impl TextLayout {
                 .collect();
         }
 
-        // Per-char fallback path: segment by font, shape each segment
-        let chars: Vec<char> = text.chars().collect();
-        let runs = crate::font::fallback::segment_by_font(
-            &chars,
-            font_family,
-            font_weight,
-            italic,
-            font_context.registry(),
-        );
-
-        let mut widths = vec![0.0_f64; chars.len()];
-        for run in &runs {
-            let run_text: String = chars[run.start..run.end].iter().collect();
-
-            if let Some(font_data) = font_context.font_data(&run.family, font_weight, italic) {
-                if let Some(shaped) = shaping::shape_text(&run_text, font_data) {
-                    let num_chars = run.end - run.start;
-                    let units_per_em = font_context.units_per_em(&run.family, font_weight, italic);
-                    let cluster_w = shaping::cluster_widths(
-                        &shaped,
-                        num_chars,
-                        units_per_em,
-                        font_size,
-                        letter_spacing,
-                    );
-                    for (j, w) in cluster_w.into_iter().enumerate() {
-                        widths[run.start + j] = w;
-                    }
-                    continue;
-                }
-            }
-
-            // Fallback: per-char measurement for this run
-            for i in run.start..run.end {
-                widths[i] =
-                    font_context.char_width(chars[i], &run.family, font_weight, italic, font_size)
-                        + letter_spacing;
-            }
-        }
-
-        widths
+        // Per-char fallback path: use context-independent per-character widths.
+        // We intentionally avoid full-text shaping here because the glyph builder
+        // shapes individual lines (different shaping context), which can produce
+        // different total widths. Per-char hmtx widths are stable regardless of
+        // context, so the line breaker never underestimates and lines never overflow.
+        // The glyph builder still uses shaping for visual quality (kerning, ligatures).
+        chars
+            .iter()
+            .map(|&ch| {
+                font_context.char_width(ch, font_family, font_weight, italic, font_size)
+                    + letter_spacing
+            })
+            .collect()
     }
 
     /// Shape text and return shaped glyphs for a custom font.
@@ -2146,5 +2165,68 @@ mod tests {
             truncated[0].width <= 60.0 + 0.1,
             "Should fit within max_width"
         );
+    }
+
+    #[test]
+    fn test_greedy_vs_optimal_produce_different_breaks() {
+        // This test verifies that greedy and optimal algorithms actually diverge.
+        // We use the proof paragraph at various widths/font sizes.
+        let tl = TextLayout::new();
+        let fc = ctx();
+        let text = "The extraordinary effectiveness of mathematics in the natural sciences is something bordering on the mysterious. There is no rational explanation for it. It is not at all natural that laws of nature exist, much less that man is able to discover them. The miracle of the appropriateness of the language of mathematics for the formulation of the laws of physics is a wonderful gift which we neither understand nor deserve.";
+
+        let mut found_divergence = false;
+        let mut divergence_info = String::new();
+
+        // Test at 10pt font (matching the proof template: 200pt col - 16pt padding = 184pt)
+        for width in [
+            100.0, 120.0, 140.0, 150.0, 160.0, 170.0, 180.0, 184.0, 200.0,
+        ] {
+            let greedy = tl.break_into_lines(
+                &fc,
+                text,
+                width,
+                10.0,
+                "Helvetica",
+                400,
+                FontStyle::Normal,
+                0.0,
+                Hyphens::Auto,
+                Some("en"),
+            );
+            let optimal = tl.break_into_lines_optimal(
+                &fc,
+                text,
+                width,
+                10.0,
+                "Helvetica",
+                400,
+                FontStyle::Normal,
+                0.0,
+                Hyphens::Auto,
+                Some("en"),
+                false,
+            );
+
+            let greedy_texts: Vec<&str> = greedy.iter().map(|l| l.text.as_str()).collect();
+            let optimal_texts: Vec<&str> = optimal.iter().map(|l| l.text.as_str()).collect();
+
+            if greedy_texts != optimal_texts {
+                found_divergence = true;
+                divergence_info = format!(
+                    "font_size=10, width={}: greedy={} lines, optimal={} lines\nGreedy:\n{}\nOptimal:\n{}",
+                    width, greedy.len(), optimal.len(),
+                    greedy_texts.iter().enumerate().map(|(i, t)| format!("  {}: {:?}", i, t)).collect::<Vec<_>>().join("\n"),
+                    optimal_texts.iter().enumerate().map(|(i, t)| format!("  {}: {:?}", i, t)).collect::<Vec<_>>().join("\n"),
+                );
+                break;
+            }
+        }
+
+        assert!(
+            found_divergence,
+            "Greedy and optimal should produce different line breaks at some width with 10pt font."
+        );
+        eprintln!("Found divergence: {}", divergence_info);
     }
 }
