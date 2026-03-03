@@ -5310,11 +5310,10 @@ fn test_grid_justified_text_does_not_overflow() {
 
 #[test]
 fn test_arabic_text_with_font_fallback() {
-    let font_bytes =
-        match std::fs::read("/System/Library/Fonts/Supplemental/Arial Unicode.ttf") {
-            Ok(b) => b,
-            Err(_) => return, // Skip on CI / non-macOS
-        };
+    let font_bytes = match std::fs::read("/System/Library/Fonts/Supplemental/Arial Unicode.ttf") {
+        Ok(b) => b,
+        Err(_) => return, // Skip on CI / non-macOS
+    };
 
     let mut font_ctx = FontContext::new();
     font_ctx
