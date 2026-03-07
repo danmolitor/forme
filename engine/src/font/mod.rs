@@ -5,6 +5,7 @@
 //! For v1, we support the 14 standard PDF fonts (Helvetica, Times, Courier, etc.)
 //! which don't require embedding. Custom font support via ttf-parser comes next.
 
+pub mod builtin;
 pub mod fallback;
 pub mod metrics;
 pub mod subset;
@@ -193,7 +194,9 @@ impl FontRegistry {
             );
         }
 
-        Self { fonts }
+        let mut registry = Self { fonts };
+        builtin::register_builtin_fonts(&mut registry);
+        registry
     }
 
     /// Look up a font by family name (or comma-separated fallback chain),
@@ -317,6 +320,18 @@ impl FontRegistry {
             }
         }
 
+        // Try builtin Unicode font (Noto Sans) before Helvetica
+        let builtin_key = FontKey {
+            family: "Noto Sans".to_string(),
+            weight: snapped_weight,
+            italic: false,
+        };
+        if let Some(font) = self.fonts.get(&builtin_key) {
+            if font.has_char(ch) {
+                return (font, "Noto Sans".to_string());
+            }
+        }
+
         // Final fallback: Helvetica
         let key = FontKey {
             family: "Helvetica".to_string(),
@@ -389,9 +404,16 @@ impl FontContext {
         italic: bool,
         font_size: f64,
     ) -> f64 {
-        // Fast path: single font family (no comma) — skip per-char resolution
+        // Fast path: single font family — try primary font first,
+        // fall back to per-char resolution only when the char isn't covered
         let font_data = if !family.contains(',') {
-            self.registry.resolve(family, weight, italic)
+            let primary = self.registry.resolve(family, weight, italic);
+            if ch.is_whitespace() || primary.has_char(ch) {
+                primary
+            } else {
+                let (data, _) = self.registry.resolve_for_char(family, ch, weight, italic);
+                data
+            }
         } else {
             let (data, _) = self.registry.resolve_for_char(family, ch, weight, italic);
             data
@@ -538,9 +560,11 @@ mod tests {
     #[test]
     fn test_font_fallback_chain_all_missing() {
         let ctx = FontContext::new();
-        let w1 = ctx.char_width('A', "Helvetica", 400, false, 12.0);
-        let w2 = ctx.char_width('A', "Missing, AlsoMissing", 400, false, 12.0);
-        assert!((w1 - w2).abs() < 0.001, "Should fall back to Helvetica");
+        // When all specified families are missing, resolve_for_char tries
+        // builtin Noto Sans first, then Helvetica. 'A' is in Noto Sans,
+        // so we get Noto Sans metrics (not Helvetica).
+        let w = ctx.char_width('A', "Missing, AlsoMissing", 400, false, 12.0);
+        assert!(w > 0.0, "Should still produce a valid width from fallback");
     }
 
     #[test]
@@ -549,6 +573,32 @@ mod tests {
         let w1 = ctx.char_width('A', "Times", 400, false, 12.0);
         let w2 = ctx.char_width('A', "'Times', \"Helvetica\"", 400, false, 12.0);
         assert!((w1 - w2).abs() < 0.001, "Should strip quotes and use Times");
+    }
+
+    #[test]
+    fn test_builtin_noto_sans_registered() {
+        let registry = FontRegistry::new();
+        let font = registry.resolve("Noto Sans", 400, false);
+        assert!(
+            matches!(font, FontData::Custom { .. }),
+            "Noto Sans should be registered as a custom font"
+        );
+        assert!(
+            font.has_char('\u{041F}'),
+            "Noto Sans should have Cyrillic П"
+        );
+        assert!(font.has_char('\u{03B1}'), "Noto Sans should have Greek α");
+    }
+
+    #[test]
+    fn test_builtin_noto_sans_fallback_for_cyrillic() {
+        let registry = FontRegistry::new();
+        let (font, family) = registry.resolve_for_char("Helvetica", '\u{041F}', 400, false);
+        assert_eq!(
+            family, "Noto Sans",
+            "Cyrillic should fall back to Noto Sans"
+        );
+        assert!(matches!(font, FontData::Custom { .. }));
     }
 
     #[test]

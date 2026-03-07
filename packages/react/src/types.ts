@@ -173,6 +173,8 @@ export interface DocumentProps {
   creator?: string;
   /** Document language (BCP 47 tag, e.g. "en-US"). Emitted as /Lang in the PDF Catalog. */
   lang?: string;
+  /** Default style applied to the entire document. Sets global fontFamily, fontSize, color, etc. */
+  style?: Style;
   /** Whether to produce a tagged (accessible) PDF with structure tree. */
   tagged?: boolean;
   /** PDF/A conformance level. "2a" requires tagging, "2b" is visual-only compliance. */
@@ -346,6 +348,8 @@ export interface CanvasContext {
   circle(cx: number, cy: number, r: number): void;
   ellipse(cx: number, cy: number, rx: number, ry: number): void;
   arc(cx: number, cy: number, r: number, startAngle: number, endAngle: number, counterclockwise?: boolean): void;
+  /** Convenience: draws a stroked line from (x1,y1) to (x2,y2). */
+  line(x1: number, y1: number, x2: number, y2: number): void;
   stroke(): void;
   fill(): void;
   fillAndStroke(): void;
@@ -407,6 +411,7 @@ export interface FormeDocument {
   children: FormeNode[];
   metadata: FormeMetadata;
   defaultPage: FormePageConfig;
+  defaultStyle?: FormeStyle;
   fonts?: FormeFont[];
   tagged?: boolean;
   pdfa?: '2a' | '2b';

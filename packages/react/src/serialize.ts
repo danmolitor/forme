@@ -96,7 +96,7 @@ export function serialize(element: ReactElement): FormeDocument {
     throw new Error('Top-level element must be <Document>');
   }
 
-  const props = element.props as { title?: string; author?: string; subject?: string; creator?: string; lang?: string; tagged?: boolean; pdfa?: '2a' | '2b'; children?: unknown };
+  const props = element.props as DocumentProps & { children?: unknown };
   const childElements = flattenChildren(props.children);
 
   // Separate Page children from content children
@@ -135,7 +135,7 @@ export function serialize(element: ReactElement): FormeDocument {
   if (props.lang !== undefined) metadata.lang = props.lang;
 
   // Merge global + document fonts (document fonts override on conflict)
-  const mergedFonts = mergeFonts(Font.getRegistered(), (props as DocumentProps).fonts);
+  const mergedFonts = mergeFonts(Font.getRegistered(), props.fonts);
 
   const result: FormeDocument = {
     children,
@@ -147,6 +147,7 @@ export function serialize(element: ReactElement): FormeDocument {
     },
   };
 
+  if (props.style) result.defaultStyle = mapStyle(props.style);
   if (props.tagged !== undefined) result.tagged = props.tagged;
   if (props.pdfa !== undefined) result.pdfa = props.pdfa;
 
@@ -502,6 +503,11 @@ function serializeCanvas(element: ReactElement): FormeNode {
     ellipse(cx, cy, rx, ry) { operations.push({ op: 'Ellipse', cx, cy, rx, ry }); },
     arc(cx, cy, r, startAngle, endAngle, counterclockwise = false) {
       operations.push({ op: 'Arc', cx, cy, r, start_angle: startAngle, end_angle: endAngle, counterclockwise });
+    },
+    line(x1, y1, x2, y2) {
+      operations.push({ op: 'MoveTo', x: x1, y: y1 });
+      operations.push({ op: 'LineTo', x: x2, y: y2 });
+      operations.push({ op: 'Stroke' });
     },
     stroke() { operations.push({ op: 'Stroke' }); },
     fill() { operations.push({ op: 'Fill' }); },
@@ -1216,6 +1222,7 @@ export function serializeTemplate(element: ReactElement): Record<string, unknown
     },
   };
 
+  if (props.style) result.defaultStyle = mapStyle(props.style);
   if (props.tagged !== undefined) result.tagged = props.tagged;
   if (props.pdfa !== undefined) result.pdfa = props.pdfa;
 

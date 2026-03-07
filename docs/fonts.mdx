@@ -4,7 +4,7 @@ sidebarTitle: Fonts
 description: Register custom TrueType fonts for PDF embedding with automatic subsetting.
 ---
 
-Forme includes three standard PDF font families by default: **Helvetica**, **Times**, and **Courier** (each with regular, bold, italic, and bold italic variants). For any other typeface, register a TrueType (`.ttf`) font file.
+Forme includes three standard PDF font families by default: **Helvetica**, **Times**, and **Courier** (each with regular, bold, italic, and bold italic variants), plus **Noto Sans** (regular and bold) as a builtin Unicode fallback for non-Latin scripts. For any other typeface, register a TrueType (`.ttf`) font file.
 
 Registered fonts are automatically subsetted — only glyphs used in the document are embedded, keeping file sizes small.
 
@@ -93,11 +93,14 @@ File paths are resolved relative to the template file in the CLI dev server (`fo
 
 These fonts are always available without registration:
 
-| Family | Weights | Styles |
-|--------|---------|--------|
-| `Helvetica` | 400, 700 | normal, italic |
-| `Times` | 400, 700 | normal, italic |
-| `Courier` | 400, 700 | normal, italic |
+| Family | Weights | Styles | Notes |
+|--------|---------|--------|-------|
+| `Helvetica` | 400, 700 | normal, italic | Default font |
+| `Times` | 400, 700 | normal, italic | |
+| `Courier` | 400, 700 | normal, italic | |
+| `Noto Sans` | 400, 700 | normal | Builtin Unicode fallback |
+
+**Automatic fallback**: When a character is not covered by your chosen font (e.g., Cyrillic or Greek text with Helvetica), Forme automatically falls back to Noto Sans. This means non-Latin text works out of the box without registering any fonts.
 
 If a `fontFamily` is not found, Forme falls back to Helvetica.
 

@@ -1,6 +1,6 @@
 {
   "name": "@formepdf/renderer",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "File-to-PDF rendering pipeline for Forme — bundles TSX, resolves assets, renders via WASM",
   "type": "module",
   "main": "./dist/index.js",

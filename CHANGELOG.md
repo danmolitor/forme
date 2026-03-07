@@ -2,6 +2,17 @@
 
 All notable changes to the Forme monorepo are documented in this file.
 
+## [0.7.1] - 2026-03-07
+
+### Added
+- Builtin Noto Sans font (Regular + Bold) for automatic non-Latin text support (Cyrillic, Greek, etc.)
+- `<Document style>` prop for global default styles (fontFamily, fontSize, color, etc.)
+- `Canvas` `line(x1, y1, x2, y2)` convenience method
+
+### Changed
+- Single-font text now automatically falls back to builtin Noto Sans when characters are missing
+- Image component JSDoc updated with concrete path examples
+
 ## [0.7.0] - 2026-03-06
 
 ### Added

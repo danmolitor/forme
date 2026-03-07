@@ -114,6 +114,7 @@ fn default_doc(children: Vec<Node>) -> Document {
         fonts: vec![],
         tagged: false,
         pdfa: None,
+        default_style: None,
     }
 }
 
@@ -532,6 +533,7 @@ fn test_metadata_in_output() {
         fonts: vec![],
         tagged: false,
         pdfa: None,
+        default_style: None,
     };
     let bytes = render_to_pdf(&doc);
     assert_valid_pdf(&bytes);
@@ -667,6 +669,7 @@ fn render_with_custom_font(font_data: &[u8], text: &str) -> Vec<u8> {
         fonts: vec![],
         tagged: false,
         pdfa: None,
+        default_style: None,
     };
 
     let engine = LayoutEngine::new();
@@ -812,6 +815,7 @@ fn test_mixed_standard_and_custom_fonts() {
         fonts: vec![],
         tagged: false,
         pdfa: None,
+        default_style: None,
     };
 
     let engine = LayoutEngine::new();
@@ -3109,6 +3113,7 @@ fn test_breakable_view_with_background_splits_across_pages() {
         fonts: vec![],
         tagged: false,
         pdfa: None,
+        default_style: None,
     };
 
     let pages = layout_doc(&doc);
@@ -3183,6 +3188,7 @@ fn test_breakable_view_background_does_not_overlap_footer() {
         fonts: vec![],
         tagged: false,
         pdfa: None,
+        default_style: None,
     };
 
     let pages = layout_doc(&doc);
@@ -3248,6 +3254,7 @@ fn test_breakable_view_without_visual_stays_unwrapped() {
         fonts: vec![],
         tagged: false,
         pdfa: None,
+        default_style: None,
     };
 
     let pages = layout_doc(&doc);
@@ -3573,6 +3580,7 @@ fn test_breakable_view_continuation_page_has_top_padding() {
         fonts: vec![],
         tagged: false,
         pdfa: None,
+        default_style: None,
     };
 
     let pages = layout_doc(&doc);
@@ -3924,6 +3932,7 @@ fn test_document_lang_in_pdf_catalog() {
         fonts: vec![],
         tagged: false,
         pdfa: None,
+        default_style: None,
     };
     let bytes = render_to_pdf(&doc);
     assert_valid_pdf(&bytes);
@@ -4159,6 +4168,7 @@ fn test_justified_text_produces_valid_pdf() {
         fonts: vec![],
         tagged: false,
         pdfa: None,
+        default_style: None,
     };
 
     let bytes = forme::render(&doc).expect("Should render justified text");
@@ -4210,6 +4220,7 @@ fn test_lang_inherits_to_text_nodes() {
         fonts: vec![],
         tagged: false,
         pdfa: None,
+        default_style: None,
     };
 
     // Just verify it renders without error — lang cascading is tested at the unit level
@@ -4276,6 +4287,7 @@ fn test_per_node_lang_override() {
         fonts: vec![],
         tagged: false,
         pdfa: None,
+        default_style: None,
     };
 
     let bytes = forme::render(&doc).expect("Should render with per-node lang override");
@@ -4297,6 +4309,7 @@ fn test_tagged_pdf_has_struct_tree_root() {
         fonts: vec![],
         tagged: true,
         pdfa: None,
+        default_style: None,
     };
 
     let bytes = forme::render(&doc).unwrap();
@@ -4348,6 +4361,7 @@ fn test_tagged_pdf_parent_tree_consistency() {
         fonts: vec![],
         tagged: true,
         pdfa: None,
+        default_style: None,
     };
 
     let bytes = forme::render(&doc).unwrap();
@@ -4417,6 +4431,7 @@ fn test_tagged_pdf_nested_text_roles() {
         fonts: vec![],
         tagged: true,
         pdfa: None,
+        default_style: None,
     };
 
     let bytes = forme::render(&doc).unwrap();
@@ -4508,6 +4523,7 @@ fn test_tagged_pdf_table_th_td() {
         fonts: vec![],
         tagged: true,
         pdfa: None,
+        default_style: None,
     };
 
     let bytes = forme::render(&doc).unwrap();
@@ -4556,6 +4572,7 @@ fn test_tagged_pdf_figure_alt_text() {
         fonts: vec![],
         tagged: true,
         pdfa: None,
+        default_style: None,
     };
 
     let bytes = forme::render(&doc).unwrap();
@@ -4819,6 +4836,7 @@ fn test_qrcode_renders_to_pdf() {
         fonts: vec![],
         tagged: false,
         pdfa: None,
+        default_style: None,
     };
 
     let pdf = forme::render(&doc).expect("QR code should render to PDF");
@@ -4847,6 +4865,7 @@ fn test_qrcode_with_explicit_size() {
         fonts: vec![],
         tagged: false,
         pdfa: None,
+        default_style: None,
     };
 
     let (pdf, layout) = forme::render_with_layout(&doc).expect("Should render");
@@ -4887,6 +4906,7 @@ fn test_qrcode_page_break() {
         fonts: vec![],
         tagged: false,
         pdfa: None,
+        default_style: None,
     };
 
     let (pdf, layout) = forme::render_with_layout(&doc).expect("Should render");
@@ -4939,6 +4959,7 @@ fn test_font_fallback_chain_in_document() {
         fonts: vec![],
         tagged: false,
         pdfa: None,
+        default_style: None,
     };
 
     let pdf = forme::render(&doc).expect("Fallback chain should render");
@@ -5012,6 +5033,7 @@ fn test_text_overflow_ellipsis_single_line() {
         fonts: vec![],
         tagged: false,
         pdfa: None,
+        default_style: None,
     };
 
     let (_pdf, layout) = forme::render_with_layout(&doc).expect("Should render");
@@ -5333,4 +5355,59 @@ fn test_arabic_text_with_font_fallback() {
     assert!(!pages.is_empty());
     let bytes = forme::render(&doc).unwrap();
     assert!(!bytes.is_empty());
+}
+
+#[test]
+fn test_builtin_noto_sans_cyrillic() {
+    // Cyrillic text should render via builtin Noto Sans without any font registration
+    let doc = default_doc(vec![make_text(
+        "\u{041F}\u{0440}\u{0438}\u{0432}\u{0435}\u{0442}",
+        12.0,
+    )]);
+    let pdf = render_to_pdf(&doc);
+    let pdf_str = String::from_utf8_lossy(&pdf);
+    // Noto Sans should be embedded as a CIDFont
+    assert!(
+        pdf_str.contains("NotoSans"),
+        "PDF should contain embedded Noto Sans for Cyrillic text"
+    );
+}
+
+#[test]
+fn test_builtin_noto_sans_greek() {
+    // Greek text should render via builtin Noto Sans
+    let doc = default_doc(vec![make_text("\u{03B1}\u{03B2}\u{03B3}", 12.0)]);
+    let pdf = render_to_pdf(&doc);
+    let pdf_str = String::from_utf8_lossy(&pdf);
+    assert!(
+        pdf_str.contains("NotoSans"),
+        "PDF should contain embedded Noto Sans for Greek text"
+    );
+}
+
+#[test]
+fn test_document_default_style() {
+    let doc = Document {
+        children: vec![Node::page(
+            PageConfig::default(),
+            Style::default(),
+            vec![make_text("Hello", 12.0)],
+        )],
+        metadata: Metadata::default(),
+        default_page: PageConfig::default(),
+        fonts: vec![],
+        tagged: false,
+        pdfa: None,
+        default_style: Some(Style {
+            font_family: Some("Courier".to_string()),
+            font_size: Some(16.0),
+            ..Default::default()
+        }),
+    };
+    let pdf = render_to_pdf(&doc);
+    let pdf_str = String::from_utf8_lossy(&pdf);
+    assert!(
+        pdf_str.contains("Courier"),
+        "PDF should use Courier from document default_style"
+    );
 }

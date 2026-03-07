@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.7.1] - 2026-03-07
+
+### Added
+- `style` prop on `<Document>` for global defaults (emits `defaultStyle` in JSON)
+- `line(x1, y1, x2, y2)` convenience method on `CanvasContext`
+- `defaultStyle` field on `FormeDocument` type
+
+### Changed
+- Image component JSDoc updated with concrete path examples (data URI, relative, absolute)
+
 ## [0.7.0] - 2026-03-06
 
 _No changes._

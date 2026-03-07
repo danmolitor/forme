@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.7.1] - 2026-03-07
+
+### Added
+- Builtin Noto Sans Regular (400) and Bold (700) fonts via `include_bytes!()` (`font/builtin.rs`)
+- `Document.default_style` field for global style defaults (inherited by all children)
+- Automatic per-character font fallback to Noto Sans for chars not covered by the primary font
+
+### Changed
+- `FontRegistry::new()` now registers Noto Sans alongside standard PDF fonts
+- `resolve_for_char()` tries Noto Sans before Helvetica as last-resort fallback
+- `segment_by_font()` checks glyph coverage even for single-family text
+- `char_width()` uses per-char resolution when primary font lacks a glyph
+
 ## [0.7.0] - 2026-03-06
 
 ### Fixed

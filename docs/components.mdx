@@ -43,12 +43,13 @@ Root container for every Forme document. All other components must be descendant
 | `author` | `string` | - | PDF metadata author |
 | `subject` | `string` | - | PDF metadata subject |
 | `creator` | `string` | - | PDF metadata creator application |
+| `style` | `Style` | - | Default style for the entire document. Sets global `fontFamily`, `fontSize`, `color`, etc. Inherited by all children. |
 | `fonts` | `FontRegistration[]` | - | Custom fonts to register for this document. See [Fonts](/fonts). |
 
 ### Example
 
 ```tsx
-<Document title="Quarterly Report" author="Acme Corp">
+<Document title="Quarterly Report" author="Acme Corp" style={{ fontFamily: 'Inter', fontSize: 12 }}>
   <Page size="A4" margin={54}>
     <Text>Hello World</Text>
   </Page>
@@ -467,7 +468,9 @@ Renders arbitrary vector graphics via a `draw` callback. The callback receives a
 
 ### CanvasContext methods
 
-`moveTo(x, y)`, `lineTo(x, y)`, `bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x, y)`, `quadraticCurveTo(cpx, cpy, x, y)`, `arc(cx, cy, r, startAngle, endAngle, counterclockwise?)`, `circle(cx, cy, r)`, `rect(x, y, w, h)`, `ellipse(cx, cy, rx, ry)`, `closePath()`, `stroke()`, `fill()`, `setFillColor(r, g, b)`, `setStrokeColor(r, g, b)`, `setLineWidth(w)`, `setLineCap(cap)`, `setLineJoin(join)`, `save()`, `restore()`.
+`moveTo(x, y)`, `lineTo(x, y)`, `line(x1, y1, x2, y2)`, `bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x, y)`, `quadraticCurveTo(cpx, cpy, x, y)`, `arc(cx, cy, r, startAngle, endAngle, counterclockwise?)`, `circle(cx, cy, r)`, `rect(x, y, w, h)`, `ellipse(cx, cy, rx, ry)`, `closePath()`, `stroke()`, `fill()`, `setFillColor(r, g, b)`, `setStrokeColor(r, g, b)`, `setLineWidth(w)`, `setLineCap(cap)`, `setLineJoin(join)`, `save()`, `restore()`.
+
+`line(x1, y1, x2, y2)` is a convenience that emits `moveTo` + `lineTo` + `stroke` in one call.
 
 Colors use 0-255 RGB values (like HTML Canvas). Content is clipped to the canvas bounds (matching HTML Canvas behavior).
 

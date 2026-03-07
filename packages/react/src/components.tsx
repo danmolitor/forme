@@ -23,11 +23,12 @@ import type {
  * @param props.author - PDF metadata author
  * @param props.subject - PDF metadata subject
  * @param props.creator - PDF metadata creator application
+ * @param props.style - Default style applied globally (fontFamily, fontSize, color, etc.)
  * @param props.children - Page or content elements
  *
  * @example
  * ```tsx
- * <Document title="Invoice" author="Acme Corp">
+ * <Document title="Invoice" style={{ fontFamily: 'Inter', fontSize: 12 }}>
  *   <Text>Hello World</Text>
  * </Document>
  * ```
@@ -102,19 +103,22 @@ export function Text(_props: TextProps): null {
 }
 
 /**
- * An image element. Supports JPEG and PNG via base64 data URIs or file paths.
+ * An image element. Supports JPEG, PNG, and WebP via data URIs or file paths.
  *
  * If only `width` or `height` is specified, the other dimension is calculated
  * from the image's aspect ratio.
  *
- * @param props.src - Image source: base64 data URI (`data:image/png;base64,...`) or file path
+ * @param props.src - Image source:
+ *   - `data:image/png;base64,...` (inline base64 data URI)
+ *   - `./assets/logo.png` (relative to the template file)
+ *   - `/absolute/path/logo.png` (absolute file path)
  * @param props.width - Display width in points
  * @param props.height - Display height in points
  * @param props.style - Additional style properties
  *
  * @example
  * ```tsx
- * <Image src="data:image/png;base64,..." width={200} />
+ * <Image src="./assets/logo.png" width={200} />
  * ```
  */
 export function Image(_props: ImageProps): null {

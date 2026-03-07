@@ -73,6 +73,7 @@ Install [Forme PDF Preview](https://marketplace.visualstudio.com/items?itemName=
 - **SVG**: Inline SVG rendering with support for `rect`, `circle`, `ellipse`, `line`, `polyline`, `polygon`, and `path` elements.
 - **QR codes**: Built-in `<QrCode>` component. Vector-based, crisp at any zoom level.
 - **Text overflow**: `textOverflow: 'ellipsis'` truncates single-line text with "..." when it exceeds available width. Also supports `'clip'`.
+- **Builtin Unicode support**: Noto Sans is bundled - Cyrillic, Greek, and other non-Latin scripts work out of the box without registering fonts.
 - **Font fallback chains**: `fontFamily: "Inter, Helvetica"` tries each font in order, falling back automatically.
 - **Custom fonts**: TrueType font embedding with automatic subsetting.
 - **Links**: Add `href` to any `<Text>`, `<View>`, `<Image>`, or `<Svg>` for clickable PDF links.
@@ -130,7 +131,7 @@ Font sources can be file paths, data URIs, or `Uint8Array`. Fonts are automatica
 
 | Component | Description |
 |-----------|-------------|
-| `<Document>` | Root element. `title`, `author`, `lang`, `fonts`. |
+| `<Document>` | Root element. `title`, `author`, `lang`, `fonts`, `style`. |
 | `<Page>` | A page. `size`, `margin` (number, string, array, or edges). |
 | `<View>` | Container. Flexbox layout. `href`, `bookmark`. |
 | `<Text>` | Text content. Fonts, sizes, colors. `href`, `bookmark`. |

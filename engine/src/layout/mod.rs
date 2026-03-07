@@ -801,10 +801,11 @@ impl LayoutEngine {
         let mut pages: Vec<LayoutPage> = Vec::new();
         let mut cursor = PageCursor::new(&document.default_page);
 
-        // Build a root resolved style carrying document-level lang
+        // Build a root resolved style from document default_style + lang
+        let base = document.default_style.clone().unwrap_or_default();
         let root_style = Style {
-            lang: document.metadata.lang.clone(),
-            ..Default::default()
+            lang: base.lang.clone().or(document.metadata.lang.clone()),
+            ..base
         }
         .resolve(None, cursor.content_width);
 
@@ -2724,21 +2725,23 @@ impl LayoutEngine {
         let italic = matches!(style.font_style, FontStyle::Italic | FontStyle::Oblique);
         let line_text: String = line.chars.iter().collect();
         let direction = style.direction;
-        let has_fallback_chain = style.font_family.contains(',');
-
         // Check if BiDi processing is needed
         let has_bidi = !bidi::is_pure_ltr(&line_text, direction);
 
-        // Per-char fallback path: segment by font within each BiDi run
-        if has_fallback_chain {
-            let font_runs = crate::font::fallback::segment_by_font(
-                &line.chars,
-                &style.font_family,
-                style.font_weight,
-                italic,
-                font_context.registry(),
-            );
+        // Segment by font — handles both explicit fallback chains and
+        // automatic builtin font fallback (Noto Sans for non-Latin chars)
+        let font_runs = crate::font::fallback::segment_by_font(
+            &line.chars,
+            &style.font_family,
+            style.font_weight,
+            italic,
+            font_context.registry(),
+        );
+        let needs_per_char_fallback = font_runs.len() > 1
+            || (font_runs.len() == 1 && font_runs[0].family != style.font_family);
 
+        // Per-char fallback path: segment by font within each BiDi run
+        if needs_per_char_fallback {
             let bidi_runs = if has_bidi {
                 bidi::analyze_bidi(&line_text, direction)
             } else {
@@ -4879,6 +4882,7 @@ mod tests {
             fonts: vec![],
             tagged: false,
             pdfa: None,
+            default_style: None,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -4932,6 +4936,7 @@ mod tests {
             fonts: vec![],
             tagged: false,
             pdfa: None,
+            default_style: None,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -4986,6 +4991,7 @@ mod tests {
             fonts: vec![],
             tagged: false,
             pdfa: None,
+            default_style: None,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -5051,6 +5057,7 @@ mod tests {
             fonts: vec![],
             tagged: false,
             pdfa: None,
+            default_style: None,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -5195,6 +5202,7 @@ mod tests {
             fonts: vec![],
             tagged: false,
             pdfa: None,
+            default_style: None,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -5259,6 +5267,7 @@ mod tests {
             fonts: vec![],
             tagged: false,
             pdfa: None,
+            default_style: None,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -5335,6 +5344,7 @@ mod tests {
             fonts: vec![],
             tagged: false,
             pdfa: None,
+            default_style: None,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -5389,6 +5399,7 @@ mod tests {
             fonts: vec![],
             tagged: false,
             pdfa: None,
+            default_style: None,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -5454,6 +5465,7 @@ mod tests {
             fonts: vec![],
             tagged: false,
             pdfa: None,
+            default_style: None,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -5530,6 +5542,7 @@ mod tests {
             fonts: vec![],
             tagged: false,
             pdfa: None,
+            default_style: None,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -5605,6 +5618,7 @@ mod tests {
             fonts: vec![],
             tagged: false,
             pdfa: None,
+            default_style: None,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -5674,6 +5688,7 @@ mod tests {
             fonts: vec![],
             tagged: false,
             pdfa: None,
+            default_style: None,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -5735,6 +5750,7 @@ mod tests {
             fonts: vec![],
             tagged: false,
             pdfa: None,
+            default_style: None,
         };
 
         let pages = engine.layout(&doc, &font_context);

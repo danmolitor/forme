@@ -37,14 +37,22 @@ pub fn segment_by_font(
         return vec![];
     }
 
-    // Fast path: no comma means single font family
+    // Fast path: single font family — check if all chars are covered
     if !families.contains(',') {
         let family = families.trim().trim_matches('"').trim_matches('\'');
-        return vec![FontRun {
-            start: 0,
-            end: chars.len(),
-            family: family.to_string(),
-        }];
+        let font = registry.resolve(family, weight, italic);
+        let all_covered = chars
+            .iter()
+            .all(|&ch| ch.is_whitespace() || font.has_char(ch));
+        if all_covered {
+            return vec![FontRun {
+                start: 0,
+                end: chars.len(),
+                family: family.to_string(),
+            }];
+        }
+        // Some chars not covered — fall through to per-char resolution
+        // which will try builtin Noto Sans via resolve_for_char()
     }
 
     // Slow path: per-character font resolution
@@ -97,6 +105,32 @@ mod tests {
         let chars: Vec<char> = vec![];
         let runs = segment_by_font(&chars, "Helvetica, Times", 400, false, &registry);
         assert!(runs.is_empty());
+    }
+
+    #[test]
+    fn test_single_font_builtin_fallback() {
+        let registry = FontRegistry::new();
+        // Cyrillic chars aren't in Helvetica, should fall back to Noto Sans
+        let chars: Vec<char> = "\u{041F}\u{0440}\u{0438}\u{0432}\u{0435}\u{0442}"
+            .chars()
+            .collect();
+        let runs = segment_by_font(&chars, "Helvetica", 400, false, &registry);
+        assert!(runs.len() >= 1, "Should produce at least one run");
+        // All chars should be Noto Sans (since none are in Helvetica)
+        assert_eq!(runs[0].family, "Noto Sans", "Cyrillic should use Noto Sans");
+    }
+
+    #[test]
+    fn test_single_font_mixed_latin_cyrillic() {
+        let registry = FontRegistry::new();
+        // Mix of Latin (in Helvetica) and Cyrillic (not in Helvetica)
+        let chars: Vec<char> = "Hi \u{041F}".chars().collect();
+        let runs = segment_by_font(&chars, "Helvetica", 400, false, &registry);
+        assert!(
+            runs.len() >= 2,
+            "Should have at least 2 runs (Latin + Cyrillic), got {}",
+            runs.len()
+        );
     }
 
     #[test]

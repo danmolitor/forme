@@ -235,6 +235,7 @@ fn visual_invoice() {
         fonts: vec![],
         tagged: false,
         pdfa: None,
+        default_style: None,
     };
 
     let pdf = forme::render(&doc).unwrap();
@@ -267,6 +268,7 @@ fn visual_multi_page_text() {
         fonts: vec![],
         tagged: false,
         pdfa: None,
+        default_style: None,
     };
 
     let pdf = forme::render(&doc).unwrap();
@@ -395,6 +397,7 @@ fn visual_table_header_repetition() {
         fonts: vec![],
         tagged: false,
         pdfa: None,
+        default_style: None,
     };
 
     let pdf = forme::render(&doc).unwrap();
@@ -444,6 +447,7 @@ fn visual_flex_layout() {
         fonts: vec![],
         tagged: false,
         pdfa: None,
+        default_style: None,
     };
 
     let pdf = forme::render(&doc).unwrap();
@@ -493,6 +497,7 @@ fn visual_justified_text() {
         fonts: vec![],
         tagged: false,
         pdfa: None,
+        default_style: None,
     };
 
     let pdf = forme::render(&doc).unwrap();
@@ -566,6 +571,7 @@ fn visual_line_breaking_greedy_vs_optimal() {
         fonts: vec![],
         tagged: false,
         pdfa: None,
+        default_style: None,
     };
 
     let pdf = forme::render(&doc).unwrap();
@@ -641,6 +647,7 @@ fn visual_text_alignment() {
         fonts: vec![],
         tagged: false,
         pdfa: None,
+        default_style: None,
     };
 
     let pdf = forme::render(&doc).unwrap();
@@ -666,6 +673,7 @@ fn visual_tagged_no_visual_change() {
         fonts: vec![],
         tagged: false,
         pdfa: None,
+        default_style: None,
     };
 
     let doc_tagged = Document {
@@ -679,6 +687,7 @@ fn visual_tagged_no_visual_change() {
         fonts: vec![],
         tagged: true,
         pdfa: None,
+        default_style: None,
     };
 
     let pdf_untagged = forme::render(&doc_untagged).unwrap();

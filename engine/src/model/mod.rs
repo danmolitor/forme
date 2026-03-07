@@ -34,6 +34,11 @@ pub struct Document {
     #[serde(default)]
     pub fonts: Vec<FontEntry>,
 
+    /// Default style applied to the root of the document tree.
+    /// Useful for setting a global `font_family`, `font_size`, `color`, etc.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub default_style: Option<crate::style::Style>,
+
     /// Whether to produce a tagged (accessible) PDF with structure tree.
     #[serde(default)]
     pub tagged: bool,

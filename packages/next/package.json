@@ -1,6 +1,6 @@
 {
   "name": "@formepdf/next",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "PDF route handlers and responses for Next.js App Router",
   "type": "module",
   "main": "./dist/index.js",
