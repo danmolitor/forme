@@ -4,6 +4,37 @@ Live PDF preview for [Forme](https://formepdf.com) templates. Edit JSX, see the 
 
 ![Forme PDF Preview showing split pane with component tree, inspector, and live PDF](https://raw.githubusercontent.com/danmolitor/forme/main/packages/vscode/screenshot.png)
 
+## Quick Start
+
+1. Install the dependencies in your project:
+
+```bash
+npm install @formepdf/react @formepdf/core
+```
+
+2. Create a `.tsx` file with a Forme template:
+
+```tsx
+import { Document, Page, View, Text } from "@formepdf/react";
+
+export default (
+  <Document>
+    <Page>
+      <View style={{ padding: 40 }}>
+        <Text style={{ fontSize: 24, fontWeight: 700 }}>Hello, Forme!</Text>
+        <Text style={{ marginTop: 12, color: "#6b7280" }}>
+          Edit this file and watch the preview update.
+        </Text>
+      </View>
+    </Page>
+  </Document>
+);
+```
+
+3. Open the file and run **Forme: Preview to Side** from the command palette (`Cmd+Shift+P`)
+
+That's it — you should see a live PDF preview in the side panel.
+
 ## Features
 
 - Live preview updates as you type (400ms debounce) or on save (immediate)
@@ -13,12 +44,6 @@ Live PDF preview for [Forme](https://formepdf.com) templates. Edit JSX, see the 
 - Click any element in the PDF to select in tree and inspector
 - Preview / Layout / Margins / Breaks overlay modes
 - Zoom controls
-
-## Usage
-
-Open any `.tsx` file that imports from `@formepdf/react` and run:
-
-**Forme: Preview to Side** from the command palette (`Cmd+Shift+P`)
 
 ## Keyboard Shortcuts
 
@@ -36,14 +61,6 @@ Open any `.tsx` file that imports from `@formepdf/react` and run:
 | Setting | Default | Description |
 |---------|---------|-------------|
 | `forme.autoOpen` | `false` | Automatically open the preview when opening a Forme template file |
-
-## Requirements
-
-Your project needs `@formepdf/react` and `@formepdf/core` installed.
-
-```bash
-npm install @formepdf/react @formepdf/core
-```
 
 ## Documentation
 
