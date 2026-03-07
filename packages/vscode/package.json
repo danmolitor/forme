@@ -18,7 +18,9 @@
   "activationEvents": [
     "onLanguage:typescriptreact",
     "onLanguage:javascriptreact",
-    "onView:forme.componentTree"
+    "onView:forme.componentTree",
+    "onCommand:forme.openPreview",
+    "onCommand:forme.openPreviewToSide"
   ],
   "icon": "resources/icon.png",
   "main": "./dist/extension.js",
@@ -83,7 +85,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@formepdf/renderer": "0.7.0",
+    "@formepdf/renderer": "0.7.1",
     "esbuild-wasm": "^0.24.0"
   },
   "devDependencies": {
