@@ -6,7 +6,8 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "tsc"
+    "build": "tsc",
+    "test": "vitest run"
   },
   "files": [
     "dist"
@@ -22,7 +23,8 @@
     "@types/node": "^22.0.0",
     "react": "^19.0.0",
     "hono": "^4.0.0",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
   },
   "license": "MIT",
   "repository": {

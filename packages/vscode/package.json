@@ -79,7 +79,8 @@
   "scripts": {
     "build": "node esbuild.config.mjs",
     "watch": "node esbuild.config.mjs --watch",
-    "package": "node scripts/package.mjs"
+    "package": "node scripts/package.mjs",
+    "test": "vitest run"
   },
   "dependencies": {
     "@formepdf/renderer": "0.7.0"
@@ -88,6 +89,7 @@
     "@types/vscode": "^1.85.0",
     "@types/node": "^22.0.0",
     "esbuild": "^0.24.0",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
   }
 }

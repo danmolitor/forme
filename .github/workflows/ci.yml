@@ -43,9 +43,36 @@ jobs:
       - name: Build Core (WASM + TS)
         working-directory: packages/core
         run: npm run build
-      - name: Test React package
-        working-directory: packages/react
-        run: npm test
+      - name: Build Renderer
+        working-directory: packages/renderer
+        run: npm run build
       - name: Build CLI
         working-directory: packages/cli
         run: npm run build
+      - name: Test React
+        working-directory: packages/react
+        run: npm test
+      - name: Test Core
+        working-directory: packages/core
+        run: npm test
+      - name: Test Renderer
+        working-directory: packages/renderer
+        run: npm test
+      - name: Test CLI
+        working-directory: packages/cli
+        run: npm test
+      - name: Test Hono
+        working-directory: packages/hono
+        run: npm test
+      - name: Test Next
+        working-directory: packages/next
+        run: npm test
+      - name: Test Resend
+        working-directory: packages/resend
+        run: npm test
+      - name: Test MCP
+        working-directory: packages/mcp
+        run: npm test
+      - name: Test VS Code Extension
+        working-directory: packages/vscode
+        run: npm test
