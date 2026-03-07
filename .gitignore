@@ -4,6 +4,10 @@ engine/target/
 # WASM build output
 packages/core/pkg/
 
+# VS Code extension build artifacts
+packages/vscode/pkg/
+*.vsix
+
 # Node
 node_modules/
 dist/

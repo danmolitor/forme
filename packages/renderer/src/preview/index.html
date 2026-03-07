@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Forme Preview</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath fill-rule='evenodd' clip-rule='evenodd' d='M12 4C9.79 4 8 5.79 8 8L8 56C8 58.21 9.79 60 12 60L52 60C54.21 60 56 58.21 56 56L56 8C56 5.79 54.21 4 52 4L12 4ZM18 16L46 16L46 20L18 20ZM18 26L38 26L38 30L18 30ZM18 36L22 36L22 52L18 52Z' fill='%23111827'/%3E%3C/svg%3E">
 <style>
   :root {
     --bg: #0a0a0b;
@@ -929,6 +930,10 @@
   const pdfjsLib = await import(PDFJS_CDN);
   pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_CDN;
 
+  // -- VS Code detection -------------------------------------------
+  const isVSCode = typeof acquireVsCodeApi === 'function';
+  const vscode = isVSCode ? acquireVsCodeApi() : null;
+
   // -- State -------------------------------------------------------
   const ZOOM_LEVELS = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
   let currentZoomIndex = 3; // 100%
@@ -1464,6 +1469,10 @@
   };
 
   function openInEditor(source) {
+    if (isVSCode) {
+      vscode.postMessage({ type: 'openFile', file: source.file, line: source.line, column: source.column });
+      return;
+    }
     const editor = editorSelect.value;
     const url = editorUrls[editor](source);
     window.open(url, '_blank');
@@ -1894,10 +1903,15 @@
   // -- Render PDF pages --------------------------------------------
   let currentPdfDoc = null;
 
-  async function renderPdfPages() {
-    const resp = await fetch('/pdf');
-    if (!resp.ok) return;
-    const buffer = await resp.arrayBuffer();
+  async function renderPdfPages(pdfBuffer) {
+    let buffer;
+    if (pdfBuffer) {
+      buffer = pdfBuffer;
+    } else {
+      const resp = await fetch('/pdf');
+      if (!resp.ok) return;
+      buffer = await resp.arrayBuffer();
+    }
 
     currentPdfDoc = await pdfjsLib.getDocument({ data: buffer }).promise;
     await reRenderPages();
@@ -1989,18 +2003,30 @@
         }
       }
 
-      selectedAncestors = ancestors;
-      selectedAncestorElements = ancestorElements;
-      openInspector(hit, pageIdx);
+      if (isVSCode) {
+        // In VS Code mode, post selection to extension instead of inline inspector
+        const path = findPathForElement(pageIdx, hit);
+        if (path) {
+          vscode.postMessage({ type: 'elementSelected', path });
+        }
+      } else {
+        selectedAncestors = ancestors;
+        selectedAncestorElements = ancestorElements;
+        openInspector(hit, pageIdx);
 
-      // Sync tree selection
-      const path = findPathForElement(pageIdx, hit);
-      if (path) {
-        selectedPath = path;
-        updateTreeSelection(path);
+        // Sync tree selection
+        const path = findPathForElement(pageIdx, hit);
+        if (path) {
+          selectedPath = path;
+          updateTreeSelection(path);
+        }
       }
     } else {
-      closeInspector();
+      if (isVSCode) {
+        vscode.postMessage({ type: 'elementDeselected' });
+      } else {
+        closeInspector();
+      }
     }
   }
 
@@ -2051,7 +2077,12 @@
   }
 
   // -- Fetch Layout ------------------------------------------------
-  async function fetchLayout() {
+  async function fetchLayout(data) {
+    if (data) {
+      layoutData = data;
+      renderComponentTree();
+      return;
+    }
     try {
       const resp = await fetch('/layout');
       if (resp.ok) {
@@ -2268,16 +2299,20 @@
 
   // -- WebSocket helpers -------------------------------------------
   function sendWs(msg) {
+    if (isVSCode) {
+      vscode.postMessage(msg);
+      return;
+    }
     if (wsRef && wsRef.readyState === WebSocket.OPEN) {
       wsRef.send(JSON.stringify(msg));
     }
   }
 
   // -- Full reload cycle -------------------------------------------
-  async function reload() {
+  async function reload(pdfBuffer, layout) {
     errorEl.style.display = 'none';
-    await renderPdfPages();
-    await fetchLayout();
+    await renderPdfPages(pdfBuffer);
+    await fetchLayout(layout);
     drawOverlays();
   }
 
@@ -2291,8 +2326,15 @@
       if (e.key === '2') { e.preventDefault(); setMode('layout'); }
       if (e.key === '3') { e.preventDefault(); setMode('margins'); }
       if (e.key === '4') { e.preventDefault(); setMode('breaks'); }
-      if (e.key === 'Escape') { e.preventDefault(); closeInspector(); }
-      if (e.key === 't' || e.key === 'T') { e.preventDefault(); setSidebarOpen(!sidebarOpen); }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        if (isVSCode) {
+          vscode.postMessage({ type: 'elementDeselected' });
+        } else {
+          closeInspector();
+        }
+      }
+      if (!isVSCode && (e.key === 't' || e.key === 'T')) { e.preventDefault(); setSidebarOpen(!sidebarOpen); }
       if (e.key === 'Enter' && selectedElement) {
         let enterSl = selectedElement.sourceLocation;
         if (!enterSl) {
@@ -2380,11 +2422,100 @@
     });
   }
 
+  // -- VS Code message handler --------------------------------------
+  if (isVSCode) {
+    window.addEventListener('message', async (event) => {
+      const msg = event.data;
+      if (!msg || !msg.type) return;
+
+      if (msg.type === 'pdfData') {
+        const bytes = Uint8Array.from(atob(msg.pdf), c => c.charCodeAt(0));
+        if (msg.renderTime) {
+          renderTimeEl.textContent = msg.renderTime + 'ms';
+          renderBadge.style.display = 'inline-flex';
+        }
+        await reload(bytes.buffer, msg.layout);
+        setTimeout(zoomToFit, 300);
+      }
+
+      if (msg.type === 'error') {
+        errorEl.querySelector('.error-dismiss').nextSibling?.remove();
+        errorEl.appendChild(document.createTextNode(msg.message));
+        errorEl.style.display = 'block';
+      }
+
+      if (msg.type === 'init') {
+        hasDataFile = msg.hasData;
+        dataTabBtn.style.display = hasDataFile ? '' : 'none';
+        if (hasDataFile && msg.dataContent) {
+          dataEditor.value = msg.dataContent;
+        }
+      }
+
+      if (msg.type === 'dataUpdate') {
+        if (document.activeElement !== dataEditor) {
+          dataEditor.value = msg.content;
+          dataEditor.classList.remove('error');
+          dataError.classList.remove('visible');
+          dataError.textContent = '';
+        }
+      }
+
+      if (msg.type === 'highlightElement') {
+        if (msg.path) {
+          const resolved = resolveElementByPath(msg.path);
+          if (resolved) {
+            selectedElement = resolved.element;
+            selectedPageIdx = resolved.pageIdx;
+            selectedPath = msg.path;
+            drawOverlays();
+            scrollToElement(resolved.element, resolved.pageIdx);
+          }
+        } else {
+          selectedElement = null;
+          selectedPageIdx = -1;
+          selectedPath = null;
+          drawOverlays();
+        }
+      }
+
+      if (msg.type === 'hoverElement') {
+        if (msg.path) {
+          const resolved = resolveElementByPath(msg.path);
+          if (resolved) {
+            drawOverlays(resolved.element, resolved.pageIdx);
+          }
+        } else {
+          drawOverlays();
+        }
+      }
+    });
+
+    // Hide inline tree sidebar, inspector, and tree toggle in VS Code mode
+    leftSidebar.style.display = 'none';
+    inspectorEl.style.display = 'none';
+    treeToggle.style.display = 'none';
+    containerEl.classList.remove('sidebar-open');
+    containerEl.classList.remove('inspector-open');
+
+    // Hide editor selector in VS Code mode (it IS the editor)
+    const editorGroup = editorSelect?.parentElement;
+    if (editorGroup) editorGroup.style.display = 'none';
+
+    // Show connected status
+    statusDot.className = 'status-dot connected';
+
+    // Signal ready
+    vscode.postMessage({ type: 'ready' });
+  }
+
   // -- Init --------------------------------------------------------
-  connectWs();
-  reload().then(() => {
-    setTimeout(zoomToFit, 100);
-  }).catch(() => {});
+  if (!isVSCode) {
+    connectWs();
+    reload().then(() => {
+      setTimeout(zoomToFit, 100);
+    }).catch(() => {});
+  }
 </script>
 </body>
 </html>

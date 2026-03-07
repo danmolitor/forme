@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-/// The temp directory for bundled output — placed inside CLI package
+/// The temp directory for bundled output — placed inside renderer package
 /// so that Node's module resolution finds @formepdf/react, @formepdf/core, react.
 export const BUNDLE_DIR = join(__dirname, '..');
 
@@ -64,7 +64,6 @@ export async function bundleFile(filePath: string): Promise<string> {
 
     return result.outputFiles[0].text;
   } catch (err) {
-    // Format esbuild errors with file location and source context
     if (isBuildFailure(err)) {
       const messages: string[] = [];
       for (const error of err.errors) {

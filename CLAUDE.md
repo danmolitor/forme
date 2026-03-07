@@ -20,29 +20,79 @@ forme/
 │   │   ├── layout/
 │   │   │   ├── mod.rs      # THE CORE: page-aware layout engine + element nesting
 │   │   │   ├── flex.rs     # Flex grow/shrink/wrap distribution helpers
+│   │   │   ├── grid.rs     # CSS Grid track resolution + item placement
 │   │   │   └── page_break.rs # Break decision logic (split/move/place)
-│   │   ├── text/mod.rs     # Line breaking + text measurement
-│   │   ├── font/mod.rs     # Font registry + custom font subsetting
-│   │   ├── image_loader/   # JPEG/PNG decoding from file paths and data URIs
-│   │   ├── svg/mod.rs      # SVG parsing and rendering (rect, circle, line, path)
+│   │   ├── text/
+│   │   │   ├── mod.rs      # Line breaking + text measurement
+│   │   │   ├── bidi.rs     # BiDi analysis (UAX#9) + direction detection
+│   │   │   ├── knuth_plass.rs # Optimal line breaking algorithm
+│   │   │   └── shaping.rs  # OpenType shaping via rustybuzz
+│   │   ├── font/
+│   │   │   ├── mod.rs      # Font registry, resolution, FontContext
+│   │   │   ├── fallback.rs # Per-character font fallback segmentation
+│   │   │   ├── metrics.rs  # Standard font metrics + WinAnsi mapping
+│   │   │   └── subset.rs   # TrueType font subsetting for PDF embedding
+│   │   ├── image_loader/   # JPEG/PNG/WebP decoding from file paths and data URIs
+│   │   ├── svg/mod.rs      # SVG parsing and rendering (rect, circle, line, path, arc)
 │   │   ├── qrcode.rs       # QR code generation (qrcode crate → bool matrix)
-│   │   └── pdf/mod.rs      # PDF 1.7 serializer (from scratch)
+│   │   ├── template.rs     # Expression evaluator for template system
+│   │   └── pdf/
+│   │       ├── mod.rs      # PDF 1.7 serializer (from scratch)
+│   │       ├── tagged.rs   # Tagged PDF / PDF/A-2a structure tree
+│   │       └── xmp.rs      # XMP metadata for PDF/A compliance
 │   └── tests/
-│       └── integration.rs  # Full pipeline tests
+│       ├── integration.rs  # Full pipeline tests (~170 tests)
+│       └── visual_regression.rs # Pixel-level reference image tests
+├── templates/              # Example templates for testing + demos
+│   ├── grid-dashboard.tsx  # Multi-feature showcase (grid, charts, i18n, RTL)
+│   └── grid-dashboard-data.json
 └── packages/
-    ├── core/               # WASM bridge: compiles engine to WebAssembly
-    │   ├── src/index.ts    # JS API: renderDocument(), renderDocumentWithLayout()
-    │   └── build.sh        # wasm-pack build + wasm-opt
     ├── react/              # JSX component library: <Document>, <Page>, <View>, etc.
     │   └── src/
     │       ├── index.ts    # Public exports
+    │       ├── components.tsx # Component definitions
+    │       ├── charts.tsx  # BarChart, LineChart, PieChart
     │       ├── font.ts     # Font.register() static API + global font store
-    │       └── serialize.ts # JSX → JSON document tree + font merging
-    └── cli/                # `forme dev` and `forme build` commands
-        ├── src/dev.ts      # Dev server with live reload, PDF + layout endpoints
-        ├── src/preview/    # Browser UI: preview, overlays, click-to-inspect
-        └── package.json    # Build: tsc + copy preview assets to dist/
+    │       ├── serialize.ts # JSX → JSON document tree + font merging
+    │       ├── template-proxy.ts # Recording proxy for template compilation
+    │       └── expr.ts     # Expression helpers for templates
+    ├── core/               # WASM bridge: compiles engine to WebAssembly
+    │   ├── src/index.ts    # JS API: renderDocument(), renderTemplate(), etc.
+    │   └── build.sh        # wasm-pack build + wasm-opt
+    ├── cli/                # `forme dev` and `forme build` commands
+    │   ├── src/dev.ts      # Dev server with live reload, PDF + layout endpoints
+    │   ├── src/preview/    # Browser UI: preview, overlays, click-to-inspect
+    │   └── src/template-build.ts # Template compilation (TSX → JSON)
+    ├── renderer/           # Shared render pipeline for CLI, VS Code, future integrations
+    │   └── src/
+    │       ├── index.ts    # Public exports
+    │       ├── render.ts   # Render pipeline (TSX → JSON → WASM → PDF/layout)
+    │       ├── bundle.ts   # esbuild bundling
+    │       ├── resolve.ts  # Font/image resolution (file paths → base64)
+    │       ├── element.ts  # Element types for layout overlay
+    │       └── preview/
+    │           └── index.html # Preview HTML (dual mode: CLI and VS Code)
+    ├── vscode/             # VS Code extension for live PDF preview
+    │   ├── src/
+    │   │   ├── extension.ts           # Activation, wiring store/providers
+    │   │   ├── preview-panel.ts       # Webview panel for PDF rendering
+    │   │   ├── layout-store.ts        # Event-emitting store decoupling preview/tree/inspector
+    │   │   ├── component-tree-provider.ts # Sidebar component tree with hover-to-highlight
+    │   │   └── inspector-view-provider.ts # Sidebar inspector: box model, computed styles, Open in Editor
+    │   └── resources/
+    │       ├── forme-icon.svg         # Activity bar icon
+    │       └── icon.png               # Marketplace icon
+    ├── hono/               # PDF middleware for Hono (Workers, Deno, Bun, Node)
+    ├── next/               # PDF route handlers for Next.js App Router
+    ├── resend/             # Render PDF + email via Resend in one call
+    └── mcp/                # MCP server for AI-powered PDF generation
 ```
+
+### Renderer Package (`@formepdf/renderer`)
+Shared render pipeline extracted from the CLI dev server so that VS Code (and future integrations) reuse the same bundling, font/image resolution, and WASM rendering code. Key exports: `bundle()` (esbuild TSX → JS), `resolveFonts()` / `resolveImages()` (file paths → base64), `renderPdf()` / `renderLayout()` (JS → WASM → bytes/JSON). The preview HTML (`src/preview/index.html`) supports dual mode: standalone for CLI dev server, and VS Code webview (receives messages instead of fetching endpoints). Build order: `react` → `core` → `renderer` → `cli` / `vscode`.
+
+### VS Code Extension (`forme-pdf`)
+Live PDF preview inside VS Code. Architecture: `LayoutStore` is the central event-emitting store — preview panel, component tree, and inspector all subscribe to it, staying decoupled from each other. The preview panel uses the same `index.html` from `@formepdf/renderer` (VS Code mode). Component tree (`TreeView` sidebar) shows the element hierarchy with hover-to-highlight. Inspector (`WebviewView` sidebar) shows box model visualization, computed styles, "Open in Editor" (maps element source locations to editor), and "Copy Style". The extension watches `.tsx` files and re-renders on save.
 
 ## Pre-Commit Rules
 
@@ -69,6 +119,10 @@ cd packages/react && npm test
 
 Do not commit if any command produces warnings or errors.
 
+**Important**: After running `cargo fmt`, always verify the formatted files are staged and committed. CI runs `cargo fmt --check` and will fail if formatting diffs remain. The local `cargo fmt` modifies files in-place but doesn't stage them — easy to miss.
+
+**CI note**: Integration tests that depend on macOS system fonts (e.g., Arial Unicode) must gracefully skip when the font file is absent. CI runs on Linux and doesn't have `/System/Library/Fonts/`.
+
 ## Build & Test
 
 ```bash
@@ -85,6 +139,10 @@ cd packages/cli && npm run build         # TS → JS + copy preview HTML
 
 # Dev server (live preview at http://localhost:4242)
 node packages/cli/dist/index.js dev test-preview.tsx
+
+# VS Code extension
+cd packages/vscode && npm run build    # esbuild → dist/extension.js
+cd packages/vscode && npm run package  # → forme-pdf-{version}.vsix
 ```
 
 ## Architecture (data flow)
@@ -197,7 +255,14 @@ Key files: `engine/src/qrcode.rs`, `engine/src/model/mod.rs` (NodeKind::QrCode),
 `textOverflow: 'ellipsis'` truncates single-line text with "..." (U+2026) when it exceeds available width. `textOverflow: 'clip'` truncates without an indicator. `TextOverflow` enum in `style/mod.rs` with variants `Wrap` (default), `Ellipsis`, `Clip`. When not `Wrap`, `layout_text` and `layout_text_runs` take only the first line from line breaking, then call truncation methods on `TextLayout` (`truncate_with_ellipsis`, `truncate_clip`, `truncate_runs_with_ellipsis`, `truncate_runs_clip`) to fit within `available_width`. No PDF changes needed — text is already truncated before serialization.
 
 ### Font Fallback Chains
-`fontFamily: "Inter, Helvetica"` tries each comma-separated family in order. `FontRegistry::resolve()` splits on commas, strips quotes, and tries each family with exact weight then snapped weight (400/700). Falls back to Helvetica if nothing matches. Backward-compatible: a single family name (no comma) behaves identically to the old code. `FontContext` methods (`char_width`, `measure_string`, `font_data`, etc.) get fallback support automatically since they delegate to `resolve()`.
+`fontFamily: "Inter, Helvetica"` tries each comma-separated family in order. `FontRegistry::resolve()` splits on commas, strips quotes, and tries each family in this order:
+1. Exact weight (e.g., 700)
+2. Snapped weight (700 if weight ≥ 600, else 400)
+3. Opposite weight (400 if snapped was 700, else 700)
+
+Falls back to Helvetica if nothing matches. The opposite-weight step is critical for per-character font fallback: a custom font registered only at weight 400 (e.g., ArialUnicode) will still be found when bold text (700) needs it for Arabic/CJK glyphs that Helvetica-Bold lacks. `resolve_for_char()` uses the same three-step resolution with an additional `has_char(ch)` check at each step.
+
+Backward-compatible: a single family name (no comma) behaves identically to the old code. `FontContext` methods (`char_width`, `measure_string`, `font_data`, etc.) get fallback support automatically since they delegate to `resolve()`.
 
 ### Intrinsic Width and textTransform
 `measure_intrinsic_width()` and `measure_min_content_width()` apply `apply_text_transform()` before measuring text. Without this, containers sized via intrinsic measurement (e.g., auto-width children inside `align-items: center`) would be too narrow when `textTransform: 'uppercase'` is set, because uppercase glyphs are wider than their lowercase counterparts. The same transform is applied in `measure_min_content_width()` for flex shrink min-content calculations. QR codes also report their explicit `size` as intrinsic width (falls back to 0 when unset), fixing centering via `align-items: center`.
@@ -228,11 +293,53 @@ Pure React-layer components in `packages/react/src/charts.tsx`. Return `<View>` 
 ### Watermarks
 `<Watermark text="DRAFT" fontSize={60} color="rgba(0,0,0,0.1)" angle={-45} />` renders rotated text behind all page content. Stored on `PageCursor.watermarks` (like fixed_header/fixed_footer), cloned on each page via `new_page()`. `inject_fixed_elements()` shapes the watermark text and creates `DrawCommand::Watermark` elements prepended before all page content. PDF rendering: `q` → opacity ExtGState → translate to page center → rotation matrix (`cos/sin cm`) → BT/Tf/Td/Tj/ET → `Q`. Color alpha from `rgba()` multiplied with style opacity. `parseColor()` in serialize.ts extended to handle `rgba(r,g,b,a)` and `rgb(r,g,b)` formats. Key files: `engine/src/model/mod.rs` (NodeKind::Watermark), `engine/src/layout/mod.rs` (PageCursor.watermarks, DrawCommand::Watermark), `engine/src/pdf/mod.rs` (Watermark rendering), `packages/react/src/serialize.ts` (serializeWatermark, parseColor rgba).
 
+### Justified Text (PDF Tw operator)
+`textAlign: 'justify'` distributes extra word spacing via the PDF `Tw` (word spacing) operator. The layout engine computes slack as `available_width - natural_glyph_width_sum` (using the sum of `x_advance` from positioned glyphs, NOT the Knuth-Plass adjusted line width which already bakes justification into `char_positions`). Trailing spaces are excluded via `rposition(|g| g.char_value != ' ')`. The `Tw` value is `slack / space_count`. Both `layout_text` (single-style) and `layout_text_runs` (multi-style) use the same pattern.
+
+### Shaping Cluster Indices
+`shape_text_with_direction()` in `text/shaping.rs` converts rustybuzz's byte-offset cluster values to char indices. Rustybuzz returns byte offsets into the UTF-8 string, but downstream code indexes into `Vec<char>`. A `byte_to_char` HashMap maps byte positions to char positions. Without this conversion, multi-byte characters (Arabic, CJK) produce wrong cluster lookups.
+
+### PDF Standard Font Widths
+Standard fonts (Helvetica, Times, Courier) now emit `/Widths` arrays in the PDF font dictionary. Previously, PDF viewers substituted system fonts with potentially different metrics. The `/FirstChar 32 /LastChar 255 /Widths [...]` entries ensure viewers use our exact glyph widths, preventing text overflow and misaligned justification.
+
 ## Known Issues & Limitations (Current State)
 
 1. No variable font axis support.
 2. No vertical text layout (CJK writing modes).
 3. No `grid-template-areas` or `grid-auto-flow: dense`.
+4. `align-items: baseline` is parsed but treated as `flex-start` (returns 0.0 offset in `layout/mod.rs:1848`).
+
+## Potential Next Steps
+
+### Engine Features
+
+**`align-items: baseline`** (Low effort, high correctness value)
+The enum variant exists in `style/mod.rs` and the match arm exists in layout but returns 0.0. Needs: measure each flex child's first text baseline (distance from top of child to the alphabetic baseline of its first line of text), find the max, and offset each child so baselines align. Affects `layout_flex_row` cross-axis positioning. Would require a `measure_baseline()` helper that walks into a node's children to find the first text node and returns its ascender-based offset.
+
+**`grid-template-areas`** (Medium effort, productivity win)
+Named grid areas like `gridTemplateAreas: '"header header" "sidebar main"'`. Needs: parse the area string into a 2D grid of names, map each child's `gridArea` name to its row/column span. Most of the grid track sizing and placement machinery in `layout/grid.rs` already works — this is primarily a parsing + name-to-span resolution layer on top.
+
+**`grid-auto-flow: dense`** (Low effort, niche)
+Auto-placement currently uses row-major order and never backtracks. Dense packing would scan for earlier gaps that fit the item. Small change to the placement loop in `grid.rs`.
+
+**Variable font support** (High effort, typography value)
+Would allow a single `.ttf` file to serve multiple weights/widths via `fvar` axis values. Needs: parse `fvar` table in `font/mod.rs`, interpolate glyph outlines (or use `rustybuzz` variation support), and adjust the registration model so a single font file maps to multiple `FontKey` entries. The subsetter would also need to preserve variation tables.
+
+**Vertical text / CJK writing modes** (Very high effort, Asian market)
+`writing-mode: vertical-rl` for Japanese/Chinese/Korean vertical text. Touches nearly every part of the pipeline: text measurement (swap width/height), line breaking (lines flow right-to-left), glyph rotation, page cursor direction. Would be a major architectural addition to `layout/mod.rs` and `text/mod.rs`.
+
+**CMYK color support** (Medium effort, print industry)
+PDF natively supports CMYK via `/DeviceCMYK` color space. Would need a `Color::Cmyk { c, m, y, k }` variant in `style/mod.rs`, plumbing through layout to PDF serialization. The PDF side is straightforward (`c m y k K` operators instead of `r g b rg`).
+
+### Platform / Ecosystem
+
+**Serverless PDF API** — A hosted endpoint where users POST template JSON + data and get back PDF bytes. Would use the existing template expression system (`engine/src/template.rs`). No JS runtime needed server-side.
+
+**Figma/design tool importer** — Convert Figma frames to Forme document trees. Figma's auto-layout maps well to Forme's flex model. Would be a separate package that produces `@formepdf/react` JSX or raw JSON.
+
+**More framework integrations** — Express/Fastify middleware, Remix loader, SvelteKit endpoint. Same pattern as `@formepdf/hono` and `@formepdf/next`.
+
+**Performance benchmarks** — Automated benchmarks for layout + PDF serialization speed. Track regressions across releases. Useful for marketing ("renders 100-page document in Xms").
 
 ## How the Layout Engine Works (for making changes)
 
@@ -294,7 +401,7 @@ The PDF serializer (`write_element`) and layout overlay (`drawLayoutOverlay`) bo
 
 - **Unit tests** in each module (`#[cfg(test)]` blocks): flex distribution, page break decisions, text line breaking, PDF string escaping
 - **Integration tests** in `tests/integration.rs`: full pipeline from Document → PDF bytes, verifying page counts, PDF structural validity, JSON deserialization
-- **Visual regression** (not yet built): render known documents, compare pixel-by-pixel against reference images. Use this for table header repetition, page break aesthetics, flex layout correctness.
+- **Visual regression** in `tests/visual_regression.rs`: render known documents, compare pixel-by-pixel against reference images. Used for table header repetition, page break aesthetics, flex layout correctness.
 
 When making layout changes, always test with:
 1. The example invoice (`cargo run -- --example | cargo run -- -o test.pdf`)

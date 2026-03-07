@@ -1,0 +1,48 @@
+---
+title: VS Code Extension
+description: Live PDF preview, component tree, and inspector panel inside VS Code.
+---
+
+The Forme VS Code extension gives you a live PDF preview, a component tree with hover-to-highlight, and an inspector panel with box model visualization, all inside your editor.
+
+## Install
+
+Search for "Forme PDF Preview" in the VS Code Extensions view, or install from the [Marketplace](https://marketplace.visualstudio.com/items?itemName=formepdf.forme-pdf).
+
+## Preview
+
+Open any `.tsx` file that imports from `@formepdf/react` and run **Forme: Preview** or **Forme: Preview to Side** from the Command Palette.
+
+The preview updates automatically when you save. Toggle debug overlays (layout, margins, breaks) from the toolbar.
+
+## Component Tree
+
+The sidebar shows a tree of every element on every page. Hover over a tree node to highlight the corresponding element on the canvas. Click to select it and open the inspector.
+
+Click an element directly on the canvas to select it in the tree and inspector.
+
+## Inspector
+
+The inspector panel shows:
+
+- **Box model** diagram with margin, border, and padding values
+- **Computed styles** grouped by category (sizing, spacing, typography, background, etc.)
+- **Open in Editor** button to jump to the source location
+- **Copy Style** button to copy the element's style as a JSX object
+
+## Auto-Open
+
+Enable `forme.autoOpen` in VS Code settings to automatically open the preview when you open a Forme template file.
+
+```json
+{
+  "forme.autoOpen": true
+}
+```
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `Forme: Preview` | Open PDF preview in the current editor group |
+| `Forme: Preview to Side` | Open PDF preview in a side panel |

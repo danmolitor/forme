@@ -24,7 +24,7 @@
     "groups": [
       {
         "group": "Getting Started",
-        "pages": ["quickstart", "faq"]
+        "pages": ["quickstart", "vscode", "faq"]
       },
       {
         "group": "Reference",

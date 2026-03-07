@@ -1,8 +1,8 @@
 import { writeFile } from 'node:fs/promises';
-import { resolve, join, basename } from 'node:path';
+import { resolve, dirname, basename } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { isValidElement, type ReactElement } from 'react';
-import { bundleFile, BUNDLE_DIR } from './bundle.js';
+import { bundleFile, resolveFontSources } from '@formepdf/renderer';
 
 export interface TemplateBuildOptions {
   output?: string;
@@ -15,7 +15,7 @@ export async function buildTemplate(inputPath: string, options: TemplateBuildOpt
   try {
     const code = await bundleFile(absoluteInput);
 
-    const tmpFile = join(BUNDLE_DIR, `.forme-template-${Date.now()}.mjs`);
+    const tmpFile = resolve(dirname(absoluteInput), `.forme-template-${Date.now()}.mjs`);
     await writeFile(tmpFile, code);
 
     try {
@@ -59,7 +59,7 @@ export async function buildTemplate(inputPath: string, options: TemplateBuildOpt
       const templateJson = serializeTemplate(element as ReactElement);
 
       // Resolve fonts to base64 for portability
-      await resolveFontPaths(templateJson, absoluteInput);
+      await resolveFontSources(templateJson, dirname(absoluteInput));
 
       const outputPath = resolve(
         options.output ?? defaultTemplateName(inputPath)
@@ -81,33 +81,4 @@ export async function buildTemplate(inputPath: string, options: TemplateBuildOpt
 function defaultTemplateName(inputPath: string): string {
   const base = basename(inputPath).replace(/\.(tsx|jsx|ts|js)$/, '');
   return `${base}.template.json`;
-}
-
-async function resolveFontPaths(
-  doc: Record<string, unknown>,
-  templatePath: string,
-): Promise<void> {
-  const { dirname } = await import('node:path');
-  const { readFile } = await import('node:fs/promises');
-  const { resolve: resolvePath } = await import('node:path');
-
-  const templateDir = dirname(templatePath);
-  const fonts = doc.fonts as Array<{
-    family: string;
-    src: string | Uint8Array;
-    weight: number;
-    italic: boolean;
-  }> | undefined;
-
-  if (!fonts?.length) return;
-
-  for (const font of fonts) {
-    if (font.src instanceof Uint8Array) {
-      font.src = Buffer.from(font.src).toString('base64');
-    } else if (typeof font.src === 'string' && !font.src.startsWith('data:')) {
-      const fontPath = resolvePath(templateDir, font.src);
-      const bytes = await readFile(fontPath);
-      font.src = Buffer.from(bytes).toString('base64');
-    }
-  }
 }

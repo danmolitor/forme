@@ -43,12 +43,21 @@ npx forme dev invoice.tsx --data sample.json
 
 Live preview with debug overlays. Click any element to inspect its computed styles.
 
+## VS Code Extension
+
+Install [Forme PDF Preview](https://marketplace.visualstudio.com/items?itemName=formepdf.forme-pdf) from the VS Code Marketplace.
+
+- Live PDF preview in a webview panel
+- Component tree in the sidebar with hover-to-highlight
+- Inspector panel with box model, computed styles, and source navigation
+- Click any element on the canvas to select it in the tree and inspector
+
 ## Features
 
 - **Page-native layout**: Content flows into pages, not onto an infinite canvas. Page breaks happen at the right place, every time.
 - **React components**: Document, Page, View, Text, Image, Table. If you know React, you know Forme.
 - **Live preview**: `forme dev` shows your PDF updating in real time as you edit.
-- **Click-to-inspect**: Select any element to see its box model, computed styles, and position.
+- **Click-to-inspect**: Select any element in the browser or VS Code to see its box model, computed styles, and position.
 - **Debug overlays**: Toggle bounding boxes, margins, and page break points.
 - **Fast**: Rust engine compiled to WASM. Renders in milliseconds, not seconds.
 - **OpenType shaping**: Real GSUB/GPOS shaping via rustybuzz. Ligatures (fi, ffi), kerning (AV), and contextual forms render correctly with custom fonts.
@@ -159,6 +168,7 @@ Font sources can be file paths, data URIs, or `Uint8Array`. Fonts are automatica
 | Bookmarks | `bookmark` prop on any element | Yes | No |
 | QR codes | Built-in `<QrCode>` component | No | Via HTML/JS libraries |
 | Charts | Built-in BarChart, LineChart, PieChart | No | Via HTML/JS libraries |
+| VS Code extension | Native sidebar panels | No | No |
 | Canvas drawing | `<Canvas draw={...}>` for custom vector graphics | No | HTML Canvas (raster) |
 | Watermarks | Built-in `<Watermark>` component | No | Manual positioning |
 | Text overflow | `textOverflow: 'ellipsis'` | No | CSS `text-overflow` |

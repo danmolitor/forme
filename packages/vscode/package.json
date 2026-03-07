@@ -1,0 +1,93 @@
+{
+  "name": "forme-pdf",
+  "displayName": "Forme PDF Preview",
+  "description": "Live PDF preview for React/TSX templates. Component inspector, layout overlays, and hot reload.",
+  "version": "0.7.0",
+  "publisher": "formepdf",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/formepdf/forme",
+    "directory": "packages/vscode"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Visualization", "Other"],
+  "keywords": ["pdf", "preview", "tsx", "jsx", "react", "forme", "document", "report", "invoice", "generate", "render", "template"],
+  "activationEvents": [
+    "onLanguage:typescriptreact",
+    "onLanguage:javascriptreact",
+    "onView:forme.componentTree"
+  ],
+  "icon": "resources/icon.png",
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "forme",
+          "title": "Forme",
+          "icon": "resources/forme-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "forme": [
+        {
+          "id": "forme.componentTree",
+          "type": "webview",
+          "name": "Components"
+        },
+        {
+          "id": "forme.inspector",
+          "type": "webview",
+          "name": "Inspector"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "forme.openPreview",
+        "title": "Forme: Preview"
+      },
+      {
+        "command": "forme.openPreviewToSide",
+        "title": "Forme: Preview to Side"
+      }
+    ],
+    "configuration": {
+      "title": "Forme",
+      "properties": {
+        "forme.autoOpen": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically open the PDF preview when opening a Forme template file."
+        }
+      }
+    },
+    "menus": {
+      "editor/title": [
+        {
+          "command": "forme.openPreviewToSide",
+          "when": "forme.isFormeFile",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "build": "node esbuild.config.mjs",
+    "watch": "node esbuild.config.mjs --watch",
+    "package": "node scripts/package.mjs"
+  },
+  "dependencies": {
+    "@formepdf/renderer": "0.7.0"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "^22.0.0",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.7.0"
+  }
+}
