@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.7.2] - 2026-03-07
+
+### Fixed
+- Rebuilt WASM with bundled Noto Sans fonts (0.7.1 published without them)
+
 ## [0.7.1] - 2026-03-07
 
 _No changes._

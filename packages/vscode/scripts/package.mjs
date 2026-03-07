@@ -11,10 +11,10 @@ process.chdir(root);
 const pkg = JSON.parse(readFileSync('package.json', 'utf-8'));
 const version = pkg.version;
 
-// Find esbuild version from monorepo
+// Find esbuild-wasm version from monorepo
 const rootNM = resolve(root, '../../node_modules');
-const esbuildVersion = JSON.parse(
-  readFileSync(resolve(rootNM, 'esbuild/package.json'), 'utf-8'),
+const esbuildWasmVersion = JSON.parse(
+  readFileSync(resolve(rootNM, 'esbuild-wasm/package.json'), 'utf-8'),
 ).version;
 
 // 1. Build the extension
@@ -35,24 +35,21 @@ cpSync('CHANGELOG.md', 'staging/CHANGELOG.md');
 cpSync('screenshot.png', 'staging/screenshot.png');
 cpSync('LICENSE', 'staging/LICENSE');
 
-// 4. Install just esbuild into staging (no symlinks, real install)
+// 4. Install esbuild-wasm into staging (pure WASM, no platform binary needed)
 writeFileSync(
   'staging/package.json',
   JSON.stringify({
     name: 'forme-pdf-staging',
     private: true,
-    dependencies: { esbuild: esbuildVersion },
+    dependencies: { 'esbuild-wasm': esbuildWasmVersion },
   }),
 );
-console.log(`Installing esbuild@${esbuildVersion} in staging...`);
-execSync('npm install --ignore-scripts', { cwd: 'staging', stdio: 'inherit' });
+console.log(`Installing esbuild-wasm@${esbuildWasmVersion} in staging...`);
+execSync('npm install', { cwd: 'staging', stdio: 'inherit' });
 
-// esbuild needs its platform binary — run install.js to download it
-execSync('node node_modules/esbuild/install.js', { cwd: 'staging', stdio: 'inherit' });
-
-// 5. Copy package.json for vsce — renderer is bundled, esbuild is external
+// 5. Copy package.json for vsce — renderer is bundled, esbuild-wasm is external
 const stagingPkg = { ...pkg };
-stagingPkg.dependencies = { esbuild: esbuildVersion };
+stagingPkg.dependencies = { 'esbuild-wasm': esbuildWasmVersion };
 delete stagingPkg.devDependencies;
 delete stagingPkg.scripts;
 writeFileSync('staging/package.json', JSON.stringify(stagingPkg, null, 2));

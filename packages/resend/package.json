@@ -1,6 +1,6 @@
 {
   "name": "@formepdf/resend",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "description": "Render a PDF and email it in one call — Forme + Resend",
   "type": "module",
   "main": "./dist/index.js",

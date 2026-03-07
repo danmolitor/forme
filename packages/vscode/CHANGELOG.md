@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.3] - 2026-03-07
+
+### Fixed
+- Commands ("Forme: Preview", "Forme: Preview to Side") not found until a .tsx file was opened
+- VSIX packaging: esbuild-wasm now correctly included (was installing native esbuild instead)
+- Rebuilt WASM with bundled Noto Sans fonts for builtin Unicode support
+
 ## [0.7.2] - 2026-03-07
 
 ### Added

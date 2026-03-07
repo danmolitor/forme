@@ -1,6 +1,6 @@
 {
   "name": "@formepdf/mcp",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "description": "MCP server for Forme PDF rendering — generate PDFs from AI tools",
   "type": "module",
   "bin": {
