@@ -250,7 +250,7 @@ export class ComponentTreeProvider implements vscode.WebviewViewProvider {
 </head>
 <body>
   <div class="tabs" id="tabs">
-    <button class="tab active" data-tab="components">Components</button>
+    <button class="tab active" data-tab="components">Tree</button>
     <button class="tab" data-tab="data" id="data-tab" style="display:none">Data</button>
   </div>
   <div class="tab-panel active" id="components-panel">
