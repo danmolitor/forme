@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.1] - 2026-03-06
+
+### Fixed
+- Component tree showing "No layout data" on marketplace installs (webview ready handshake)
+- Preview panel stealing focus when clicking back into the TSX editor with auto-open enabled
+
 ## [0.7.0] - 2026-03-06
 
 ### Added
