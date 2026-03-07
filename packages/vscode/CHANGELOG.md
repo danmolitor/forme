@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.7.5] - 2026-03-07
+
+### Fixed
+- Local image paths now resolve correctly (stale renderer build in 0.7.4)
+
 ## [0.7.4] - 2026-03-07
 
 ### Changed

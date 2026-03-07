@@ -1,4 +1,4 @@
-import { Document, Page, View, Text, Svg, Table, Row, Cell, Fixed, PageBreak, StyleSheet } from '@formepdf/react';
+import { Document, Page, View, Text, Image, Svg, Table, Row, Cell, Fixed, PageBreak, StyleSheet } from '@formepdf/react';
 
 const styles = StyleSheet.create({
   sectionTitle: { fontSize: 20, fontWeight: 700, color: '#0f172a', marginBottom: 12 },
@@ -193,6 +193,8 @@ export default function Report(data: any) {
           <View style={{ backgroundColor: '#0f172a', padding: 32, borderRadius: 4, marginBottom: 32 }}>
             <Text style={{ fontSize: 32, fontWeight: 700, color: '#ffffff' }}>{data.title}</Text>
             <Text style={{ fontSize: 14, color: '#94a3b8', marginTop: 12 }}>{data.subtitle}</Text>
+          </View>
+          <View>
           </View>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 24 }}>
             <View>

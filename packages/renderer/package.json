@@ -1,6 +1,6 @@
 {
   "name": "@formepdf/renderer",
-  "version": "0.7.2",
+  "version": "0.7.3",
   "description": "File-to-PDF rendering pipeline for Forme — bundles TSX, resolves assets, renders via WASM",
   "type": "module",
   "main": "./dist/index.js",
@@ -17,8 +17,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@formepdf/core": "0.7.0",
-    "@formepdf/react": "0.7.0",
+    "@formepdf/core": "0.7.3",
+    "@formepdf/react": "0.7.3",
     "esbuild": "^0.24.0"
   },
   "peerDependencies": {

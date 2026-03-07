@@ -1,6 +1,6 @@
 {
   "name": "@formepdf/mcp",
-  "version": "0.7.2",
+  "version": "0.7.3",
   "description": "MCP server for Forme PDF rendering — generate PDFs from AI tools",
   "type": "module",
   "bin": {
@@ -16,8 +16,8 @@
   ],
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.27.0",
-    "@formepdf/react": "0.7.0",
-    "@formepdf/core": "0.7.0",
+    "@formepdf/react": "0.7.3",
+    "@formepdf/core": "0.7.3",
     "esbuild": "^0.24.0",
     "zod": "^3.24.0"
   },
