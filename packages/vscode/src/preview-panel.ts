@@ -17,6 +17,10 @@ export class FormePreviewPanel {
   private isReady = false;
   private pendingRender = false;
 
+  static has(fileUri: vscode.Uri): boolean {
+    return FormePreviewPanel.panels.has(fileUri.toString());
+  }
+
   static createOrShow(
     context: vscode.ExtensionContext,
     fileUri: vscode.Uri,

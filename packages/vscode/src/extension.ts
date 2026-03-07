@@ -117,5 +117,7 @@ function maybeAutoOpen(
     .get<boolean>('autoOpen', false);
   if (!autoOpen) return;
   if (!detectFormeFile(editor.document)) return;
+  // Don't reveal an existing panel — it steals focus from the editor the user just clicked
+  if (FormePreviewPanel.has(editor.document.uri)) return;
   FormePreviewPanel.createOrShow(context, editor.document.uri, true, store);
 }

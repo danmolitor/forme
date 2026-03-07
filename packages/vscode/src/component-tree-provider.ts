@@ -22,6 +22,7 @@ export class ComponentTreeProvider implements vscode.WebviewViewProvider {
   private view?: vscode.WebviewView;
   private layout: LayoutInfo | null = null;
   private selectedPath: number[] | null = null;
+  private isReady = false;
 
   private readonly _onSelect = new vscode.EventEmitter<number[]>();
   readonly onSelect = this._onSelect.event;
@@ -43,6 +44,11 @@ export class ComponentTreeProvider implements vscode.WebviewViewProvider {
     webviewView.webview.html = this.getHtml();
 
     webviewView.webview.onDidReceiveMessage((msg) => {
+      if (msg.type === 'ready') {
+        this.isReady = true;
+        if (this.layout) this.sendLayout();
+        if (this.selectedPath) this.sendSelection();
+      }
       if (msg.type === 'select') {
         this._onSelect.fire(msg.path);
       }
@@ -54,13 +60,8 @@ export class ComponentTreeProvider implements vscode.WebviewViewProvider {
       }
     });
 
-    // If we already have layout data, send it
-    if (this.layout) {
-      this.sendLayout();
-    }
-    if (this.selectedPath) {
-      this.sendSelection();
-    }
+    // Reset ready state — webview will signal when loaded
+    this.isReady = false;
   }
 
   updateLayout(layout: LayoutInfo): void {
@@ -74,7 +75,7 @@ export class ComponentTreeProvider implements vscode.WebviewViewProvider {
   }
 
   private sendLayout(): void {
-    if (!this.view) return;
+    if (!this.view || !this.isReady) return;
     this.view.webview.postMessage({
       type: 'layout',
       data: this.layout,
@@ -83,7 +84,7 @@ export class ComponentTreeProvider implements vscode.WebviewViewProvider {
   }
 
   private sendSelection(): void {
-    if (!this.view) return;
+    if (!this.view || !this.isReady) return;
     this.view.webview.postMessage({
       type: 'select',
       path: this.selectedPath,
@@ -362,6 +363,9 @@ export class ComponentTreeProvider implements vscode.WebviewViewProvider {
         applySelection(msg.path);
       }
     });
+
+    // Signal ready
+    vscode.postMessage({ type: 'ready' });
   })();
 </script>
 </body>
