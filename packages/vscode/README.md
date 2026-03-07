@@ -4,6 +4,11 @@ Generate PDFs from React components. Build invoices, reports, certificates, cont
 
 ![Forme PDF Preview showing split pane with component tree, inspector, and live PDF](https://raw.githubusercontent.com/danmolitor/forme/main/packages/vscode/screenshot.png)
 
+## Requirements
+
+- Node.js 18+
+- A project with `@formepdf/react` and `@formepdf/core` installed
+
 ## Why Forme?
 
 **Why React for PDFs?** Components are reusable across documents. Props drive your templates with real data. TypeScript catches layout bugs before you render. It's the same workflow you already use for UI.
@@ -16,7 +21,7 @@ Generate PDFs from React components. Build invoices, reports, certificates, cont
 
 ## Quick Start
 
-1. Install the dependencies in your project:
+1. In your project directory, install Forme:
 
 ```bash
 npm install @formepdf/react @formepdf/core
