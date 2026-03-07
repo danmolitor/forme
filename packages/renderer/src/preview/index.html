@@ -19,7 +19,7 @@
     --accent-hover: #2563eb;
     --inspector-width: 320px;
     --left-sidebar-width: 280px;
-    --toolbar-height: 44px;
+    --toolbar-height: 78px;
     --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
     --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   }
@@ -45,11 +45,20 @@
     background: var(--surface);
     border-bottom: 1px solid var(--border);
     display: flex;
+    flex-direction: column;
+    font-size: 13px;
+    -webkit-app-region: drag;
+  }
+  .toolbar-row {
+    display: flex;
     align-items: center;
     padding: 0 12px;
     gap: 12px;
-    font-size: 13px;
-    -webkit-app-region: drag;
+    height: 39px;
+    flex-shrink: 0;
+  }
+  .toolbar-row:first-child {
+    border-bottom: 1px solid var(--border);
   }
 
   .toolbar-group {
@@ -785,70 +794,77 @@
 <body>
 
 <div id="toolbar">
-  <div class="toolbar-group">
-    <div class="status-dot" id="status-dot"></div>
-    <div class="wordmark">forme <span>preview</span></div>
-  </div>
+  <div class="toolbar-row">
+    <div class="toolbar-group">
+      <div class="status-dot" id="status-dot"></div>
+      <div class="wordmark">forme <span>preview</span></div>
+    </div>
 
-  <div class="toolbar-separator"></div>
+    <div class="toolbar-separator"></div>
 
-  <button class="toolbar-btn" id="tree-toggle" title="Toggle component tree (T)">Tree</button>
+    <button class="toolbar-btn" id="tree-toggle" title="Toggle component tree (T)">Tree</button>
 
-  <div class="toolbar-separator"></div>
+    <div class="toolbar-separator"></div>
 
-  <div class="segmented-control" id="mode-control">
-    <button data-mode="preview" class="active">Preview <span class="shortcut">1</span></button>
-    <button data-mode="layout">Layout <span class="shortcut">2</span></button>
-    <button data-mode="margins">Margins <span class="shortcut">3</span></button>
-    <button data-mode="breaks">Breaks <span class="shortcut">4</span></button>
-  </div>
+    <div class="segmented-control" id="mode-control">
+      <button data-mode="preview" class="active">Preview <span class="shortcut">1</span></button>
+      <button data-mode="layout">Layout <span class="shortcut">2</span></button>
+      <button data-mode="margins">Margins <span class="shortcut">3</span></button>
+      <button data-mode="breaks">Breaks <span class="shortcut">4</span></button>
+    </div>
 
-  <div class="toolbar-separator"></div>
+    <div class="toolbar-spacer"></div>
 
-  <div class="toolbar-group">
-    <select id="page-size-select" title="Page size override">
-      <option value="default">Default</option>
-      <option value="letter">Letter (612 x 792)</option>
-      <option value="a4">A4 (595 x 842)</option>
-      <option value="legal">Legal (612 x 1008)</option>
-      <option value="tabloid">Tabloid (792 x 1224)</option>
-      <option value="a3">A3 (842 x 1191)</option>
-      <option value="a5">A5 (420 x 595)</option>
-      <option value="custom">Custom...</option>
-    </select>
-    <div class="custom-size-inputs" id="custom-size-inputs">
-      <input type="number" id="custom-width" placeholder="W" value="612" min="72" max="4000">
-      <span>x</span>
-      <input type="number" id="custom-height" placeholder="H" value="792" min="72" max="4000">
-      <span>pt</span>
+    <div class="toolbar-group">
+      <select id="editor-select" title="Editor for Open in Editor">
+        <option value="vscode">VS Code</option>
+        <option value="cursor">Cursor</option>
+        <option value="webstorm">WebStorm</option>
+      </select>
     </div>
   </div>
 
-  <div class="toolbar-spacer"></div>
+  <div class="toolbar-row">
+    <div class="toolbar-group">
+      <select id="page-size-select" title="Page size override">
+        <option value="default">Default</option>
+        <option value="letter">Letter (612 x 792)</option>
+        <option value="a4">A4 (595 x 842)</option>
+        <option value="legal">Legal (612 x 1008)</option>
+        <option value="tabloid">Tabloid (792 x 1224)</option>
+        <option value="a3">A3 (842 x 1191)</option>
+        <option value="a5">A5 (420 x 595)</option>
+        <option value="custom">Custom...</option>
+      </select>
+      <div class="custom-size-inputs" id="custom-size-inputs">
+        <input type="number" id="custom-width" placeholder="W" value="612" min="72" max="4000">
+        <span>x</span>
+        <input type="number" id="custom-height" placeholder="H" value="792" min="72" max="4000">
+        <span>pt</span>
+      </div>
+    </div>
 
-  <div class="badge render-time" id="render-badge" style="display:none">
-    <span id="render-time">0ms</span>
-  </div>
-  <div class="badge page-count" id="page-badge" style="display:none">
-    <span id="page-count">0</span> pages
-  </div>
+    <div class="toolbar-separator"></div>
 
-  <div class="toolbar-separator"></div>
+    <div class="badge render-time" id="render-badge" style="display:none">
+      <span id="render-time">0ms</span>
+    </div>
+    <div class="badge page-count" id="page-badge" style="display:none">
+      <span id="page-count">0</span> pages
+    </div>
 
-  <div class="zoom-controls">
-    <button id="zoom-out" title="Zoom out (Cmd -)">&#x2212;</button>
-    <span class="zoom-level" id="zoom-level">100%</span>
-    <button id="zoom-in" title="Zoom in (Cmd +)">+</button>
-    <button id="zoom-fit" title="Fit to window (Cmd 0)" style="font-size:11px; width:auto; padding: 0 8px;">Fit</button>
-  </div>
+    <div class="toolbar-separator"></div>
 
-  <div class="toolbar-separator"></div>
-  <div class="toolbar-group">
-    <select id="editor-select" title="Editor for Open in Editor">
-      <option value="vscode">VS Code</option>
-      <option value="cursor">Cursor</option>
-      <option value="webstorm">WebStorm</option>
-    </select>
+    <div class="zoom-controls">
+      <button id="zoom-out" title="Zoom out (Cmd -)">&#x2212;</button>
+      <span class="zoom-level" id="zoom-level">100%</span>
+      <button id="zoom-in" title="Zoom in (Cmd +)">+</button>
+      <button id="zoom-fit" title="Fit to window (Cmd 0)" style="font-size:11px; width:auto; padding: 0 8px;">Fit</button>
+    </div>
+
+    <div class="toolbar-spacer"></div>
+
+    <button class="toolbar-btn" id="download-btn" title="Download PDF" style="display:none">&#x2913; PDF</button>
   </div>
 </div>
 
@@ -1900,6 +1916,26 @@
     return { element: best, ancestors: bestAncestorNames, ancestorElements: bestAncestorElements };
   }
 
+  // -- Download PDF -------------------------------------------------
+  let lastPdfBase64 = null;
+  const downloadBtn = document.getElementById('download-btn');
+  if (downloadBtn) {
+    downloadBtn.addEventListener('click', function() {
+      if (!lastPdfBase64) return;
+      if (isVSCode) {
+        vscode.postMessage({ type: 'downloadPdf' });
+      } else {
+        const bytes = Uint8Array.from(atob(lastPdfBase64), c => c.charCodeAt(0));
+        const blob = new Blob([bytes], { type: 'application/pdf' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'document.pdf';
+        a.click();
+        URL.revokeObjectURL(a.href);
+      }
+    });
+  }
+
   // -- Render PDF pages --------------------------------------------
   let currentPdfDoc = null;
 
@@ -2429,6 +2465,8 @@
       if (!msg || !msg.type) return;
 
       if (msg.type === 'pdfData') {
+        lastPdfBase64 = msg.pdf;
+        if (downloadBtn) downloadBtn.style.display = '';
         const bytes = Uint8Array.from(atob(msg.pdf), c => c.charCodeAt(0));
         if (msg.renderTime) {
           renderTimeEl.textContent = msg.renderTime + 'ms';

@@ -119,6 +119,23 @@ export class InspectorViewProvider implements vscode.WebviewViewProvider {
   .open-editor-btn:hover {
     background: var(--vscode-button-secondaryHoverBackground);
   }
+  .header-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+  }
+  .copy-style-header-btn {
+    background: var(--vscode-button-secondaryBackground);
+    border: none;
+    border-radius: 3px;
+    padding: 2px 8px;
+    font-size: 10px;
+    color: var(--vscode-button-secondaryForeground);
+    cursor: pointer;
+  }
+  .copy-style-header-btn:hover {
+    background: var(--vscode-button-secondaryHoverBackground);
+  }
 
   /* Box Model */
   .box-model {
@@ -207,23 +224,6 @@ export class InspectorViewProvider implements vscode.WebviewViewProvider {
     margin-right: 4px;
   }
 
-  /* Actions */
-  .inspector-actions {
-    padding: 12px 16px;
-  }
-  .copy-style-btn {
-    width: 100%;
-    background: var(--vscode-button-secondaryBackground);
-    border: none;
-    border-radius: 4px;
-    padding: 8px 12px;
-    font-size: 12px;
-    color: var(--vscode-button-secondaryForeground);
-    cursor: pointer;
-  }
-  .copy-style-btn:hover {
-    background: var(--vscode-button-secondaryHoverBackground);
-  }
 </style>
 </head>
 <body>
@@ -234,6 +234,7 @@ export class InspectorViewProvider implements vscode.WebviewViewProvider {
       <div class="node-label" id="node-label"></div>
       <div class="node-dims" id="node-dims"></div>
       <div class="node-source" id="node-source" style="display:none"></div>
+      <div class="header-actions" id="header-actions" style="display:none"></div>
     </div>
     <div class="box-model">
       <div class="section-title">Box Model</div>
@@ -260,7 +261,6 @@ export class InspectorViewProvider implements vscode.WebviewViewProvider {
       </div>
     </div>
     <div id="styles"></div>
-    <div class="inspector-actions" id="actions"></div>
   </div>
 <script>
   const vscode = acquireVsCodeApi();
@@ -529,16 +529,18 @@ export class InspectorViewProvider implements vscode.WebviewViewProvider {
 
     document.getElementById('styles').innerHTML = html;
 
-    // Copy Style button
+    // Copy Style button (in header)
     const styleStr = buildJsxStyleString(s);
-    const actionsEl = document.getElementById('actions');
+    const headerActions = document.getElementById('header-actions');
     if (styleStr) {
-      actionsEl.innerHTML = '<button class="copy-style-btn" id="copy-btn">Copy Style</button>';
+      headerActions.style.display = '';
+      headerActions.innerHTML = '<button class="copy-style-header-btn" id="copy-btn">Copy Style</button>';
       document.getElementById('copy-btn').onclick = function() {
         vscode.postMessage({ type: 'copyStyle', text: styleStr });
       };
     } else {
-      actionsEl.innerHTML = '';
+      headerActions.style.display = 'none';
+      headerActions.innerHTML = '';
     }
   }
 

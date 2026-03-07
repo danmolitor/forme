@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
-import { readFile } from 'node:fs/promises';
-import { dirname } from 'node:path';
+import { readFile, writeFile } from 'node:fs/promises';
+import { dirname, basename, join } from 'node:path';
 import { renderFromFile, renderFromSource } from '@formepdf/renderer';
 import type { LayoutStore, SelectionEvent } from './layout-store.js';
 
@@ -20,6 +20,7 @@ export class FormePreviewPanel {
   private statusBarItem: vscode.StatusBarItem;
   private isReady = false;
   private pendingRender = false;
+  private lastPdf: Uint8Array | null = null;
 
   static has(fileUri: vscode.Uri): boolean {
     return FormePreviewPanel.panels.has(fileUri.toString());
@@ -216,6 +217,10 @@ export class FormePreviewPanel {
       );
       this.render();
     }
+
+    if (msg.type === 'downloadPdf') {
+      this.downloadPdf();
+    }
   }
 
   private async sendDataState() {
@@ -309,6 +314,7 @@ export class FormePreviewPanel {
           })
         : await renderFromFile(filePath, renderOpts);
 
+      this.lastPdf = result.pdf;
       const pdfBase64 = Buffer.from(result.pdf).toString('base64');
 
       this.panel.webview.postMessage({
@@ -332,6 +338,30 @@ export class FormePreviewPanel {
         message,
       });
       this.statusBarItem.text = `$(error) Forme: build error`;
+    }
+  }
+
+  private async downloadPdf() {
+    if (!this.lastPdf) return;
+
+    const templateName = basename(this.fileUri.fsPath).replace(/\.(tsx|jsx|ts|js)$/, '');
+    const pdfName = `${templateName}.pdf`;
+
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    const outputDir = workspaceFolder
+      ? workspaceFolder.uri.fsPath
+      : dirname(this.fileUri.fsPath);
+    const outputPath = join(outputDir, pdfName);
+
+    await writeFile(outputPath, this.lastPdf);
+
+    const action = await vscode.window.showInformationMessage(
+      `Saved to ${pdfName}`,
+      'Open',
+    );
+    if (action === 'Open') {
+      const uri = vscode.Uri.file(outputPath);
+      await vscode.commands.executeCommand('revealInExplorer', uri);
     }
   }
 
