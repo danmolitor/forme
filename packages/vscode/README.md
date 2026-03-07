@@ -1,8 +1,18 @@
 # Forme PDF Preview
 
-Live PDF preview for [Forme](https://formepdf.com) templates. Edit JSX, see the rendered PDF instantly -without leaving VS Code.
+Generate PDFs from React components. Build invoices, reports, certificates, contracts, or any structured document using JSX and see the result live in VS Code.
 
 ![Forme PDF Preview showing split pane with component tree, inspector, and live PDF](https://raw.githubusercontent.com/danmolitor/forme/main/packages/vscode/screenshot.png)
+
+## Why Forme?
+
+**Why React for PDFs?** Components are reusable across documents. Props drive your templates with real data. TypeScript catches layout bugs before you render. It's the same workflow you already use for UI.
+
+**How it compares:**
+
+- **Puppeteer / wkhtmltopdf** - Headless browsers that screenshot HTML; slow, no native page breaks, heavy runtime dependency.
+- **react-pdf** - Lays out on an infinite canvas then slices into pages; flex and tables break at page boundaries.
+- **Forme** - Page-native layout engine in Rust/WASM; flex, grid, and tables work correctly across page breaks.
 
 ## Quick Start
 
