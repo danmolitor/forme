@@ -31,7 +31,8 @@ await build({
   format: 'cjs',
   platform: 'node',
   target: 'node20',
-  external: ['vscode', 'esbuild'],
+  external: ['vscode', 'esbuild-wasm'],
+  alias: { 'esbuild': 'esbuild-wasm' },
   sourcemap: true,
   define: {
     'import.meta.url': 'FORME_IMPORT_META_URL',

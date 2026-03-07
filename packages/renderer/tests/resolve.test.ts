@@ -64,6 +64,7 @@ describe('resolveImageSources', () => {
 
   beforeEach(() => {
     globalThis.fetch = vi.fn();
+    mockReadFile.mockReset();
   });
 
   afterEach(() => {
@@ -132,5 +133,44 @@ describe('resolveImageSources', () => {
     await resolveImageSources(doc);
 
     expect(mockFetch).toHaveBeenCalledWith('https://example.com/nested.jpg');
+  });
+
+  it('passes data URIs through unchanged', async () => {
+    const dataUri = 'data:image/png;base64,iVBOR';
+    const doc = {
+      children: [
+        { kind: { type: 'Image', src: dataUri } },
+      ],
+    };
+    await resolveImageSources(doc);
+
+    expect((doc.children[0].kind as any).src).toBe(dataUri);
+  });
+
+  it('resolves local file paths to base64 data URIs', async () => {
+    const fileBytes = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+    mockReadFile.mockResolvedValue(fileBytes);
+
+    const doc = {
+      children: [
+        { kind: { type: 'Image', src: 'images/logo.png' } },
+      ],
+    };
+    await resolveImageSources(doc, '/project');
+
+    expect(mockReadFile).toHaveBeenCalledWith('/project/images/logo.png');
+    expect((doc.children[0].kind as any).src).toMatch(/^data:image\/png;base64,/);
+  });
+
+  it('does not resolve local file paths without basePath', async () => {
+    const doc = {
+      children: [
+        { kind: { type: 'Image', src: 'images/logo.png' } },
+      ],
+    };
+    await resolveImageSources(doc);
+
+    expect(mockReadFile).not.toHaveBeenCalled();
+    expect((doc.children[0].kind as any).src).toBe('images/logo.png');
   });
 });

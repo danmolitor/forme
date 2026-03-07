@@ -1,5 +1,6 @@
 export {
   renderFromFile,
+  renderFromSource,
   renderFromCode,
   renderFromElement,
   type RenderOptions,
@@ -13,6 +14,7 @@ export {
 
 export {
   bundleFile,
+  bundleSource,
 } from './bundle.js';
 
 export {

@@ -64,24 +64,61 @@ export async function bundleFile(filePath: string): Promise<string> {
 
     return result.outputFiles[0].text;
   } catch (err) {
-    if (isBuildFailure(err)) {
-      const messages: string[] = [];
-      for (const error of err.errors) {
-        let loc = '';
-        if (error.location) {
-          const { file, line, column, lineText } = error.location;
-          loc = `  ${file}:${line}:${column}\n`;
-          if (lineText) {
-            loc += `  ${lineText}\n`;
-            loc += `  ${' '.repeat(column)}^\n`;
-          }
-        }
-        messages.push(`${error.text}\n${loc}`);
-      }
-      throw new Error(`Build error:\n${messages.join('\n')}`);
-    }
-    throw err;
+    throw formatBuildError(err);
   }
+}
+
+/// Bundle TSX/JSX source code (string) into an ESM string.
+/// `resolveDir` controls where imports are resolved from (typically the file's directory).
+export async function bundleSource(
+  source: string,
+  resolveDir: string,
+  sourcefile?: string,
+): Promise<string> {
+  try {
+    const result = await build({
+      stdin: {
+        contents: source,
+        resolveDir,
+        sourcefile: sourcefile ?? 'input.tsx',
+        loader: 'tsx',
+      },
+      bundle: true,
+      format: 'esm',
+      platform: 'node',
+      write: false,
+      jsx: 'automatic',
+      jsxDev: true,
+      target: 'node20',
+      external: ['react', '@formepdf/react', '@formepdf/core'],
+      plugins: [formeJsxSourcePlugin],
+      absWorkingDir: resolveDir,
+    });
+
+    return result.outputFiles[0].text;
+  } catch (err) {
+    throw formatBuildError(err);
+  }
+}
+
+function formatBuildError(err: unknown): Error {
+  if (isBuildFailure(err)) {
+    const messages: string[] = [];
+    for (const error of err.errors) {
+      let loc = '';
+      if (error.location) {
+        const { file, line, column, lineText } = error.location;
+        loc = `  ${file}:${line}:${column}\n`;
+        if (lineText) {
+          loc += `  ${lineText}\n`;
+          loc += `  ${' '.repeat(column)}^\n`;
+        }
+      }
+      messages.push(`${error.text}\n${loc}`);
+    }
+    return new Error(`Build error:\n${messages.join('\n')}`);
+  }
+  return err instanceof Error ? err : new Error(String(err));
 }
 
 function isBuildFailure(err: unknown): err is BuildFailure {

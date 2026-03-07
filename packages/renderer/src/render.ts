@@ -4,7 +4,7 @@ import { pathToFileURL } from 'node:url';
 import type { ReactElement } from 'react';
 import { renderPdfWithLayout, type LayoutInfo } from '@formepdf/core';
 import { serialize as defaultSerialize } from '@formepdf/react';
-import { bundleFile } from './bundle.js';
+import { bundleFile, bundleSource } from './bundle.js';
 import { resolveElement, type ResolveElementOptions } from './element.js';
 import { resolveAllSources } from './resolve.js';
 
@@ -30,6 +30,20 @@ export async function renderFromFile(
   return renderFromCode(code, {
     ...options,
     _basePath: dirname(absolutePath),
+  } as RenderOptionsInternal);
+}
+
+/// Full pipeline from source code string (e.g. an unsaved editor buffer).
+/// `resolveDir` controls import resolution (typically the file's directory).
+export async function renderFromSource(
+  source: string,
+  resolveDir: string,
+  options?: RenderOptions & { sourcefile?: string },
+): Promise<RenderResult> {
+  const code = await bundleSource(source, resolveDir, options?.sourcefile);
+  return renderFromCode(code, {
+    ...options,
+    _basePath: resolveDir,
   } as RenderOptionsInternal);
 }
 

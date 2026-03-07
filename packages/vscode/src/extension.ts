@@ -63,6 +63,20 @@ export function activate(context: vscode.ExtensionContext) {
     }),
   );
 
+  // Preview data content → tree data tab
+  context.subscriptions.push(
+    FormePreviewPanel.onDataContent((content) => {
+      treeProvider.setDataContent(content);
+    }),
+  );
+
+  // Tree data edit → preview re-render
+  context.subscriptions.push(
+    treeProvider.onDataChanged((data) => {
+      FormePreviewPanel.updateData(data, context);
+    }),
+  );
+
   // Track active Forme files for editor title button + auto-open
   updateFormeContext(vscode.window.activeTextEditor);
   maybeAutoOpen(context, vscode.window.activeTextEditor, store);

@@ -23,12 +23,16 @@ export class ComponentTreeProvider implements vscode.WebviewViewProvider {
   private layout: LayoutInfo | null = null;
   private selectedPath: number[] | null = null;
   private isReady = false;
+  private dataContent: string | null = null;
 
   private readonly _onSelect = new vscode.EventEmitter<number[]>();
   readonly onSelect = this._onSelect.event;
 
   private readonly _onHover = new vscode.EventEmitter<number[] | null>();
   readonly onHover = this._onHover.event;
+
+  private readonly _onDataChanged = new vscode.EventEmitter<unknown>();
+  readonly onDataChanged = this._onDataChanged.event;
 
   resolveWebviewView(
     webviewView: vscode.WebviewView,
@@ -48,6 +52,7 @@ export class ComponentTreeProvider implements vscode.WebviewViewProvider {
         this.isReady = true;
         if (this.layout) this.sendLayout();
         if (this.selectedPath) this.sendSelection();
+        if (this.dataContent !== null) this.sendDataContent();
       }
       if (msg.type === 'select') {
         this._onSelect.fire(msg.path);
@@ -58,9 +63,12 @@ export class ComponentTreeProvider implements vscode.WebviewViewProvider {
       if (msg.type === 'hoverEnd') {
         this._onHover.fire(null);
       }
+      if (msg.type === 'updateData') {
+        this._onDataChanged.fire(msg.data);
+      }
     });
 
-    // Reset ready state — webview will signal when loaded
+    // Reset ready state - webview will signal when loaded
     this.isReady = false;
   }
 
@@ -72,6 +80,11 @@ export class ComponentTreeProvider implements vscode.WebviewViewProvider {
   selectPath(path: number[] | null): void {
     this.selectedPath = path;
     this.sendSelection();
+  }
+
+  setDataContent(content: string | null): void {
+    this.dataContent = content;
+    this.sendDataContent();
   }
 
   private sendLayout(): void {
@@ -91,13 +104,21 @@ export class ComponentTreeProvider implements vscode.WebviewViewProvider {
     });
   }
 
+  private sendDataContent(): void {
+    if (!this.view || !this.isReady) return;
+    this.view.webview.postMessage({
+      type: 'dataContent',
+      content: this.dataContent,
+    });
+  }
+
   dispose(): void {
     this._onSelect.dispose();
     this._onHover.dispose();
+    this._onDataChanged.dispose();
   }
 
   private getHtml(): string {
-    // Using a separate script block to avoid template literal escaping issues
     return /* html */ `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -109,8 +130,45 @@ export class ComponentTreeProvider implements vscode.WebviewViewProvider {
     font-size: 12px;
     color: var(--vscode-foreground);
     background: var(--vscode-sideBar-background);
-    overflow-y: auto;
+    overflow: hidden;
     user-select: none;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+  }
+  .tabs {
+    display: flex;
+    border-bottom: 1px solid var(--vscode-panel-border);
+    flex-shrink: 0;
+  }
+  .tab {
+    flex: 1;
+    padding: 6px 12px;
+    border: none;
+    background: none;
+    color: var(--vscode-descriptionForeground);
+    font-size: 11px;
+    font-family: var(--vscode-font-family);
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 2px solid transparent;
+  }
+  .tab:hover {
+    color: var(--vscode-foreground);
+  }
+  .tab.active {
+    color: var(--vscode-foreground);
+    border-bottom-color: var(--vscode-focusBorder);
+  }
+  .tab-panel {
+    display: none;
+    flex: 1;
+    overflow: hidden;
+  }
+  .tab-panel.active {
+    display: flex;
+    flex-direction: column;
   }
   .empty-state {
     padding: 20px 16px;
@@ -118,7 +176,11 @@ export class ComponentTreeProvider implements vscode.WebviewViewProvider {
     color: var(--vscode-descriptionForeground);
     font-size: 12px;
   }
-  #tree { padding: 4px 0; }
+  #tree {
+    padding: 4px 0;
+    overflow-y: auto;
+    flex: 1;
+  }
   .tree-node {
     display: flex;
     align-items: center;
@@ -160,21 +222,89 @@ export class ComponentTreeProvider implements vscode.WebviewViewProvider {
   }
   .tree-children { display: none; }
   .tree-children.expanded { display: block; }
+
+  /* Data tab */
+  #data-editor {
+    flex: 1;
+    width: 100%;
+    resize: none;
+    border: none;
+    outline: none;
+    background: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-size: 11px;
+    padding: 8px;
+    line-height: 1.5;
+  }
+  #data-editor.error {
+    outline: 1px solid var(--vscode-inputValidation-errorBorder);
+  }
+  .data-empty {
+    padding: 20px 16px;
+    text-align: center;
+    color: var(--vscode-descriptionForeground);
+    font-size: 12px;
+  }
 </style>
 </head>
 <body>
-  <div id="empty" class="empty-state">No layout data</div>
-  <div id="tree" style="display:none"></div>
+  <div class="tabs" id="tabs">
+    <button class="tab active" data-tab="components">Components</button>
+    <button class="tab" data-tab="data" id="data-tab" style="display:none">Data</button>
+  </div>
+  <div class="tab-panel active" id="components-panel">
+    <div id="empty" class="empty-state">No layout data</div>
+    <div id="tree" style="display:none"></div>
+  </div>
+  <div class="tab-panel" id="data-panel">
+    <textarea id="data-editor" spellcheck="false"></textarea>
+  </div>
 <script>
   (function() {
     var vscode = acquireVsCodeApi();
     var emptyEl = document.getElementById('empty');
     var treeEl = document.getElementById('tree');
+    var tabsEl = document.getElementById('tabs');
+    var dataTab = document.getElementById('data-tab');
+    var componentsPanel = document.getElementById('components-panel');
+    var dataPanel = document.getElementById('data-panel');
+    var dataEditor = document.getElementById('data-editor');
 
     var layoutData = null;
     var colors = {};
     var selectedPath = null;
+    var debounceTimer = null;
 
+    // -- Tabs -------------------------------------------------------
+    tabsEl.addEventListener('click', function(e) {
+      var tab = e.target.closest('.tab');
+      if (!tab || !tab.dataset.tab) return;
+      var name = tab.dataset.tab;
+      var allTabs = tabsEl.querySelectorAll('.tab');
+      for (var i = 0; i < allTabs.length; i++) {
+        allTabs[i].classList.toggle('active', allTabs[i].dataset.tab === name);
+      }
+      componentsPanel.classList.toggle('active', name === 'components');
+      dataPanel.classList.toggle('active', name === 'data');
+    });
+
+    // -- Data editor ------------------------------------------------
+    dataEditor.addEventListener('input', function() {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(function() {
+        var content = dataEditor.value;
+        try {
+          var parsed = JSON.parse(content);
+          dataEditor.classList.remove('error');
+          vscode.postMessage({ type: 'updateData', data: parsed });
+        } catch(e) {
+          dataEditor.classList.add('error');
+        }
+      }, 600);
+    });
+
+    // -- Tree helpers -----------------------------------------------
     function fmt(n) {
       return Number.isInteger(n) ? String(n) : n.toFixed(1).replace(/\\.0$/, '');
     }
@@ -361,6 +491,17 @@ export class ComponentTreeProvider implements vscode.WebviewViewProvider {
       if (msg.type === 'select') {
         selectedPath = msg.path;
         applySelection(msg.path);
+      }
+      if (msg.type === 'dataContent') {
+        if (msg.content !== null) {
+          dataTab.style.display = '';
+          if (document.activeElement !== dataEditor) {
+            dataEditor.value = msg.content;
+            dataEditor.classList.remove('error');
+          }
+        } else {
+          dataTab.style.display = 'none';
+        }
       }
     });
 

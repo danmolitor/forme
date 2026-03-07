@@ -1,12 +1,16 @@
 import * as vscode from 'vscode';
 import { readFile } from 'node:fs/promises';
-import { renderFromFile } from '@formepdf/renderer';
+import { dirname } from 'node:path';
+import { renderFromFile, renderFromSource } from '@formepdf/renderer';
 import type { LayoutStore, SelectionEvent } from './layout-store.js';
 
 const DEBOUNCE_MS = 400;
 
 export class FormePreviewPanel {
   private static panels = new Map<string, FormePreviewPanel>();
+
+  private static readonly _onDataContent = new vscode.EventEmitter<string | null>();
+  static readonly onDataContent = FormePreviewPanel._onDataContent.event;
 
   private panel: vscode.WebviewPanel;
   private fileUri: vscode.Uri;
@@ -61,6 +65,16 @@ export class FormePreviewPanel {
     }
   }
 
+  static updateData(data: unknown, context: vscode.ExtensionContext): void {
+    for (const instance of FormePreviewPanel.panels.values()) {
+      context.workspaceState.update(
+        `forme.data.${instance.fileUri.toString()}`,
+        data,
+      );
+      instance.render();
+    }
+  }
+
   static hoverElement(sel: SelectionEvent | null): void {
     for (const instance of FormePreviewPanel.panels.values()) {
       if (instance.isReady) {
@@ -100,18 +114,18 @@ export class FormePreviewPanel {
       this.disposables,
     );
 
-    // Listen for document changes (debounced)
+    // Listen for document changes (debounced, uses editor buffer)
     vscode.workspace.onDidChangeTextDocument(
       (e) => {
         if (e.document.uri.toString() === fileUri.toString()) {
-          this.scheduleRender();
+          this.scheduleRender(e.document.getText());
         }
       },
       undefined,
       this.disposables,
     );
 
-    // Listen for saves (immediate render)
+    // Listen for saves (immediate render from disk)
     vscode.workspace.onDidSaveTextDocument(
       (doc) => {
         if (doc.uri.toString() === fileUri.toString()) {
@@ -232,14 +246,17 @@ export class FormePreviewPanel {
       hasData: !!dataContent,
       dataContent,
     });
+
+    // Emit data content to the tree provider
+    FormePreviewPanel._onDataContent.fire(dataContent);
   }
 
-  private scheduleRender() {
+  private scheduleRender(source?: string) {
     if (this.debounceTimer) clearTimeout(this.debounceTimer);
-    this.debounceTimer = setTimeout(() => this.render(), DEBOUNCE_MS);
+    this.debounceTimer = setTimeout(() => this.render(source), DEBOUNCE_MS);
   }
 
-  private async render() {
+  private async render(source?: string) {
     if (!this.isReady) {
       this.pendingRender = true;
       return;
@@ -278,11 +295,19 @@ export class FormePreviewPanel {
     }>(`forme.pageSize.${this.fileUri.toString()}`);
 
     try {
-      const result = await renderFromFile(filePath, {
+      const renderOpts = {
         dataPath,
         data: overrideData,
         pageSize: pageSize ?? undefined,
-      });
+      };
+
+      // Use editor buffer content when available, otherwise read from disk
+      const result = source
+        ? await renderFromSource(source, dirname(filePath), {
+            ...renderOpts,
+            sourcefile: filePath,
+          })
+        : await renderFromFile(filePath, renderOpts);
 
       const pdfBase64 = Buffer.from(result.pdf).toString('base64');
 

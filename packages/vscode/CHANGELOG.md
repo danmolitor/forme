@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.7.2] - 2026-03-07
+
+### Added
+- Data tab in sidebar - edit companion JSON data and see the preview update live
+- Live preview updates as you type (uses editor buffer, no longer requires save)
+- Local image file paths in templates now resolve to base64 data URIs
+
+### Fixed
+- Cross-platform VSIX support: switched from platform-specific esbuild to esbuild-wasm
+
+### Changed
+- Improved README: added requirements, quick start with example, use cases, comparisons, and React rationale
+
 ## [0.7.1] - 2026-03-06
 
 ### Fixed
