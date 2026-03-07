@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.4] - 2026-03-07
+
+### Changed
+- Replaced static screenshot with animated demo gif in README
+- Renamed "Components" tab to "Tree" in sidebar webview
+
 ## [0.7.3] - 2026-03-07
 
 ### Fixed

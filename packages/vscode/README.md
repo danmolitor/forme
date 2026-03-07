@@ -2,7 +2,7 @@
 
 Generate PDFs from React components. Build invoices, reports, certificates, contracts, or any structured document using JSX and see the result live in VS Code.
 
-![Forme PDF Preview showing split pane with component tree, inspector, and live PDF](https://raw.githubusercontent.com/danmolitor/forme/main/packages/vscode/screenshot.png)
+![Forme PDF Preview showing split pane with component tree, inspector, and live PDF](https://raw.githubusercontent.com/danmolitor/forme/main/assets/forme-vscode-extension.gif)
 
 ## Requirements
 
