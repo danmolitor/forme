@@ -1,6 +1,6 @@
 # Forme PDF Preview
 
-Live PDF preview for [Forme](https://formepdf.com) templates. Edit JSX, see the rendered PDF instantly — without leaving VS Code.
+Live PDF preview for [Forme](https://formepdf.com) templates. Edit JSX, see the rendered PDF instantly -without leaving VS Code.
 
 ![Forme PDF Preview showing split pane with component tree, inspector, and live PDF](https://raw.githubusercontent.com/danmolitor/forme/main/packages/vscode/screenshot.png)
 
@@ -33,7 +33,7 @@ export default (
 
 3. Open the file and run **Forme: Preview to Side** from the command palette (`Cmd+Shift+P`)
 
-That's it — you should see a live PDF preview in the side panel.
+That's it -you should see a live PDF preview in the side panel.
 
 ## Features
 
