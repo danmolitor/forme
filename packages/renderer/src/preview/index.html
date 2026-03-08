@@ -1159,7 +1159,7 @@
     selectedPageIdx = pageIdx;
     inspectorOpen = true;
     inspectorEl.classList.add('open');
-    containerEl.classList.add('inspector-open');
+    if (!isVSCode) containerEl.classList.add('inspector-open');
     updateInspector();
     drawOverlays();
   }
@@ -1811,9 +1811,14 @@
       const target = findBookmarkTarget(anchor);
       if (target) {
         scrollToElement(target.element, target.pageIdx);
-        // Also select the target in the inspector
         const path = findPathForElement(target.pageIdx, target.element);
-        if (path) selectByPath(path);
+        if (path) {
+          if (isVSCode) {
+            vscode.postMessage({ type: 'elementSelected', path });
+          } else {
+            selectByPath(path);
+          }
+        }
       }
     } else {
       window.open(href, '_blank');
