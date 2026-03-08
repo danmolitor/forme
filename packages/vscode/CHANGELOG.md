@@ -2,18 +2,20 @@
 
 ## [0.7.6] - 2026-03-08
 
+### Fixed
+- Bookmark link navigation displacing the PDF view in VS Code (inspector margin applied in VS Code mode)
+
+## [0.7.5] - 2026-03-07
+
 ### Added
 - Download PDF button in preview toolbar (saves to workspace root)
 - Two-row toolbar layout to prevent clipping on narrow panels
 
 ### Fixed
-- Bookmark link navigation displacing the PDF view in VS Code (inspector margin applied in VS Code mode)
-- Copy Style button moved from bottom of inspector to header for immediate visibility
-
-## [0.7.5] - 2026-03-07
-
-### Fixed
 - Local image paths now resolve correctly (stale renderer build in 0.7.4)
+
+### Changed
+- Copy Style button moved from bottom of inspector to header for immediate visibility
 
 ## [0.7.4] - 2026-03-07
 
