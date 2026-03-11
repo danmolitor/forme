@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { themeSchema } from './theme.js';
 
 export const receiptSchema = z.object({
   receiptNumber: z.string().describe('Receipt identifier, e.g. "R-84291"'),
@@ -18,6 +19,7 @@ export const receiptSchema = z.object({
   })).describe('Purchased items'),
   paymentMethod: z.string().describe('Payment method, e.g. "Visa"'),
   cardLastFour: z.string().optional().describe('Last 4 digits of card'),
+  theme: themeSchema,
 });
 
 export type ReceiptData = z.infer<typeof receiptSchema>;
@@ -32,6 +34,7 @@ export const receiptFields: Record<string, string> = {
   items: 'array - items with name, price, and optional quantity',
   paymentMethod: 'string - payment method name',
   cardLastFour: 'string? - last 4 digits of card',
+  theme: 'object? - optional {primaryColor?, fontFamily?, margins?}',
 };
 
 export const receiptExample: ReceiptData = {

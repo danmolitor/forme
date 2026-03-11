@@ -26,6 +26,8 @@ Restart your AI tool. Done.
 - "Make a receipt for 2 lattes and a muffin"
 - "Write a business letter to Jane Smith about our partnership proposal"
 - "Create a custom PDF with a big centered title that says Hello World"
+- "Generate an invoice with a blue theme and our logo at https://..."
+- "Make that report with a DRAFT watermark"
 
 The agent figures out the data shape from the tool schema. You don't need to know the template fields.
 
@@ -44,9 +46,12 @@ Returns the full JSON Schema and example data for a specific template. This is h
 Renders a built-in template with data and writes the PDF to disk.
 
 ```
-Input: { template: "invoice", data: { ... }, output: "invoice.pdf" }
+Input: { template: "invoice", data: { ... }, output: "invoice.pdf", watermark: "DRAFT" }
 Output: PDF file at the specified path
 ```
+
+Options:
+- `watermark` (optional) — overlay text on every page (e.g. "DRAFT", "CONFIDENTIAL")
 
 ### `render_custom_pdf`
 
@@ -57,15 +62,43 @@ Input: { jsx: "<Document><Page>...</Page></Document>", output: "custom.pdf" }
 Output: PDF file at the specified path
 ```
 
+Available components: Document, Page, View, Text, Image, Table, Row, Cell, Fixed, Svg, PageBreak, StyleSheet, Font, Watermark, QrCode, BarChart, LineChart, PieChart, Canvas.
+
 ## Built-in Templates
 
 | Template | Description |
 |----------|-------------|
-| `invoice` | Line items, tax, totals, company/customer info |
+| `invoice` | Line items, tax, totals, company/customer info, optional logo |
 | `receipt` | Payment confirmation, items, total, payment method |
-| `report` | Multi-section document with title, headings, body text |
-| `letter` | Business letter with letterhead, date, recipient, body |
-| `shipping-label` | From/to addresses, weight, 4x6 format |
+| `report` | Multi-page report with cover, TOC, tables, charts, recommendations |
+| `letter` | Business letter with letterhead, optional logo, body, signature |
+| `shipping-label` | From/to addresses, weight, 4x6 format, handling stamps |
+
+All templates support an optional `theme` object:
+
+```json
+{
+  "theme": {
+    "primaryColor": "#2563eb",
+    "fontFamily": "Helvetica",
+    "margins": 48
+  }
+}
+```
+
+## Prompts
+
+The server provides prompts to guide agents through data collection:
+
+- `generate-invoice` — walks through invoice fields
+- `generate-report` — walks through report sections
+- `create-custom-pdf` — lists available components and JSX patterns
+
+## Security
+
+- **Path validation** — output paths are restricted to the current working directory
+- **Code sandbox** — `render_custom_pdf` strips imports/requires and shadows dangerous globals
+- **Rendering timeout** — 30-second timeout prevents hangs
 
 ## How it works
 

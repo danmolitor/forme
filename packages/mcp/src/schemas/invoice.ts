@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { themeSchema } from './theme.js';
 
 export const invoiceSchema = z.object({
   invoiceNumber: z.string().describe('Invoice identifier, e.g. "INV-2026-0142"'),
@@ -11,6 +12,7 @@ export const invoiceSchema = z.object({
     address: z.string(),
     cityStateZip: z.string(),
     email: z.string(),
+    logoUrl: z.string().optional().describe('URL to company logo image (replaces initials badge)'),
   }).describe('Your company details'),
   billTo: z.object({
     name: z.string(),
@@ -31,6 +33,7 @@ export const invoiceSchema = z.object({
   })).describe('Line items'),
   paymentTerms: z.string().describe('Payment terms paragraph'),
   notes: z.string().optional().describe('Optional notes'),
+  theme: themeSchema,
 });
 
 export type InvoiceData = z.infer<typeof invoiceSchema>;
@@ -42,12 +45,13 @@ export const invoiceFields: Record<string, string> = {
   date: 'string - invoice date',
   dueDate: 'string - payment due date',
   taxRate: 'number - tax rate as decimal (e.g. 0.08)',
-  company: 'object - your company name, initials, address, email',
+  company: 'object - your company name, initials, address, email, optional logoUrl',
   billTo: 'object - customer name, company, address, email',
   shipTo: 'object - shipping name, address',
   items: 'array - line items with description, quantity, unitPrice',
   paymentTerms: 'string - payment terms text',
   notes: 'string? - optional notes',
+  theme: 'object? - optional {primaryColor?, fontFamily?, margins?}',
 };
 
 export const invoiceExample: InvoiceData = {

@@ -1,15 +1,19 @@
-import { Document, Page, View, Text, Table, Row, Cell, Fixed } from '@formepdf/react';
+import { Document, Page, View, Text, Image, Table, Row, Cell, Fixed } from '@formepdf/react';
 import type { InvoiceData } from '../schemas/invoice.js';
+
+const DEFAULT_ACCENT = '#2563eb';
 
 export default function Invoice(data: InvoiceData) {
   const items = data.items || [];
   const subtotal = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
   const tax = subtotal * (data.taxRate || 0);
   const total = subtotal + tax;
+  const accent = data.theme?.primaryColor || DEFAULT_ACCENT;
+  const margins = data.theme?.margins ?? 48;
 
   return (
-    <Document title={`Invoice ${data.invoiceNumber}`} author={data.company.name}>
-      <Page size="Letter" margin={48}>
+    <Document title={`Invoice ${data.invoiceNumber}`} author={data.company.name} style={data.theme?.fontFamily ? { fontFamily: data.theme.fontFamily } : undefined}>
+      <Page size="Letter" margin={margins}>
         <Fixed position="footer">
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingTop: 8, borderTopWidth: 1, borderColor: '#e2e8f0' }}>
             <Text style={{ fontSize: 8, color: '#94a3b8' }}>{data.company.name}</Text>
@@ -20,16 +24,20 @@ export default function Invoice(data: InvoiceData) {
         {/* Company Header */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 32 }}>
           <View>
-            <View style={{ width: 48, height: 48, backgroundColor: '#2563eb', borderRadius: 8, marginBottom: 12, justifyContent: 'center', alignItems: 'center' }}>
-              <Text style={{ fontSize: 18, fontWeight: 700, color: '#ffffff', textAlign: 'center', lineHeight: 1.2 }}>{data.company.initials}</Text>
-            </View>
+            {data.company.logoUrl ? (
+              <Image src={data.company.logoUrl} style={{ width: 48, height: 48, marginBottom: 12 }} />
+            ) : (
+              <View style={{ width: 48, height: 48, backgroundColor: accent, borderRadius: 8, marginBottom: 12, justifyContent: 'center', alignItems: 'center' }}>
+                <Text style={{ fontSize: 18, fontWeight: 700, color: '#ffffff', textAlign: 'center', lineHeight: 1.2 }}>{data.company.initials}</Text>
+              </View>
+            )}
             <Text style={{ fontSize: 16, fontWeight: 700, color: '#1e293b' }}>{data.company.name}</Text>
             <Text style={{ fontSize: 9, color: '#64748b', marginTop: 4 }}>{data.company.address}</Text>
             <Text style={{ fontSize: 9, color: '#64748b' }}>{data.company.cityStateZip}</Text>
             <Text style={{ fontSize: 9, color: '#64748b' }}>{data.company.email}</Text>
           </View>
           <View style={{ alignItems: 'flex-end' }}>
-            <Text style={{ fontSize: 32, fontWeight: 700, color: '#2563eb' }}>INVOICE</Text>
+            <Text style={{ fontSize: 32, fontWeight: 700, color: accent }}>INVOICE</Text>
             <Text style={{ fontSize: 10, color: '#64748b', marginTop: 8 }}>Invoice No: {data.invoiceNumber}</Text>
             <Text style={{ fontSize: 10, color: '#64748b', marginTop: 2 }}>Date: {data.date}</Text>
             <Text style={{ fontSize: 10, color: '#64748b', marginTop: 2 }}>Due: {data.dueDate}</Text>
@@ -39,7 +47,7 @@ export default function Invoice(data: InvoiceData) {
         {/* Bill To / Ship To */}
         <View style={{ flexDirection: 'row', gap: 32, marginBottom: 24 }}>
           <View style={{ flexGrow: 1 }}>
-            <Text style={{ fontSize: 9, fontWeight: 700, color: '#2563eb', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Bill To</Text>
+            <Text style={{ fontSize: 9, fontWeight: 700, color: accent, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Bill To</Text>
             <Text style={{ fontSize: 10, fontWeight: 700, color: '#1e293b' }}>{data.billTo.name}</Text>
             <Text style={{ fontSize: 9, color: '#64748b', marginTop: 2 }}>{data.billTo.company}</Text>
             <Text style={{ fontSize: 9, color: '#64748b', marginTop: 2 }}>{data.billTo.address}</Text>
@@ -47,7 +55,7 @@ export default function Invoice(data: InvoiceData) {
             <Text style={{ fontSize: 9, color: '#64748b', marginTop: 2 }}>{data.billTo.email}</Text>
           </View>
           <View style={{ flexGrow: 1 }}>
-            <Text style={{ fontSize: 9, fontWeight: 700, color: '#2563eb', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Ship To</Text>
+            <Text style={{ fontSize: 9, fontWeight: 700, color: accent, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Ship To</Text>
             <Text style={{ fontSize: 10, fontWeight: 700, color: '#1e293b' }}>{data.shipTo.name}</Text>
             <Text style={{ fontSize: 9, color: '#64748b', marginTop: 2 }}>{data.shipTo.address}</Text>
             <Text style={{ fontSize: 9, color: '#64748b', marginTop: 2 }}>{data.shipTo.cityStateZip}</Text>
@@ -61,7 +69,7 @@ export default function Invoice(data: InvoiceData) {
           { width: { fraction: 0.2 } },
           { width: { fraction: 0.2 } }
         ]}>
-          <Row header style={{ backgroundColor: '#2563eb' }}>
+          <Row header style={{ backgroundColor: accent }}>
             <Cell style={{ padding: 10 }}><Text style={{ fontSize: 9, fontWeight: 700, color: '#ffffff' }}>Description</Text></Cell>
             <Cell style={{ padding: 10 }}><Text style={{ fontSize: 9, fontWeight: 700, color: '#ffffff', textAlign: 'center' }}>Qty</Text></Cell>
             <Cell style={{ padding: 10 }}><Text style={{ fontSize: 9, fontWeight: 700, color: '#ffffff', textAlign: 'right' }}>Unit Price</Text></Cell>
@@ -96,7 +104,7 @@ export default function Invoice(data: InvoiceData) {
               <Text style={{ fontSize: 9, color: '#64748b' }}>Tax ({(data.taxRate * 100).toFixed(0)}%)</Text>
               <Text style={{ fontSize: 9, color: '#1e293b' }}>${tax.toFixed(2)}</Text>
             </View>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', padding: 12, backgroundColor: '#2563eb', borderRadius: 4, marginTop: 4 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', padding: 12, backgroundColor: accent, borderRadius: 4, marginTop: 4 }}>
               <Text style={{ fontSize: 11, fontWeight: 700, color: '#ffffff' }}>Total Due</Text>
               <Text style={{ fontSize: 11, fontWeight: 700, color: '#ffffff' }}>${total.toFixed(2)}</Text>
             </View>

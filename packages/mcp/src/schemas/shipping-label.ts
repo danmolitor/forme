@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { themeSchema } from './theme.js';
 
 export const shippingLabelSchema = z.object({
   tracking: z.string().describe('Tracking number'),
@@ -17,6 +18,7 @@ export const shippingLabelSchema = z.object({
     cityStateZip: z.string(),
   }).describe('Recipient address'),
   stamps: z.array(z.string()).optional().describe('Handling stamps, e.g. ["FRAGILE", "THIS SIDE UP"]'),
+  theme: themeSchema,
 });
 
 export type ShippingLabelData = z.infer<typeof shippingLabelSchema>;
@@ -31,6 +33,7 @@ export const shippingLabelFields: Record<string, string> = {
   from: 'object - sender name, address, cityStateZip',
   to: 'object - recipient name, address, optional address2, cityStateZip',
   stamps: 'array? - handling stamps like "FRAGILE"',
+  theme: 'object? - optional {primaryColor?, fontFamily?, margins?}',
 };
 
 export const shippingLabelExample: ShippingLabelData = {

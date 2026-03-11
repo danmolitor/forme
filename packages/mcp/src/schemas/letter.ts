@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { themeSchema } from './theme.js';
 
 export const letterSchema = z.object({
   sender: z.object({
@@ -9,6 +10,7 @@ export const letterSchema = z.object({
     cityStateZip: z.string(),
     phone: z.string().optional(),
     email: z.string().optional(),
+    logoUrl: z.string().optional().describe('URL to company logo image'),
   }).describe('Sender/letterhead details'),
   date: z.string().describe('Letter date'),
   recipient: z.object({
@@ -23,6 +25,7 @@ export const letterSchema = z.object({
   closing: z.string().describe('Closing phrase, e.g. "Sincerely,"'),
   signatureName: z.string().describe('Printed name under signature'),
   signatureTitle: z.string().optional().describe('Title under signature'),
+  theme: themeSchema,
 });
 
 export type LetterData = z.infer<typeof letterSchema>;
@@ -30,7 +33,7 @@ export type LetterData = z.infer<typeof letterSchema>;
 export const letterDescription = 'Formal business letter with letterhead, recipient address, body paragraphs, and closing signature.';
 
 export const letterFields: Record<string, string> = {
-  sender: 'object - name, title?, company, address, cityStateZip, phone?, email?',
+  sender: 'object - name, title?, company, address, cityStateZip, phone?, email?, logoUrl?',
   date: 'string - letter date',
   recipient: 'object - name, title?, company?, address, cityStateZip',
   salutation: 'string - greeting line',
@@ -38,6 +41,7 @@ export const letterFields: Record<string, string> = {
   closing: 'string - closing phrase',
   signatureName: 'string - printed name',
   signatureTitle: 'string? - title under name',
+  theme: 'object? - optional {primaryColor?, fontFamily?, margins?}',
 };
 
 export const letterExample: LetterData = {

@@ -59,3 +59,12 @@ export const templates: Record<string, TemplateEntry> = {
     example: letterExample as unknown as Record<string, unknown>,
   },
 };
+
+// Validate all example data against schemas at load time to catch drift early
+for (const [name, entry] of Object.entries(templates)) {
+  try {
+    entry.schema.parse(entry.example);
+  } catch (err: any) {
+    throw new Error(`Template "${name}" example data does not match its schema: ${err.message}`);
+  }
+}

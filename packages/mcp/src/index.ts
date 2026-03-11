@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { createRequire } from 'node:module';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
@@ -7,10 +8,14 @@ import { listTemplates } from './tools/list-templates.js';
 import { getSchema } from './tools/get-schema.js';
 import { renderPdf } from './tools/render-pdf.js';
 import { renderCustom } from './tools/render-custom.js';
+import { generateInvoicePrompt, generateReportPrompt, createCustomPdfPrompt } from './prompts/index.js';
+
+const require = createRequire(import.meta.url);
+const { version } = require('../package.json');
 
 const server = new McpServer({
   name: 'forme',
-  version: '0.4.4',
+  version,
 });
 
 // ── list_templates ──────────────────────────────────────────────────
@@ -66,10 +71,11 @@ server.tool(
     template: z.string().describe('Template name (e.g. "invoice", "receipt", "report", "shipping-label", "letter")'),
     data: z.record(z.unknown()).describe('Template data matching the template schema'),
     output: z.string().optional().describe('Output file path (defaults to ./{template}.pdf)'),
+    watermark: z.string().optional().describe('Watermark text to overlay on every page (e.g. "DRAFT", "CONFIDENTIAL")'),
   },
-  async ({ template, data, output }) => {
+  async ({ template, data, output, watermark }) => {
     try {
-      const result = await renderPdf(template, data, output);
+      const result = await renderPdf(template, data, output, watermark);
       return {
         content: [{
           type: 'text' as const,
@@ -92,7 +98,7 @@ server.tool(
 
 server.tool(
   'render_custom_pdf',
-  'Render arbitrary JSX to PDF. Use Forme components: Document, Page, View, Text, Image, Table, Row, Cell, Fixed, Svg, PageBreak, StyleSheet, Font',
+  'Render arbitrary JSX to PDF. Use Forme components: Document, Page, View, Text, Image, Table, Row, Cell, Fixed, Svg, PageBreak, StyleSheet, Font, Watermark, QrCode, BarChart, LineChart, PieChart, Canvas',
   {
     jsx: z.string().describe('JSX/TSX source code using Forme components (Document, Page, View, Text, etc.)'),
     output: z.string().optional().describe('Output file path (defaults to ./custom.pdf)'),
@@ -116,6 +122,26 @@ server.tool(
       };
     }
   },
+);
+
+// ── Prompts ─────────────────────────────────────────────────────────
+
+server.prompt(
+  'generate-invoice',
+  'Guide the agent through collecting invoice details for PDF generation',
+  async () => generateInvoicePrompt(),
+);
+
+server.prompt(
+  'generate-report',
+  'Guide the agent through collecting report data for PDF generation',
+  async () => generateReportPrompt(),
+);
+
+server.prompt(
+  'create-custom-pdf',
+  'List available Forme components and JSX patterns for custom PDF creation',
+  async () => createCustomPdfPrompt(),
 );
 
 // ── Start server ────────────────────────────────────────────────────

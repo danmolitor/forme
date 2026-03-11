@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { themeSchema } from './theme.js';
 
 const tableRowSchema = z.object({
   region: z.string(),
@@ -36,6 +37,7 @@ export const reportSchema = z.object({
     label: z.string(),
   })).optional().describe('Key metric cards shown after executive summary'),
   sections: z.array(sectionSchema).describe('Report sections: [0] Executive Summary (paragraphs), [1] Data (tableData), [2] Visual Analysis (intro only), [3] Recommendations (items)'),
+  theme: themeSchema,
 });
 
 export type ReportData = z.infer<typeof reportSchema>;
@@ -52,6 +54,7 @@ export const reportFields: Record<string, string> = {
   classification: 'string - confidentiality level',
   keyMetrics: 'array? - metric cards with value and label',
   sections: 'array - 4 sections: executive summary, data table, visual analysis, recommendations',
+  theme: 'object? - optional {primaryColor?, fontFamily?, margins?}',
 };
 
 export const reportExample: ReportData = {

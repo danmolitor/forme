@@ -1,26 +1,7 @@
 import { Document, Page, View, Text, Svg, Table, Row, Cell, Fixed, PageBreak, StyleSheet } from '@formepdf/react';
 import type { ReportData } from '../schemas/report.js';
 
-const styles = StyleSheet.create({
-  sectionTitle: { fontSize: 20, fontWeight: 700, color: '#0f172a', marginBottom: 12 },
-  bodyText: { fontSize: 10, color: '#334155', lineHeight: 1.6, marginBottom: 12 },
-  introText: { fontSize: 10, color: '#334155', lineHeight: 1.6, marginBottom: 16 },
-  headerFooterText: { fontSize: 8, color: '#94a3b8' },
-  headerBar: { flexDirection: 'row' as const, justifyContent: 'space-between' as const, paddingBottom: 8, borderBottomWidth: 1, borderColor: '#e2e8f0', marginBottom: 16 },
-  footerBar: { flexDirection: 'row' as const, justifyContent: 'space-between' as const, paddingTop: 8, borderTopWidth: 1, borderColor: '#e2e8f0' },
-  tableHeaderCell: { padding: 8 },
-  tableHeaderText: { fontSize: 9, fontWeight: 700, color: '#ffffff', textAlign: 'right' as const },
-  tableCell: { padding: 8 },
-  tableCellText: { fontSize: 9, color: '#334155', textAlign: 'right' as const },
-  chartTitle: { fontSize: 10, fontWeight: 700, color: '#334155', marginBottom: 6 },
-  recCard: { flexDirection: 'row' as const, gap: 24, marginBottom: 16, padding: 16, backgroundColor: '#f8fafc', borderRadius: 4, borderLeftWidth: 3, borderColor: '#0f172a' },
-  recBadge: { width: 24, height: 24, backgroundColor: '#0f172a', borderRadius: 12, justifyContent: 'center' as const, alignItems: 'center' as const },
-  recBadgeText: { fontSize: 10, fontWeight: 700, color: '#ffffff', lineHeight: 1.2 },
-  recTitle: { fontSize: 11, fontWeight: 700, color: '#0f172a', marginBottom: 4 },
-  recBody: { fontSize: 9, color: '#475569', lineHeight: 1.5 },
-  recLabel: { fontSize: 8, fontWeight: 700, color: '#64748b' },
-  recValue: { fontSize: 8, color: '#334155' },
-});
+const DEFAULT_ACCENT = '#0f172a';
 
 // ── Chart SVG generators ─────────────────────────────────────────────
 
@@ -185,13 +166,37 @@ function renderLineChart(tableData: any[]): string {
 
 export default function Report(data: ReportData) {
   const tableData = data.sections[1].tableData || [];
+  const accent = data.theme?.primaryColor || DEFAULT_ACCENT;
+  const margins = data.theme?.margins ?? 54;
+  const coverMargins = data.theme?.margins ?? 72;
+
+  const styles = StyleSheet.create({
+    sectionTitle: { fontSize: 20, fontWeight: 700, color: accent, marginBottom: 12 },
+    bodyText: { fontSize: 10, color: '#334155', lineHeight: 1.6, marginBottom: 12 },
+    introText: { fontSize: 10, color: '#334155', lineHeight: 1.6, marginBottom: 16 },
+    headerFooterText: { fontSize: 8, color: '#94a3b8' },
+    headerBar: { flexDirection: 'row' as const, justifyContent: 'space-between' as const, paddingBottom: 8, borderBottomWidth: 1, borderColor: '#e2e8f0', marginBottom: 16 },
+    footerBar: { flexDirection: 'row' as const, justifyContent: 'space-between' as const, paddingTop: 8, borderTopWidth: 1, borderColor: '#e2e8f0' },
+    tableHeaderCell: { padding: 8 },
+    tableHeaderText: { fontSize: 9, fontWeight: 700, color: '#ffffff', textAlign: 'right' as const },
+    tableCell: { padding: 8 },
+    tableCellText: { fontSize: 9, color: '#334155', textAlign: 'right' as const },
+    chartTitle: { fontSize: 10, fontWeight: 700, color: '#334155', marginBottom: 6 },
+    recCard: { flexDirection: 'row' as const, gap: 24, marginBottom: 16, padding: 16, backgroundColor: '#f8fafc', borderRadius: 4, borderLeftWidth: 3, borderColor: accent },
+    recBadge: { width: 24, height: 24, backgroundColor: accent, borderRadius: 12, justifyContent: 'center' as const, alignItems: 'center' as const },
+    recBadgeText: { fontSize: 10, fontWeight: 700, color: '#ffffff', lineHeight: 1.2 },
+    recTitle: { fontSize: 11, fontWeight: 700, color: accent, marginBottom: 4 },
+    recBody: { fontSize: 9, color: '#475569', lineHeight: 1.5 },
+    recLabel: { fontSize: 8, fontWeight: 700, color: '#64748b' },
+    recValue: { fontSize: 8, color: '#334155' },
+  });
 
   return (
-    <Document title={data.title} author={data.author}>
+    <Document title={data.title} author={data.author} style={data.theme?.fontFamily ? { fontFamily: data.theme.fontFamily } : undefined}>
       {/* Cover Page */}
-      <Page size="Letter" margin={72}>
+      <Page size="Letter" margin={coverMargins}>
         <View style={{ flexGrow: 1, justifyContent: 'center' }}>
-          <View style={{ backgroundColor: '#0f172a', padding: 32, borderRadius: 4, marginBottom: 32 }}>
+          <View style={{ backgroundColor: accent, padding: 32, borderRadius: 4, marginBottom: 32 }}>
             <Text style={{ fontSize: 32, fontWeight: 700, color: '#ffffff' }}>{data.title}</Text>
             <Text style={{ fontSize: 14, color: '#94a3b8', marginTop: 12 }}>{data.subtitle}</Text>
           </View>
@@ -211,7 +216,7 @@ export default function Report(data: ReportData) {
       </Page>
 
       {/* Content Pages */}
-      <Page size="Letter" margin={54}>
+      <Page size="Letter" margin={margins}>
         <Fixed position="header">
           <View style={styles.headerBar}>
             <Text style={styles.headerFooterText}>{data.company}</Text>
@@ -247,7 +252,7 @@ export default function Report(data: ReportData) {
           <View style={{ flexDirection: 'row', gap: 12, marginTop: 8, marginBottom: 24 }}>
             {data.keyMetrics.map((metric, i) => (
               <View key={i} style={{ flexGrow: 1, padding: 16, backgroundColor: '#f8fafc', borderRadius: 4, borderWidth: 1, borderColor: '#e2e8f0' }}>
-                <Text style={{ fontSize: 20, fontWeight: 700, color: '#0f172a' }}>{metric.value}</Text>
+                <Text style={{ fontSize: 20, fontWeight: 700, color: accent }}>{metric.value}</Text>
                 <Text style={{ fontSize: 9, color: '#64748b', marginTop: 4 }}>{metric.label}</Text>
               </View>
             ))}
@@ -267,7 +272,7 @@ export default function Report(data: ReportData) {
           { width: { fraction: 0.18 } },
           { width: { fraction: 0.18 } }
         ]}>
-          <Row header style={{ backgroundColor: '#0f172a' }}>
+          <Row header style={{ backgroundColor: accent }}>
             <Cell style={styles.tableHeaderCell}><Text style={{ fontSize: 9, fontWeight: 700, color: '#ffffff' }}>Region</Text></Cell>
             <Cell style={styles.tableHeaderCell}><Text style={styles.tableHeaderText}>Q1</Text></Cell>
             <Cell style={styles.tableHeaderCell}><Text style={styles.tableHeaderText}>Q2</Text></Cell>

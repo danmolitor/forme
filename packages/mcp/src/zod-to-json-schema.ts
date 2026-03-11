@@ -16,12 +16,26 @@ function convert(schema: any): Record<string, unknown> {
     case 'ZodString': {
       const result: Record<string, unknown> = { type: 'string' };
       if (def.description) result.description = def.description;
+      if (def.checks) {
+        for (const check of def.checks) {
+          if (check.kind === 'min') result.minLength = check.value;
+          else if (check.kind === 'max') result.maxLength = check.value;
+          else if (check.kind === 'regex') result.pattern = check.regex.source;
+        }
+      }
       return result;
     }
 
     case 'ZodNumber': {
       const result: Record<string, unknown> = { type: 'number' };
       if (def.description) result.description = def.description;
+      if (def.checks) {
+        for (const check of def.checks) {
+          if (check.kind === 'min') result.minimum = check.value;
+          else if (check.kind === 'max') result.maximum = check.value;
+          else if (check.kind === 'int') result.type = 'integer';
+        }
+      }
       return result;
     }
 
@@ -67,6 +81,34 @@ function convert(schema: any): Record<string, unknown> {
       return inner;
     }
 
+    case 'ZodDefault': {
+      const inner = convert(def.innerType);
+      inner.default = def.defaultValue();
+      return inner;
+    }
+
+    case 'ZodEnum': {
+      const result: Record<string, unknown> = {
+        type: 'string',
+        enum: [...def.values],
+      };
+      if (def.description) result.description = def.description;
+      return result;
+    }
+
+    case 'ZodUnion': {
+      const options = (def.options as any[]).map((opt: any) => convert(opt));
+      const result: Record<string, unknown> = { anyOf: options };
+      if (def.description) result.description = def.description;
+      return result;
+    }
+
+    case 'ZodLiteral': {
+      const result: Record<string, unknown> = { const: def.value };
+      if (def.description) result.description = def.description;
+      return result;
+    }
+
     case 'ZodRecord': {
       const result: Record<string, unknown> = {
         type: 'object',
@@ -88,5 +130,5 @@ function convert(schema: any): Record<string, unknown> {
 
 function isOptional(schema: any): boolean {
   const typeName = schema._def?.typeName as string;
-  return typeName === 'ZodOptional' || typeName === 'ZodNullable';
+  return typeName === 'ZodOptional' || typeName === 'ZodNullable' || typeName === 'ZodDefault';
 }

@@ -2,6 +2,21 @@
 
 All notable changes to the Forme monorepo are documented in this file.
 
+## [0.7.4] - 2026-03-11
+
+### Added
+- `@formepdf/mcp`: Theme customization for all templates (accent color, font family, margins)
+- `@formepdf/mcp`: Logo/image support for invoice and letter templates
+- `@formepdf/mcp`: Watermark parameter on `render_pdf` tool
+- `@formepdf/mcp`: MCP prompts for guided PDF generation
+- `@formepdf/mcp`: More components available in `render_custom_pdf` (Watermark, QrCode, charts, Canvas)
+
+### Fixed
+- `@formepdf/mcp`: Dynamic version from package.json (was hardcoded to 0.4.4)
+- `@formepdf/mcp`: Output path traversal prevention (security)
+- `@formepdf/mcp`: Code sandbox for custom JSX evaluation (security)
+- `@formepdf/mcp`: Rendering timeout, improved error messages
+
 ## [0.7.1] - 2026-03-07
 
 ### Added

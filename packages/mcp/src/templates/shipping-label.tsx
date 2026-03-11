@@ -1,10 +1,15 @@
 import { Document, Page, View, Text } from '@formepdf/react';
 import type { ShippingLabelData } from '../schemas/shipping-label.js';
 
+const DEFAULT_ACCENT = '#1e293b';
+
 export default function ShippingLabel(data: ShippingLabelData) {
+  const accent = data.theme?.primaryColor || DEFAULT_ACCENT;
+  const margins = data.theme?.margins ?? 16;
+
   return (
-    <Document title={`Shipping Label - ${data.tracking}`}>
-      <Page size={{ width: 288, height: 432 }} margin={16}>
+    <Document title={`Shipping Label - ${data.tracking}`} style={data.theme?.fontFamily ? { fontFamily: data.theme.fontFamily } : undefined}>
+      <Page size={{ width: 288, height: 432 }} margin={margins}>
         {/* From Address */}
         <View style={{ marginBottom: 12, padding: 8 }}>
           <Text style={{ fontSize: 7, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>From</Text>
@@ -14,17 +19,17 @@ export default function ShippingLabel(data: ShippingLabelData) {
         </View>
 
         {/* Divider */}
-        <View style={{ borderTopWidth: 2, borderColor: '#0f172a', marginBottom: 12 }} />
+        <View style={{ borderTopWidth: 2, borderColor: accent, marginBottom: 12 }} />
 
         {/* To Address */}
         <View style={{ padding: 12, marginBottom: 12 }}>
           <Text style={{ fontSize: 7, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>To</Text>
-          <Text style={{ fontSize: 10, fontWeight: 700, color: '#0f172a' }}>{data.to.name}</Text>
-          <Text style={{ fontSize: 10, color: '#0f172a', marginTop: 4 }}>{data.to.address}</Text>
+          <Text style={{ fontSize: 10, fontWeight: 700, color: accent }}>{data.to.name}</Text>
+          <Text style={{ fontSize: 10, color: accent, marginTop: 4 }}>{data.to.address}</Text>
           {data.to.address2 && (
-            <Text style={{ fontSize: 10, color: '#0f172a' }}>{data.to.address2}</Text>
+            <Text style={{ fontSize: 10, color: accent }}>{data.to.address2}</Text>
           )}
-          <Text style={{ fontSize: 10, fontWeight: 700, color: '#0f172a', marginTop: 2 }}>{data.to.cityStateZip}</Text>
+          <Text style={{ fontSize: 10, fontWeight: 700, color: accent, marginTop: 2 }}>{data.to.cityStateZip}</Text>
         </View>
 
         {/* Barcode Placeholder */}
@@ -32,34 +37,34 @@ export default function ShippingLabel(data: ShippingLabelData) {
           <View style={{ alignItems: 'center', marginBottom: 8 }}>
             <View style={{ flexDirection: 'row', gap: 2 }}>
               {/* Simulate barcode with thin rectangles */}
-              <View style={{ width: 2, height: 40, backgroundColor: '#0f172a' }} />
-              <View style={{ width: 1, height: 40, backgroundColor: '#0f172a' }} />
-              <View style={{ width: 3, height: 40, backgroundColor: '#0f172a' }} />
-              <View style={{ width: 1, height: 40, backgroundColor: '#0f172a' }} />
-              <View style={{ width: 2, height: 40, backgroundColor: '#0f172a' }} />
-              <View style={{ width: 3, height: 40, backgroundColor: '#0f172a' }} />
-              <View style={{ width: 1, height: 40, backgroundColor: '#0f172a' }} />
-              <View style={{ width: 2, height: 40, backgroundColor: '#0f172a' }} />
-              <View style={{ width: 1, height: 40, backgroundColor: '#0f172a' }} />
-              <View style={{ width: 3, height: 40, backgroundColor: '#0f172a' }} />
-              <View style={{ width: 2, height: 40, backgroundColor: '#0f172a' }} />
-              <View style={{ width: 1, height: 40, backgroundColor: '#0f172a' }} />
-              <View style={{ width: 3, height: 40, backgroundColor: '#0f172a' }} />
-              <View style={{ width: 1, height: 40, backgroundColor: '#0f172a' }} />
-              <View style={{ width: 2, height: 40, backgroundColor: '#0f172a' }} />
-              <View style={{ width: 1, height: 40, backgroundColor: '#0f172a' }} />
-              <View style={{ width: 3, height: 40, backgroundColor: '#0f172a' }} />
-              <View style={{ width: 2, height: 40, backgroundColor: '#0f172a' }} />
-              <View style={{ width: 1, height: 40, backgroundColor: '#0f172a' }} />
-              <View style={{ width: 2, height: 40, backgroundColor: '#0f172a' }} />
-              <View style={{ width: 3, height: 40, backgroundColor: '#0f172a' }} />
-              <View style={{ width: 1, height: 40, backgroundColor: '#0f172a' }} />
-              <View style={{ width: 2, height: 40, backgroundColor: '#0f172a' }} />
-              <View style={{ width: 1, height: 40, backgroundColor: '#0f172a' }} />
-              <View style={{ width: 3, height: 40, backgroundColor: '#0f172a' }} />
+              <View style={{ width: 2, height: 40, backgroundColor: accent }} />
+              <View style={{ width: 1, height: 40, backgroundColor: accent }} />
+              <View style={{ width: 3, height: 40, backgroundColor: accent }} />
+              <View style={{ width: 1, height: 40, backgroundColor: accent }} />
+              <View style={{ width: 2, height: 40, backgroundColor: accent }} />
+              <View style={{ width: 3, height: 40, backgroundColor: accent }} />
+              <View style={{ width: 1, height: 40, backgroundColor: accent }} />
+              <View style={{ width: 2, height: 40, backgroundColor: accent }} />
+              <View style={{ width: 1, height: 40, backgroundColor: accent }} />
+              <View style={{ width: 3, height: 40, backgroundColor: accent }} />
+              <View style={{ width: 2, height: 40, backgroundColor: accent }} />
+              <View style={{ width: 1, height: 40, backgroundColor: accent }} />
+              <View style={{ width: 3, height: 40, backgroundColor: accent }} />
+              <View style={{ width: 1, height: 40, backgroundColor: accent }} />
+              <View style={{ width: 2, height: 40, backgroundColor: accent }} />
+              <View style={{ width: 1, height: 40, backgroundColor: accent }} />
+              <View style={{ width: 3, height: 40, backgroundColor: accent }} />
+              <View style={{ width: 2, height: 40, backgroundColor: accent }} />
+              <View style={{ width: 1, height: 40, backgroundColor: accent }} />
+              <View style={{ width: 2, height: 40, backgroundColor: accent }} />
+              <View style={{ width: 3, height: 40, backgroundColor: accent }} />
+              <View style={{ width: 1, height: 40, backgroundColor: accent }} />
+              <View style={{ width: 2, height: 40, backgroundColor: accent }} />
+              <View style={{ width: 1, height: 40, backgroundColor: accent }} />
+              <View style={{ width: 3, height: 40, backgroundColor: accent }} />
             </View>
           </View>
-          <Text style={{ fontSize: 8, fontWeight: 700, color: '#0f172a', letterSpacing: 2, textAlign: 'center' }}>{data.tracking}</Text>
+          <Text style={{ fontSize: 8, fontWeight: 700, color: accent, letterSpacing: 2, textAlign: 'center' }}>{data.tracking}</Text>
         </View>
 
         {/* Divider */}
@@ -69,15 +74,15 @@ export default function ShippingLabel(data: ShippingLabelData) {
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', padding: 8 }}>
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 7, color: '#64748b', textTransform: 'uppercase', letterSpacing: 1 }}>Weight</Text>
-            <Text style={{ fontSize: 10, fontWeight: 700, color: '#0f172a', marginTop: 2 }}>{data.weight}</Text>
+            <Text style={{ fontSize: 10, fontWeight: 700, color: accent, marginTop: 2 }}>{data.weight}</Text>
           </View>
           <View style={{ flex: 2, justifyContent: 'center', alignItems: 'center' }}>
             <Text style={{ width: '100%', textAlign: 'center', fontSize: 7, color: '#64748b', textTransform: 'uppercase', letterSpacing: 1 }}>Dimensions</Text>
-            <Text style={{ fontSize: 10, fontWeight: 700, color: '#0f172a', marginTop: 2 }}>{data.dimensions}</Text>
+            <Text style={{ fontSize: 10, fontWeight: 700, color: accent, marginTop: 2 }}>{data.dimensions}</Text>
           </View>
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'flex-end' }}>
             <Text style={{ width: '100%', textAlign: 'right', fontSize: 7, color: '#64748b', textTransform: 'uppercase', letterSpacing: 1 }}>Service</Text>
-            <Text style={{ fontSize: 10, fontWeight: 700, color: '#0f172a', marginTop: 2 }}>{data.service}</Text>
+            <Text style={{ fontSize: 10, fontWeight: 700, color: accent, marginTop: 2 }}>{data.service}</Text>
           </View>
         </View>
 

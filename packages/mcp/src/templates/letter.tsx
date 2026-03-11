@@ -1,14 +1,24 @@
-import { Document, Page, View, Text } from '@formepdf/react';
+import { Document, Page, View, Text, Image } from '@formepdf/react';
 import type { LetterData } from '../schemas/letter.js';
 
+const DEFAULT_ACCENT = '#2563eb';
+
 export default function Letter(data: LetterData) {
+  const accent = data.theme?.primaryColor || DEFAULT_ACCENT;
+  const margins = data.theme?.margins ?? { top: 72, right: 72, bottom: 72, left: 72 };
+
   return (
-    <Document title={`Letter to ${data.recipient.name}`} author={data.sender.name}>
-      <Page size="Letter" margin={{ top: 72, right: 72, bottom: 72, left: 72 }}>
+    <Document title={`Letter to ${data.recipient.name}`} author={data.sender.name} style={data.theme?.fontFamily ? { fontFamily: data.theme.fontFamily } : undefined}>
+      <Page size="Letter" margin={margins}>
+        {/* Logo */}
+        {data.sender.logoUrl && (
+          <Image src={data.sender.logoUrl} style={{ width: 120, height: 40, marginBottom: 12 }} />
+        )}
+
         {/* Letterhead */}
         <View style={{ marginBottom: 32 }}>
           <Text style={{ fontSize: 16, fontWeight: 700, color: '#1e293b' }}>{data.sender.company}</Text>
-          <View style={{ borderTopWidth: 2, borderColor: '#2563eb', marginTop: 8, marginBottom: 12 }} />
+          <View style={{ borderTopWidth: 2, borderColor: accent, marginTop: 8, marginBottom: 12 }} />
           <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
             <View>
               <Text style={{ fontSize: 9, color: '#64748b' }}>{data.sender.address}</Text>
