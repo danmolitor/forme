@@ -39,8 +39,11 @@ describe('renderPdf', () => {
     await expect(renderPdf('invoice', { bad: true }, tmpFile('x.pdf'))).rejects.toThrow();
   });
 
-  it('rejects path traversal', async () => {
-    await expect(renderPdf('invoice', invoiceExample as any, '../escape.pdf')).rejects.toThrow('outside');
+  it('resolves absolute output paths', async () => {
+    const out = '/tmp/forme-test-invoice.pdf';
+    filesToClean.push(out);
+    const result = await renderPdf('invoice', invoiceExample as any, out);
+    expect(result.path).toBe(out);
   });
 });
 

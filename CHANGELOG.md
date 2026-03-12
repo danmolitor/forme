@@ -2,6 +2,11 @@
 
 All notable changes to the Forme monorepo are documented in this file.
 
+## [0.7.5] - 2026-03-12
+
+### Removed
+- `@formepdf/mcp`: Output path restriction — absolute paths now work
+
 ## [0.7.4] - 2026-03-11
 
 ### Added
@@ -13,7 +18,6 @@ All notable changes to the Forme monorepo are documented in this file.
 
 ### Fixed
 - `@formepdf/mcp`: Dynamic version from package.json (was hardcoded to 0.4.4)
-- `@formepdf/mcp`: Output path traversal prevention (security)
 - `@formepdf/mcp`: Code sandbox for custom JSX evaluation (security)
 - `@formepdf/mcp`: Rendering timeout, improved error messages
 

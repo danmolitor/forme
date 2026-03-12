@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.7.5] - 2026-03-12
+
+### Removed
+- Output path restriction — absolute paths now work (MCP client handles approval)
+
 ## [0.7.4] - 2026-03-11
 
 ### Added
@@ -13,14 +18,12 @@
 
 ### Fixed
 - Server version now reads from `package.json` instead of hardcoded `0.4.4`
-- Output path validation prevents writing outside the working directory
 - `render_custom_pdf` sandbox: strips imports/requires, shadows dangerous globals
 - 30-second rendering timeout prevents hangs
 - Better error messages with source/transpiled code snippets
 - Trailing line comments no longer break bare JSX evaluation
 
 ### Security
-- Output path traversal prevention (`../escape.pdf`, `/tmp/evil.pdf` blocked)
 - Code sandbox for `render_custom_pdf` (import/require/export stripped, globals shadowed)
 
 ## [0.7.3] - 2026-03-07

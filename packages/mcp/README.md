@@ -96,7 +96,6 @@ The server provides prompts to guide agents through data collection:
 
 ## Security
 
-- **Path validation** — output paths are restricted to the current working directory
 - **Code sandbox** — `render_custom_pdf` strips imports/requires and shadows dangerous globals
 - **Rendering timeout** — 30-second timeout prevents hangs
 
