@@ -2,6 +2,17 @@
 
 All notable changes to the Forme monorepo are documented in this file.
 
+## [0.7.6] - 2026-03-13
+
+### Added
+- Embedded data support: attach JSON to PDFs as file attachments via `renderDocument(el, { embedData })`
+- `extractData(pdfBytes)` to read embedded JSON back from Forme-generated PDFs
+- `@formepdf/mcp`: `extract_pdf` tool for round-trip data extraction
+- `@formepdf/mcp`: `render_pdf` now auto-embeds template data
+
+### Changed
+- VS Code: two-way data sync between Data tab and companion JSON file
+
 ## [0.7.5] - 2026-03-12
 
 ### Removed

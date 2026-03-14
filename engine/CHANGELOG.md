@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.6] - 2026-03-13
+
+### Added
+- `Document.embedded_data` field for embedding JSON as a FlateDecode-compressed PDF file attachment
+- PDF serializer emits EmbeddedFile stream + Names tree for `forme-data.json`
+
 ## [0.7.3] - 2026-03-07
 
 _No changes._

@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.7.7] - 2026-03-13
+
+### Changed
+- Two-way data sync between Data tab and companion JSON file
+
 ## [0.7.6] - 2026-03-08
 
 ### Fixed

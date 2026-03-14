@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.6] - 2026-03-13
+
+### Added
+- `renderDocument(el, { embedData })` option to attach JSON as a PDF file attachment
+- `extractData(pdfBytes)` to read embedded JSON back from Forme-generated PDFs
+
 ## [0.7.3] - 2026-03-07
 
 _No changes._

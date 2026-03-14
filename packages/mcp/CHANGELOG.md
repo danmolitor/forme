@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.6] - 2026-03-13
+
+### Added
+- `extract_pdf` tool to extract embedded JSON data from Forme-generated PDFs
+- `render_pdf` now auto-embeds template data for round-trip extraction
+
 ## [0.7.5] - 2026-03-12
 
 ### Removed
