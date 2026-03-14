@@ -8,6 +8,7 @@ import { listTemplates } from './tools/list-templates.js';
 import { getSchema } from './tools/get-schema.js';
 import { renderPdf } from './tools/render-pdf.js';
 import { renderCustom } from './tools/render-custom.js';
+import { extractPdf } from './tools/extract-pdf.js';
 import { generateInvoicePrompt, generateReportPrompt, createCustomPdfPrompt } from './prompts/index.js';
 
 const require = createRequire(import.meta.url);
@@ -119,6 +120,29 @@ server.tool(
           type: 'text' as const,
           text: `Failed to render custom PDF: ${err.message}`,
         }],
+      };
+    }
+  },
+);
+
+// ── extract_pdf ─────────────────────────────────────────────────────
+
+server.tool(
+  'extract_pdf',
+  'Extract structured JSON data embedded in a Forme-generated PDF. Returns the original data used to generate the PDF, or a message if no Forme data is found.',
+  {
+    path: z.string().describe('Absolute or relative path to the PDF file'),
+  },
+  async ({ path }) => {
+    try {
+      const result = await extractPdf(path);
+      return {
+        content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
+      };
+    } catch (err: any) {
+      return {
+        isError: true,
+        content: [{ type: 'text' as const, text: `Error: ${err.message}` }],
       };
     }
   },

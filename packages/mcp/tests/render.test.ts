@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { readFile, unlink, mkdir } from 'node:fs/promises';
 import { renderPdf } from '../src/tools/render-pdf.js';
 import { renderCustom } from '../src/tools/render-custom.js';
+import { extractPdf } from '../src/tools/extract-pdf.js';
 import { invoiceExample } from '../src/schemas/invoice.js';
 
 // Write test outputs into a .test-output dir within cwd (passes path validation)
@@ -98,5 +99,36 @@ describe('renderCustom', () => {
       </Document>
     `;
     await expect(renderCustom(jsx, out)).rejects.toThrow();
+  });
+});
+
+describe('extractPdf', () => {
+  it('round-trips embedded data from render_pdf', async () => {
+    const out = tmpFile('extract-test.pdf');
+    filesToClean.push(out);
+    await renderPdf('invoice', invoiceExample as any, out);
+    const result = await extractPdf(out);
+    expect(result).toHaveProperty('data');
+    expect((result as any).data).toEqual(invoiceExample);
+  });
+
+  it('returns message for PDF without embedded data', async () => {
+    const out = tmpFile('no-data.pdf');
+    filesToClean.push(out);
+    const jsx = `
+      <Document>
+        <Page size="Letter" margin={48}>
+          <Text>No embedded data</Text>
+        </Page>
+      </Document>
+    `;
+    await renderCustom(jsx, out);
+    const result = await extractPdf(out);
+    expect(result).toHaveProperty('message');
+    expect((result as any).message).toContain('No embedded Forme data');
+  });
+
+  it('throws for nonexistent file', async () => {
+    await expect(extractPdf('/tmp/nonexistent-forme-test.pdf')).rejects.toThrow();
   });
 });

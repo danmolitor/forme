@@ -42,7 +42,7 @@ export async function renderPdf(
   // Render to PDF with timeout
   let pdfBytes: Uint8Array;
   try {
-    pdfBytes = await withTimeout(renderDocument(element), 30_000, 'PDF rendering');
+    pdfBytes = await withTimeout(renderDocument(element, { embedData: parsed }), 30_000, 'PDF rendering');
   } catch (err: any) {
     throw new Error(`Rendering template '${templateName}' failed: ${err.message}`);
   }
