@@ -1300,3 +1300,70 @@ describe('QrCode serialization', () => {
     expect(doc.children[0].style.margin).toEqual({ top: 10, right: 10, bottom: 10, left: 10 });
   });
 });
+
+// ─── .map() children flattening ─────────────────────────────────────
+
+describe('.map() children in serialize()', () => {
+  it('View with .map() children preserves all items', () => {
+    const items = ['Alpha', 'Beta', 'Gamma'];
+    const doc = serialize(
+      <Document>
+        <View>
+          {items.map((item, i) => (
+            <Text key={i}>{item}</Text>
+          ))}
+        </View>
+      </Document>
+    );
+    expect(doc.children[0].children).toHaveLength(3);
+    expect(doc.children[0].children[0].kind).toEqual({ type: 'Text', content: 'Alpha' });
+    expect(doc.children[0].children[1].kind).toEqual({ type: 'Text', content: 'Beta' });
+    expect(doc.children[0].children[2].kind).toEqual({ type: 'Text', content: 'Gamma' });
+  });
+
+  it('Table with header row and .map() data rows preserves all rows', () => {
+    const data = [
+      { name: 'Widget', price: 10 },
+      { name: 'Gadget', price: 20 },
+    ];
+    const doc = serialize(
+      <Document>
+        <Table columns={[{ width: { fraction: 1 } }, { width: { fraction: 1 } }]}>
+          <Row header>
+            <Cell><Text>Name</Text></Cell>
+            <Cell><Text>Price</Text></Cell>
+          </Row>
+          {data.map((item, i) => (
+            <Row key={i}>
+              <Cell><Text>{item.name}</Text></Cell>
+              <Cell><Text>{`$${item.price}`}</Text></Cell>
+            </Row>
+          ))}
+        </Table>
+      </Document>
+    );
+    // 1 header row + 2 data rows = 3 total
+    expect(doc.children[0].children).toHaveLength(3);
+  });
+
+  it('mixed static and .map() children are all preserved', () => {
+    const items = ['A', 'B'];
+    const doc = serialize(
+      <Document>
+        <View>
+          <Text>Header</Text>
+          {items.map((item, i) => (
+            <Text key={i}>{item}</Text>
+          ))}
+          <Text>Footer</Text>
+        </View>
+      </Document>
+    );
+    // Header + 2 mapped + Footer = 4
+    expect(doc.children[0].children).toHaveLength(4);
+    expect(doc.children[0].children[0].kind).toEqual({ type: 'Text', content: 'Header' });
+    expect(doc.children[0].children[1].kind).toEqual({ type: 'Text', content: 'A' });
+    expect(doc.children[0].children[2].kind).toEqual({ type: 'Text', content: 'B' });
+    expect(doc.children[0].children[3].kind).toEqual({ type: 'Text', content: 'Footer' });
+  });
+});

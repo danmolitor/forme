@@ -1751,6 +1751,7 @@
         dataError.classList.remove('visible');
         dataError.textContent = '';
         sendWs({ type: 'updateData', data: parsed });
+        sendWs({ type: 'saveData', content });
       } catch (err) {
         dataEditor.classList.add('error');
         dataError.textContent = `Invalid JSON: ${err.message}`;

@@ -21,6 +21,9 @@ export class FormePreviewPanel {
   private isReady = false;
   private pendingRender = false;
   private lastPdf: Uint8Array | null = null;
+  private dataFilePath: string | null = null;
+  private dataFileWatcher: vscode.FileSystemWatcher | null = null;
+  private writingDataFile = false;
 
   static has(fileUri: vscode.Uri): boolean {
     return FormePreviewPanel.panels.has(fileUri.toString());
@@ -66,12 +69,21 @@ export class FormePreviewPanel {
     }
   }
 
-  static updateData(data: unknown, context: vscode.ExtensionContext): void {
+  static updateData(data: unknown, context: vscode.ExtensionContext, raw?: string): void {
     for (const instance of FormePreviewPanel.panels.values()) {
       context.workspaceState.update(
         `forme.data.${instance.fileUri.toString()}`,
         data,
       );
+      // Write back to companion data file using the raw string to preserve formatting
+      if (instance.dataFilePath && raw) {
+        const uri = vscode.Uri.file(instance.dataFilePath);
+        instance.writingDataFile = true;
+        vscode.workspace.fs.writeFile(uri, Buffer.from(raw, 'utf-8')).then(
+          () => { setTimeout(() => { instance.writingDataFile = false; }, 500); },
+          () => { instance.writingDataFile = false; },
+        );
+      }
       instance.render();
     }
   }
@@ -235,16 +247,19 @@ export class FormePreviewPanel {
     ];
 
     let dataContent: string | null = null;
-    let dataPath: string | null = null;
+    this.dataFilePath = null;
     for (const candidate of dataFiles) {
       try {
         dataContent = await readFile(candidate, 'utf-8');
-        dataPath = candidate;
+        this.dataFilePath = candidate;
         break;
       } catch {
         continue;
       }
     }
+
+    // Watch the companion data file for external changes
+    this.setupDataFileWatcher();
 
     this.panel.webview.postMessage({
       type: 'init',
@@ -254,6 +269,44 @@ export class FormePreviewPanel {
 
     // Emit data content to the tree provider
     FormePreviewPanel._onDataContent.fire(dataContent);
+  }
+
+  private setupDataFileWatcher() {
+    // Clean up previous watcher
+    if (this.dataFileWatcher) {
+      this.dataFileWatcher.dispose();
+      this.dataFileWatcher = null;
+    }
+
+    if (!this.dataFilePath) return;
+
+    const pattern = new vscode.RelativePattern(
+      dirname(this.dataFilePath),
+      basename(this.dataFilePath),
+    );
+    this.dataFileWatcher = vscode.workspace.createFileSystemWatcher(pattern);
+
+    const onDataFileChange = async () => {
+      if (!this.dataFilePath || this.writingDataFile) return;
+      try {
+        const content = await readFile(this.dataFilePath, 'utf-8');
+        // Clear in-memory override so render uses the file
+        this.context.workspaceState.update(
+          `forme.data.${this.fileUri.toString()}`,
+          undefined,
+        );
+        // Push new content to the Data tab
+        this.panel.webview.postMessage({
+          type: 'dataUpdate',
+          content,
+        });
+        FormePreviewPanel._onDataContent.fire(content);
+        this.render();
+      } catch { /* file may have been deleted */ }
+    };
+
+    this.dataFileWatcher.onDidChange(onDataFileChange);
+    this.disposables.push(this.dataFileWatcher);
   }
 
   private scheduleRender(source?: string) {

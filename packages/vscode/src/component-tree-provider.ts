@@ -31,7 +31,7 @@ export class ComponentTreeProvider implements vscode.WebviewViewProvider {
   private readonly _onHover = new vscode.EventEmitter<number[] | null>();
   readonly onHover = this._onHover.event;
 
-  private readonly _onDataChanged = new vscode.EventEmitter<unknown>();
+  private readonly _onDataChanged = new vscode.EventEmitter<{ data: unknown; raw: string }>();
   readonly onDataChanged = this._onDataChanged.event;
 
   resolveWebviewView(
@@ -64,7 +64,7 @@ export class ComponentTreeProvider implements vscode.WebviewViewProvider {
         this._onHover.fire(null);
       }
       if (msg.type === 'updateData') {
-        this._onDataChanged.fire(msg.data);
+        this._onDataChanged.fire({ data: msg.data, raw: msg.raw });
       }
     });
 
@@ -297,7 +297,7 @@ export class ComponentTreeProvider implements vscode.WebviewViewProvider {
         try {
           var parsed = JSON.parse(content);
           dataEditor.classList.remove('error');
-          vscode.postMessage({ type: 'updateData', data: parsed });
+          vscode.postMessage({ type: 'updateData', data: parsed, raw: content });
         } catch(e) {
           dataEditor.classList.add('error');
         }

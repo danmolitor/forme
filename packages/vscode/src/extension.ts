@@ -72,8 +72,8 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Tree data edit → preview re-render
   context.subscriptions.push(
-    treeProvider.onDataChanged((data) => {
-      FormePreviewPanel.updateData(data, context);
+    treeProvider.onDataChanged(({ data, raw }) => {
+      FormePreviewPanel.updateData(data, context, raw);
     }),
   );
 
