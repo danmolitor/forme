@@ -52,6 +52,10 @@ Forme supports any language that uses a left-to-right writing system and can be 
 
 Yes. Search for "Forme PDF Preview" in the VS Code Extensions view. It provides a live PDF preview, a component tree with hover-to-highlight, and an inspector panel with box model visualization and source navigation. See the [VS Code extension docs](/vscode) for details.
 
+## Can I embed structured data inside a PDF?
+
+Yes. Pass `embedData` when rendering to attach any JSON object as a hidden file attachment. The PDF looks identical — the data is invisible to viewers but extractable with `extractData()`. This makes PDFs self-describing: invoices carry their line items, reports carry their datasets. See the [embedded data guide](/embedded-data).
+
 ## Is Forme free?
 
 Yes. Forme is open source under the MIT license. You can use it in personal and commercial projects without restrictions.

@@ -83,6 +83,7 @@ Install [Forme PDF Preview](https://marketplace.visualstudio.com/items?itemName=
 - **CSS shorthands**: `border: "1px solid #000"`, `padding: "8 16"`, `margin: [20, 40]` — CSS-style shorthand strings and arrays parse automatically.
 - **Document language**: `<Document lang="en-US">` sets the PDF `/Lang` tag for accessibility.
 - **Dynamic page numbers**: `{{pageNumber}}` and `{{totalPages}}` in any text element.
+- **Embedded data**: Attach structured JSON to any PDF. Recipients can extract the original data programmatically — invoices carry their line items, reports carry their datasets.
 
 ## Custom Fonts
 
@@ -172,6 +173,7 @@ Font sources can be file paths, data URIs, or `Uint8Array`. Fonts are automatica
 | VS Code extension | Native sidebar panels | No | No |
 | Canvas drawing | `<Canvas draw={...}>` for custom vector graphics | No | HTML Canvas (raster) |
 | Watermarks | Built-in `<Watermark>` component | No | Manual positioning |
+| Embedded data | Attach JSON to PDF, extract later | No | No |
 | Text overflow | `textOverflow: 'ellipsis'` | No | CSS `text-overflow` |
 | Font fallback | `fontFamily: "Inter, Helvetica"` | Single family only | Full CSS font stack |
 | Custom fonts | TTF with OpenType shaping | Yes | Yes |

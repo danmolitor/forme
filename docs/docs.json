@@ -28,7 +28,7 @@
       },
       {
         "group": "Reference",
-        "pages": ["components", "styles", "fonts", "page-breaks", "charts", "templates"]
+        "pages": ["components", "styles", "fonts", "page-breaks", "charts", "templates", "embedded-data"]
       },
       {
         "group": "Migration",

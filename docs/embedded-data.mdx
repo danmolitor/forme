@@ -1,0 +1,118 @@
+---
+title: Embedded Data
+sidebarTitle: Embedded Data
+description: Attach structured JSON data to PDFs and extract it programmatically. Make invoices, reports, and forms self-describing.
+---
+
+Forme can embed structured JSON data inside a PDF as a hidden file attachment. The PDF looks and prints identically — the data is invisible to viewers but can be extracted programmatically. This makes PDFs self-describing: an invoice carries its line items, a report carries its dataset.
+
+## Embedding data
+
+Pass `embedData` when rendering:
+
+```tsx
+import { Document, Page, Text } from '@formepdf/react';
+import { renderDocument } from '@formepdf/core';
+
+const invoiceData = {
+  number: 'INV-2024-001',
+  customer: 'Acme Corp',
+  items: [
+    { name: 'Widget Pro', qty: 5, price: 49 },
+    { name: 'Gadget Plus', qty: 2, price: 129 },
+  ],
+  total: 503,
+};
+
+const pdf = await renderDocument(
+  <Document>
+    <Page size="Letter" margin={54}>
+      <Text style={{ fontSize: 24, fontWeight: 'bold' }}>Invoice {invoiceData.number}</Text>
+      <Text>Total: ${invoiceData.total}</Text>
+    </Page>
+  </Document>,
+  { embedData: invoiceData }
+);
+```
+
+The `embedData` value can be any JSON-serializable object. It's compressed and stored as a `forme-data.json` file attachment inside the PDF.
+
+## Extracting data
+
+Use `extractData` to read the embedded JSON back out:
+
+```tsx
+import { extractData } from '@formepdf/core';
+import { readFileSync } from 'fs';
+
+const pdfBytes = readFileSync('invoice.pdf');
+const data = extractData(new Uint8Array(pdfBytes));
+
+if (data !== null) {
+  console.log(data);
+  // { number: 'INV-2024-001', customer: 'Acme Corp', items: [...], total: 503 }
+} else {
+  console.log('No embedded data in this PDF');
+}
+```
+
+`extractData` returns `null` for PDFs that don't contain embedded data (including non-Forme PDFs).
+
+## Three patterns
+
+### 1. Programmatic (opt-in)
+
+When using `@formepdf/core` directly, pass `embedData` in the options. You choose what to embed — it doesn't have to match the template data.
+
+```tsx
+// Embed full data
+const pdf = await renderDocument(element, { embedData: invoiceData });
+
+// Embed a subset
+const pdf = await renderDocument(element, { embedData: { id: invoice.id, total: invoice.total } });
+
+// Embed a reference
+const pdf = await renderDocument(element, { embedData: { recordId: 'inv_abc123' } });
+```
+
+### 2. Hosted API (automatic)
+
+The [Forme hosted API](https://formepdf.com) automatically embeds the request body into every rendered PDF. No opt-in needed.
+
+```bash
+# Render a PDF — data is embedded automatically
+curl -X POST https://api.formepdf.com/v1/render/invoice \
+  -H 'Authorization: Bearer forme_sk_...' \
+  -H 'Content-Type: application/json' \
+  -d '{"customer": "Acme", "total": 503}'
+
+# Extract the data back out
+curl -X POST https://api.formepdf.com/v1/extract \
+  -H 'Authorization: Bearer forme_sk_...' \
+  -H 'Content-Type: application/pdf' \
+  --data-binary @invoice.pdf
+# → {"data": {"customer": "Acme", "total": 503}}
+```
+
+### 3. Templates (automatic)
+
+When using `renderTemplate()`, the data JSON you pass is automatically embedded.
+
+```tsx
+import { renderTemplate } from '@formepdf/core';
+
+const pdf = await renderTemplate(templateJson, JSON.stringify({ customer: 'Acme', total: 503 }));
+// PDF contains the embedded data
+```
+
+## Use cases
+
+- **Invoice processing**: Accounting systems extract line items from PDFs without OCR.
+- **Form submissions**: PDF forms carry the structured form data for downstream systems.
+- **Archival**: Store the source data alongside its visual representation. Regenerate or audit later.
+- **Data exchange**: Send a PDF that's both human-readable and machine-readable. The recipient can parse the data or just read the document.
+- **Round-tripping**: Extract data from a PDF, modify it, re-render a new PDF.
+
+## How it works
+
+The data is stored as a FlateDecode-compressed EmbeddedFile stream in the PDF, referenced via a `/Names` tree with a `/FileSpec` entry pointing to `forme-data.json`. This follows the PDF 1.7 specification for file attachments. The attachment is invisible in PDF viewers but can be listed in some readers' attachment panels.

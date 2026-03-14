@@ -302,6 +302,19 @@ Pure React-layer components in `packages/react/src/charts.tsx`. Return `<View>` 
 ### PDF Standard Font Widths
 Standard fonts (Helvetica, Times, Courier) now emit `/Widths` arrays in the PDF font dictionary. Previously, PDF viewers substituted system fonts with potentially different metrics. The `/FirstChar 32 /LastChar 255 /Widths [...]` entries ensure viewers use our exact glyph widths, preventing text overflow and misaligned justification.
 
+### Embedded Data (PDF File Attachments)
+`renderDocument(element, { embedData })` and `renderDocumentWithLayout(element, { embedData })` attach a JSON object as a compressed `forme-data.json` EmbeddedFile inside the PDF. `extractData(pdfBytes)` reads it back. Three usage patterns:
+
+1. **Programmatic (opt-in)**: Pass `embedData` in the render options. The value is JSON-stringified and set as `doc.embeddedData` on the serialized document before WASM rendering.
+2. **Hosted API (automatic)**: `POST /v1/render/:slug` in the hosted API auto-embeds the request body. `POST /v1/extract` accepts raw PDF bytes and returns the embedded JSON.
+3. **Templates**: `renderTemplate()` embeds the data JSON automatically.
+
+Data flow: `options.embedData` → `JSON.stringify()` → `doc.embeddedData` (string) → `Document.embedded_data` (Rust `Option<String>`) → `PdfSerializer::serialize(embedded_data)` → FlateDecode-compressed stream in a `/Type /EmbeddedFile` object → `/Names` tree with `/FileSpec` referencing `forme-data.json`.
+
+Extraction: `extractData()` in `packages/core/src/extract.ts` scans PDF bytes for the `forme-data.json` FileSpec, finds the referenced stream object, decompresses (FlateDecode via `node:zlib`), and parses JSON. Returns `null` for PDFs without embedded data.
+
+Key files: `packages/core/src/index.ts` (RenderDocumentOptions.embedData), `packages/core/src/extract.ts` (extractData), `engine/src/model/mod.rs` (Document.embedded_data), `engine/src/pdf/mod.rs` (EmbeddedFile stream + Names tree), `engine/src/lib.rs` (passes embedded_data to serializer).
+
 ## Known Issues & Limitations (Current State)
 
 1. No variable font axis support.
