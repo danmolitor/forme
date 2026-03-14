@@ -115,6 +115,7 @@ fn default_doc(children: Vec<Node>) -> Document {
         tagged: false,
         pdfa: None,
         default_style: None,
+        embedded_data: None,
     }
 }
 
@@ -534,6 +535,7 @@ fn test_metadata_in_output() {
         tagged: false,
         pdfa: None,
         default_style: None,
+        embedded_data: None,
     };
     let bytes = render_to_pdf(&doc);
     assert_valid_pdf(&bytes);
@@ -670,6 +672,7 @@ fn render_with_custom_font(font_data: &[u8], text: &str) -> Vec<u8> {
         tagged: false,
         pdfa: None,
         default_style: None,
+        embedded_data: None,
     };
 
     let engine = LayoutEngine::new();
@@ -682,6 +685,7 @@ fn render_with_custom_font(font_data: &[u8], text: &str) -> Vec<u8> {
             &font_context,
             doc.tagged,
             doc.pdfa.as_ref(),
+            doc.embedded_data.as_deref(),
         )
         .unwrap()
 }
@@ -816,13 +820,14 @@ fn test_mixed_standard_and_custom_fonts() {
         tagged: false,
         pdfa: None,
         default_style: None,
+        embedded_data: None,
     };
 
     let engine = LayoutEngine::new();
     let pages = engine.layout(&doc, &font_context);
     let writer = PdfWriter::new();
     let bytes = writer
-        .write(&pages, &doc.metadata, &font_context, false, None)
+        .write(&pages, &doc.metadata, &font_context, false, None, None)
         .unwrap();
 
     assert_valid_pdf(&bytes);
@@ -3114,6 +3119,7 @@ fn test_breakable_view_with_background_splits_across_pages() {
         tagged: false,
         pdfa: None,
         default_style: None,
+        embedded_data: None,
     };
 
     let pages = layout_doc(&doc);
@@ -3189,6 +3195,7 @@ fn test_breakable_view_background_does_not_overlap_footer() {
         tagged: false,
         pdfa: None,
         default_style: None,
+        embedded_data: None,
     };
 
     let pages = layout_doc(&doc);
@@ -3255,6 +3262,7 @@ fn test_breakable_view_without_visual_stays_unwrapped() {
         tagged: false,
         pdfa: None,
         default_style: None,
+        embedded_data: None,
     };
 
     let pages = layout_doc(&doc);
@@ -3581,6 +3589,7 @@ fn test_breakable_view_continuation_page_has_top_padding() {
         tagged: false,
         pdfa: None,
         default_style: None,
+        embedded_data: None,
     };
 
     let pages = layout_doc(&doc);
@@ -3933,6 +3942,7 @@ fn test_document_lang_in_pdf_catalog() {
         tagged: false,
         pdfa: None,
         default_style: None,
+        embedded_data: None,
     };
     let bytes = render_to_pdf(&doc);
     assert_valid_pdf(&bytes);
@@ -4169,6 +4179,7 @@ fn test_justified_text_produces_valid_pdf() {
         tagged: false,
         pdfa: None,
         default_style: None,
+        embedded_data: None,
     };
 
     let bytes = forme::render(&doc).expect("Should render justified text");
@@ -4221,6 +4232,7 @@ fn test_lang_inherits_to_text_nodes() {
         tagged: false,
         pdfa: None,
         default_style: None,
+        embedded_data: None,
     };
 
     // Just verify it renders without error — lang cascading is tested at the unit level
@@ -4288,6 +4300,7 @@ fn test_per_node_lang_override() {
         tagged: false,
         pdfa: None,
         default_style: None,
+        embedded_data: None,
     };
 
     let bytes = forme::render(&doc).expect("Should render with per-node lang override");
@@ -4310,6 +4323,7 @@ fn test_tagged_pdf_has_struct_tree_root() {
         tagged: true,
         pdfa: None,
         default_style: None,
+        embedded_data: None,
     };
 
     let bytes = forme::render(&doc).unwrap();
@@ -4362,6 +4376,7 @@ fn test_tagged_pdf_parent_tree_consistency() {
         tagged: true,
         pdfa: None,
         default_style: None,
+        embedded_data: None,
     };
 
     let bytes = forme::render(&doc).unwrap();
@@ -4432,6 +4447,7 @@ fn test_tagged_pdf_nested_text_roles() {
         tagged: true,
         pdfa: None,
         default_style: None,
+        embedded_data: None,
     };
 
     let bytes = forme::render(&doc).unwrap();
@@ -4524,6 +4540,7 @@ fn test_tagged_pdf_table_th_td() {
         tagged: true,
         pdfa: None,
         default_style: None,
+        embedded_data: None,
     };
 
     let bytes = forme::render(&doc).unwrap();
@@ -4573,6 +4590,7 @@ fn test_tagged_pdf_figure_alt_text() {
         tagged: true,
         pdfa: None,
         default_style: None,
+        embedded_data: None,
     };
 
     let bytes = forme::render(&doc).unwrap();
@@ -4837,6 +4855,7 @@ fn test_qrcode_renders_to_pdf() {
         tagged: false,
         pdfa: None,
         default_style: None,
+        embedded_data: None,
     };
 
     let pdf = forme::render(&doc).expect("QR code should render to PDF");
@@ -4866,6 +4885,7 @@ fn test_qrcode_with_explicit_size() {
         tagged: false,
         pdfa: None,
         default_style: None,
+        embedded_data: None,
     };
 
     let (pdf, layout) = forme::render_with_layout(&doc).expect("Should render");
@@ -4907,6 +4927,7 @@ fn test_qrcode_page_break() {
         tagged: false,
         pdfa: None,
         default_style: None,
+        embedded_data: None,
     };
 
     let (pdf, layout) = forme::render_with_layout(&doc).expect("Should render");
@@ -4960,6 +4981,7 @@ fn test_font_fallback_chain_in_document() {
         tagged: false,
         pdfa: None,
         default_style: None,
+        embedded_data: None,
     };
 
     let pdf = forme::render(&doc).expect("Fallback chain should render");
@@ -5034,6 +5056,7 @@ fn test_text_overflow_ellipsis_single_line() {
         tagged: false,
         pdfa: None,
         default_style: None,
+        embedded_data: None,
     };
 
     let (_pdf, layout) = forme::render_with_layout(&doc).expect("Should render");
@@ -5403,11 +5426,87 @@ fn test_document_default_style() {
             font_size: Some(16.0),
             ..Default::default()
         }),
+        embedded_data: None,
     };
     let pdf = render_to_pdf(&doc);
     let pdf_str = String::from_utf8_lossy(&pdf);
     assert!(
         pdf_str.contains("Courier"),
         "PDF should use Courier from document default_style"
+    );
+}
+
+// ─── Embedded Data Tests ────────────────────────────────────────
+
+#[test]
+fn test_embedded_data_round_trip() {
+    let data = r#"{"invoice":123,"items":["widget","gadget"]}"#;
+    let doc = Document {
+        children: vec![Node::page(
+            PageConfig::default(),
+            Style::default(),
+            vec![make_text("Invoice", 12.0)],
+        )],
+        metadata: Metadata::default(),
+        default_page: PageConfig::default(),
+        fonts: vec![],
+        tagged: false,
+        pdfa: None,
+        default_style: None,
+        embedded_data: Some(data.to_string()),
+    };
+    let pdf = render_to_pdf(&doc);
+    assert_valid_pdf(&pdf);
+    let pdf_str = String::from_utf8_lossy(&pdf);
+    assert!(
+        pdf_str.contains("forme-data.json"),
+        "PDF should contain embedded file name"
+    );
+    assert!(
+        pdf_str.contains("/Type /EmbeddedFile"),
+        "PDF should contain EmbeddedFile object"
+    );
+    assert!(
+        pdf_str.contains("/Type /Filespec"),
+        "PDF should contain Filespec object"
+    );
+    assert!(
+        pdf_str.contains("/EmbeddedFiles"),
+        "Catalog should reference EmbeddedFiles"
+    );
+    assert!(
+        pdf_str.contains("/AFRelationship /Data"),
+        "Filespec should have AFRelationship"
+    );
+}
+
+#[test]
+fn test_no_embedded_data() {
+    let doc = default_doc(vec![make_text("Hello", 12.0)]);
+    let pdf = render_to_pdf(&doc);
+    assert_valid_pdf(&pdf);
+    let pdf_str = String::from_utf8_lossy(&pdf);
+    assert!(
+        !pdf_str.contains("forme-data.json"),
+        "PDF without embedded data should not contain forme-data.json"
+    );
+    assert!(
+        !pdf_str.contains("/EmbeddedFiles"),
+        "PDF without embedded data should not have EmbeddedFiles"
+    );
+}
+
+#[test]
+fn test_embedded_data_via_json() {
+    let json = r#"{
+        "children": [{ "kind": { "type": "Text", "content": "Test" }, "style": {}, "children": [] }],
+        "embeddedData": "{\"key\":\"value\"}"
+    }"#;
+    let pdf = forme::render_json(json).unwrap();
+    assert!(pdf.starts_with(b"%PDF-1.7"));
+    let pdf_str = String::from_utf8_lossy(&pdf);
+    assert!(
+        pdf_str.contains("forme-data.json"),
+        "JSON-deserialized embedded data should be present in PDF"
     );
 }

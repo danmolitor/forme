@@ -236,6 +236,7 @@ fn visual_invoice() {
         tagged: false,
         pdfa: None,
         default_style: None,
+        embedded_data: None,
     };
 
     let pdf = forme::render(&doc).unwrap();
@@ -269,6 +270,7 @@ fn visual_multi_page_text() {
         tagged: false,
         pdfa: None,
         default_style: None,
+        embedded_data: None,
     };
 
     let pdf = forme::render(&doc).unwrap();
@@ -398,6 +400,7 @@ fn visual_table_header_repetition() {
         tagged: false,
         pdfa: None,
         default_style: None,
+        embedded_data: None,
     };
 
     let pdf = forme::render(&doc).unwrap();
@@ -448,6 +451,7 @@ fn visual_flex_layout() {
         tagged: false,
         pdfa: None,
         default_style: None,
+        embedded_data: None,
     };
 
     let pdf = forme::render(&doc).unwrap();
@@ -498,6 +502,7 @@ fn visual_justified_text() {
         tagged: false,
         pdfa: None,
         default_style: None,
+        embedded_data: None,
     };
 
     let pdf = forme::render(&doc).unwrap();
@@ -572,6 +577,7 @@ fn visual_line_breaking_greedy_vs_optimal() {
         tagged: false,
         pdfa: None,
         default_style: None,
+        embedded_data: None,
     };
 
     let pdf = forme::render(&doc).unwrap();
@@ -648,6 +654,7 @@ fn visual_text_alignment() {
         tagged: false,
         pdfa: None,
         default_style: None,
+        embedded_data: None,
     };
 
     let pdf = forme::render(&doc).unwrap();
@@ -674,6 +681,7 @@ fn visual_tagged_no_visual_change() {
         tagged: false,
         pdfa: None,
         default_style: None,
+        embedded_data: None,
     };
 
     let doc_tagged = Document {
@@ -688,6 +696,7 @@ fn visual_tagged_no_visual_change() {
         tagged: true,
         pdfa: None,
         default_style: None,
+        embedded_data: None,
     };
 
     let pdf_untagged = forme::render(&doc_untagged).unwrap();

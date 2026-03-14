@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { renderPdf, renderPdfWithLayout, renderDocument } from '../src/index';
+import { renderPdf, renderPdfWithLayout, renderDocument, extractData } from '../src/index';
 
 function minimalDoc(children: unknown[]) {
   return JSON.stringify({ children });
@@ -166,5 +166,56 @@ describe('renderDocument', () => {
     const bytes = await renderDocument(element);
     expect(bytes).toBeInstanceOf(Uint8Array);
     expect(bytes.length).toBeGreaterThan(100);
+  });
+
+  it('round-trips embedded data through renderDocument + extractData', async () => {
+    await loadModules();
+    const { Document, Text } = Components;
+    const data = { invoice: 123, items: ['widget', 'gadget'] };
+    const element = React.createElement(Document, null,
+      React.createElement(Text, null, 'Invoice')
+    );
+    const bytes = await renderDocument(element, { embedData: data });
+    const extracted = extractData(bytes);
+    expect(extracted).toEqual(data);
+  });
+});
+
+describe('extractData', () => {
+  it('round-trips JSON data through PDF', async () => {
+    const data = { invoice: 456, customer: 'Acme Corp' };
+    const json = JSON.stringify({
+      children: [{ kind: { type: 'Text', content: 'Test' }, style: {} }],
+      embeddedData: JSON.stringify(data),
+    });
+    const pdf = await renderPdf(json);
+    const extracted = extractData(pdf);
+    expect(extracted).toEqual(data);
+  });
+
+  it('returns null for PDFs without embedded data', async () => {
+    const json = JSON.stringify({
+      children: [{ kind: { type: 'Text', content: 'No data' }, style: {} }],
+    });
+    const pdf = await renderPdf(json);
+    const extracted = extractData(pdf);
+    expect(extracted).toBeNull();
+  });
+
+  it('returns null for non-Forme PDF bytes', () => {
+    const fakePdf = new TextEncoder().encode('%PDF-1.7\n1 0 obj\n<< >>\nendobj\n%%EOF');
+    const extracted = extractData(new Uint8Array(fakePdf));
+    expect(extracted).toBeNull();
+  });
+
+  it('handles large payloads', async () => {
+    const largeData = { items: Array.from({ length: 1000 }, (_, i) => ({ id: i, name: `item-${i}` })) };
+    const json = JSON.stringify({
+      children: [{ kind: { type: 'Text', content: 'Large' }, style: {} }],
+      embeddedData: JSON.stringify(largeData),
+    });
+    const pdf = await renderPdf(json);
+    const extracted = extractData(pdf);
+    expect(extracted).toEqual(largeData);
   });
 });

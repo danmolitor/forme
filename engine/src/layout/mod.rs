@@ -4883,6 +4883,7 @@ mod tests {
             tagged: false,
             pdfa: None,
             default_style: None,
+            embedded_data: None,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -4937,6 +4938,7 @@ mod tests {
             tagged: false,
             pdfa: None,
             default_style: None,
+            embedded_data: None,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -4992,6 +4994,7 @@ mod tests {
             tagged: false,
             pdfa: None,
             default_style: None,
+            embedded_data: None,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -5058,6 +5061,7 @@ mod tests {
             tagged: false,
             pdfa: None,
             default_style: None,
+            embedded_data: None,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -5203,6 +5207,7 @@ mod tests {
             tagged: false,
             pdfa: None,
             default_style: None,
+            embedded_data: None,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -5268,6 +5273,7 @@ mod tests {
             tagged: false,
             pdfa: None,
             default_style: None,
+            embedded_data: None,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -5345,6 +5351,7 @@ mod tests {
             tagged: false,
             pdfa: None,
             default_style: None,
+            embedded_data: None,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -5400,6 +5407,7 @@ mod tests {
             tagged: false,
             pdfa: None,
             default_style: None,
+            embedded_data: None,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -5466,6 +5474,7 @@ mod tests {
             tagged: false,
             pdfa: None,
             default_style: None,
+            embedded_data: None,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -5543,6 +5552,7 @@ mod tests {
             tagged: false,
             pdfa: None,
             default_style: None,
+            embedded_data: None,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -5619,6 +5629,7 @@ mod tests {
             tagged: false,
             pdfa: None,
             default_style: None,
+            embedded_data: None,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -5689,6 +5700,7 @@ mod tests {
             tagged: false,
             pdfa: None,
             default_style: None,
+            embedded_data: None,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -5751,6 +5763,7 @@ mod tests {
             tagged: false,
             pdfa: None,
             default_style: None,
+            embedded_data: None,
         };
 
         let pages = engine.layout(&doc, &font_context);

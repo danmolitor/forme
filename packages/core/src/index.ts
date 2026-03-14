@@ -160,16 +160,27 @@ export async function renderPdfWithLayout(json: string): Promise<RenderWithLayou
   return result;
 }
 
-export async function renderDocument(element: ReactElement): Promise<Uint8Array> {
+export interface RenderDocumentOptions {
+  /** Data to embed as a hidden JSON attachment in the PDF. */
+  embedData?: unknown;
+}
+
+export async function renderDocument(element: ReactElement, options?: RenderDocumentOptions): Promise<Uint8Array> {
   const { serialize } = await import('@formepdf/react');
   const doc = serialize(element) as unknown as Record<string, unknown>;
+  if (options?.embedData !== undefined) {
+    doc.embeddedData = JSON.stringify(options.embedData);
+  }
   await Promise.all([resolveFonts(doc), resolveImages(doc)]);
   return renderPdf(JSON.stringify(doc));
 }
 
-export async function renderDocumentWithLayout(element: ReactElement): Promise<RenderWithLayoutResult> {
+export async function renderDocumentWithLayout(element: ReactElement, options?: RenderDocumentOptions): Promise<RenderWithLayoutResult> {
   const { serialize } = await import('@formepdf/react');
   const doc = serialize(element) as unknown as Record<string, unknown>;
+  if (options?.embedData !== undefined) {
+    doc.embeddedData = JSON.stringify(options.embedData);
+  }
   await Promise.all([resolveFonts(doc), resolveImages(doc)]);
   return renderPdfWithLayout(JSON.stringify(doc));
 }
@@ -188,3 +199,7 @@ export async function renderTemplateWithLayout(templateJson: string, dataJson: s
   const result = render_template_pdf_with_layout(templateJson, dataJson) as { pdf: Uint8Array; layout: LayoutInfo };
   return result;
 }
+
+// ── Data extraction ──────────────────────────────────────────────────
+
+export { extractData } from './extract.js';

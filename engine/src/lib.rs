@@ -65,6 +65,7 @@ pub fn render(document: &Document) -> Result<Vec<u8>, FormeError> {
         &font_context,
         tagged,
         document.pdfa.as_ref(),
+        document.embedded_data.as_deref(),
     )
 }
 
@@ -86,6 +87,7 @@ pub fn render_with_layout(document: &Document) -> Result<(Vec<u8>, LayoutInfo), 
         &font_context,
         tagged,
         document.pdfa.as_ref(),
+        document.embedded_data.as_deref(),
     )?;
     Ok((pdf, layout_info))
 }

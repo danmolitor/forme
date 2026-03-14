@@ -128,6 +128,7 @@ impl PdfWriter {
         font_context: &FontContext,
         tagged: bool,
         pdfa: Option<&PdfAConformance>,
+        embedded_data: Option<&str>,
     ) -> Result<Vec<u8>, FormeError> {
         let mut builder = PdfBuilder {
             objects: Vec::new(),
@@ -402,6 +403,48 @@ impl PdfWriter {
             None
         };
 
+        // Embedded data attachment (PDF 1.7 EmbeddedFile)
+        let embedded_names_id = if let Some(data) = embedded_data {
+            let compressed = compress_to_vec_zlib(data.as_bytes(), 6);
+
+            // EmbeddedFile stream
+            let ef_obj_id = builder.objects.len();
+            let ef_data = format!(
+                "<< /Type /EmbeddedFile /Subtype /application#2Fjson /Length {} /Filter /FlateDecode >>\nstream\n",
+                compressed.len()
+            );
+            let mut ef_bytes = ef_data.into_bytes();
+            ef_bytes.extend_from_slice(&compressed);
+            ef_bytes.extend_from_slice(b"\nendstream");
+            builder.objects.push(PdfObject {
+                id: ef_obj_id,
+                data: ef_bytes,
+            });
+
+            // FileSpec dictionary
+            let fs_obj_id = builder.objects.len();
+            let fs_data = format!(
+                "<< /Type /Filespec /F (forme-data.json) /UF (forme-data.json) /EF << /F {} 0 R >> /AFRelationship /Data >>",
+                ef_obj_id
+            );
+            builder.objects.push(PdfObject {
+                id: fs_obj_id,
+                data: fs_data.into_bytes(),
+            });
+
+            // Names tree for EmbeddedFiles
+            let names_obj_id = builder.objects.len();
+            let names_data = format!("<< /Names [(forme-data.json) {} 0 R] >>", fs_obj_id);
+            builder.objects.push(PdfObject {
+                id: names_obj_id,
+                data: names_data.into_bytes(),
+            });
+
+            Some(names_obj_id)
+        } else {
+            None
+        };
+
         // Write Catalog (object 1)
         let mut catalog = String::from("<< /Type /Catalog /Pages 2 0 R");
         if let Some(outlines_id) = outlines_obj_id {
@@ -428,6 +471,9 @@ impl PdfWriter {
         }
         if let Some(oi_id) = output_intent_id {
             write!(catalog, " /OutputIntents [{} 0 R]", oi_id).unwrap();
+        }
+        if let Some(names_id) = embedded_names_id {
+            write!(catalog, " /Names << /EmbeddedFiles {} 0 R >>", names_id).unwrap();
         }
         catalog.push_str(" >>");
         builder.objects[1].data = catalog.into_bytes();
@@ -2189,7 +2235,7 @@ mod tests {
         }];
         let metadata = Metadata::default();
         let bytes = writer
-            .write(&pages, &metadata, &font_context, false, None)
+            .write(&pages, &metadata, &font_context, false, None, None)
             .unwrap();
 
         assert!(bytes.starts_with(b"%PDF-1.7"));
@@ -2219,7 +2265,7 @@ mod tests {
             lang: None,
         };
         let bytes = writer
-            .write(&pages, &metadata, &font_context, false, None)
+            .write(&pages, &metadata, &font_context, false, None, None)
             .unwrap();
         let text = String::from_utf8_lossy(&bytes);
 
@@ -2332,7 +2378,7 @@ mod tests {
 
         let metadata = Metadata::default();
         let bytes = writer
-            .write(&pages, &metadata, &font_context, false, None)
+            .write(&pages, &metadata, &font_context, false, None, None)
             .unwrap();
         let text = String::from_utf8_lossy(&bytes);
 
@@ -2489,7 +2535,7 @@ mod tests {
 
         let metadata = Metadata::default();
         let bytes = writer
-            .write(&pages, &metadata, &font_context, false, None)
+            .write(&pages, &metadata, &font_context, false, None, None)
             .unwrap();
         let text = String::from_utf8_lossy(&bytes);
 

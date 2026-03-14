@@ -46,6 +46,11 @@ pub struct Document {
     /// PDF/A conformance level. When set, forces `tagged = true` for "2a".
     #[serde(default)]
     pub pdfa: Option<PdfAConformance>,
+
+    /// Optional JSON string to embed as an attached file in the PDF.
+    /// Enables round-tripping structured data through PDF files.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub embedded_data: Option<String>,
 }
 
 /// PDF/A conformance level.
