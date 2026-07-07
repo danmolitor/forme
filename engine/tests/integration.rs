@@ -10658,3 +10658,133 @@ fn test_table_long_header_text_no_page_contamination() {
     let bytes = render_to_pdf(&doc);
     assert_valid_pdf(&bytes);
 }
+
+// ─── SVG stroke-linecap / stroke-linejoin ────────────────────────
+
+#[test]
+fn test_svg_stroke_linecap_round_emits_pdf_j_operator() {
+    // Regression (GitHub issue, 2026-07): SVG paths with
+    // stroke-linecap="round" rendered with default butt caps. The parser
+    // read fill/stroke/stroke-width/opacity but silently dropped
+    // stroke-linecap and stroke-linejoin, so SvgCommand::SetLineCap was
+    // never emitted for SVG content (only from the Canvas API). Segment
+    // junctions in signature/scribble drawings looked staircased instead
+    // of smoothly joined.
+    let doc = default_doc(vec![Node {
+        kind: NodeKind::Svg {
+            width: 200.0,
+            height: 100.0,
+            view_box: Some("0 0 200 100".to_string()),
+            content: r##"<path d="M 10 10 L 100 90" stroke="black" stroke-width="4" fill="none" stroke-linecap="round"/>"##.to_string(),
+        },
+        style: Style::default(),
+        children: vec![],
+        id: None,
+        source_location: None,
+        bookmark: None,
+        href: None,
+        alt: None,
+    }]);
+    let pdf = render_to_pdf(&doc);
+    assert_valid_pdf(&pdf);
+
+    let streams = decompress_pdf_streams(&pdf);
+    assert!(
+        streams.contains("1 J"),
+        "PDF content stream should contain `1 J` (round linecap). Streams:\n{}",
+        streams
+    );
+}
+
+#[test]
+fn test_svg_stroke_linecap_default_emits_butt() {
+    let doc = default_doc(vec![Node {
+        kind: NodeKind::Svg {
+            width: 200.0,
+            height: 100.0,
+            view_box: Some("0 0 200 100".to_string()),
+            content:
+                r##"<path d="M 10 10 L 100 90" stroke="black" stroke-width="4" fill="none"/>"##
+                    .to_string(),
+        },
+        style: Style::default(),
+        children: vec![],
+        id: None,
+        source_location: None,
+        bookmark: None,
+        href: None,
+        alt: None,
+    }]);
+    let pdf = render_to_pdf(&doc);
+    assert_valid_pdf(&pdf);
+
+    let streams = decompress_pdf_streams(&pdf);
+    assert!(
+        streams.contains("0 J"),
+        "PDF content stream should contain `0 J` (butt linecap, default). Streams:\n{}",
+        streams
+    );
+    assert!(
+        !streams.contains("1 J") && !streams.contains("2 J"),
+        "No round/square linecap should appear without an explicit attribute. Streams:\n{}",
+        streams
+    );
+}
+
+#[test]
+fn test_svg_stroke_linejoin_round_emits_pdf_j_operator() {
+    let doc = default_doc(vec![Node {
+        kind: NodeKind::Svg {
+            width: 200.0,
+            height: 100.0,
+            view_box: Some("0 0 200 100".to_string()),
+            content: r##"<path d="M 10 10 L 50 90 L 100 10" stroke="black" stroke-width="4" fill="none" stroke-linejoin="round"/>"##.to_string(),
+        },
+        style: Style::default(),
+        children: vec![],
+        id: None,
+        source_location: None,
+        bookmark: None,
+        href: None,
+        alt: None,
+    }]);
+    let pdf = render_to_pdf(&doc);
+    assert_valid_pdf(&pdf);
+
+    let streams = decompress_pdf_streams(&pdf);
+    assert!(
+        streams.contains("1 j"),
+        "PDF content stream should contain `1 j` (round linejoin). Streams:\n{}",
+        streams
+    );
+}
+
+#[test]
+fn test_svg_stroke_linecap_inherited_from_group() {
+    // <g stroke-linecap="round"> ... <path .../> </g> — the path should
+    // inherit the round cap from its group ancestor.
+    let doc = default_doc(vec![Node {
+        kind: NodeKind::Svg {
+            width: 200.0,
+            height: 100.0,
+            view_box: Some("0 0 200 100".to_string()),
+            content: r##"<g stroke-linecap="round"><path d="M 10 10 L 100 90" stroke="black" stroke-width="4" fill="none"/></g>"##.to_string(),
+        },
+        style: Style::default(),
+        children: vec![],
+        id: None,
+        source_location: None,
+        bookmark: None,
+        href: None,
+        alt: None,
+    }]);
+    let pdf = render_to_pdf(&doc);
+    assert_valid_pdf(&pdf);
+
+    let streams = decompress_pdf_streams(&pdf);
+    assert!(
+        streams.contains("1 J"),
+        "PDF content stream should contain `1 J` (round linecap inherited from <g>). Streams:\n{}",
+        streams
+    );
+}

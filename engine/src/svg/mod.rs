@@ -71,6 +71,10 @@ pub fn parse_svg(
     let mut stroke_stack: Vec<Option<(f64, f64, f64)>> = vec![None];
     let mut stroke_width_stack: Vec<f64> = vec![1.0];
     let mut opacity_stack: Vec<f64> = vec![1.0];
+    // PDF J/j operator values: linecap butt=0, round=1, square=2;
+    // linejoin miter=0, round=1, bevel=2. Same defaults as SVG.
+    let mut linecap_stack: Vec<u32> = vec![0];
+    let mut linejoin_stack: Vec<u32> = vec![0];
 
     let mut buf = Vec::new();
 
@@ -86,6 +90,8 @@ pub fn parse_svg(
                     stroke_stack.pop();
                     stroke_width_stack.pop();
                     opacity_stack.pop();
+                    linecap_stack.pop();
+                    linejoin_stack.pop();
                     commands.push(SvgCommand::RestoreState);
                 }
                 buf.clear();
@@ -131,6 +137,15 @@ pub fn parse_svg(
                 .and_then(|s| s.parse::<f64>().ok())
                 .unwrap_or(*stroke_width_stack.last().unwrap_or(&1.0));
 
+            let current_linecap = get_attr(e, "stroke-linecap")
+                .as_deref()
+                .and_then(parse_linecap)
+                .unwrap_or(*linecap_stack.last().unwrap_or(&0));
+            let current_linejoin = get_attr(e, "stroke-linejoin")
+                .as_deref()
+                .and_then(parse_linejoin)
+                .unwrap_or(*linejoin_stack.last().unwrap_or(&0));
+
             let inherited_opacity = *opacity_stack.last().unwrap_or(&1.0);
             let element_opacity = get_attr_f64(e, "opacity").unwrap_or(1.0);
             let fill_opacity = get_attr_f64(e, "fill-opacity").unwrap_or(1.0);
@@ -149,6 +164,8 @@ pub fn parse_svg(
                     stroke_stack.push(current_stroke);
                     stroke_width_stack.push(current_sw);
                     opacity_stack.push(inherited_opacity * element_opacity);
+                    linecap_stack.push(current_linecap);
+                    linejoin_stack.push(current_linejoin);
                 }
                 "rect" => {
                     let x = get_attr_f64(e, "x").unwrap_or(0.0);
@@ -161,6 +178,8 @@ pub fn parse_svg(
                         current_fill,
                         current_stroke,
                         current_sw,
+                        current_linecap,
+                        current_linejoin,
                         effective_opacity,
                         || {
                             vec![
@@ -183,6 +202,8 @@ pub fn parse_svg(
                         current_fill,
                         current_stroke,
                         current_sw,
+                        current_linecap,
+                        current_linejoin,
                         effective_opacity,
                         || ellipse_commands(cx, cy, r, r),
                     );
@@ -198,6 +219,8 @@ pub fn parse_svg(
                         current_fill,
                         current_stroke,
                         current_sw,
+                        current_linecap,
+                        current_linejoin,
                         effective_opacity,
                         || ellipse_commands(cx, cy, rx, ry),
                     );
@@ -214,6 +237,8 @@ pub fn parse_svg(
                         None,
                         current_stroke,
                         current_sw,
+                        current_linecap,
+                        current_linejoin,
                         effective_opacity,
                         || vec![SvgCommand::MoveTo(x1, y1), SvgCommand::LineTo(x2, y2)],
                     );
@@ -228,6 +253,8 @@ pub fn parse_svg(
                             current_fill,
                             current_stroke,
                             current_sw,
+                            current_linecap,
+                            current_linejoin,
                             effective_opacity,
                             || {
                                 let mut cmds = Vec::new();
@@ -252,6 +279,8 @@ pub fn parse_svg(
                             current_fill,
                             current_stroke,
                             current_sw,
+                            current_linecap,
+                            current_linejoin,
                             effective_opacity,
                             || path_cmds.clone(),
                         );
@@ -266,11 +295,14 @@ pub fn parse_svg(
     commands
 }
 
+#[allow(clippy::too_many_arguments)]
 fn emit_shape(
     commands: &mut Vec<SvgCommand>,
     fill: Option<(f64, f64, f64)>,
     stroke: Option<(f64, f64, f64)>,
     stroke_width: f64,
+    linecap: u32,
+    linejoin: u32,
     opacity: f64,
     path_fn: impl FnOnce() -> Vec<SvgCommand>,
 ) {
@@ -293,6 +325,11 @@ fn emit_shape(
     if let Some((r, g, b)) = stroke {
         commands.push(SvgCommand::SetStroke(r, g, b));
         commands.push(SvgCommand::SetStrokeWidth(stroke_width));
+        // Emit unconditionally inside the q/Q wrapper: even for the default
+        // (butt/miter = 0), an enclosing <g> may have set a non-default
+        // graphics state that would otherwise leak into this shape.
+        commands.push(SvgCommand::SetLineCap(linecap));
+        commands.push(SvgCommand::SetLineJoin(linejoin));
     }
 
     commands.extend(path_fn());
@@ -795,6 +832,30 @@ fn get_attr(e: &quick_xml::events::BytesStart, name: &str) -> Option<String> {
 
 fn get_attr_f64(e: &quick_xml::events::BytesStart, name: &str) -> Option<f64> {
     get_attr(e, name).and_then(|s| s.parse::<f64>().ok())
+}
+
+/// Parse the SVG `stroke-linecap` attribute to a PDF `J` operator value.
+/// Maps butt=0, round=1, square=2 per PDF 32000-1:2008 §8.4.3.3.
+fn parse_linecap(s: &str) -> Option<u32> {
+    match s.trim() {
+        "butt" => Some(0),
+        "round" => Some(1),
+        "square" => Some(2),
+        _ => None,
+    }
+}
+
+/// Parse the SVG `stroke-linejoin` attribute to a PDF `j` operator value.
+/// Maps miter=0, round=1, bevel=2 per PDF 32000-1:2008 §8.4.3.4. SVG's
+/// `miter-clip` and `arcs` values are not supported by PDF and fall back
+/// to miter.
+fn parse_linejoin(s: &str) -> Option<u32> {
+    match s.trim() {
+        "miter" | "miter-clip" | "arcs" => Some(0),
+        "round" => Some(1),
+        "bevel" => Some(2),
+        _ => None,
+    }
 }
 
 #[cfg(test)]
