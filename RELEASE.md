@@ -23,29 +23,39 @@ cargo fmt
 cargo clippy -- -W clippy::all
 cargo test
 
-# 2. React (JSX components, serialize, types)
+# 2. Shared (framework-neutral serialize core — no runtime deps)
+cd packages/shared
+npm run build
+
+# 3. React (JSX components, serialize, types — depends on shared)
 cd packages/react
 npm run build
 npm test
 
-# 3. Core (WASM bridge — compiles engine to WebAssembly)
+# 4. Core (WASM bridge — compiles engine to WebAssembly)
 cd packages/core
 npm run build    # runs wasm-pack + tsc
 
-# 4. Renderer (shared render pipeline — depends on react + core)
+# 5. Renderer (shared render pipeline — depends on react + core)
 cd packages/renderer
 npm run build
 npm test
 
-# 5. CLI (dev server + build command — depends on renderer)
+# 6. Svelte adapter (SSR-then-parse — depends on shared, optional peer on core)
+cd packages/svelte
+npm run build    # runs embed-preview + svelte-package
+npm run check    # svelte-check typecheck
+npm test         # requires core built above
+
+# 7. CLI (dev server + build command — depends on renderer)
 cd packages/cli
 npm run build
 
-# 6. VS Code extension (depends on renderer)
+# 8. VS Code extension (depends on renderer)
 cd packages/vscode
 npm run build    # esbuild bundle + copies WASM + preview HTML
 
-# 7. Integration and utility packages (depend on react + core)
+# 9. Integration and utility packages (depend on react + core)
 cd packages/hono && npm run build
 cd packages/next && npm run build
 cd packages/mcp && npm run build
@@ -75,9 +85,11 @@ bash templates/build_wasm.sh   # or copy from engine target:
 Files to update when bumping (e.g. 0.8.3 -> 0.9.0):
 
 ### npm packages
+- [ ] `packages/shared/package.json`
 - [ ] `packages/react/package.json`
 - [ ] `packages/core/package.json`
 - [ ] `packages/renderer/package.json`
+- [ ] `packages/svelte/package.json`
 - [ ] `packages/cli/package.json`
 - [ ] `packages/hono/package.json`
 - [ ] `packages/next/package.json`
@@ -112,8 +124,10 @@ After bumping the engine/server/rasterizer versions, **two Dockerfiles** still r
 
 ### Cross-package dependency references
 Update peer/runtime dependencies that pin to the formepdf packages:
+- [ ] `packages/react/package.json` — `@formepdf/shared`
 - [ ] `packages/core/package.json` — `@formepdf/react`
 - [ ] `packages/renderer/package.json` — `@formepdf/core`, `@formepdf/react`
+- [ ] `packages/svelte/package.json` — `@formepdf/shared` (dep), `@formepdf/core` (optional peer, `^` range)
 - [ ] `packages/cli/package.json` — `@formepdf/renderer`
 - [ ] `packages/vscode/package.json` — `@formepdf/renderer`
 - [ ] `packages/hono/package.json` — `@formepdf/react`, `@formepdf/core`
@@ -127,9 +141,11 @@ Update peer/runtime dependencies that pin to the formepdf packages:
 ### Changelogs
 - [ ] `engine/CHANGELOG.md`
 - [ ] `server/CHANGELOG.md`
+- [ ] `packages/shared/CHANGELOG.md`
 - [ ] `packages/react/CHANGELOG.md`
 - [ ] `packages/core/CHANGELOG.md`
 - [ ] `packages/renderer/CHANGELOG.md`
+- [ ] `packages/svelte/CHANGELOG.md`
 - [ ] `packages/cli/CHANGELOG.md`
 - [ ] `packages/hono/CHANGELOG.md`
 - [ ] `packages/next/CHANGELOG.md`
@@ -143,6 +159,7 @@ Update peer/runtime dependencies that pin to the formepdf packages:
 ### READMEs (if new components, APIs, or capabilities were added)
 - [ ] `README.md` (root) — features list, component table
 - [ ] `packages/react/README.md` — component list, usage examples
+- [ ] `packages/svelte/README.md` — component list, usage examples (Svelte adapter)
 - [ ] `packages/core/README.md` — API surface, render functions
 - [ ] `packages/cli/README.md` — CLI commands, flags
 
@@ -167,9 +184,12 @@ cd forme-go && git status --short # should be empty (the Go SDK is its own repo)
 
 # 2. Engine + all packages must build cleanly
 cd forme/engine && cargo build --release && cargo fmt --check && cargo clippy -- -D warnings
+cd forme/packages/shared && npm run build    # must build first — react depends on it
 cd forme/packages/react && npm run build
 cd forme/packages/core && npm run build      # rebuilds WASM (pkg/ + pkg-node/)
 cd forme/packages/renderer && npm run build
+cd forme/packages/svelte && npm run build    # embed-preview + svelte-package
+cd forme/packages/svelte && npm run check    # svelte-check typecheck
 cd forme/packages/cli && npm run build
 cd forme/packages/vscode && npm run build    # copies WASM from core
 cd forme/packages/hono && npm run build
@@ -185,6 +205,7 @@ cd forme/engine && cargo test
 cd forme/packages/react && npm test
 cd forme/packages/core && npm test
 cd forme/packages/renderer && npm test
+cd forme/packages/svelte && npm test          # requires core built above
 cd forme/packages/cli && npm test
 cd forme/packages/hono && npm test
 cd forme/packages/next && npm test
@@ -221,9 +242,11 @@ A clean audit is not a guarantee — it only proves the *lockfile* doesn't refer
 ### npm packages
 
 ```bash
+cd packages/shared && npm publish --access public   # must publish first — react depends on it
 cd packages/react && npm publish --access public
 cd packages/core && npm publish --access public
 cd packages/renderer && npm publish --access public
+cd packages/svelte && npm publish --access public
 cd packages/cli && npm publish --access public
 cd packages/hono && npm publish --access public
 cd packages/next && npm publish --access public
