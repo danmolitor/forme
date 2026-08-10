@@ -71,6 +71,13 @@ jobs:
       - name: Build Templates
         working-directory: packages/templates
         run: npm run build
+      - name: Build Tailwind
+        # Needed by Test Svelte: svelte's tailwind fixtures import
+        # `tw` from @formepdf/tailwind, and vite resolves the package
+        # via its main/module/exports fields which only exist after
+        # tsc emits dist/.
+        working-directory: packages/tailwind
+        run: npm run build
       - name: Build CLI
         working-directory: packages/cli
         run: npm run build
