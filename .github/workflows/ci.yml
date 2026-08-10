@@ -45,16 +45,10 @@ jobs:
       - name: Build React package
         working-directory: packages/react
         run: npm run build
-      - name: Build Svelte package
-        working-directory: packages/svelte
-        run: npm run build
-      - name: Check Svelte package (svelte-check)
-        working-directory: packages/svelte
-        run: npm run check
-      - name: Build Templates
-        working-directory: packages/templates
-        run: npm run build
       - name: Build Core (WASM + TS)
+        # Must build before Svelte's check step: svelte-check typechecks
+        # render-document.ts and preview/index.ts, both of which import
+        # types from @formepdf/core.
         working-directory: packages/core
         run: npm run build
       - name: Assert Core tarball layout
@@ -67,6 +61,15 @@ jobs:
         run: bash ./scripts/assert-tarball.sh
       - name: Build Renderer
         working-directory: packages/renderer
+        run: npm run build
+      - name: Build Svelte package
+        working-directory: packages/svelte
+        run: npm run build
+      - name: Check Svelte package (svelte-check)
+        working-directory: packages/svelte
+        run: npm run check
+      - name: Build Templates
+        working-directory: packages/templates
         run: npm run build
       - name: Build CLI
         working-directory: packages/cli
