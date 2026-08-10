@@ -6,6 +6,8 @@ description: How to migrate from @react-pdf/renderer to Forme. Fix page break is
 
 If you are hitting page break issues, broken flex layouts across pages, or missing table header repetition in react-pdf, Forme fixes all of these. The two libraries share a similar component API, so migration is mostly renaming imports. This guide covers the differences and what to watch for.
 
+> **Moving off react-pdf but want to switch to Svelte at the same time?** The [Svelte adapter](/svelte) exposes the same components with the same props — the rewrites in the tables below apply verbatim, just import from `@formepdf/svelte` instead of `@formepdf/react` and author templates as `.svelte` files.
+
 ## Component mapping
 
 | react-pdf | Forme | Notes |

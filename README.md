@@ -35,6 +35,32 @@ const pdf = await renderDocument(
 // pdf is a Uint8Array: save it, serve it, email it
 ```
 
+### Or use Svelte
+
+Same components, same props, authored as `.svelte` files:
+
+```bash
+npm install @formepdf/svelte @formepdf/core
+```
+
+```svelte
+<script lang="ts">
+  import { Document, Page, View, Text } from '@formepdf/svelte';
+</script>
+
+<Document>
+  <Page size="Letter" margin={36}>
+    <Text style={{ fontSize: 24, fontWeight: 'bold' }}>Invoice #2024-001</Text>
+    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 24 }}>
+      <Text>Widget Pro</Text>
+      <Text>$49.00</Text>
+    </View>
+  </Page>
+</Document>
+```
+
+See the [Svelte docs](https://docs.formepdf.com/svelte) for `renderDocument`, the SvelteKit preview route helper, and endpoint patterns.
+
 ## Dev Server
 
 ```bash
@@ -55,7 +81,7 @@ Install [Forme PDF Preview](https://marketplace.visualstudio.com/items?itemName=
 ## Features
 
 - **Page-native layout**: Content flows into pages, not onto an infinite canvas. Page breaks happen at the right place, every time.
-- **React components**: Document, Page, View, Text, Image, Table. If you know React, you know Forme.
+- **React and Svelte components**: Document, Page, View, Text, Image, Table. Author templates as JSX (`@formepdf/react`) or `.svelte` files (`@formepdf/svelte`) — identical props, identical output.
 - **Live preview**: `forme dev` shows your PDF updating in real time as you edit.
 - **Click-to-inspect**: Select any element in the browser or VS Code to see its box model, computed styles, and position.
 - **Debug overlays**: Toggle bounding boxes, margins, and page break points.
