@@ -39,9 +39,18 @@ jobs:
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
       - name: Install dependencies
         run: npm install
+      - name: Build Shared package
+        working-directory: packages/shared
+        run: npm run build
       - name: Build React package
         working-directory: packages/react
         run: npm run build
+      - name: Build Svelte package
+        working-directory: packages/svelte
+        run: npm run build
+      - name: Check Svelte package (svelte-check)
+        working-directory: packages/svelte
+        run: npm run check
       - name: Build Templates
         working-directory: packages/templates
         run: npm run build
@@ -64,6 +73,11 @@ jobs:
         run: npm run build
       - name: Test React
         working-directory: packages/react
+        run: npm test
+      - name: Test Svelte
+        # After Build Core: the WASM smoke + renderDocument tests render
+        # through @formepdf/core (devDependency).
+        working-directory: packages/svelte
         run: npm test
       - name: Test Core
         working-directory: packages/core

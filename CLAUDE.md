@@ -48,13 +48,31 @@ forme/
 │   ├── grid-dashboard.tsx  # Multi-feature showcase (grid, charts, i18n, RTL)
 │   └── grid-dashboard-data.json
 └── packages/
+    ├── shared/             # Framework-neutral core shared by authoring adapters
+    │   └── src/
+    │       ├── index.ts    # Public exports
+    │       ├── types.ts    # Document-model (Forme*) types + Style
+    │       ├── style.ts    # mapStyle + CSS shorthand/color/edge/grid/transform parsing
+    │       ├── font.ts     # Font.register() store + font merging
+    │       ├── canvas.ts   # CanvasContext recorder for <Canvas> draw callbacks
+    │       ├── charts.ts   # Chart kind builders (camelCase to snake_case prop mapping)
+    │       └── semantics.ts # Heading/inline-formatting defaults + list marker mapping
+    ├── svelte/             # Svelte 5 adapter: same components authored as .svelte files
+    │   └── src/
+    │       ├── index.ts    # Public exports
+    │       ├── components/ # One .svelte file per component, emitting placeholder tags
+    │       ├── serialize.ts # SSR render + parse entry points (serialize/render)
+    │       ├── parser.ts   # Placeholder markup to Forme document model
+    │       ├── encode.ts   # Props JSON round-trip (byte markers for Uint8Array)
+    │       ├── render-document.ts # One-call PDF rendering over optional @formepdf/core
+    │       └── preview/    # formePreview() SvelteKit route helper
     ├── react/              # JSX component library: <Document>, <Page>, <View>, etc.
     │   └── src/
     │       ├── index.ts    # Public exports
     │       ├── components.tsx # Component definitions
     │       ├── charts.tsx  # BarChart, LineChart, PieChart
-    │       ├── font.ts     # Font.register() static API + global font store
-    │       ├── serialize.ts # JSX → JSON document tree + font merging
+    │       ├── font.ts     # Re-exports the Font store from @formepdf/shared
+    │       ├── serialize.ts # JSX → JSON document tree
     │       ├── template-proxy.ts # Recording proxy for template compilation
     │       └── expr.ts     # Expression helpers for templates
     ├── core/               # WASM bridge: compiles engine to WebAssembly
@@ -90,7 +108,7 @@ forme/
 ```
 
 ### Renderer Package (`@formepdf/renderer`)
-Shared render pipeline extracted from the CLI dev server so that VS Code (and future integrations) reuse the same bundling, font/image resolution, and WASM rendering code. Key exports: `bundle()` (esbuild TSX → JS), `resolveFonts()` / `resolveImages()` (file paths → base64), `renderPdf()` / `renderLayout()` (JS → WASM → bytes/JSON). The preview HTML (`src/preview/index.html`) supports dual mode: standalone for CLI dev server, and VS Code webview (receives messages instead of fetching endpoints). Build order: `react` → `core` → `renderer` → `cli` / `vscode`.
+Shared render pipeline extracted from the CLI dev server so that VS Code (and future integrations) reuse the same bundling, font/image resolution, and WASM rendering code. Key exports: `bundle()` (esbuild TSX → JS), `resolveFonts()` / `resolveImages()` (file paths → base64), `renderPdf()` / `renderLayout()` (JS → WASM → bytes/JSON). The preview HTML (`src/preview/index.html`) supports dual mode: standalone for CLI dev server, and VS Code webview (receives messages instead of fetching endpoints). Build order: `shared` → `react` → `core` → `renderer` → `cli` / `vscode`.
 
 ### VS Code Extension (`forme-pdf`)
 Live PDF preview inside VS Code. Architecture: `LayoutStore` is the central event-emitting store — preview panel, component tree, and inspector all subscribe to it, staying decoupled from each other. The preview panel uses the same `index.html` from `@formepdf/renderer` (VS Code mode). Component tree (`TreeView` sidebar) shows the element hierarchy with hover-to-highlight. Inspector (`WebviewView` sidebar) shows box model visualization, computed styles, "Open in Editor" (maps element source locations to editor), and "Copy Style". The extension watches `.tsx` files and re-renders on save.
@@ -106,9 +124,10 @@ cd engine && cargo fmt && cargo clippy -- -W clippy::all
 
 **TypeScript (if any `packages/` files changed):**
 ```bash
-# Build affected packages (build order: react → core → cli)
+# Build affected packages (build order: shared → react → core → cli)
 # Run tsc for each changed package, e.g.:
 cd packages/react && npm run build
+cd packages/svelte && npm run build
 cd packages/core && npm run build
 cd packages/mcp && npm run build
 ```
@@ -221,7 +240,7 @@ Users register custom TrueType fonts via `Font.register()` (global, react-pdf co
 2. **Rendering layer** (`core/index.ts` or `cli/dev.ts`): Resolves font sources to base64 before passing JSON to WASM. File paths are read from disk; `Uint8Array` is base64-encoded; data URIs pass through as-is. In the CLI dev server, file paths resolve relative to the template directory.
 3. **Engine** (`lib.rs`): `register_document_fonts()` decodes base64 from each `FontEntry` and calls `FontContext.registry_mut().register()` before layout. The existing `FontRegistry`, `CustomFontMetrics`, and PDF subsetting handle everything from there.
 
-Key files: `packages/react/src/font.ts`, `packages/react/src/serialize.ts` (mergeFonts), `packages/core/src/index.ts` (resolveFonts), `packages/cli/src/dev.ts` (resolveFontPaths), `engine/src/lib.rs` (register_document_fonts), `engine/src/model/mod.rs` (FontEntry).
+Key files: `packages/shared/src/font.ts` (Font store, mergeFonts), `packages/react/src/serialize.ts`, `packages/core/src/index.ts` (resolveFonts), `packages/cli/src/dev.ts` (resolveFontPaths), `engine/src/lib.rs` (register_document_fonts), `engine/src/model/mod.rs` (FontEntry).
 
 Merge strategy: fonts are keyed by `family:weight:italic`. Document fonts override global fonts on conflict.
 
@@ -236,8 +255,8 @@ Templates enable a hosted API workflow: store template JSON + dynamic data → p
 
 Key files: `engine/src/template.rs`, `engine/src/lib.rs` (render_template), `engine/src/wasm.rs` (render_template_pdf), `packages/react/src/template-proxy.ts`, `packages/react/src/expr.ts`, `packages/react/src/serialize.ts` (serializeTemplate), `packages/core/src/index.ts` (renderTemplate), `packages/cli/src/template-build.ts` (buildTemplate), `packages/cli/src/index.ts` (--template flag).
 
-### CSS String Shorthands (React layer only)
-Parsed in `mapStyle()` in `serialize.ts` — no engine changes needed. Three capabilities:
+### CSS String Shorthands (TypeScript layer only)
+Parsed in `mapStyle()` in `packages/shared/src/style.ts` - no engine changes needed. Three capabilities:
 
 1. **Border shorthand**: `border: "1px solid #000"` → parses into `borderWidth` + `borderColor`. Per-side variants: `borderTop: "2px solid #f00"` or `borderBottom: 3` (number = width only). `parseBorderString()` tokenizes by whitespace, recognizes CSS border-style keywords (ignored), numeric tokens (width), and color tokens.
 2. **Edge strings**: `padding: "8 16"` or `margin: "8 16 24 32"` → CSS 1-4 value shorthand. Optional `px` suffix stripped. `parseCSSEdges()` handles the parsing.
@@ -277,7 +296,7 @@ Backward-compatible: a single family name (no comma) behaves identically to the 
 Standard font `char_width()` in `font/metrics.rs` maps Unicode codepoints through `unicode_to_winansi()` before looking up glyph widths. Characters like em-dash (U+2014), en-dash (U+2013), smart quotes, ellipsis, etc. have Unicode code points above 255 but their widths are stored at WinAnsi positions (0x80–0x9F). The shared `unicode_to_winansi()` function in `font/metrics.rs` is also used by `PdfSerializer` for PDF text encoding — single source of truth for the Windows-1252 mapping.
 
 ### Grid repeat() Syntax
-React-layer only. `expandRepeat()` in `serialize.ts` pre-processes grid template strings, expanding `repeat(N, tracks)` before the existing split-on-whitespace logic. Example: `repeat(3, 1fr)` → `1fr 1fr 1fr`. Supports mixed: `200 repeat(2, 1fr) 200` → `200 1fr 1fr 200`.
+TypeScript-layer only. `expandRepeat()` in `packages/shared/src/style.ts` pre-processes grid template strings, expanding `repeat(N, tracks)` before the existing split-on-whitespace logic. Example: `repeat(3, 1fr)` → `1fr 1fr 1fr`. Supports mixed: `200 repeat(2, 1fr) 200` → `200 1fr 1fr 200`.
 
 ### Alt Text, Document Language, Clickable Images/SVGs
 - **Alt text**: `alt` prop on `<Image>` and `<Svg>` flows through `Node.alt` → `LayoutElement.alt`. Carried through the data model for future tagged PDF support (actual `/Alt` emission requires structure elements — follow-up scope).

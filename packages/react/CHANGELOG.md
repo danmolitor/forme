@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+- Framework-neutral internals (document-model types, `Style` mapping, the `Font` store, the `Canvas` recorder, chart kind builders) moved to the new `@formepdf/shared` package and are re-exported from here. Public API unchanged
+
 ## [0.10.5] - 2026-06-29
 
 _Version bump only — engine 0.10.5 fixes table header page-break orphan + long-header contamination via `@formepdf/core`._

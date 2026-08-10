@@ -28,7 +28,7 @@
       },
       {
         "group": "Reference",
-        "pages": ["components", "styles", "tailwind", "fonts", "page-breaks", "charts", "templates", "embedded-data", "self-hosting"]
+        "pages": ["components", "styles", "tailwind", "svelte", "fonts", "page-breaks", "charts", "templates", "embedded-data", "self-hosting"]
       },
       {
         "group": "API Reference",

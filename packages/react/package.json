@@ -17,6 +17,9 @@
     "test": "vitest run",
     "test:watch": "vitest"
   },
+  "dependencies": {
+    "@formepdf/shared": "0.10.5"
+  },
   "peerDependencies": {
     "react": "^18 || ^19"
   },

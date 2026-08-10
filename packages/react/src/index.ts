@@ -3,7 +3,8 @@ export { Document, Page, View, Text, H1, H2, H3, H4, H5, H6, OrderedList, Unorde
 export { LegacyBarChart, LegacyLineChart, LegacyPieChart } from './charts.js';
 
 // Serialization
-export { serialize, serializeTemplate, mapStyle, mapDimension, parseColor, expandEdges, expandCorners } from './serialize.js';
+export { serialize, serializeTemplate } from './serialize.js';
+export { mapStyle, mapDimension, parseColor, expandEdges, expandCorners } from '@formepdf/shared';
 
 // StyleSheet
 export { StyleSheet } from './stylesheet.js';

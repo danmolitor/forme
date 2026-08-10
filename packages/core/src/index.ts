@@ -173,6 +173,32 @@ export interface RenderDocumentOptions {
 export async function renderDocument(element: ReactElement, options?: RenderDocumentOptions): Promise<Uint8Array> {
   const { serialize } = await import('@formepdf/react');
   const doc = serialize(element) as unknown as Record<string, unknown>;
+  return renderSerializedDoc(doc, options);
+}
+
+export async function renderDocumentWithLayout(element: ReactElement, options?: RenderDocumentOptions): Promise<RenderWithLayoutResult> {
+  const { serialize } = await import('@formepdf/react');
+  const doc = serialize(element) as unknown as Record<string, unknown>;
+  return renderSerializedDocWithLayout(doc, options);
+}
+
+// ── Serialized document rendering ────────────────────────────────────
+
+/**
+ * Render a pre-serialized document object (from `serialize()`) to PDF,
+ * resolving font sources (file paths, byte arrays) and HTTP image URLs
+ * first.
+ *
+ * Use this when you have a serialized doc (e.g. from a non-react
+ * adapter that calls its own `serialize()`) and need font/image
+ * resolution without going through the React element-based
+ * `renderDocument()`. The browser and worker entries export the same
+ * pair.
+ */
+export async function renderSerializedDoc(
+  doc: Record<string, unknown>,
+  options?: RenderDocumentOptions,
+): Promise<Uint8Array> {
   if (options?.embedData !== undefined) {
     doc.embeddedData = JSON.stringify(options.embedData);
   }
@@ -183,9 +209,13 @@ export async function renderDocument(element: ReactElement, options?: RenderDocu
   return renderPdf(JSON.stringify(doc));
 }
 
-export async function renderDocumentWithLayout(element: ReactElement, options?: RenderDocumentOptions): Promise<RenderWithLayoutResult> {
-  const { serialize } = await import('@formepdf/react');
-  const doc = serialize(element) as unknown as Record<string, unknown>;
+/**
+ * Like `renderSerializedDoc` but also returns layout info for overlays.
+ */
+export async function renderSerializedDocWithLayout(
+  doc: Record<string, unknown>,
+  options?: RenderDocumentOptions,
+): Promise<RenderWithLayoutResult> {
   if (options?.embedData !== undefined) {
     doc.embeddedData = JSON.stringify(options.embedData);
   }

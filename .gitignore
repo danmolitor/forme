@@ -16,6 +16,7 @@ packages/vscode/pkg/
 # Node
 node_modules/
 dist/
+.svelte-kit/
 
 # OS
 .DS_Store
@@ -44,3 +45,6 @@ test-*.tsx
 test-*.json
 /tmp/
 *.pdf
+
+# Generated preview HTML embed (packages/svelte build step)
+packages/svelte/src/preview/preview-html.generated.ts
