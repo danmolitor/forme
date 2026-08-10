@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.11.0] - 2026-08-09
+
+_Version bump only — aligned with the 0.11.0 monorepo release (see `@formepdf/shared` and `@formepdf/svelte` new packages, `@formepdf/react` internal refactor)._
+
 ## [0.10.5] - 2026-06-29
 
 _Version bump only — engine 0.10.5 fixes table header page-break orphan + long-header contamination via `@formepdf/core`._

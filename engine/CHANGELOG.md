@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.11.0] - 2026-08-09
+
+_Version bump only — no engine changes. Aligned with the 0.11.0 monorepo release (new `@formepdf/shared` + `@formepdf/svelte` npm packages)._
+
 ## [0.10.5] - 2026-06-29
 
 ### Fixed

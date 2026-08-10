@@ -1,6 +1,6 @@
 [package]
 name = "forme-pdf"
-version = "0.10.5"
+version = "0.11.0"
 edition = "2021"
 description = "A page-native PDF rendering engine. Layout INTO pages, not onto an infinite canvas."
 license = "MIT"

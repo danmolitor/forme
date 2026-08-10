@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.11.0] - 2026-08-09
+
+### Added
+- `renderSerializedDoc(doc, options?)` and `renderSerializedDocWithLayout(doc, options?)` public exports. Accept a pre-serialized Forme document (`FormeDocument` JSON) and render it through the WASM engine. Used by `@formepdf/svelte`'s `renderDocument` / `renderDocumentWithLayout` helpers, which build the document via the Svelte SSR-then-parse pipeline before handing it to core
+
 ## [0.10.5] - 2026-06-29
 
 ### Fixed

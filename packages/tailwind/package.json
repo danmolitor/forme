@@ -1,6 +1,6 @@
 {
   "name": "@formepdf/tailwind",
-  "version": "0.10.5",
+  "version": "0.11.0",
   "description": "Tailwind CSS class support for Forme PDF templates",
   "type": "module",
   "main": "./dist/index.js",

@@ -1,9 +1,9 @@
 # Changelog
 
-## [Unreleased]
+## [0.11.0] - 2026-08-09
 
 ### Changed
-- Framework-neutral internals (document-model types, `Style` mapping, the `Font` store, the `Canvas` recorder, chart kind builders) moved to the new `@formepdf/shared` package and are re-exported from here. Public API unchanged
+- Framework-neutral internals (document-model types, `Style` mapping, the `Font` store, the `Canvas` recorder, chart kind builders) moved to the new `@formepdf/shared` package and are re-exported from here. Public API unchanged — all 215 tests pass without modification
 
 ## [0.10.5] - 2026-06-29
 
