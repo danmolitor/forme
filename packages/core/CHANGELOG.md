@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.11.1] - 2026-08-20
+
+### Fixed
+- WASM rebuilt against engine 0.11.1: `<Svg content="...">` with `stroke-linecap="round"` (or `stroke-linejoin="round"`) now renders round caps and joins instead of falling back to the PDF default. Fixes a reported handwritten-signature repro where 60+ short cubic-bezier paths showed visible flat rectangular cap protrusions at every segment terminus
+
 ## [0.11.0] - 2026-08-09
 
 ### Added

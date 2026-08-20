@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.11.1] - 2026-08-20
+
+### Fixed
+- `<Svg>` content now honors `stroke-linecap` and `stroke-linejoin`. The SVG parser was silently dropping both attributes on every element — `SvgCommand::SetLineCap` / `SvgCommand::SetLineJoin` only ever fired from the Canvas API, never from SVG content, so every SVG stroke rendered with the PDF default (butt caps / miter joins) regardless of the source attribute. `stroke-linecap="round"` on a signature composed of many short cubic bezier paths now blends the segment endpoints into round semicircles instead of leaving visible flat rectangular caps. Reported against a real handwritten-signature repro
+- SVG attribute values inherit through `<g>` group ancestors on the same stack as `fill` / `stroke` / `stroke-width` / `opacity`. `SetLineCap` / `SetLineJoin` are emitted unconditionally inside every shape's `q/Q` wrapper so an enclosing `<g stroke-linecap="round">` can't leak state to a subsequent shape
+
+### Internal
+- Four new integration tests decompress the FlateDecode content streams and assert on the PDF operators: `1 J` for round caps, `0 J` for default butt, `1 j` for round joins, plus a `<g>` inheritance case. All verified to fail without the fix. Full engine suite now 214 unit + 299 integration
+
 ## [0.11.0] - 2026-08-09
 
 _Version bump only — no engine changes. Aligned with the 0.11.0 monorepo release (new `@formepdf/shared` + `@formepdf/svelte` npm packages)._

@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.11.1] - 2026-08-20
+
+_Version bump only — engine 0.11.1 fixes SVG `stroke-linecap` / `stroke-linejoin` via `@formepdf/core`._
+
 ## [0.11.0] - 2026-08-09
 
 ### Changed
