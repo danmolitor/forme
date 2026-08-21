@@ -2,8 +2,8 @@
 //!
 //! Provides a simple memory-based protocol:
 //! 1. Host calls `forme_alloc` to allocate input buffer in WASM memory
-//! 2. Host writes JSON bytes into the allocated buffer
-//! 3. Host calls `forme_render_pdf` with pointer and length
+//! 2. Host writes document JSON, or template and data JSON, into allocated buffers
+//! 3. Host calls `forme_render_pdf` or `forme_render_template`
 //! 4. Host reads result via `forme_get_result_ptr`/`forme_get_result_len`
 //! 5. Host calls `forme_free_result` to release the output buffer
 //! 6. Host calls `forme_dealloc` to release the input buffer
@@ -64,7 +64,50 @@ pub unsafe extern "C" fn forme_render_pdf(ptr: *const u8, len: usize) -> i32 {
         }
     };
 
-    match crate::render_json(json_str) {
+    finish_render(crate::render_json(json_str))
+}
+
+/// Render a compiled template with data to PDF bytes.
+///
+/// Returns 0 on success (result available via `forme_get_result_ptr`/`forme_get_result_len`).
+/// Returns 1 on error (error message via `forme_get_error_ptr`/`forme_get_error_len`).
+///
+/// # Safety
+/// `template_ptr` must point to `template_len` valid UTF-8 bytes.
+/// `data_ptr` must point to `data_len` valid UTF-8 bytes.
+#[no_mangle]
+pub unsafe extern "C" fn forme_render_template(
+    template_ptr: *const u8,
+    template_len: usize,
+    data_ptr: *const u8,
+    data_len: usize,
+) -> i32 {
+    free_result_buf();
+    free_error_buf();
+
+    let template_bytes = std::slice::from_raw_parts(template_ptr, template_len);
+    let template_json = match std::str::from_utf8(template_bytes) {
+        Ok(s) => s,
+        Err(e) => {
+            set_error(&format!("Invalid UTF-8 in template: {e}"));
+            return 1;
+        }
+    };
+
+    let data_bytes = std::slice::from_raw_parts(data_ptr, data_len);
+    let data_json = match std::str::from_utf8(data_bytes) {
+        Ok(s) => s,
+        Err(e) => {
+            set_error(&format!("Invalid UTF-8 in data: {e}"));
+            return 1;
+        }
+    };
+
+    finish_render(crate::render_template(template_json, data_json))
+}
+
+unsafe fn finish_render(result: Result<Vec<u8>, crate::FormeError>) -> i32 {
+    match result {
         Ok(pdf_bytes) => {
             let len = pdf_bytes.len();
             let layout = Layout::from_size_align(len, 1).unwrap();
@@ -191,5 +234,37 @@ unsafe fn free_error_buf() {
         dealloc(ERROR_BUF, layout);
         ERROR_BUF = std::ptr::null_mut();
         ERROR_LEN = 0;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn renders_compiled_template() {
+        let template = br#"{
+            "children": [{
+                "kind": {"type": "Text", "content": {"$ref": "title"}},
+                "style": {"fontSize": 24},
+                "children": []
+            }],
+            "metadata": {"title": {"$ref": "title"}},
+            "defaultPage": {
+                "size": "A4",
+                "margin": {"top": 54, "right": 54, "bottom": 54, "left": 54},
+                "wrap": true
+            }
+        }"#;
+        let data = br#"{"title":"Invoice #001"}"#;
+
+        let status = unsafe {
+            forme_render_template(template.as_ptr(), template.len(), data.as_ptr(), data.len())
+        };
+
+        assert_eq!(status, 0);
+        let result = unsafe { std::slice::from_raw_parts(RESULT_BUF, RESULT_LEN) };
+        assert!(result.starts_with(b"%PDF-"));
+        forme_free_result();
     }
 }
