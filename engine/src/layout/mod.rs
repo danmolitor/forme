@@ -1903,7 +1903,7 @@ impl LayoutEngine {
                 let content_bottom = page.config.margin.top
                     + (page.height - page.config.margin.vertical())
                     - footer_h;
-                let all_elements: Vec<LayoutElement> = page.elements.drain(..).collect();
+                let all_elements: Vec<LayoutElement> = std::mem::take(&mut page.elements);
                 if !all_elements.is_empty() {
                     page.elements.push(LayoutElement {
                         x: node_x,
@@ -1926,7 +1926,7 @@ impl LayoutEngine {
             }
 
             // C. Current page (cursor.elements) — wrap ALL elements
-            let all_elements: Vec<LayoutElement> = cursor.elements.drain(..).collect();
+            let all_elements: Vec<LayoutElement> = std::mem::take(&mut cursor.elements);
             if !all_elements.is_empty() {
                 let header_h: f64 = cursor.fixed_header.iter().map(|(_, h)| *h).sum();
                 let content_top = cursor.content_y + header_h;
