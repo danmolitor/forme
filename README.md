@@ -223,12 +223,12 @@ Font sources can be file paths, data URIs, or `Uint8Array`. Fonts are automatica
 
 | | Forme | react-pdf | Puppeteer |
 |---|---|---|---|
-| Page breaks | Page-native (widow/orphan aware) | Broken for 7 years | CSS `page-break` (fragile) |
+| Page breaks | Page-native layout (widows/orphans) | Widows/orphans (recent rewrite) | CSS `page-break` (fragile) |
 | Table header repetition | Automatic on every page | Not built in | Inconsistent `<thead>` |
-| Line breaking | Knuth-Plass optimal (TeX algorithm) | Greedy | Browser engine |
-| Hyphenation | 35+ languages, automatic | Via callback | Browser engine |
-| Text shaping | OpenType GSUB/GPOS (ligatures, kerning) | Basic | Full browser shaping |
-| BiDi text | RTL, mixed LTR/RTL, auto-detection | No | Full browser BiDi |
+| Line breaking | Knuth-Plass | Knuth-Plass | Browser engine |
+| Hyphenation | Automatic, 35+ languages bundled | Automatic (en-US bundled) | Browser engine |
+| Text shaping | OpenType GSUB/GPOS (rustybuzz) | OpenType GSUB/GPOS (fontkit) | Full browser shaping |
+| BiDi text | RTL, mixed LTR/RTL (unicode-bidi) | RTL, mixed LTR/RTL (bidi-js) | Full browser BiDi |
 | CSS Grid | `display: 'grid'` with fr/auto/fixed tracks | No | Full CSS Grid |
 | Live preview | Built-in dev server | Render to file | Run script, open file |
 | Click-to-inspect | VS Code, Cursor, WebStorm | No | No |
@@ -241,15 +241,15 @@ Font sources can be file paths, data URIs, or `Uint8Array`. Fonts are automatica
 | Barcodes | Built-in `<Barcode>` (5 formats) | No | Via HTML/JS libraries |
 | Charts | Engine-native BarChart, LineChart, PieChart, AreaChart, DotPlot | No | Via HTML/JS libraries |
 | VS Code extension | Native sidebar panels | No | No |
-| Canvas drawing | `<Canvas draw={...}>` for custom vector graphics | No | HTML Canvas (raster) |
+| Canvas drawing | `<Canvas draw={...}>` for custom vector graphics | `<Canvas>` primitive | HTML Canvas (raster) |
 | Watermarks | Built-in `<Watermark>` component | No | Manual positioning |
 | Embedded data | Attach JSON to PDF, extract later | No | No |
-| Text overflow | `textOverflow: 'ellipsis'` | No | CSS `text-overflow` |
-| Font fallback | `fontFamily: "Inter, Helvetica"` | Single family only | Full CSS font stack |
+| Text overflow | `textOverflow: 'ellipsis'` | `textOverflow` + `maxLines` | CSS `text-overflow` |
+| Font fallback | `fontFamily` array + per-glyph fallback | `fontFamily` array | Full CSS font stack |
 | Custom fonts | TTF with OpenType shaping | Yes | Yes |
 | Browser rendering | Yes (`@formepdf/core/browser`) | Yes (client-side) | No (server only) |
 | Tailwind CSS | `tw("p-4 text-lg font-bold")` utility | No | No |
-| Fillable forms | AcroForm (TextField, Checkbox, Dropdown, Radio) | No | HTML `<form>` (not PDF forms) |
+| Fillable forms | AcroForm (TextField, Checkbox, Dropdown, Radio) | AcroForm primitives (TextInput, Select, Checkbox, FieldSet) | HTML `<form>` (not PDF forms) |
 | PDF/UA accessibility | `<Document pdfUa>` | No | No |
 | PDF/A archival | `<Document pdfa="2b">` | No | No |
 | Digital certification | PKCS#7 via `certification` prop or API | No | No |
