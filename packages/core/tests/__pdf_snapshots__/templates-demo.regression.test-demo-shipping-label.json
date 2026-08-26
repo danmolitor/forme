@@ -1,0 +1,799 @@
+{
+  "version": 1,
+  "producer": "formepdf",
+  "createdAt": "2026-08-26T19:57:52.210Z",
+  "pageCount": 1,
+  "pages": [
+    {
+      "index": 0,
+      "width": 288,
+      "height": 432,
+      "contentBox": {
+        "x": 16,
+        "y": 16,
+        "width": 256,
+        "height": 400
+      },
+      "nodeIds": [
+        "0:container:0",
+        "0:text:0",
+        "0:text:1",
+        "0:text:2",
+        "0:text:3",
+        "0:container:1",
+        "0:container:2",
+        "0:text:4",
+        "0:text:5",
+        "0:text:6",
+        "0:text:7",
+        "0:text:8",
+        "0:container:3",
+        "0:image:0",
+        "0:text:9",
+        "0:container:4",
+        "0:container:5",
+        "0:container:6",
+        "0:text:10",
+        "0:container:7",
+        "0:text:11",
+        "0:container:8",
+        "0:text:12",
+        "0:text:13",
+        "0:text:14",
+        "0:text:15",
+        "0:container:9",
+        "0:container:10",
+        "0:container:11",
+        "0:text:16",
+        "0:text:17"
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "id": "0:container:0",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 16,
+        "y": 16,
+        "width": 256,
+        "height": 59.4
+      },
+      "order": 0,
+      "parentId": null,
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:0",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 24,
+        "y": 24,
+        "width": 240,
+        "height": 9.8
+      },
+      "order": 1,
+      "parentId": "0:container:0",
+      "text": "FROM",
+      "normText": "from",
+      "font": {
+        "size": 7,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:1",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 24,
+        "y": 33.8,
+        "width": 240,
+        "height": 11.2
+      },
+      "order": 2,
+      "parentId": "0:container:0",
+      "text": "Cascade Electronics",
+      "normText": "cascade electronics",
+      "font": {
+        "size": 8,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:2",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 24,
+        "y": 45,
+        "width": 240,
+        "height": 11.2
+      },
+      "order": 3,
+      "parentId": "0:container:0",
+      "text": "2901 Third Avenue, Unit 4B",
+      "normText": "2901 third avenue, unit 4b",
+      "font": {
+        "size": 8,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:3",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 24,
+        "y": 56.2,
+        "width": 240,
+        "height": 11.2
+      },
+      "order": 4,
+      "parentId": "0:container:0",
+      "text": "Seattle, WA 98121",
+      "normText": "seattle, wa 98121",
+      "font": {
+        "size": 8,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:1",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 16,
+        "y": 87.4,
+        "width": 256,
+        "height": 2
+      },
+      "order": 5,
+      "parentId": null,
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:2",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 16,
+        "y": 101.4,
+        "width": 256,
+        "height": 97.8
+      },
+      "order": 6,
+      "parentId": null,
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:4",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 28,
+        "y": 113.4,
+        "width": 232,
+        "height": 9.8
+      },
+      "order": 7,
+      "parentId": "0:container:2",
+      "text": "TO",
+      "normText": "to",
+      "font": {
+        "size": 7,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:5",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 28,
+        "y": 125.2,
+        "width": 232,
+        "height": 14
+      },
+      "order": 8,
+      "parentId": "0:container:2",
+      "text": "Marcus Webb",
+      "normText": "marcus webb",
+      "font": {
+        "size": 10,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:6",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 28,
+        "y": 143.2,
+        "width": 232,
+        "height": 14
+      },
+      "order": 9,
+      "parentId": "0:container:2",
+      "text": "1455 Pennsylvania Ave NW",
+      "normText": "1455 pennsylvania ave nw",
+      "font": {
+        "size": 10,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:7",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 28,
+        "y": 157.2,
+        "width": 232,
+        "height": 14
+      },
+      "order": 10,
+      "parentId": "0:container:2",
+      "text": "Apt 712",
+      "normText": "apt 712",
+      "font": {
+        "size": 10,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:8",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 28,
+        "y": 173.2,
+        "width": 232,
+        "height": 14
+      },
+      "order": 11,
+      "parentId": "0:container:2",
+      "text": "Washington, DC 20004",
+      "normText": "washington, dc 20004",
+      "font": {
+        "size": 10,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:3",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 16,
+        "y": 199.2,
+        "width": 256,
+        "height": 93.2
+      },
+      "order": 12,
+      "parentId": null,
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:image:0",
+      "role": "image",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 114,
+        "y": 207.2,
+        "width": 60,
+        "height": 60
+      },
+      "order": 13,
+      "parentId": "0:container:3",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:9",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 70.6,
+        "y": 273.2,
+        "width": 146.7,
+        "height": 11.2
+      },
+      "order": 14,
+      "parentId": "0:container:3",
+      "text": "1Z 999 AA1 0123 4567 890",
+      "normText": "1z 999 aa1 0123 4567 890",
+      "font": {
+        "size": 8,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:4",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 16,
+        "y": 300.4,
+        "width": 256,
+        "height": 1
+      },
+      "order": 15,
+      "parentId": null,
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:5",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 16,
+        "y": 309.4,
+        "width": 256,
+        "height": 41.8
+      },
+      "order": 16,
+      "parentId": null,
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:6",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 24,
+        "y": 317.4,
+        "width": 60,
+        "height": 25.8
+      },
+      "order": 17,
+      "parentId": "0:container:5",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:10",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 24,
+        "y": 317.4,
+        "width": 60,
+        "height": 9.8
+      },
+      "order": 18,
+      "parentId": "0:container:6",
+      "text": "WEIGHT",
+      "normText": "weight",
+      "font": {
+        "size": 7,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:7",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 84,
+        "y": 317.4,
+        "width": 120,
+        "height": 25.8
+      },
+      "order": 19,
+      "parentId": "0:container:5",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:11",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 84,
+        "y": 317.4,
+        "width": 120,
+        "height": 9.8
+      },
+      "order": 20,
+      "parentId": "0:container:7",
+      "text": "DIMENSIONS",
+      "normText": "dimensions",
+      "font": {
+        "size": 7,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:8",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 204,
+        "y": 317.4,
+        "width": 60,
+        "height": 25.8
+      },
+      "order": 21,
+      "parentId": "0:container:5",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:12",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 204,
+        "y": 317.4,
+        "width": 60,
+        "height": 9.8
+      },
+      "order": 22,
+      "parentId": "0:container:8",
+      "text": "SERVICE",
+      "normText": "service",
+      "font": {
+        "size": 7,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:13",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 24,
+        "y": 329.2,
+        "width": 60,
+        "height": 14
+      },
+      "order": 23,
+      "parentId": "0:container:6",
+      "text": "4.2 lbs",
+      "normText": "4.2 lbs",
+      "font": {
+        "size": 10,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:14",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 115.9,
+        "y": 329.2,
+        "width": 56.2,
+        "height": 14
+      },
+      "order": 24,
+      "parentId": "0:container:7",
+      "text": "12 x 8 x 6 in",
+      "normText": "12 x 8 x 6 in",
+      "font": {
+        "size": 10,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:15",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 229,
+        "y": 329.2,
+        "width": 35,
+        "height": 14
+      },
+      "order": 25,
+      "parentId": "0:container:8",
+      "text": "Priority",
+      "normText": "priority",
+      "font": {
+        "size": 10,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:9",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 16,
+        "y": 359.2,
+        "width": 256,
+        "height": 46
+      },
+      "order": 26,
+      "parentId": null,
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:10",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 24,
+        "y": 367.2,
+        "width": 116,
+        "height": 30
+      },
+      "order": 27,
+      "parentId": "0:container:9",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:11",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 148,
+        "y": 367.2,
+        "width": 116,
+        "height": 30
+      },
+      "order": 28,
+      "parentId": "0:container:9",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:16",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 38,
+        "y": 375.2,
+        "width": 88,
+        "height": 14
+      },
+      "order": 29,
+      "parentId": "0:container:10",
+      "text": "FRAGILE",
+      "normText": "fragile",
+      "font": {
+        "size": 10,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:17",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 162,
+        "y": 375.2,
+        "width": 88,
+        "height": 14
+      },
+      "order": 30,
+      "parentId": "0:container:11",
+      "text": "THIS SIDE UP",
+      "normText": "this side up",
+      "font": {
+        "size": 10,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    }
+  ],
+  "contentHash": "sha256:82bfd8994836ff65b4eaf62355d8c23fc1c9300f22d80b87fc312bd199ef834c"
+}
