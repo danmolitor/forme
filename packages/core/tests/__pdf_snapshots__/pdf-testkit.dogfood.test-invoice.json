@@ -1,0 +1,473 @@
+{
+  "version": 1,
+  "producer": "formepdf",
+  "createdAt": "2026-08-26T12:42:33.899Z",
+  "pageCount": 1,
+  "pages": [
+    {
+      "index": 0,
+      "width": 595.3,
+      "height": 841.9,
+      "contentBox": {
+        "x": 54,
+        "y": 54,
+        "width": 487.3,
+        "height": 733.9
+      },
+      "nodeIds": [
+        "0:container:0",
+        "0:heading:0",
+        "0:heading:1",
+        "0:text:0",
+        "0:heading:2",
+        "0:table:0",
+        "0:row:0",
+        "0:cell:0",
+        "0:cell:1",
+        "0:cell:2",
+        "0:row:1",
+        "0:cell:3",
+        "0:cell:4",
+        "0:cell:5",
+        "0:row:2",
+        "0:cell:6",
+        "0:cell:7",
+        "0:cell:8"
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "id": "0:container:0",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 54,
+        "y": 54,
+        "width": 487.3,
+        "height": 223.2
+      },
+      "order": 0,
+      "parentId": null,
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:heading:0",
+      "role": "heading",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 78,
+        "y": 102,
+        "width": 439.3,
+        "height": 44.8
+      },
+      "order": 1,
+      "parentId": "0:container:0",
+      "text": "Acme Corp — Invoice #1042",
+      "normText": "acme corp — invoice #1042",
+      "font": {
+        "size": 32,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": 1,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:heading:1",
+      "role": "heading",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 78,
+        "y": 182.8,
+        "width": 439.3,
+        "height": 33.6
+      },
+      "order": 2,
+      "parentId": "0:container:0",
+      "text": "Bill To",
+      "normText": "bill to",
+      "font": {
+        "size": 24,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": 2,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:0",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 78,
+        "y": 230.4,
+        "width": 439.3,
+        "height": 16.8
+      },
+      "order": 3,
+      "parentId": "0:container:0",
+      "text": "Wile E. Coyote, 1 Desert Rd, AZ",
+      "normText": "wile e. coyote, 1 desert rd, az",
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:heading:2",
+      "role": "heading",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 78,
+        "y": 267.2,
+        "width": 439.3,
+        "height": 33.6
+      },
+      "order": 4,
+      "parentId": "0:container:0",
+      "text": "Line Items",
+      "normText": "line items",
+      "font": {
+        "size": 24,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": 2,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:table:0",
+      "role": "table",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 78,
+        "y": 314.8,
+        "width": 439.3,
+        "height": 50.4
+      },
+      "order": 5,
+      "parentId": "0:container:0",
+      "text": null,
+      "normText": null,
+      "font": null,
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1,
+      "table": {
+        "rows": 3,
+        "cols": 3
+      }
+    },
+    {
+      "id": "0:row:0",
+      "role": "row",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 78,
+        "y": 314.8,
+        "width": 439.3,
+        "height": 16.8
+      },
+      "order": 6,
+      "parentId": "0:table:0",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:cell:0",
+      "role": "cell",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 78,
+        "y": 314.8,
+        "width": 263.6,
+        "height": 16.8
+      },
+      "order": 7,
+      "parentId": "0:row:0",
+      "text": "Item",
+      "normText": "item",
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:cell:1",
+      "role": "cell",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 341.6,
+        "y": 314.8,
+        "width": 87.9,
+        "height": 16.8
+      },
+      "order": 8,
+      "parentId": "0:row:0",
+      "text": "Qty",
+      "normText": "qty",
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:cell:2",
+      "role": "cell",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 429.4,
+        "y": 314.8,
+        "width": 87.9,
+        "height": 16.8
+      },
+      "order": 9,
+      "parentId": "0:row:0",
+      "text": "Price",
+      "normText": "price",
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:row:1",
+      "role": "row",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 78,
+        "y": 331.6,
+        "width": 439.3,
+        "height": 16.8
+      },
+      "order": 10,
+      "parentId": "0:table:0",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:cell:3",
+      "role": "cell",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 78,
+        "y": 331.6,
+        "width": 263.6,
+        "height": 16.8
+      },
+      "order": 11,
+      "parentId": "0:row:1",
+      "text": "Rocket Skates",
+      "normText": "rocket skates",
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:cell:4",
+      "role": "cell",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 341.6,
+        "y": 331.6,
+        "width": 87.9,
+        "height": 16.8
+      },
+      "order": 12,
+      "parentId": "0:row:1",
+      "text": "2",
+      "normText": "2",
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:cell:5",
+      "role": "cell",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 429.4,
+        "y": 331.6,
+        "width": 87.9,
+        "height": 16.8
+      },
+      "order": 13,
+      "parentId": "0:row:1",
+      "text": "$199.00",
+      "normText": "$199.00",
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:row:2",
+      "role": "row",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 78,
+        "y": 348.4,
+        "width": 439.3,
+        "height": 16.8
+      },
+      "order": 14,
+      "parentId": "0:table:0",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:cell:6",
+      "role": "cell",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 78,
+        "y": 348.4,
+        "width": 263.6,
+        "height": 16.8
+      },
+      "order": 15,
+      "parentId": "0:row:2",
+      "text": "Giant Magnet",
+      "normText": "giant magnet",
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:cell:7",
+      "role": "cell",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 341.6,
+        "y": 348.4,
+        "width": 87.9,
+        "height": 16.8
+      },
+      "order": 16,
+      "parentId": "0:row:2",
+      "text": "1",
+      "normText": "1",
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:cell:8",
+      "role": "cell",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 429.4,
+        "y": 348.4,
+        "width": 87.9,
+        "height": 16.8
+      },
+      "order": 17,
+      "parentId": "0:row:2",
+      "text": "$89.00",
+      "normText": "$89.00",
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    }
+  ],
+  "contentHash": "sha256:60f4bb4ae031f5f1a95def175f7f68f0096f09245a3d9513c3d72854d6a95050"
+}

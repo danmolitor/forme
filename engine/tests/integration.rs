@@ -2287,6 +2287,72 @@ fn test_multiple_bookmarked_views_mixed_sizes() {
     }
 }
 
+#[test]
+fn test_styled_breakable_bookmark_emits_exactly_one_outline_entry() {
+    // Regression: a bookmarked View that BOTH overflows a page AND has visual
+    // styling used to emit the outline entry twice.
+    //
+    // The overflow path emits a zero-height marker element carrying the
+    // bookmark (it has to — with no background/border it builds no wrapper at
+    // all, and the bookmark would otherwise be lost). When the view IS styled,
+    // it also builds a wrapper, the marker gets drained into that wrapper's
+    // children, and `collect_bookmarks` recurses — so it found the same
+    // bookmark on the wrapper and again on its child marker. Two identical
+    // outline entries for one `bookmark` prop, and `/Count 2`.
+    //
+    // The sibling tests above only assert `contains`, which is exactly why this
+    // survived: a duplicate satisfies `contains` perfectly well. Assert counts.
+    let mut children = Vec::new();
+    for i in 0..80 {
+        children.push(make_text(&format!("Line {}", i), 12.0));
+    }
+    let view = Node {
+        kind: NodeKind::View,
+        style: Style {
+            // Forces `needs_wrapper` — this is the half of the branch that duplicated.
+            background_color: Some(Color::rgb(0.9, 0.9, 0.9)),
+            padding: Some(Edges::uniform(20.0)),
+            ..Default::default()
+        },
+        children,
+        id: None,
+        source_location: None,
+        bookmark: Some("Styled Chapter".to_string()),
+        href: None,
+        alt: None,
+    };
+    let doc = default_doc(vec![view]);
+    let pages = layout_doc(&doc);
+    assert!(
+        pages.len() >= 2,
+        "Test needs the overflow path; got {} page(s)",
+        pages.len()
+    );
+
+    let bytes = render_to_pdf(&doc);
+    assert_valid_pdf(&bytes);
+    let text = String::from_utf8_lossy(&bytes);
+
+    let title_count = text.matches("/Title (Styled Chapter)").count();
+    assert_eq!(
+        title_count, 1,
+        "One `bookmark` prop must produce exactly one outline entry, got {}",
+        title_count
+    );
+    // Scoped to the Outlines dictionary on purpose — a bare `/Count` search
+    // also hits the /Pages dictionary, whose count is the page count (2 here).
+    let outlines_dict = text
+        .split("/Type /Outlines")
+        .nth(1)
+        .expect("PDF should contain an /Outlines dictionary");
+    let outlines_dict = &outlines_dict[..outlines_dict.find(">>").unwrap_or(outlines_dict.len())];
+    assert!(
+        outlines_dict.contains("/Count 1"),
+        "Outlines dictionary should report /Count 1, got: << /Type /Outlines{}>>",
+        outlines_dict
+    );
+}
+
 // ── Feature 4: Absolute Positioning Tests ───────────────────────
 
 #[test]

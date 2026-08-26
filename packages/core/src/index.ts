@@ -74,6 +74,9 @@ export type ElementPosition = 'Relative' | 'Absolute';
  * - `TableRow` / `TableCell` — NO `Table` wrapper (unwrapped by layout)
  * - `List` + `ListItem` + `Lbl` — from `<OrderedList>` / `<UnorderedList>`
  * - `FixedHeader` / `FixedFooter` — NO single `Fixed` (split by position)
+ * - `Bookmark` — zero-height marker from `bookmark` on a container, emitted
+ *   on every container path (fits or overflowing) and the sole carrier of
+ *   the outline entry
  * - `TextLine` — leaf lines under `Text` blocks (holds `textContent`)
  * - Inline `<Strong>`/`<Em>`/`<Code>`/`<Link>` do not appear here;
  *   they contribute style runs within `TextLine`
@@ -103,6 +106,9 @@ export type ElementNodeType =
   // Fixed regions — <Fixed> splits by position into these two
   | 'FixedHeader'
   | 'FixedFooter'
+  // Zero-height marker emitted by `bookmark` on any container so the entry
+  // reaches the PDF outline. Draws nothing and has no meaningful rect.
+  | 'Bookmark'
   // Media
   | 'Image'
   | 'Svg'
@@ -223,6 +229,17 @@ export interface ElementStyleInfo {
  *   `TextLine` leaves.
  * - `<PageBreak>` produces no node. It triggers a page break at
  *   layout time and is otherwise invisible.
+ * - `bookmark` on a container (`<View>`, `<Page>`, and bare `<ListItem>` /
+ *   `<TableRow>` / `<TableCell>`) produces a zero-height `Bookmark` marker
+ *   node (no rect, draws nothing) so the entry reaches the PDF outline.
+ *   The marker is emitted whether or not the container overflows a page,
+ *   and it is the ONLY element carrying that `bookmark` — one marker, one
+ *   outline entry.
+ *   Caveat: `bookmark` on a NON-container (`<Text>`, `<Image>`, `<Svg>`,
+ *   charts, form fields) still rides on that node's own element, and rows
+ *   or cells laid out inside a `<Table>` carry it on the row/cell element.
+ *   So `Bookmark` nodes are not an exhaustive index of the document's
+ *   bookmarks — scan the `bookmark` field for that.
  *
  * The runtime-conformance test in this package asserts every one of
  * these transforms explicitly. If it breaks, update this JSDoc first.

@@ -1,0 +1,1599 @@
+{
+  "version": 1,
+  "producer": "formepdf",
+  "createdAt": "2026-08-26T19:57:52.116Z",
+  "pageCount": 1,
+  "pages": [
+    {
+      "index": 0,
+      "width": 612,
+      "height": 792,
+      "contentBox": {
+        "x": 120,
+        "y": 72,
+        "width": 372,
+        "height": 648
+      },
+      "nodeIds": [
+        "0:container:0",
+        "0:text:0",
+        "0:text:1",
+        "0:text:2",
+        "0:text:3",
+        "0:container:1",
+        "0:container:2",
+        "0:text:4",
+        "0:text:5",
+        "0:container:3",
+        "0:container:4",
+        "0:text:6",
+        "0:text:7",
+        "0:text:8",
+        "0:container:5",
+        "0:container:6",
+        "0:text:9",
+        "0:text:10",
+        "0:container:7",
+        "0:container:8",
+        "0:text:11",
+        "0:text:12",
+        "0:container:9",
+        "0:container:10",
+        "0:text:13",
+        "0:text:14",
+        "0:container:11",
+        "0:container:12",
+        "0:text:15",
+        "0:text:16",
+        "0:container:13",
+        "0:container:14",
+        "0:text:17",
+        "0:text:18",
+        "0:text:19",
+        "0:container:15",
+        "0:container:16",
+        "0:text:20",
+        "0:text:21",
+        "0:container:17",
+        "0:container:18",
+        "0:text:22",
+        "0:text:23",
+        "0:container:19",
+        "0:container:20",
+        "0:text:24",
+        "0:text:25",
+        "0:container:21",
+        "0:text:26",
+        "0:text:27",
+        "0:container:22",
+        "0:text:28",
+        "0:text:29",
+        "0:container:23",
+        "0:container:24",
+        "0:text:30",
+        "0:text:31",
+        "0:container:25",
+        "0:text:32",
+        "0:text:33",
+        "0:container:26",
+        "0:text:34",
+        "0:text:35"
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "id": "0:container:0",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 120,
+        "y": 72,
+        "width": 372,
+        "height": 73.8
+      },
+      "order": 0,
+      "parentId": null,
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:0",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 192.6,
+        "y": 72,
+        "width": 226.8,
+        "height": 28
+      },
+      "order": 1,
+      "parentId": "0:container:0",
+      "text": "Golden Gate Provisions",
+      "normText": "golden gate provisions",
+      "font": {
+        "size": 20,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:1",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 266.7,
+        "y": 104,
+        "width": 78.6,
+        "height": 12.6
+      },
+      "order": 2,
+      "parentId": "0:container:0",
+      "text": "742 Valencia Street",
+      "normText": "742 valencia street",
+      "font": {
+        "size": 9,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:2",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 254.7,
+        "y": 118.6,
+        "width": 102.6,
+        "height": 12.6
+      },
+      "order": 3,
+      "parentId": "0:container:0",
+      "text": "San Francisco, CA 94110",
+      "normText": "san francisco, ca 94110",
+      "font": {
+        "size": 9,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:3",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 275.2,
+        "y": 133.2,
+        "width": 61.5,
+        "height": 12.6
+      },
+      "order": 4,
+      "parentId": "0:container:0",
+      "text": "(415) 555-0198",
+      "normText": "(415) 555-0198",
+      "font": {
+        "size": 9,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:1",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 120,
+        "y": 169.8,
+        "width": 372,
+        "height": 1
+      },
+      "order": 5,
+      "parentId": null,
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:2",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 120,
+        "y": 186.8,
+        "width": 372,
+        "height": 12.6
+      },
+      "order": 6,
+      "parentId": null,
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:4",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 120,
+        "y": 186.8,
+        "width": 72.5,
+        "height": 12.6
+      },
+      "order": 7,
+      "parentId": "0:container:2",
+      "text": "Receipt #R-84291",
+      "normText": "receipt #r-84291",
+      "font": {
+        "size": 9,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:5",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 418.5,
+        "y": 186.8,
+        "width": 73.5,
+        "height": 12.6
+      },
+      "order": 8,
+      "parentId": "0:container:2",
+      "text": "February 14, 2026",
+      "normText": "february 14, 2026",
+      "font": {
+        "size": 9,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:3",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 120,
+        "y": 215.4,
+        "width": 372,
+        "height": 24.6
+      },
+      "order": 9,
+      "parentId": null,
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:4",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 120,
+        "y": 221.4,
+        "width": 344.5,
+        "height": 12.6
+      },
+      "order": 10,
+      "parentId": "0:container:3",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:6",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 120,
+        "y": 221.4,
+        "width": 98.1,
+        "height": 12.6
+      },
+      "order": 11,
+      "parentId": "0:container:4",
+      "text": "Organic Sourdough Loaf",
+      "normText": "organic sourdough loaf",
+      "font": {
+        "size": 9,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:7",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 226.1,
+        "y": 221.4,
+        "width": 9.5,
+        "height": 12.6
+      },
+      "order": 12,
+      "parentId": "0:container:4",
+      "text": "x2",
+      "normText": "x2",
+      "font": {
+        "size": 9,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:8",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 464.5,
+        "y": 221.4,
+        "width": 27.5,
+        "height": 12.6
+      },
+      "order": 13,
+      "parentId": "0:container:3",
+      "text": "$15.00",
+      "normText": "$15.00",
+      "font": {
+        "size": 9,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:5",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 120,
+        "y": 240,
+        "width": 372,
+        "height": 24.6
+      },
+      "order": 14,
+      "parentId": null,
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:6",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 120,
+        "y": 246,
+        "width": 349.5,
+        "height": 12.6
+      },
+      "order": 15,
+      "parentId": "0:container:5",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:9",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 120,
+        "y": 246,
+        "width": 101.5,
+        "height": 12.6
+      },
+      "order": 16,
+      "parentId": "0:container:6",
+      "text": "Heirloom Tomatoes (1 lb)",
+      "normText": "heirloom tomatoes (1 lb)",
+      "font": {
+        "size": 9,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:10",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 469.5,
+        "y": 246,
+        "width": 22.5,
+        "height": 12.6
+      },
+      "order": 17,
+      "parentId": "0:container:5",
+      "text": "$5.99",
+      "normText": "$5.99",
+      "font": {
+        "size": 9,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:7",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 120,
+        "y": 264.6,
+        "width": 372,
+        "height": 24.6
+      },
+      "order": 18,
+      "parentId": null,
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:8",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 120,
+        "y": 270.6,
+        "width": 344.5,
+        "height": 12.6
+      },
+      "order": 19,
+      "parentId": "0:container:7",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:11",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 120,
+        "y": 270.6,
+        "width": 124.5,
+        "height": 12.6
+      },
+      "order": 20,
+      "parentId": "0:container:8",
+      "text": "Local Wildflower Honey (12 oz)",
+      "normText": "local wildflower honey (12 oz)",
+      "font": {
+        "size": 9,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:12",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 464.5,
+        "y": 270.6,
+        "width": 27.5,
+        "height": 12.6
+      },
+      "order": 21,
+      "parentId": "0:container:7",
+      "text": "$12.00",
+      "normText": "$12.00",
+      "font": {
+        "size": 9,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:9",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 120,
+        "y": 289.2,
+        "width": 372,
+        "height": 24.6
+      },
+      "order": 22,
+      "parentId": null,
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:10",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 120,
+        "y": 295.2,
+        "width": 349.5,
+        "height": 12.6
+      },
+      "order": 23,
+      "parentId": "0:container:9",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:13",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 120,
+        "y": 295.2,
+        "width": 104.1,
+        "height": 12.6
+      },
+      "order": 24,
+      "parentId": "0:container:10",
+      "text": "Free-Range Eggs (dozen)",
+      "normText": "free-range eggs (dozen)",
+      "font": {
+        "size": 9,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:14",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 469.5,
+        "y": 295.2,
+        "width": 22.5,
+        "height": 12.6
+      },
+      "order": 25,
+      "parentId": "0:container:9",
+      "text": "$8.50",
+      "normText": "$8.50",
+      "font": {
+        "size": 9,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:11",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 120,
+        "y": 313.8,
+        "width": 372,
+        "height": 24.6
+      },
+      "order": 26,
+      "parentId": null,
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:12",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 120,
+        "y": 319.8,
+        "width": 349.5,
+        "height": 12.6
+      },
+      "order": 27,
+      "parentId": "0:container:11",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:15",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 120,
+        "y": 319.8,
+        "width": 90.5,
+        "height": 12.6
+      },
+      "order": 28,
+      "parentId": "0:container:12",
+      "text": "Artisan Cheddar (8 oz)",
+      "normText": "artisan cheddar (8 oz)",
+      "font": {
+        "size": 9,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:16",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 469.5,
+        "y": 319.8,
+        "width": 22.5,
+        "height": 12.6
+      },
+      "order": 29,
+      "parentId": "0:container:11",
+      "text": "$9.75",
+      "normText": "$9.75",
+      "font": {
+        "size": 9,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:13",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 120,
+        "y": 338.4,
+        "width": 372,
+        "height": 24.6
+      },
+      "order": 30,
+      "parentId": null,
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:14",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 120,
+        "y": 344.4,
+        "width": 344.5,
+        "height": 12.6
+      },
+      "order": 31,
+      "parentId": "0:container:13",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:17",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 120,
+        "y": 344.4,
+        "width": 101,
+        "height": 12.6
+      },
+      "order": 32,
+      "parentId": "0:container:14",
+      "text": "Cold Brew Coffee (16 oz)",
+      "normText": "cold brew coffee (16 oz)",
+      "font": {
+        "size": 9,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:18",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 229,
+        "y": 344.4,
+        "width": 9.5,
+        "height": 12.6
+      },
+      "order": 33,
+      "parentId": "0:container:14",
+      "text": "x2",
+      "normText": "x2",
+      "font": {
+        "size": 9,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:19",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 464.5,
+        "y": 344.4,
+        "width": 27.5,
+        "height": 12.6
+      },
+      "order": 34,
+      "parentId": "0:container:13",
+      "text": "$13.00",
+      "normText": "$13.00",
+      "font": {
+        "size": 9,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:15",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 120,
+        "y": 363,
+        "width": 372,
+        "height": 24.6
+      },
+      "order": 35,
+      "parentId": null,
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:16",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 120,
+        "y": 369,
+        "width": 349.5,
+        "height": 12.6
+      },
+      "order": 36,
+      "parentId": "0:container:15",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:20",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 120,
+        "y": 369,
+        "width": 94.5,
+        "height": 12.6
+      },
+      "order": 37,
+      "parentId": "0:container:16",
+      "text": "Mixed Greens Salad Kit",
+      "normText": "mixed greens salad kit",
+      "font": {
+        "size": 9,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:21",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 469.5,
+        "y": 369,
+        "width": 22.5,
+        "height": 12.6
+      },
+      "order": 38,
+      "parentId": "0:container:15",
+      "text": "$7.25",
+      "normText": "$7.25",
+      "font": {
+        "size": 9,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:17",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 120,
+        "y": 387.6,
+        "width": 372,
+        "height": 24.6
+      },
+      "order": 39,
+      "parentId": null,
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:18",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 120,
+        "y": 393.6,
+        "width": 349.5,
+        "height": 12.6
+      },
+      "order": 40,
+      "parentId": "0:container:17",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:22",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 120,
+        "y": 393.6,
+        "width": 99.5,
+        "height": 12.6
+      },
+      "order": 41,
+      "parentId": "0:container:18",
+      "text": "Sparkling Water (6-pack)",
+      "normText": "sparkling water (6-pack)",
+      "font": {
+        "size": 9,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:23",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 469.5,
+        "y": 393.6,
+        "width": 22.5,
+        "height": 12.6
+      },
+      "order": 42,
+      "parentId": "0:container:17",
+      "text": "$5.99",
+      "normText": "$5.99",
+      "font": {
+        "size": 9,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:19",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 120,
+        "y": 424.2,
+        "width": 372,
+        "height": 1
+      },
+      "order": 43,
+      "parentId": null,
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:20",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 120,
+        "y": 437.2,
+        "width": 372,
+        "height": 20.6
+      },
+      "order": 44,
+      "parentId": null,
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:24",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 120,
+        "y": 441.2,
+        "width": 33,
+        "height": 12.6
+      },
+      "order": 45,
+      "parentId": "0:container:20",
+      "text": "Subtotal",
+      "normText": "subtotal",
+      "font": {
+        "size": 9,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:25",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 464.5,
+        "y": 441.2,
+        "width": 27.5,
+        "height": 12.6
+      },
+      "order": 46,
+      "parentId": "0:container:20",
+      "text": "$77.48",
+      "normText": "$77.48",
+      "font": {
+        "size": 9,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:21",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 120,
+        "y": 457.8,
+        "width": 372,
+        "height": 20.6
+      },
+      "order": 47,
+      "parentId": null,
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:26",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 120,
+        "y": 461.8,
+        "width": 44,
+        "height": 12.6
+      },
+      "order": 48,
+      "parentId": "0:container:21",
+      "text": "Tax (8.8%)",
+      "normText": "tax (8.8%)",
+      "font": {
+        "size": 9,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:27",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 469.5,
+        "y": 461.8,
+        "width": 22.5,
+        "height": 12.6
+      },
+      "order": 49,
+      "parentId": "0:container:21",
+      "text": "$6.78",
+      "normText": "$6.78",
+      "font": {
+        "size": 9,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:22",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 120,
+        "y": 482.4,
+        "width": 372,
+        "height": 42.8
+      },
+      "order": 50,
+      "parentId": null,
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:28",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 120,
+        "y": 496.4,
+        "width": 28.7,
+        "height": 16.8
+      },
+      "order": 51,
+      "parentId": "0:container:22",
+      "text": "Total",
+      "normText": "total",
+      "font": {
+        "size": 12,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:29",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 455.3,
+        "y": 496.4,
+        "width": 36.7,
+        "height": 16.8
+      },
+      "order": 52,
+      "parentId": "0:container:22",
+      "text": "$84.26",
+      "normText": "$84.26",
+      "font": {
+        "size": 12,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:23",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 120,
+        "y": 541.2,
+        "width": 372,
+        "height": 54.2
+      },
+      "order": 53,
+      "parentId": null,
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:24",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 120,
+        "y": 554.2,
+        "width": 372,
+        "height": 12.6
+      },
+      "order": 54,
+      "parentId": "0:container:23",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:30",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 120,
+        "y": 554.2,
+        "width": 68,
+        "height": 12.6
+      },
+      "order": 55,
+      "parentId": "0:container:24",
+      "text": "Payment Method",
+      "normText": "payment method",
+      "font": {
+        "size": 9,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:31",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 474.5,
+        "y": 554.2,
+        "width": 17.5,
+        "height": 12.6
+      },
+      "order": 56,
+      "parentId": "0:container:24",
+      "text": "Visa",
+      "normText": "visa",
+      "font": {
+        "size": 9,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:25",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 120,
+        "y": 570.8,
+        "width": 372,
+        "height": 12.6
+      },
+      "order": 57,
+      "parentId": "0:container:23",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:32",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 120,
+        "y": 570.8,
+        "width": 19.5,
+        "height": 12.6
+      },
+      "order": 58,
+      "parentId": "0:container:25",
+      "text": "Card",
+      "normText": "card",
+      "font": {
+        "size": 9,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:33",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 458,
+        "y": 570.8,
+        "width": 34,
+        "height": 12.6
+      },
+      "order": 59,
+      "parentId": "0:container:25",
+      "text": "****4821",
+      "normText": "****4821",
+      "font": {
+        "size": 9,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:26",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 120,
+        "y": 627.4,
+        "width": 372,
+        "height": 33.2
+      },
+      "order": 60,
+      "parentId": null,
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:34",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 241,
+        "y": 627.4,
+        "width": 130.1,
+        "height": 14
+      },
+      "order": 61,
+      "parentId": "0:container:26",
+      "text": "Thank you for your purchase!",
+      "normText": "thank you for your purchase!",
+      "font": {
+        "size": 10,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:35",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 249.8,
+        "y": 649.4,
+        "width": 112.5,
+        "height": 11.2
+      },
+      "order": 62,
+      "parentId": "0:container:26",
+      "text": "www.goldengateprovisions.com",
+      "normText": "www.goldengateprovisions.com",
+      "font": {
+        "size": 8,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    }
+  ],
+  "contentHash": "sha256:ebcc3a0bdb8aa685d593a42d1fe65118b9cc4e69ed788c2a8e691f9e3b04d0de"
+}
