@@ -59,6 +59,7 @@
     "build:ts": "tsc",
     "build": "npm run build:wasm && npm run build:ts",
     "test": "vitest run",
+    "test:templates": "vitest run --config vitest.config.templates.ts",
     "test:workers": "vitest run --config vitest.config.workers.ts",
     "prepublishOnly": "npm run build && ./scripts/assert-tarball.sh"
   },

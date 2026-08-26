@@ -100,12 +100,12 @@ jobs:
       - name: Test Templates (regression)
         # Structural-regression coverage for the templates we ship on npm.
         # Both suites live in packages/core (rendering needs the WASM engine
-        # only core builds), so `Test Core` below already runs them — this
-        # step re-runs just those two files, in under a second, so template
-        # coverage is a line item a reviewer can see in the job list instead
-        # of something they'd have to know is buried inside a generic step.
+        # only core builds) but run under their own config, and
+        # vitest.config.ts excludes them — so this is the only step that
+        # runs them, and its green check means what its name says rather
+        # than re-reporting what `Test Core` already covered.
         working-directory: packages/core
-        run: npx vitest run tests/templates.regression.test.ts tests/templates-demo.regression.test.ts
+        run: npm run test:templates
       - name: Render invoice layout for the regression demo
         # Produces the `current` file for the Document Regression Demo job.
         # The vitest matcher compares in memory and never writes one, so this

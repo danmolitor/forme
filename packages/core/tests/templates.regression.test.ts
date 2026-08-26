@@ -1,4 +1,9 @@
 import { describe, it, expect } from 'vitest';
+import { execFileSync } from 'node:child_process';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { getTemplate, listTemplates } from '@formepdf/templates';
 import {
   invoiceExample,
@@ -57,6 +62,48 @@ describe('shipped template regressions (@formepdf/templates)', () => {
       await expect(layout).toMatchPDFSnapshot({ snapshotName: `template-${name}` });
     },
   );
+
+  /**
+   * Fidelity tripwire for the CI regression demo.
+   *
+   * `scripts/render-template-layout.mjs` is a *second* place this repo renders a
+   * shipped template: CI runs it to produce the `current` file that
+   * @pdf-testkit/action diffs and comments on the PR. If it ever drifts from
+   * what this suite asserts on — different entry point, different fixture data,
+   * different render options — the PR comment would describe a document nobody
+   * actually gates, which is worse than no comment at all.
+   *
+   * Byte equality rather than a structural diff on purpose: a semantic
+   * comparison is exactly what the demo itself performs, so using one here
+   * would blind this check to any drift the differ happens to treat as
+   * equivalent.
+   */
+  it('the CI demo producer renders byte-identically to this suite', async () => {
+    // The script imports the built `dist/`, so it can't run against a bare
+    // checkout. CI always builds Core first; locally, skip rather than fail
+    // with a module-resolution error that says nothing about templates.
+    if (!existsSync(new URL('../dist/index.js', import.meta.url))) {
+      console.warn('skipping: packages/core/dist not built');
+      return;
+    }
+
+    const out = join(tmpdir(), `forme-demo-parity-${process.pid}.json`);
+    try {
+      execFileSync(process.execPath, ['scripts/render-template-layout.mjs', 'invoice', out], {
+        cwd: fileURLToPath(new URL('..', import.meta.url)),
+        stdio: 'pipe',
+      });
+
+      const template = getTemplate('invoice');
+      if (!template) throw new Error('getTemplate("invoice") returned null');
+      const { layout } = await renderDocumentWithLayout(template(invoiceExample));
+
+      // Must match how the script serializes, or this compares formatting.
+      expect(readFileSync(out, 'utf8')).toBe(JSON.stringify(layout, null, 2) + '\n');
+    } finally {
+      rmSync(out, { force: true });
+    }
+  });
 
   /**
    * Coverage tripwire. Adding a template to `@formepdf/templates` without adding
