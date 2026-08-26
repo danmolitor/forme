@@ -84,6 +84,28 @@ jobs:
       - name: Build CLI
         working-directory: packages/cli
         run: npm run build
+      - name: Render invoice layout for the regression demo
+        # Produces the `current` file for the Document Regression Demo job.
+        # The vitest matcher compares in memory and never writes one, so this
+        # is the missing producer — the same getTemplate +
+        # renderDocumentWithLayout pair the template suite asserts on (and a
+        # test in that suite byte-compares the two, so they can't drift).
+        #
+        # Deliberately above every test step. It needs the build and nothing
+        # else, and putting it after `Test Templates` meant a regression in a
+        # template skipped this step, skipped the upload, and left the demo
+        # job with nothing to diff — silencing the comment in exactly the
+        # case it exists to describe.
+        working-directory: packages/core
+        run: node scripts/render-template-layout.mjs invoice invoice-layout.json
+      - name: Upload invoice layout
+        # Handed to the demo job rather than regenerated there: reaching this
+        # point costs a full wasm-pack build, and the demo only needs the
+        # JSON that falls out of it.
+        uses: actions/upload-artifact@v4
+        with:
+          name: invoice-layout
+          path: packages/core/invoice-layout.json
       - name: Test React
         working-directory: packages/react
         run: npm test
@@ -106,22 +128,6 @@ jobs:
         # than re-reporting what `Test Core` already covered.
         working-directory: packages/core
         run: npm run test:templates
-      - name: Render invoice layout for the regression demo
-        # Produces the `current` file for the Document Regression Demo job.
-        # The vitest matcher compares in memory and never writes one, so this
-        # is the missing producer — the same getTemplate +
-        # renderDocumentWithLayout pair the suite above asserts on, so the
-        # demo can't drift from what CI already gates.
-        working-directory: packages/core
-        run: node scripts/render-template-layout.mjs invoice invoice-layout.json
-      - name: Upload invoice layout
-        # Handed to the demo job rather than regenerated there: reaching this
-        # point costs a full wasm-pack build, and the demo only needs the
-        # JSON that falls out of it.
-        uses: actions/upload-artifact@v4
-        with:
-          name: invoice-layout
-          path: packages/core/invoice-layout.json
       - name: Test Core
         working-directory: packages/core
         run: npm test
@@ -161,7 +167,13 @@ jobs:
     needs: packages
     # Pull requests only — the action's whole output is a PR comment, and
     # there's nothing to comment on for a push to main.
-    if: github.event_name == 'pull_request'
+    #
+    # `!cancelled()` rather than a bare event check: `needs: packages` skips
+    # this job when packages goes red, and red is precisely when a reviewer
+    # wants the diff. A regression comment that only posts when there's no
+    # regression is worthless. If packages failed before the upload, the
+    # download below fails loudly rather than reporting a false clean.
+    if: ${{ !cancelled() && github.event_name == 'pull_request' }}
     # Scoped to this job deliberately. Posting the diff comment needs write
     # access to pull requests; nothing else in this workflow does, and
     # raising the workflow-level default would hand that token to every
