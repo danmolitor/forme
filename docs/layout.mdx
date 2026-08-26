@@ -1,0 +1,227 @@
+---
+title: Layout API
+sidebarTitle: Layout API
+description: Inspect the rendered layout tree from renderDocumentWithLayout(). Stable accessor helpers for common queries, plus the raw ElementInfo tree for anything the helpers don't cover.
+---
+
+`renderDocumentWithLayout()` returns two things: the rendered PDF bytes, and a `LayoutInfo` object describing every laid-out node with its position, size, style, and children. This page documents the shape of that layout tree and the helpers for querying it.
+
+## Two APIs — pick the right one
+
+**Prefer the helpers (`@formepdf/core/layout`) for common queries.** They encapsulate the layout-time transforms that would otherwise be invariants you have to remember — "text is on TextLine children, not the parent Text block", "there is no Table wrapper node", and so on. The helpers make those invariants a maintained API surface instead of a documented convention.
+
+**Fall back to raw `ElementInfo` tree access when you need it.** For custom snapshot comparison, structural analysis the helpers don't cover, or writing your own traversal. The tree is always there; helpers are additive.
+
+The layout-time transforms are documented on the [`ElementInfo` JSDoc](https://github.com/danmolitor/forme/blob/main/packages/core/src/index.ts) and enforced by a runtime-conformance test — if any of them change, the test in `@formepdf/core` fails immediately.
+
+## Helpers
+
+```ts
+import {
+  walkElements,
+  findElements,
+  findFirstElement,
+  getNodeText,
+  getTextLines,
+  getHeadingLevel,
+  getTableRows,
+  getFixedRegions,
+  getListItems,
+  getListItemMarker,
+  isNodeType,
+} from '@formepdf/core/layout';
+```
+
+### Text access
+
+The load-bearing case. Text content lives on `TextLine` leaf nodes — not on the parent `Text` block — because the layout engine splits blocks into wrapped lines during rendering. Consumers that read `textBlock.textContent` get `null` and are confused.
+
+**`getNodeText(node)` — read the text of a subtree**
+
+```ts
+const h1 = findFirstElement(layout, (n) => n.nodeType === 'H1')!;
+getNodeText(h1); // 'Report Title'
+```
+
+Concatenates every `TextLine` descendant's text, joined with `"\n"`. If the layout wrapped a source string across multiple lines, they come back separated by newlines. Strip them if you don't want that: `.replace(/\n/g, ' ')`.
+
+If `node` is itself a `TextLine`, returns its own text.
+
+**`getTextLines(node)` — get the line-by-line array**
+
+```ts
+const paragraph = findFirstElement(layout, (n) => n.nodeType === 'Text')!;
+getTextLines(paragraph); // [TextLine, TextLine, TextLine, ...]
+```
+
+### Structural queries
+
+Each of these encapsulates one of the documented layout-time transforms.
+
+**`getHeadingLevel(node)` — 1–6 or null**
+
+```ts
+const headings = findElements(layout, (n) => getHeadingLevel(n) !== null);
+```
+
+Encapsulates the invariant that headings render as six discriminated nodeTypes (`H1`–`H6`), not a generic `Heading` node with a `level` field.
+
+**`getTableRows(parent)` — direct `TableRow` children**
+
+```ts
+const rows = getTableRows(layout.pages[0]);
+```
+
+Encapsulates the invariant that `<Table>` unwraps at layout time — its `<Row>` children become sibling `TableRow` nodes on the containing page/View, and there is no `Table` wrapper node.
+
+Accepts a `PageInfo` or `ElementInfo` (e.g. a `View` that contained the `<Table>` in JSX).
+
+**`getFixedRegions(page)` — `{ header, footer }` arrays**
+
+```ts
+const { header, footer } = getFixedRegions(layout.pages[0]);
+```
+
+Encapsulates the invariant that `<Fixed position="header">` produces `FixedHeader` nodes and `<Fixed position="footer">` produces `FixedFooter` — no single `Fixed` nodeType.
+
+**`getListItems(list)` + `getListItemMarker(item)`**
+
+```ts
+const lists = findElements(layout, isNodeType('List'));
+for (const list of lists) {
+  for (const item of getListItems(list)) {
+    console.log(getListItemMarker(item), getNodeText(item));
+    // '1.', 'first item'
+    // '2.', 'second item'
+  }
+}
+```
+
+Encapsulates the invariant that markers are separate `Lbl` children of each `ListItem` rather than a field on `ListItem`.
+
+### Traversal
+
+**`walkElements(root, cb)` — depth-first walk**
+
+```ts
+walkElements(layout, (node, path) => {
+  console.log(path, node.nodeType);
+});
+```
+
+Accepts a `LayoutInfo`, `PageInfo`, `ElementInfo`, or an array of any of those. The callback receives the node and a human-readable path string (e.g. `"[0].children[3].children[1]"`). Return `false` to skip descent into that node's children.
+
+**`findElements(root, predicate)` — filter**
+
+```ts
+const allText = findElements(layout, (n) => n.nodeType === 'Text');
+```
+
+**`findFirstElement(root, predicate)` — one match**
+
+```ts
+const firstHeading = findFirstElement(layout, (n) => getHeadingLevel(n) !== null);
+```
+
+Returns `null` if no match. Stops descent as soon as a match is found (does not recurse into the match itself).
+
+**`isNodeType(nodeType)` — type-guard for filter chains**
+
+```ts
+const tableRows = findElements(layout, () => true).filter(isNodeType('TableRow'));
+// TypeScript narrows tableRows[i].nodeType to exactly 'TableRow'
+```
+
+## Raw `ElementInfo` tree
+
+If you need to walk the tree yourself — e.g. for custom snapshot comparison, structural analysis the helpers don't cover, or shipping the layout data to another process — the raw tree is always available. Every claim below is enforced by a runtime-conformance test in `@formepdf/core` (`tests/layout-shape.test.ts`); if it drifts, the test fails before it ships.
+
+### Top-level shape
+
+```ts
+interface LayoutInfo {
+  pages: PageInfo[];
+}
+
+interface PageInfo {
+  width: number;
+  height: number;
+  contentX: number;
+  contentY: number;
+  contentWidth: number;
+  contentHeight: number;
+  elements: ElementInfo[];
+}
+```
+
+### `ElementInfo`
+
+```ts
+interface ElementInfo {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+
+  kind: ElementKind;           // drawing kind
+  nodeType: ElementNodeType;   // semantic role
+
+  style: ElementStyleInfo;
+  children: ElementInfo[];
+
+  /** Present ONLY on TextLine leaves — always null on other nodeTypes. */
+  textContent?: string | null;
+
+  /** CLI dev server only; never populated by production renders. */
+  sourceLocation?: { file: string; line: number; column: number };
+}
+```
+
+### Layout-time transforms (the invariants)
+
+- **`<Table>` is unwrapped.** Its `<Row>` children appear as sibling `TableRow` nodes on the containing page/View. There is no `Table` wrapper node.
+- **`<OrderedList>` and `<UnorderedList>` both produce `List`** nodes containing `ListItem` children. Each `ListItem` has a `Lbl` child (the marker: `"1."` / `"•"`) followed by the item's content.
+- **`<Fixed position="header">` produces `FixedHeader`** and **`<Fixed position="footer">` produces `FixedFooter`.** There is no single `Fixed` nodeType.
+- **Headings emit six discrete `H1`–`H6` nodeTypes.** There is no generic `Heading` with a `level` field.
+- **`<Text>` block content is split into `TextLine` leaves.** The actual text lives on `TextLine.textContent`; non-`TextLine` nodes (including the parent `Text` block) emit `null` for `textContent`.
+- **Inline elements (`<Strong>`, `<Em>`, `<Code>`, `<Link>`) do not appear as their own nodes.** They contribute style runs within `TextLine`.
+- **`<PageBreak>` produces no node.** It triggers a page break during layout and is otherwise invisible.
+
+### Enum values
+
+The layout engine serializes style enums as PascalCase strings (Rust convention). This is **not the same as** the CSS-style camelCase values you author with in `style` props:
+
+```ts
+// You write this in JSX...
+<View style={{ flexDirection: 'row' }}>
+// ...and layout emits this at runtime:
+style.flexDirection === 'Row'  // capital R
+```
+
+The exported literal unions catch the mistake at compile time — `if (style.flexDirection === 'row')` fails to typecheck because `'row'` isn't a member of `ElementFlexDirection`.
+
+Every enum union is exported for narrowing:
+
+```ts
+import type {
+  ElementNodeType,
+  ElementKind,
+  ElementFlexDirection,
+  ElementJustifyContent,
+  ElementAlignItems,
+  ElementAlignContent,
+  ElementFlexWrap,
+  ElementFontStyle,
+  ElementTextAlign,
+  ElementTextDecoration,
+  ElementTextTransform,
+  ElementOverflow,
+  ElementPosition,
+} from '@formepdf/core';
+```
+
+## Drift protection
+
+If any of the layout-time transforms change in a future release, the runtime-conformance test in `@formepdf/core` fails first — before the release ships. That test explicitly asserts each transform on a rich fixture and reports the specific transform and node that broke. When it fires, this docs page and the JSDoc on `ElementInfo` get updated in the same commit.
+
+Consumers depending on the helpers ride through most of these changes transparently — that's the whole reason they exist. Consumers depending on the raw tree get the update in the exported types and a note in the CHANGELOG.

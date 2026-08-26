@@ -7,6 +7,15 @@ import { resolve } from 'node:path';
 import type { ReactElement } from 'react';
 
 // ── Layout metadata types ──────────────────────────────────────────
+//
+// These describe the runtime shape that `renderDocumentWithLayout()`
+// returns — NOT the JSX-authoring `Style` types from `@formepdf/react`.
+// The layout tree does not mirror the JSX tree: several transforms run
+// during layout. See the `ElementInfo` doc block below for the full
+// list. There is a runtime-conformance test in this package
+// (`tests/layout-shape.test.ts`) that renders a rich fixture and
+// asserts every claim below; if these types drift from runtime again
+// that test is the first thing that fails.
 
 export interface Color {
   r: number;
@@ -29,39 +38,223 @@ export interface CornerValues {
   bottom_left: number;
 }
 
+// ── Layout enum unions ─────────────────────────────────────────────
+//
+// The engine serializes style enums as PascalCase strings (Rust
+// convention), NOT the CSS-style camelCase / kebab-case values you
+// author with. Consumers writing `if (style.flexDirection === 'column')`
+// silently fail — the runtime value is `'Column'`. The literal unions
+// below make that a TypeScript compile error.
+//
+// Adding a new value to any of these enums (or to `ElementNodeType` /
+// `ElementKind` below) is a minor-version change. Consumers doing
+// exhaustive switches will get a TypeScript error and update; consumers
+// narrowing on a specific known value are unaffected. That's the trade
+// we want given how young and actively-growing FormePDF's node vocabulary
+// is — the type strategy matches the reality.
+
+export type ElementFlexDirection = 'Row' | 'Column' | 'RowReverse' | 'ColumnReverse';
+export type ElementJustifyContent = 'FlexStart' | 'FlexEnd' | 'Center' | 'SpaceBetween' | 'SpaceAround' | 'SpaceEvenly';
+export type ElementAlignItems = 'FlexStart' | 'FlexEnd' | 'Center' | 'Stretch' | 'Baseline';
+export type ElementAlignContent = 'FlexStart' | 'FlexEnd' | 'Center' | 'SpaceBetween' | 'SpaceAround' | 'SpaceEvenly' | 'Stretch';
+export type ElementFlexWrap = 'NoWrap' | 'Wrap' | 'WrapReverse';
+export type ElementFontStyle = 'Normal' | 'Italic' | 'Oblique';
+export type ElementTextAlign = 'Left' | 'Right' | 'Center' | 'Justify';
+export type ElementTextDecoration = 'None' | 'Underline' | 'LineThrough';
+export type ElementTextTransform = 'None' | 'Uppercase' | 'Lowercase' | 'Capitalize';
+export type ElementOverflow = 'Visible' | 'Hidden';
+export type ElementPosition = 'Relative' | 'Absolute';
+
+/**
+ * Semantic role of a layout node. Note the specific transforms below
+ * (also documented on `ElementInfo`) — this union describes what the
+ * runtime actually emits, not what the JSX author wrote:
+ *
+ * - Six discrete heading tags (`H1`–`H6`) — NO generic `'Heading'`
+ * - `TableRow` / `TableCell` — NO `Table` wrapper (unwrapped by layout)
+ * - `List` + `ListItem` + `Lbl` — from `<OrderedList>` / `<UnorderedList>`
+ * - `FixedHeader` / `FixedFooter` — NO single `Fixed` (split by position)
+ * - `TextLine` — leaf lines under `Text` blocks (holds `textContent`)
+ * - Inline `<Strong>`/`<Em>`/`<Code>`/`<Link>` do not appear here;
+ *   they contribute style runs within `TextLine`
+ *
+ * ### When adding a new value here
+ *
+ * Also add a `<Component>` that produces the new nodeType to
+ * `RICH_FIXTURE` in `packages/core/tests/layout-shape.test.ts`.
+ * A coverage tripwire in that file fails otherwise ("declared but
+ * never rendered"), on the exact drift risk this whole file exists
+ * to prevent.
+ */
+export type ElementNodeType =
+  // Structural containers
+  | 'View'
+  | 'Text'
+  | 'TextLine'
+  // Semantic headings (discrete per tag)
+  | 'H1' | 'H2' | 'H3' | 'H4' | 'H5' | 'H6'
+  // Table primitives — no 'Table' wrapper node
+  | 'TableRow'
+  | 'TableCell'
+  // Lists — <OrderedList> and <UnorderedList> both produce 'List'
+  | 'List'
+  | 'ListItem'
+  | 'Lbl'
+  // Fixed regions — <Fixed> splits by position into these two
+  | 'FixedHeader'
+  | 'FixedFooter'
+  // Media
+  | 'Image'
+  | 'Svg'
+  | 'QrCode'
+  | 'Barcode'
+  | 'Canvas'
+  | 'Watermark'
+  // Charts
+  | 'BarChart'
+  | 'LineChart'
+  | 'PieChart'
+  | 'AreaChart'
+  | 'DotPlot'
+  // Form fields
+  | 'TextField'
+  | 'Checkbox'
+  | 'Dropdown'
+  | 'RadioButton';
+
+/**
+ * Drawing kind for the node. Governs the PDF operator the serializer
+ * emits; NOT the same as `nodeType`, which describes semantic role.
+ */
+export type ElementKind =
+  | 'None'
+  | 'Rect'
+  | 'Text'
+  | 'Image'
+  | 'Svg'
+  | 'QrCode'
+  | 'Barcode'
+  | 'Chart'
+  | 'FormField'
+  | 'Watermark';
+
 export interface ElementStyleInfo {
+  // Layout — flex + grid
+  flexDirection: ElementFlexDirection;
+  justifyContent: ElementJustifyContent;
+  alignItems: ElementAlignItems;
+  alignContent: ElementAlignContent;
+  flexWrap: ElementFlexWrap;
+  flexGrow: number;
+  flexShrink: number;
+  gap: number;
+  columnGap: number;
+  rowGap: number;
+
+  // Positioning
+  position: ElementPosition;
+  /** Offset from parent, in points. Only meaningful when `position === 'Absolute'`. */
+  top?: number;
+  right?: number;
+  bottom?: number;
+  left?: number;
+
+  // Box model
   margin: EdgeValues<number>;
   padding: EdgeValues<number>;
   borderWidth: EdgeValues<number>;
-  flexDirection: string;
-  justifyContent: string;
-  alignItems: string;
-  flexWrap: string;
-  gap: number;
+  borderColor: EdgeValues<Color>;
+  borderRadius: CornerValues;
+  /**
+   * Explicit `style.width` from the source. May be a number (points) or
+   * a stringified value (e.g. percentage) — the layout engine formats
+   * some dimension variants as strings in the JSON output. Prefer the
+   * top-level `ElementInfo.width` for the resolved rendered width.
+   */
+  width?: number | string;
+  /** Explicit `style.height`. See `width` for shape notes. */
+  height?: number | string;
+
+  // Typography
   fontFamily: string;
   fontSize: number;
   fontWeight: number;
-  fontStyle: string;
+  fontStyle: ElementFontStyle;
   lineHeight: number;
-  textAlign: string;
+  letterSpacing: number;
+  textAlign: ElementTextAlign;
+  textDecoration: ElementTextDecoration;
+  textTransform: ElementTextTransform;
+
+  // Colors + visibility
   color: Color;
   backgroundColor: Color | null;
-  borderColor: EdgeValues<Color>;
-  borderRadius: CornerValues;
   opacity: number;
+  overflow: ElementOverflow;
+
+  // Page break control
+  breakBefore: boolean;
+  breakable: boolean;
+  minOrphanLines: number;
+  minWidowLines: number;
 }
 
+/**
+ * A single node in the layout tree returned by
+ * `renderDocumentWithLayout()`. The tree does NOT mirror the JSX
+ * source — several transforms happen during layout:
+ *
+ * - `<Table>` is unwrapped. Its `<Row>` children appear as sibling
+ *   `TableRow` nodes at the containing page/View level. There is no
+ *   `Table` wrapper node.
+ * - `<OrderedList>` and `<UnorderedList>` both produce a `List` node
+ *   containing `ListItem` children. Each `ListItem` has a `Lbl` child
+ *   (the marker "1." / "•") followed by the item's own content children.
+ * - `<Fixed position="header">` produces a `FixedHeader` nodeType and
+ *   `<Fixed position="footer">` produces `FixedFooter`. There is no
+ *   single `Fixed` nodeType.
+ * - Headings render as six discrete `H1` … `H6` nodeTypes. There is
+ *   no generic `Heading` nodeType with a `level` field.
+ * - `<Text>` block content is split into `TextLine` leaf children.
+ *   The actual text lives on `TextLine.textContent`; on non-`TextLine`
+ *   nodes (including the parent `Text` block), `textContent` is `null`.
+ * - Inline elements (`<Strong>`, `<Em>`, `<Code>`, `<Link>`) do NOT
+ *   appear as their own nodes — they contribute style runs within
+ *   `TextLine` leaves.
+ * - `<PageBreak>` produces no node. It triggers a page break at
+ *   layout time and is otherwise invisible.
+ *
+ * The runtime-conformance test in this package asserts every one of
+ * these transforms explicitly. If it breaks, update this JSDoc first.
+ */
 export interface ElementInfo {
   x: number;
   y: number;
   width: number;
   height: number;
-  kind: string;
-  nodeType: string;
+
+  kind: ElementKind;
+  nodeType: ElementNodeType;
+
   style: ElementStyleInfo;
   children: ElementInfo[];
+
+  /**
+   * Rendered text for this line. Present ONLY on `TextLine` nodeType
+   * leaves — every non-`TextLine` node (including the parent `Text`
+   * block) emits `null` here at runtime. If you need the text of a
+   * `Text` block, concatenate its `TextLine` children's `textContent`.
+   */
+  textContent?: string | null;
+
+  /**
+   * Source file / line / column of the JSX that produced this node.
+   * Populated only when the render pipeline seeds
+   * `globalThis.__formeSourceMap` — currently only the CLI dev server
+   * does that. Production `renderDocument` / `renderDocumentWithLayout`
+   * calls never populate this field.
+   */
   sourceLocation?: { file: string; line: number; column: number };
-  textContent?: string;
 }
 
 export interface PageInfo {
