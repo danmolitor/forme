@@ -33,6 +33,8 @@ export interface InvoiceData {
     description: string;
     quantity: number;
     unitPrice: number;
+    /** Line discount as a decimal, e.g. 0.1 for 10%. Matches `taxRate`'s units. */
+    discount?: number;
   }[];
   paymentTerms: string;
   notes?: string;
