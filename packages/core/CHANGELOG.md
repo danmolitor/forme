@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.12.1] - 2026-08-26
+
+Type-declaration bug fix release. No runtime behavior changed; the engine emits the exact same JSON it always did. The declared types for `renderDocumentWithLayout()`'s output had drifted from that JSON in eight places, first flagged internally, then again by an external consumer's dogfood test. This release fixes them at the root and adds enforcement so it won't happen a third time.
+
+### Fixed
+
+- `ElementNodeType` is now a closed literal union of the 30 nodeType values the engine actually emits (was `string`). Consumers writing `nodeType === 'Heading'` when reality is `'H1'`–`'H6'` — the exact bug that started this — now get a TypeScript compile error instead of shipping silently. The same fix covers `ElementKind` (10 values) and 11 style enums (`ElementFlexDirection`, `ElementJustifyContent`, `ElementAlignItems`, `ElementAlignContent`, `ElementFlexWrap`, `ElementFontStyle`, `ElementTextAlign`, `ElementTextDecoration`, `ElementTextTransform`, `ElementOverflow`, `ElementPosition`) — all exported for narrowing
+- `ElementStyleInfo` expanded from 19 to 34 fields. Previously missing: `alignContent`, `breakBefore`, `breakable`, `columnGap`, `rowGap`, `flexGrow`, `flexShrink`, `letterSpacing`, `minOrphanLines`, `minWidowLines`, `overflow`, `position`, `top` / `right` / `bottom` / `left` (positioning offsets), `width` / `height` (explicit style dimensions), `textDecoration`, `textTransform`
+- `textContent` on `ElementInfo` is now typed as `string | null | undefined`. It's ONLY populated on `TextLine` leaf nodes — every non-`TextLine` node (including the parent `Text` block) emits `null` at runtime. The old `string?` declaration made consumers reach for the wrong node
+- JSDoc on `ElementInfo` now enumerates every layout-time transform (Table unwrap, OrderedList → List+ListItem+Lbl, Fixed split by position, headings H1–H6, TextLine leaves, inline elements, PageBreak) — no longer a comment that could silently drift
+
+### Added
+
+- **`@formepdf/core/layout` subpath** — stable accessor helpers so consumers don't have to hard-code the layout-time invariants themselves. Additive; the raw `ElementInfo` tree is unchanged.
+  - Text access: `getNodeText(node)`, `getTextLines(node)`
+  - Structural queries (one per documented transform): `getHeadingLevel(node)`, `getTableRows(parent)`, `getFixedRegions(page)`, `getListItems(list)`, `getListItemMarker(item)`
+  - Traversal: `walkElements(root, cb)` with human-readable path threading, `findElements(root, predicate)`, `findFirstElement(root, predicate)`
+  - Type-guard: `isNodeType(t)` for filter chains
+
+### Internal
+
+- New drift-alarm test suite (`packages/core/tests/layout-shape.test.ts`, 13 tests):
+  - **Group 1 — enforced transforms:** each documented transform gets its own test with a failure message naming the transform and the offending node path. JSDoc callouts are no longer comments that can drift; they're contracts enforced on every CI run
+  - **Group 2 — types match runtime:** every emitted `nodeType`, `kind`, and enum-string style value is asserted to be a member of its declared literal union
+  - **Coverage tripwire:** every declared `ElementNodeType` must appear at least once in the rich fixture. If a future component ships without structural coverage, this fires with a message telling the developer exactly what to add and where
+- New helper behavior tests (`packages/core/tests/layout-helpers.test.ts`, 34 tests) — together with the shape tests, forms a two-sided drift alarm: engine drift → shape test fails; helper drift → helper test fails
+
+### ⚠️ Arguable-break notes (type-tightening exposes latent bugs)
+
+- Consumers writing `if (style.flexDirection === 'row')` — silently wrong before (runtime emits PascalCase `'Row'`) — now get a TypeScript compile error. Standard types-tighten territory; the code was buggy anyway. Fix: use the PascalCase values now exported as `ElementFlexDirection`
+- `textContent` changing from `string | undefined` to `string | null | undefined` will flag consumer code that assumed non-null. Fix: use the new `getNodeText()` helper, or explicitly handle `null` (which is what the runtime always emitted anyway)
+
 ## [0.12.0] - 2026-08-25
 
 _Version bump only — 0.12.0 introduces the new `@formepdf/preact` adapter (Preact 10 authoring). No changes to this package._

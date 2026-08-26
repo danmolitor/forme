@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.12.1] - 2026-08-26
+
+_Version bump only — 0.12.1 fixes LayoutInfo/ElementInfo type declarations and adds `@formepdf/core/layout` accessor helpers. No changes to this package._
+
 ## [0.12.0] - 2026-08-25
 
 Initial release.

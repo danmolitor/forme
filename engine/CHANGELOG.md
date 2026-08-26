@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.12.1] - 2026-08-26
+
+_Version bump only — no engine changes. Aligned with the 0.12.1 monorepo release (LayoutInfo/ElementInfo type-declaration fixes and new `@formepdf/core/layout` accessor helpers in `@formepdf/core`)._
+
 ## [0.12.0] - 2026-08-25
 
 _Version bump only — no engine changes. Aligned with the 0.12.0 monorepo release (new `@formepdf/preact` npm package)._
