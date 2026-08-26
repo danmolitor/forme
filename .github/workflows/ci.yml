@@ -97,6 +97,31 @@ jobs:
         # and @formepdf/react — both must be built before this runs.
         working-directory: packages/preact
         run: npm test
+      - name: Test Templates (regression)
+        # Structural-regression coverage for the templates we ship on npm.
+        # Both suites live in packages/core (rendering needs the WASM engine
+        # only core builds), so `Test Core` below already runs them — this
+        # step re-runs just those two files, in under a second, so template
+        # coverage is a line item a reviewer can see in the job list instead
+        # of something they'd have to know is buried inside a generic step.
+        working-directory: packages/core
+        run: npx vitest run tests/templates.regression.test.ts tests/templates-demo.regression.test.ts
+      - name: Render invoice layout for the regression demo
+        # Produces the `current` file for the Document Regression Demo job.
+        # The vitest matcher compares in memory and never writes one, so this
+        # is the missing producer — the same getTemplate +
+        # renderDocumentWithLayout pair the suite above asserts on, so the
+        # demo can't drift from what CI already gates.
+        working-directory: packages/core
+        run: node scripts/render-template-layout.mjs invoice invoice-layout.json
+      - name: Upload invoice layout
+        # Handed to the demo job rather than regenerated there: reaching this
+        # point costs a full wasm-pack build, and the demo only needs the
+        # JSON that falls out of it.
+        uses: actions/upload-artifact@v4
+        with:
+          name: invoice-layout
+          path: packages/core/invoice-layout.json
       - name: Test Core
         working-directory: packages/core
         run: npm test
@@ -129,3 +154,42 @@ jobs:
       - name: Test VS Code Extension
         working-directory: packages/vscode
         run: npm test
+
+  document-regression-demo:
+    name: Document Regression Demo
+    runs-on: ubuntu-latest
+    needs: packages
+    # Pull requests only — the action's whole output is a PR comment, and
+    # there's nothing to comment on for a push to main.
+    if: github.event_name == 'pull_request'
+    # Scoped to this job deliberately. Posting the diff comment needs write
+    # access to pull requests; nothing else in this workflow does, and
+    # raising the workflow-level default would hand that token to every
+    # build and test step too.
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      # For the committed baseline below; the `current` side arrives as an
+      # artifact, so this job never rebuilds the engine.
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: invoice-layout
+      - name: Diff invoice against its committed baseline
+        # Referenced by repo path rather than npm: @pdf-testkit/action is
+        # `private: true` and runs from its committed ncc bundle, so the
+        # runner needs no install step. Pinned to `main` because that repo
+        # carries no tags yet — move to a version tag once one exists.
+        #
+        # `current` is raw LayoutInfo, not a converted snapshot. The action
+        # accepts .pdf, .json snapshot, and .json LayoutInfo
+        # interchangeably, so skipping the conversion drops a CLI install
+        # without changing the diff — verified locally: both forms report
+        # zero semantic events against this baseline.
+        uses: danmolitor/pdf-testkit/packages/action@main
+        with:
+          baseline: packages/core/tests/__pdf_snapshots__/templates.regression.test-template-invoice.json
+          current: invoice-layout.json
+          fail-on: error
+          comment: true
