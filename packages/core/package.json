@@ -70,6 +70,7 @@
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.12.21",
+    "@formepdf/templates": "0.12.1",
     "@pdf-testkit/vitest": "^0.1.1",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
