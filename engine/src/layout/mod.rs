@@ -1813,14 +1813,20 @@ impl LayoutEngine {
         let snapshot = cursor.elements.len();
         let rect_start_y = cursor.content_y + cursor.y + margin.top;
 
+        // Emit a zero-height marker element so the bookmark gets into the PDF
+        // outline. Deliberately placed at `rect_start_y` — the view's outer top
+        // edge — BEFORE the cursor advances past padding/border, so every
+        // container path resolves a bookmark to the same coordinate. It used to
+        // sit at the content top, which is inset by padding + border, so an
+        // unstyled overflowing view landed lower than an otherwise identical
+        // styled or non-overflowing one.
+        if let Some(marker) = bookmark_marker(node, node_x, rect_start_y) {
+            cursor.elements.push(marker);
+        }
+
         cursor.y += margin.top + padding.top + border.top;
         let prev_continuation_offset = cursor.continuation_top_offset;
         cursor.continuation_top_offset = padding.top + border.top;
-
-        // Emit a zero-height marker element so the bookmark gets into the PDF outline
-        if let Some(marker) = bookmark_marker(node, node_x, cursor.content_y + cursor.y) {
-            cursor.elements.push(marker);
-        }
 
         let children_x = node_x + padding.left + border.left;
         let is_grid =
@@ -1891,7 +1897,11 @@ impl LayoutEngine {
                 resolved_style: Some(style.clone()),
                 source_location: node.source_location.clone(),
                 href: node.href.clone(),
-                bookmark: node.bookmark.clone(),
+                // The marker above owns the bookmark. `collect_bookmarks`
+                // recurses into children, and the marker was drained into
+                // `child_elements` — carrying it here too emits the outline
+                // entry twice for one `bookmark` prop.
+                bookmark: None,
                 alt: None,
                 is_header_row: false,
                 overflow: style.overflow,
@@ -1919,7 +1929,8 @@ impl LayoutEngine {
                     resolved_style: Some(style.clone()),
                     source_location: node.source_location.clone(),
                     href: node.href.clone(),
-                    bookmark: node.bookmark.clone(),
+                    // Marker owns it — see the no-page-break branch above.
+                    bookmark: None,
                     alt: None,
                     is_header_row: false,
                     overflow: Overflow::default(),

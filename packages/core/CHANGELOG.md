@@ -10,19 +10,36 @@
 
   Renamed rather than adding `"None"` to the union: `"None"` was an accident of the fallback, not a semantic role, and nothing can depend on it yet. Consumers matching on `nodeType === 'None'` (which the types never permitted) must switch to `'Bookmark'`.
 
-### Added
-
-- `'Bookmark'` added to the `ElementNodeType` union — per this package's stated policy, growing a node-type enum is a minor-version change.
-
 - **`bookmark` on a container that fits its page now emits a `Bookmark` node too.** The marker was only produced on the page-overflow path, so consumers walking `LayoutInfo` for `Bookmark` nodes silently missed every bookmark on normal, non-overflowing content — which is most of them.
 
   The PDF was never wrong here: `collect_bookmarks` walks every element for a `bookmark` field and ignores `nodeType`, so the outline entry was always generated. This was a LayoutInfo blind spot, not a document defect. The new marker sits at exactly the coordinate the bookmark previously resolved to, and the `bookmark` field moved off the container element onto the marker, so PDF output is byte-identical — verified by hashing the `catalog` render before and after the change (`8f41f7e9fb58b3cb` both ways, with layout geometry hashing identically as well).
 
   Both container paths now build the marker through one shared `bookmark_marker()` helper instead of two hand-maintained copies, which is what let them diverge in the first place.
 
+- **A bookmarked container that both overflows a page and has visual styling no longer emits the outline entry twice.** This one *was* a document defect, not a LayoutInfo issue: the PDF shipped two identical outline entries (and `/Count 2`) for a single `bookmark` prop.
+
+  The overflow path emits the zero-height marker because it may build no wrapper element at all — with no background, border or `flexGrow` the bookmark would otherwise be lost. When the view *is* styled it also builds a wrapper, the marker is drained into that wrapper's children, and `collect_bookmarks` recurses — so it found the same bookmark on the wrapper and again on the marker. The wrappers no longer carry `bookmark`; the marker is the single carrier on every path.
+
+  **Behavior change — outline destinations.** The marker now sits at the view's outer top edge rather than the padding/border-inset content top, so all container paths resolve a bookmark to the same coordinate. Measured destination Y (Letter, 36pt margin):
+
+  | case | before | after |
+  |---|---|---|
+  | overflowing + styled, no padding | 2 entries @ 756.00 | 1 entry @ 756.00 |
+  | overflowing + styled, padding 20 + border 4 | 2 entries @ 756.00, 732.00 | 1 entry @ 756.00 |
+  | overflowing, unstyled, no padding | 1 entry @ 756.00 | 1 entry @ 756.00 |
+  | overflowing, unstyled, padding 20 | 1 entry @ 736.00 | **1 entry @ 756.00** |
+  | fits on page, padding 20 | 1 entry @ 756.00 | 1 entry @ 756.00 |
+
+  Only the fourth row moves. Internal links (`href="#title"`) resolve by first match, so for styled views the governing destination was already 756.00 and is unchanged. The row that shifts is the case that previously disagreed with the fits path, and only when an unstyled, overflowing, breakable view has top padding or border.
+
+### Added
+
+- `'Bookmark'` added to the `ElementNodeType` union — per this package's stated policy, growing a node-type enum is a minor-version change.
+
 ### Internal
 
 - `RICH_FIXTURE` in `layout-shape.test.ts` now includes bookmarked views on *both* container paths — one sized to force page overflow, one that fits — closing the fixture hole that let the above ship. Covering only one path reports full `Bookmark` coverage while half the behavior is missing.
+- `test_styled_breakable_bookmark_emits_exactly_one_outline_entry` in `engine/tests/integration.rs` asserts outline *counts*, not just presence. The pre-existing bookmark tests all used `contains`, which a duplicate entry satisfies perfectly well — that's why the double-emission went unnoticed.
 - New structural regression suites over both template sets: `templates.regression.test.ts` (the five templates `@formepdf/templates` exposes) and `templates-demo.regression.test.ts` (the five demo documents in `/templates`). Baselines are pdf-testkit snapshots taken from `LayoutInfo` directly, so every node lands at confidence 1.0.
 
 ### Known gaps
