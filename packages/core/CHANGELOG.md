@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.12.0] - 2026-08-25
+
+_Version bump only — 0.12.0 introduces the new `@formepdf/preact` adapter (Preact 10 authoring). No changes to this package._
+
 ## [0.11.1] - 2026-08-20
 
 ### Fixed

@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.12.0] - 2026-08-25
+
+_Version bump only — no engine changes. Aligned with the 0.12.0 monorepo release (new `@formepdf/preact` npm package)._
+
 ## [0.11.1] - 2026-08-20
 
 ### Fixed

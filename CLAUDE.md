@@ -75,6 +75,11 @@ forme/
     │       ├── serialize.ts # JSX → JSON document tree
     │       ├── template-proxy.ts # Recording proxy for template compilation
     │       └── expr.ts     # Expression helpers for templates
+    ├── preact/             # Preact 10 adapter: fork of react adapter using Preact VNode APIs
+    │   └── src/            # Same layout as packages/react/src; imports swapped to 'preact'
+    │       ├── serialize.ts # Uses isValidElement/toChildArray/Fragment from 'preact';
+    │       │               # Children shim wraps toChildArray to match React.Children.forEach shape
+    │       └── ...         # components.tsx, charts.tsx, types.ts, etc. mirror react/
     ├── core/               # WASM bridge: compiles engine to WebAssembly
     │   ├── src/index.ts    # JS API: renderDocument(), renderTemplate(), etc.
     │   └── build.sh        # wasm-pack build + wasm-opt
@@ -124,7 +129,7 @@ cd engine && cargo fmt && cargo clippy -- -W clippy::all
 
 **TypeScript (if any `packages/` files changed):**
 ```bash
-# Build affected packages (build order: shared → react → core → cli)
+# Build affected packages (build order: shared → react → core → renderer → svelte/preact → cli)
 # Run tsc for each changed package, e.g.:
 cd packages/react && npm run build
 cd packages/svelte && npm run build

@@ -1,6 +1,6 @@
 {
   "name": "@formepdf/core",
-  "version": "0.11.1",
+  "version": "0.12.0",
   "description": "WASM-powered PDF rendering engine for Forme",
   "type": "module",
   "main": "./dist/index.js",
@@ -59,7 +59,7 @@
     "prepublishOnly": "npm run build && ./scripts/assert-tarball.sh"
   },
   "dependencies": {
-    "@formepdf/react": "0.11.1"
+    "@formepdf/react": "0.12.0"
   },
   "peerDependencies": {
     "react": "^18 || ^19"

@@ -61,6 +61,33 @@ npm install @formepdf/svelte @formepdf/core
 
 See the [Svelte docs](https://docs.formepdf.com/svelte) for `renderDocument`, the SvelteKit preview route helper, and endpoint patterns.
 
+### Or use Preact
+
+Same components, same props, authored with Preact's JSX runtime:
+
+```bash
+npm install @formepdf/preact @formepdf/core
+```
+
+```tsx
+/** @jsxImportSource preact */
+import { Document, Page, View, Text, renderDocument } from '@formepdf/preact';
+
+const pdf = await renderDocument(
+  <Document>
+    <Page size="Letter" margin={36}>
+      <Text style={{ fontSize: 24, fontWeight: 'bold' }}>Invoice #2024-001</Text>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 24 }}>
+        <Text>Widget Pro</Text>
+        <Text>$49.00</Text>
+      </View>
+    </Page>
+  </Document>
+);
+```
+
+See the [Preact docs](https://docs.formepdf.com/preact) for setup notes and edge/Workers examples.
+
 ## Dev Server
 
 ```bash
@@ -81,7 +108,7 @@ Install [Forme PDF Preview](https://marketplace.visualstudio.com/items?itemName=
 ## Features
 
 - **Page-native layout**: Content flows into pages, not onto an infinite canvas. Page breaks happen at the right place, every time.
-- **React and Svelte components**: Document, Page, View, Text, Image, Table. Author templates as JSX (`@formepdf/react`) or `.svelte` files (`@formepdf/svelte`) — identical props, identical output.
+- **React, Svelte, and Preact components**: Document, Page, View, Text, Image, Table. Author templates as JSX (`@formepdf/react`), `.svelte` files (`@formepdf/svelte`), or Preact JSX (`@formepdf/preact`) — identical props, identical output.
 - **Live preview**: `forme dev` shows your PDF updating in real time as you edit.
 - **Click-to-inspect**: Select any element in the browser or VS Code to see its box model, computed styles, and position.
 - **Debug overlays**: Toggle bounding boxes, margins, and page break points.

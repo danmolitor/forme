@@ -1,6 +1,6 @@
 [project]
 name = "formepdf"
-version = "0.11.1"
+version = "0.12.0"
 description = "Python SDK for the Forme hosted PDF API"
 readme = "README.md"
 license = "MIT"
@@ -35,6 +35,12 @@ Repository = "https://github.com/formepdf/forme"
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.hatch.build]
+# `formepdf/forme.wasm` is gitignored (built locally via build_wasm.sh).
+# Declared at the shared build level so it lands in BOTH the sdist and
+# the wheel — declaring it under [.targets.wheel] alone would drop it
+# from the sdist, and `python -m build` builds the wheel FROM the sdist.
+artifacts = ["formepdf/forme.wasm"]
+
 [tool.hatch.build.targets.wheel]
 packages = ["formepdf"]
-artifacts = ["formepdf/forme.wasm"]

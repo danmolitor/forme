@@ -1,0 +1,103 @@
+---
+title: Preact
+sidebarTitle: Preact
+description: Author Forme PDFs with Preact 10. The full component set as Preact JSX, without the React runtime in your bundle.
+---
+
+`@formepdf/preact` is the Preact adapter for Forme. It ships the same components with the same props as `@formepdf/react`, authored with Preact's JSX runtime, and serializes to a byte-identical document model.
+
+If you're using Preact for its bundle size (typically ~3KB vs React's ~40KB), this package keeps that story intact — no `preact/compat` shim in your output, no React types in your dev dependencies.
+
+## Install
+
+```bash
+npm install @formepdf/preact @formepdf/core
+```
+
+The adapter requires Preact 10 (`^10.19.0`) as a peer dependency. `@formepdf/core` is an *optional* peer: it is only needed to render PDF bytes locally (`renderDocument`). If you serialize templates and POST the JSON to the hosted API, skip it — `serialize` works with zero WASM.
+
+## Quickstart
+
+Two ways to opt into Preact's JSX runtime:
+
+**Per-file pragma:**
+
+```tsx
+/** @jsxImportSource preact */
+import { Document, Page, View, Text, renderDocument } from '@formepdf/preact';
+
+export default async function invoice() {
+  return renderDocument(
+    <Document title="Invoice #001">
+      <Page size="Letter" margin={54}>
+        <Text style={{ fontSize: 28, fontWeight: 700 }}>Invoice</Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 24 }}>
+          <Text>Website Redesign</Text>
+          <Text style={{ fontWeight: 700 }}>$3,500.00</Text>
+        </View>
+      </Page>
+    </Document>
+  );
+}
+```
+
+**Project-wide via `tsconfig.json`:**
+
+```json
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact"
+  }
+}
+```
+
+Then drop the `/** @jsxImportSource preact */` comment. All JSX in the project resolves through Preact's runtime.
+
+## Component parity with `@formepdf/react`
+
+Every component in `@formepdf/react` is exported from `@formepdf/preact` with the identical name and the identical props: `Document`, `Page`, `View`, `Text`, `H1`–`H6`, `Strong`, `Em`, `Code`, `Link`, `Image`, `Svg`, `QrCode`, `Barcode`, `Canvas`, `Watermark`, `Table` / `Row` / `Cell`, `OrderedList` / `UnorderedList` / `ListItem`, `BarChart` / `LineChart` / `PieChart` / `AreaChart` / `DotPlot`, `TextField` / `Checkbox` / `Dropdown` / `RadioButton`, `Fixed`, `PageBreak`.
+
+Cross-adapter parity is enforced by a suite of fixture pairs (`.preact.tsx` + `.react.tsx`) that assert byte-identical serialized JSON. If a change breaks parity, CI catches it.
+
+Every example on the [components reference](/components), [charts](/charts), [forms](/forms), and [page-breaks](/page-breaks) pages works verbatim — swap the import path from `@formepdf/react` to `@formepdf/preact` and the JSX is unchanged.
+
+## `renderDocument` in an edge/Workers route
+
+```tsx
+/** @jsxImportSource preact */
+import { Document, Page, Text, renderDocument } from '@formepdf/preact';
+
+export default {
+  async fetch() {
+    const pdf = await renderDocument(
+      <Document>
+        <Page size="Letter" margin={36}>
+          <Text style={{ fontSize: 24 }}>Hello from a Worker</Text>
+        </Page>
+      </Document>
+    );
+    return new Response(pdf, { headers: { 'content-type': 'application/pdf' } });
+  },
+};
+```
+
+`renderDocument` is dynamically imported through `@formepdf/core` — bundlers that tree-shake dev-only imports won't ship the WASM binary into edge bundles unless the route actually renders locally.
+
+## Why this exists (vs `preact/compat`)
+
+You *can* use `@formepdf/react` with Preact today via `preact/compat` aliasing. This package exists because:
+
+- **Bundle size** — no compat shim (~7-8KB gzipped saved)
+- **No unmet peer** — npm won't warn about missing `react` when you only install Preact
+- **Preact-native JSX runtime** — no cross-runtime interop concerns
+
+If bundle size and peer-dep hygiene don't matter for your app, `preact/compat` aliasing works too — the two paths produce identical PDF output.
+
+## Templates and the hosted API
+
+The compiled-template system (`$ref`, `$each`, `$if`, expression helpers) works identically to `@formepdf/react` because the recording-proxy layer is framework-agnostic. If you're using Forme's hosted API with dynamic data, the workflow is the same regardless of which authoring adapter you use.
+
+## What's NOT here yet
+
+Everything from `@formepdf/react` is available. If you find something missing, that's a bug — please open an issue.
