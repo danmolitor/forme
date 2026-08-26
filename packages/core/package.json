@@ -70,6 +70,7 @@
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.12.21",
+    "@pdf-testkit/vitest": "file:../../vendor/pdf-testkit/pdf-testkit-vitest-0.3.0.tgz",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "react": "^19.0.0",
