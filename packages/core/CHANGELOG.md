@@ -14,14 +14,20 @@
 
 - `'Bookmark'` added to the `ElementNodeType` union — per this package's stated policy, growing a node-type enum is a minor-version change.
 
+- **`bookmark` on a container that fits its page now emits a `Bookmark` node too.** The marker was only produced on the page-overflow path, so consumers walking `LayoutInfo` for `Bookmark` nodes silently missed every bookmark on normal, non-overflowing content — which is most of them.
+
+  The PDF was never wrong here: `collect_bookmarks` walks every element for a `bookmark` field and ignores `nodeType`, so the outline entry was always generated. This was a LayoutInfo blind spot, not a document defect. The new marker sits at exactly the coordinate the bookmark previously resolved to, and the `bookmark` field moved off the container element onto the marker, so PDF output is byte-identical — verified by hashing the `catalog` render before and after the change (`8f41f7e9fb58b3cb` both ways, with layout geometry hashing identically as well).
+
+  Both container paths now build the marker through one shared `bookmark_marker()` helper instead of two hand-maintained copies, which is what let them diverge in the first place.
+
 ### Internal
 
-- `RICH_FIXTURE` in `layout-shape.test.ts` now includes a bookmarked view sized to force the page-overflow path, closing the fixture hole that let the above ship.
+- `RICH_FIXTURE` in `layout-shape.test.ts` now includes bookmarked views on *both* container paths — one sized to force page overflow, one that fits — closing the fixture hole that let the above ship. Covering only one path reports full `Bookmark` coverage while half the behavior is missing.
 - New structural regression suites over both template sets: `templates.regression.test.ts` (the five templates `@formepdf/templates` exposes) and `templates-demo.regression.test.ts` (the five demo documents in `/templates`). Baselines are pdf-testkit snapshots taken from `LayoutInfo` directly, so every node lands at confidence 1.0.
 
 ### Known gaps
 
-- `bookmark` surfaces two structurally different ways: on the page-overflow path it produces a discrete `Bookmark` marker node, but on the common fits-on-page path the bookmark rides on the `View` element itself with no marker. Consumers walking for `Bookmark` nodes will miss the latter.
+- `Bookmark` nodes cover containers only. `bookmark` on a `<Text>`, `<Image>`, `<Svg>`, chart or form field still rides on that node's own element, as do rows and cells laid out inside a `<Table>`. Scan the `bookmark` field, not `nodeType`, for an exhaustive index.
 - None of the five templates in `@formepdf/templates` use `H1`–`H6`; they style `<Text>` instead. They therefore produce no heading structure, which limits tagged-PDF / PDF/UA output built from them.
 
 ## [0.12.1] - 2026-08-26

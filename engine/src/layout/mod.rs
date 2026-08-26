@@ -498,6 +498,44 @@ fn node_kind_name(kind: &NodeKind) -> &'static str {
     }
 }
 
+/// Build the zero-height marker element that carries a container's `bookmark`
+/// into the PDF outline, or `None` if the node has no bookmark.
+///
+/// Both container paths (`layout_view`'s fits branch and `layout_breakable_view`)
+/// go through this so the marker is the *single* carrier of the bookmark on
+/// either path. That matters twice over:
+///
+/// - `layout_breakable_view` can skip building a wrapper entirely (see
+///   `needs_wrapper`), so without a marker an unstyled overflowing view would
+///   lose its bookmark outright.
+/// - `collect_bookmarks` walks every element and every descendant, so leaving
+///   the bookmark on *both* the marker and its enclosing wrapper emits the
+///   outline entry twice. One carrier, one entry.
+///
+/// `node_type` must be set explicitly: leaving it `None` makes the LayoutInfo
+/// serializer fall back to `kind.to_string()`, which leaks the
+/// `DrawCommand::None` variant name into `nodeType` as the string "None" — not
+/// a value in the public `ElementNodeType` union.
+fn bookmark_marker(node: &Node, x: f64, y: f64) -> Option<LayoutElement> {
+    node.bookmark.as_ref().map(|title| LayoutElement {
+        x,
+        y,
+        width: 0.0,
+        height: 0.0,
+        draw: DrawCommand::None,
+        children: vec![],
+        node_type: Some("Bookmark".to_string()),
+        resolved_style: None,
+        source_location: None,
+        href: None,
+        bookmark: Some(title.clone()),
+        alt: None,
+        is_header_row: false,
+        overflow: Overflow::default(),
+        opacity: 1.0,
+    })
+}
+
 // ─── List marker helpers ────────────────────────────────────────────
 
 /// Produce the visible marker text for a list item at the given index.
@@ -1670,6 +1708,14 @@ impl LayoutEngine {
             let rect_y = cursor.content_y + cursor.y + margin.top;
             let snapshot = cursor.elements.len();
 
+            // Pushed after the snapshot so it's drained into the rect's
+            // children below — same shape the breakable path produces. Sits at
+            // `rect_y`, exactly where the bookmark used to resolve when it rode
+            // on `rect_element`, so the outline destination is unchanged.
+            if let Some(marker) = bookmark_marker(node, node_x, rect_y) {
+                cursor.elements.push(marker);
+            }
+
             let saved_y = cursor.y;
             cursor.y += margin.top + padding.top + border.top;
 
@@ -1721,7 +1767,9 @@ impl LayoutEngine {
                 resolved_style: Some(style.clone()),
                 source_location: node.source_location.clone(),
                 href: node.href.clone(),
-                bookmark: node.bookmark.clone(),
+                // The marker above owns the bookmark now. Carrying it here too
+                // would make `collect_bookmarks` emit the outline entry twice.
+                bookmark: None,
                 alt: None,
                 is_header_row: false,
                 overflow: style.overflow,
@@ -1770,28 +1818,8 @@ impl LayoutEngine {
         cursor.continuation_top_offset = padding.top + border.top;
 
         // Emit a zero-height marker element so the bookmark gets into the PDF outline
-        if node.bookmark.is_some() {
-            cursor.elements.push(LayoutElement {
-                x: node_x,
-                y: cursor.content_y + cursor.y,
-                width: 0.0,
-                height: 0.0,
-                draw: DrawCommand::None,
-                children: vec![],
-                // Must be explicit: leaving this `None` makes the LayoutInfo
-                // serializer fall back to `kind.to_string()`, which leaks the
-                // `DrawCommand::None` variant name into `nodeType` as the
-                // string "None" — not a value in the public ElementNodeType.
-                node_type: Some("Bookmark".to_string()),
-                resolved_style: None,
-                source_location: None,
-                href: None,
-                bookmark: node.bookmark.clone(),
-                alt: None,
-                is_header_row: false,
-                overflow: Overflow::default(),
-                opacity: 1.0,
-            });
+        if let Some(marker) = bookmark_marker(node, node_x, cursor.content_y + cursor.y) {
+            cursor.elements.push(marker);
         }
 
         let children_x = node_x + padding.left + border.left;

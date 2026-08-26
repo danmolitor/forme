@@ -81,10 +81,13 @@ const RICH_FIXTURE = h(
       h(Code, null, 'monospace'), ' ',
       h(Link, { href: 'https://formepdf.com' }, 'link')),
     h(View, { style: { flexDirection: 'row', gap: 8 } }, h(Text, null, 'in view')),
-    // `bookmark` only emits a discrete 'Bookmark' marker node on the
-    // *breakable* view path — i.e. when the view doesn't fit the remaining
-    // page. On the fits path the bookmark rides on the View element itself.
-    // The tall fixed height forces the overflow path so the marker exists.
+    // `bookmark` on a container emits a zero-height 'Bookmark' marker node.
+    // BOTH paths are exercised deliberately: a container that fits the page
+    // (layout_view) and one that overflows it (layout_breakable_view). They
+    // are separate code paths that emit the marker independently, and for two
+    // days only the overflow path did — a fixture covering just one of them
+    // reports full coverage while half the behaviour is missing.
+    h(View, { bookmark: 'Fitting Section' }, h(Text, null, 'in fitting bookmarked view')),
     h(View, { bookmark: 'Bookmarked Section', style: { height: 900, backgroundColor: '#eee' } },
       h(Text, null, 'in bookmarked view')),
     h(OrderedList, null, h(ListItem, null, 'one'), h(ListItem, null, 'two')),
