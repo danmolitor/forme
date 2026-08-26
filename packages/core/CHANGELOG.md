@@ -1,5 +1,29 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- **`bookmark` no longer emits `nodeType: "None"`.** A `<View bookmark="...">` that overflows a page emits a zero-height marker node so the entry reaches the PDF outline. That marker left its node type unset, so the LayoutInfo serializer fell back to `kind.to_string()` and leaked the `DrawCommand::None` variant name into `nodeType` as the string `"None"` — a value that was never in `ElementNodeType`. It now emits `"Bookmark"`.
+
+  This is the same type/runtime drift class 0.12.1 set out to eliminate. It survived that release because the conformance fixture had no bookmarked node, so the runtime-to-union check never saw it. Found by extending structural regression coverage to the `catalog` template, which uses bookmarks.
+
+  Renamed rather than adding `"None"` to the union: `"None"` was an accident of the fallback, not a semantic role, and nothing can depend on it yet. Consumers matching on `nodeType === 'None'` (which the types never permitted) must switch to `'Bookmark'`.
+
+### Added
+
+- `'Bookmark'` added to the `ElementNodeType` union — per this package's stated policy, growing a node-type enum is a minor-version change.
+
+### Internal
+
+- `RICH_FIXTURE` in `layout-shape.test.ts` now includes a bookmarked view sized to force the page-overflow path, closing the fixture hole that let the above ship.
+- New structural regression suites over both template sets: `templates.regression.test.ts` (the five templates `@formepdf/templates` exposes) and `templates-demo.regression.test.ts` (the five demo documents in `/templates`). Baselines are pdf-testkit snapshots taken from `LayoutInfo` directly, so every node lands at confidence 1.0.
+
+### Known gaps
+
+- `bookmark` surfaces two structurally different ways: on the page-overflow path it produces a discrete `Bookmark` marker node, but on the common fits-on-page path the bookmark rides on the `View` element itself with no marker. Consumers walking for `Bookmark` nodes will miss the latter.
+- None of the five templates in `@formepdf/templates` use `H1`–`H6`; they style `<Text>` instead. They therefore produce no heading structure, which limits tagged-PDF / PDF/UA output built from them.
+
 ## [0.12.1] - 2026-08-26
 
 Type-declaration bug fix release. No runtime behavior changed; the engine emits the exact same JSON it always did. The declared types for `renderDocumentWithLayout()`'s output had drifted from that JSON in eight places, first flagged internally, then again by an external consumer's dogfood test. This release fixes them at the root and adds enforcement so it won't happen a third time.

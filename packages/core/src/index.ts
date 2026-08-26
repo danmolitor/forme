@@ -74,6 +74,9 @@ export type ElementPosition = 'Relative' | 'Absolute';
  * - `TableRow` / `TableCell` — NO `Table` wrapper (unwrapped by layout)
  * - `List` + `ListItem` + `Lbl` — from `<OrderedList>` / `<UnorderedList>`
  * - `FixedHeader` / `FixedFooter` — NO single `Fixed` (split by position)
+ * - `Bookmark` — zero-height marker from `bookmark` on a container, emitted
+ *   ONLY when that container overflows a page; on the fits-on-page path the
+ *   bookmark rides on the container element itself and no marker exists
  * - `TextLine` — leaf lines under `Text` blocks (holds `textContent`)
  * - Inline `<Strong>`/`<Em>`/`<Code>`/`<Link>` do not appear here;
  *   they contribute style runs within `TextLine`
@@ -103,6 +106,9 @@ export type ElementNodeType =
   // Fixed regions — <Fixed> splits by position into these two
   | 'FixedHeader'
   | 'FixedFooter'
+  // Zero-height marker emitted by `bookmark` on any container so the entry
+  // reaches the PDF outline. Draws nothing and has no meaningful rect.
+  | 'Bookmark'
   // Media
   | 'Image'
   | 'Svg'
@@ -223,6 +229,12 @@ export interface ElementStyleInfo {
  *   `TextLine` leaves.
  * - `<PageBreak>` produces no node. It triggers a page break at
  *   layout time and is otherwise invisible.
+ * - `bookmark` on a container produces a zero-height `Bookmark` marker
+ *   node (no rect, draws nothing) so the entry reaches the PDF outline
+ *   — but ONLY when that container overflows a page. When it fits, the
+ *   bookmark rides on the container's own element and no marker node
+ *   is emitted. Do not treat `Bookmark` nodes as an exhaustive index
+ *   of the document's bookmarks.
  *
  * The runtime-conformance test in this package asserts every one of
  * these transforms explicitly. If it breaks, update this JSDoc first.

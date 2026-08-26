@@ -81,6 +81,12 @@ const RICH_FIXTURE = h(
       h(Code, null, 'monospace'), ' ',
       h(Link, { href: 'https://formepdf.com' }, 'link')),
     h(View, { style: { flexDirection: 'row', gap: 8 } }, h(Text, null, 'in view')),
+    // `bookmark` only emits a discrete 'Bookmark' marker node on the
+    // *breakable* view path — i.e. when the view doesn't fit the remaining
+    // page. On the fits path the bookmark rides on the View element itself.
+    // The tall fixed height forces the overflow path so the marker exists.
+    h(View, { bookmark: 'Bookmarked Section', style: { height: 900, backgroundColor: '#eee' } },
+      h(Text, null, 'in bookmarked view')),
     h(OrderedList, null, h(ListItem, null, 'one'), h(ListItem, null, 'two')),
     h(UnorderedList, null, h(ListItem, null, 'a'), h(ListItem, null, 'b')),
     h(Table, { columns: [{ width: { fraction: 1 } }, { width: { fraction: 1 } }] },
@@ -149,6 +155,7 @@ const NODE_TYPE_KEYS = {
   TableRow: 1, TableCell: 1,
   List: 1, ListItem: 1, Lbl: 1,
   FixedHeader: 1, FixedFooter: 1,
+  Bookmark: 1,
   Image: 1, Svg: 1, QrCode: 1, Barcode: 1, Canvas: 1, Watermark: 1,
   BarChart: 1, LineChart: 1, PieChart: 1, AreaChart: 1, DotPlot: 1,
   TextField: 1, Checkbox: 1, Dropdown: 1, RadioButton: 1,

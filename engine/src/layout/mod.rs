@@ -1778,7 +1778,11 @@ impl LayoutEngine {
                 height: 0.0,
                 draw: DrawCommand::None,
                 children: vec![],
-                node_type: None,
+                // Must be explicit: leaving this `None` makes the LayoutInfo
+                // serializer fall back to `kind.to_string()`, which leaks the
+                // `DrawCommand::None` variant name into `nodeType` as the
+                // string "None" — not a value in the public ElementNodeType.
+                node_type: Some("Bookmark".to_string()),
                 resolved_style: None,
                 source_location: None,
                 href: None,
