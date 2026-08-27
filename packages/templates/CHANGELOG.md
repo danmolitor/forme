@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.13.0] - 2026-08-27
+
+### Added
+
+- **Per-line `discount` on the invoice template.** Line items accept an optional `discount` — a decimal fraction off the line total, matching `taxRate`'s existing units rather than introducing a second convention. The items table grows a fifth column and widths re-fraction from `[0.45, 0.15, 0.2, 0.2]` to `[0.38, 0.1, 0.18, 0.14, 0.2]`. Discounted lines render as `-15%` in green; undiscounted ones render an em dash, so they read as "not applicable" rather than "discounted by nothing".
+
+  Discount applies **before** tax — tax is charged on the discounted amount.
+
+### Changed
+
+- **`invoiceExample` expanded from 5 line items to 19.** The old fixture produced a two-page document with enough slack that it took fourteen more lines to tip to a third page, which barely exercised the header-repetition and break-across-pages paths on a template whose main job is paging a table correctly. It now runs to three pages, with three discounted lines so the new column has more than a single row of signal.
+
+  This is example data, not schema — nothing calling `getTemplate('invoice')` with its own data is affected.
+
 ## [0.12.1] - 2026-08-26
 
 _Version bump only — 0.12.1 fixes LayoutInfo/ElementInfo type declarations and adds `@formepdf/core/layout` accessor helpers. No changes to this package._

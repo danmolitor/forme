@@ -1,6 +1,6 @@
 {
   "name": "@formepdf/react",
-  "version": "0.12.1",
+  "version": "0.13.0",
   "description": "JSX-to-JSON serializer for Forme PDF engine",
   "type": "module",
   "main": "./dist/index.js",
@@ -18,7 +18,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@formepdf/shared": "0.12.1"
+    "@formepdf/shared": "0.13.0"
   },
   "peerDependencies": {
     "react": "^18 || ^19"

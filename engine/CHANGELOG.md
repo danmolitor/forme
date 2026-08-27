@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.13.0] - 2026-08-27
+
+### Fixed
+
+- **A bookmarked container that both overflows a page and carries visual styling no longer writes its outline entry twice.** A genuine document defect, not a reporting one: the PDF shipped two identical `/Outlines` entries and `/Count 2` for a single `bookmark` prop. The overflow path emits a zero-height marker element so an unstyled view can't lose its bookmark; when the view *is* styled it also builds a wrapper, the marker drains into that wrapper's children, and `collect_bookmarks` — which recurses — found the same bookmark twice. Wrappers no longer carry `bookmark`; the marker is the sole carrier on every path.
+
+- **`bookmark` on a container that fits its page now emits a marker element too.** Previously only the overflow path produced one, so anything walking `render_with_layout` output for bookmarked containers missed most of them. PDF output is unaffected — `collect_bookmarks` reads the `bookmark` field and ignores node type, so the outline itself was always complete.
+
+- **The bookmark marker reports `nodeType: "Bookmark"` instead of `"None"`.** With the node type left unset, the layout serializer fell back to `kind.to_string()` and leaked the `DrawCommand::None` variant name into the JSON.
+
+### Changed
+
+- **Outline destination for one case.** The marker now sits at the view's outer top edge rather than its padding/border-inset content top, so every container path resolves a bookmark to the same coordinate. Only an *unstyled, overflowing, breakable* view with top padding or border moves (Letter, 36pt margin, padding 20: destination Y 736.00 → 756.00). Styled views were already governed by a first-match entry at 756.00 and are unchanged.
+
+### Internal
+
+- Both container paths now build the marker through one shared `bookmark_marker()` helper rather than two hand-maintained copies — the divergence that produced all three bugs above.
+- `test_styled_breakable_bookmark_emits_exactly_one_outline_entry` asserts outline *counts*, not presence. The pre-existing bookmark tests all used `contains`, which a duplicate entry satisfies perfectly well, which is why the double emission went unnoticed.
+
 ## [0.12.1] - 2026-08-26
 
 _Version bump only — no engine changes. Aligned with the 0.12.1 monorepo release (LayoutInfo/ElementInfo type-declaration fixes and new `@formepdf/core/layout` accessor helpers in `@formepdf/core`)._

@@ -86,7 +86,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@formepdf/renderer": "0.10.5",
+    "@formepdf/renderer": "0.13.0",
     "esbuild-wasm": "^0.24.0"
   },
   "devDependencies": {
