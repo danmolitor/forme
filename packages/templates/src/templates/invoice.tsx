@@ -83,23 +83,23 @@ export default function Invoice(data: InvoiceData) {
           </Row>
           {items.map((item, i) => (
             <Row key={i} style={{ backgroundColor: i % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
-              <Cell style={{ padding: 18 }}>
+              <Cell style={{ padding: 10 }}>
                 <Text style={{ fontSize: 9, color: '#1e293b' }}>{item.description}</Text>
               </Cell>
-              <Cell style={{ padding: 18 }}>
+              <Cell style={{ padding: 10 }}>
                 <Text style={{ fontSize: 9, color: '#475569', textAlign: 'center' }}>{item.quantity}</Text>
               </Cell>
-              <Cell style={{ padding: 18 }}>
+              <Cell style={{ padding: 10 }}>
                 <Text style={{ fontSize: 9, color: '#475569', textAlign: 'right' }}>${item.unitPrice.toFixed(2)}</Text>
               </Cell>
-              <Cell style={{ padding: 18 }}>
+              <Cell style={{ padding: 10 }}>
                 {/* Em dash rather than "0%" so undiscounted lines read as
                     "not applicable" instead of "discounted by nothing". */}
                 <Text style={{ fontSize: 9, color: item.discount ? '#059669' : '#94a3b8', textAlign: 'right' }}>
                   {item.discount ? `-${(item.discount * 100).toFixed(0)}%` : '—'}
                 </Text>
               </Cell>
-              <Cell style={{ padding: 18 }}>
+              <Cell style={{ padding: 10 }}>
                 <Text style={{ fontSize: 9, color: '#1e293b', textAlign: 'right' }}>${lineTotal(item).toFixed(2)}</Text>
               </Cell>
             </Row>
