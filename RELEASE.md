@@ -7,8 +7,12 @@
 - Rust crate (`forme-pdf` on crates.io) follows the same version
 - Go SDK (`github.com/formepdf/forme-go`) uses a `v0.9.0` git tag
 - VS Code extension follows the same version as of 0.13.0. It publishes to the Marketplace rather than npm, which is why it used to version itself — but it bundles the engine WASM and `@formepdf/renderer` wholesale, so a number that had drifted three minors behind (0.10.5 against a 0.12.1 monorepo) said nothing about what was in the VSIX. It jumped 0.10.5 → 0.13.0; 0.11.x and 0.12.x have no extension release.
-- Docker image (`formepdf/forme`) follows the same version — tagged as `{version}` and `latest`
-- Rasterizer Docker image (`formepdf/rasterizer`) follows the same version as the engine (e.g. `0.9.0`)
+- **`server/` and `rasterizer/` are frozen at 0.10.5 and no longer track the release.** They exist to build the two Docker images (`formepdf/forme`, `formepdf/rasterizer`), which served the hosted API — that product line is shut down. 0.10.5 is the last version that actually shipped as an image, and leaving the crates there keeps the number honest rather than inventing versions nobody can pull.
+
+  Do not bump them "for consistency". `server/Dockerfile:3` is `FROM formepdf/rasterizer:0.10.5`, which resolves against a tag that really exists on Docker Hub; moving the crate version without publishing a matching image either strands a phantom version or — if the pin follows — breaks the server build outright. Skip the entire Docker section below unless you are deliberately reviving the hosted API.
+
+- Docker image (`formepdf/forme`) follows `server/`'s version — tagged as `{version}` and `latest`. Not published since 0.10.5; see above.
+- Rasterizer Docker image (`formepdf/rasterizer`) follows `rasterizer/`'s version. Not published since 0.10.5; see above.
 
 ---
 
@@ -108,13 +112,16 @@ Files to update when bumping (e.g. 0.8.3 -> 0.9.0):
 
 ### Non-npm packages
 - [ ] `engine/Cargo.toml` — `version = "0.9.0"`
-- [ ] `server/Cargo.toml` — `version = "0.9.0"`
-- [ ] `packages/python-sdk/pyproject.toml` — `version = "0.9.0"`
-- [ ] `rasterizer/Cargo.toml` — `version = "0.9.0"`
+- [ ] `packages/python-sdk/pyproject.toml` — `version = "0.9.0"` (handled by `scripts/bump-version.sh`)
+- [ ] ~~`server/Cargo.toml`~~ — frozen at 0.10.5, do not bump (see Version Strategy)
+- [ ] ~~`rasterizer/Cargo.toml`~~ — frozen at 0.10.5, do not bump (see Version Strategy)
 - [ ] Go SDK `packages/go-sdk/` — no version file; versioned by git tag
 - [ ] `engine/Cargo.lock` — auto-regenerates on the next `cargo build` after a `Cargo.toml` bump. Stage and commit the resulting diff with the version bump; CI will fail if `Cargo.lock` is stale.
 
 ### Dockerfile rasterizer pins
+
+> **Not part of a normal release.** `server/` and `rasterizer/` are frozen at 0.10.5 and their images are no longer published, so both pins below correctly point at the last real tag. Leave them alone. The rest of this section applies only if the hosted API is revived.
+
 After bumping the engine/server/rasterizer versions, **two Dockerfiles** still reference the old rasterizer tag and must be bumped to the new version:
 - [ ] `server/Dockerfile` — `FROM formepdf/rasterizer:{version}` (line 3). Required: bump *after* the new rasterizer image is published to Docker Hub, *before* building the server image (server pulls rasterizer at build time).
 - [ ] `forme-dashboard/packages/api/Dockerfile` — `FROM formepdf/rasterizer:{version}`. Different repo; commit + push separately so Railway's next deploy picks up the new tag.
