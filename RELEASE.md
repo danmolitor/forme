@@ -6,7 +6,7 @@
 - Python SDK (`formepdf` on PyPI) follows the same version
 - Rust crate (`forme-pdf` on crates.io) follows the same version
 - Go SDK (`github.com/formepdf/forme-go`) uses a `v0.9.0` git tag
-- VS Code extension has its own independent version (e.g. `0.9.0`) since it publishes to the Marketplace separately
+- VS Code extension follows the same version as of 0.13.0. It publishes to the Marketplace rather than npm, which is why it used to version itself — but it bundles the engine WASM and `@formepdf/renderer` wholesale, so a number that had drifted three minors behind (0.10.5 against a 0.12.1 monorepo) said nothing about what was in the VSIX. It jumped 0.10.5 → 0.13.0; 0.11.x and 0.12.x have no extension release.
 - Docker image (`formepdf/forme`) follows the same version — tagged as `{version}` and `latest`
 - Rasterizer Docker image (`formepdf/rasterizer`) follows the same version as the engine (e.g. `0.9.0`)
 
@@ -104,7 +104,7 @@ Files to update when bumping (e.g. 0.8.3 -> 0.9.0):
 - [ ] `packages/sdk/package.json`
 - [ ] `packages/tailwind/package.json`
 - [ ] `packages/templates/package.json`
-- [ ] `packages/vscode/package.json` — separate version, bump independently
+- [ ] `packages/vscode/package.json` — on the shared version line since 0.13.0; `scripts/bump-version.sh` handles it
 
 ### Non-npm packages
 - [ ] `engine/Cargo.toml` — `version = "0.9.0"`

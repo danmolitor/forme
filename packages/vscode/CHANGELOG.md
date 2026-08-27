@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.13.0] - 2026-08-27
+
+**Version jump: 0.10.5 → 0.13.0.** The extension used to carry its own version because it publishes to the Marketplace rather than npm, but the two lines had drifted three minors apart while the extension bundles the engine and `@formepdf/renderer` wholesale — so the number told you nothing about what was actually inside the VSIX. It now tracks the monorepo version. No features were skipped; 0.11.x and 0.12.x simply never shipped as an extension release.
+
+### Fixed
+
+- **Bookmarked containers no longer show `None` in the component tree and inspector.** The engine's zero-height bookmark marker reported `nodeType: "None"` — a leaked `DrawCommand::None` variant name — and the sidebar rendered it verbatim. It now reads `Bookmark`.
+- **Bookmarks on content that fits its page now appear in the component tree at all.** The marker was only emitted on the page-overflow path, so most bookmarks were invisible to the extension even though the PDF outline was always correct.
+
+### Changed
+
+- Bundles engine 0.13.0 and `@formepdf/renderer` 0.13.0, picking up the duplicate-PDF-outline-entry fix and the invoice template's new per-line discount column.
+
 ## [0.10.5] - 2026-06-29
 
 _Version bump only — engine 0.10.5 fixes table header page-break orphan + long-header contamination via `@formepdf/core`._

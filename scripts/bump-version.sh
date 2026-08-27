@@ -64,22 +64,27 @@ for pkg in "${NPM_PACKAGES[@]}"; do
   " "$pkgfile" "$VERSION"
 done
 
-# ── VS Code extension (dep only, version managed separately) ─
+# ── VS Code extension ────────────────────────────────────────
+# On the shared version line as of 0.13.0. It used to version itself because it
+# publishes to the Marketplace rather than npm, but it bundles the engine and
+# @formepdf/renderer wholesale, so a number three minors behind described
+# nothing about what was actually in the VSIX.
 VSCODE_PKG="$ROOT/packages/vscode/package.json"
 if [ -f "$VSCODE_PKG" ]; then
+  echo "  packages/vscode/package.json"
   node -e "
     const fs = require('fs');
-    const raw = fs.readFileSync(process.argv[1], 'utf8');
-    const updated = raw.replace(/\"@formepdf\/renderer\": \"[^\"]+\"/, '\"@formepdf/renderer\": \"' + process.argv[2] + '\"');
-    if (updated !== raw) {
-      fs.writeFileSync(process.argv[1], updated);
-      console.log('  packages/vscode/package.json: updated renderer dep');
-    }
+    // Text edit rather than parse/stringify: package.json here doubles as the
+    // extension manifest, and vsce is sensitive to its key order.
+    let raw = fs.readFileSync(process.argv[1], 'utf8');
+    raw = raw.replace(/^(\s*\"version\":\s*\")[^\"]+(\")/m, '\$1' + process.argv[2] + '\$2');
+    raw = raw.replace(/\"@formepdf\/renderer\": \"[^\"]+\"/, '\"@formepdf/renderer\": \"' + process.argv[2] + '\"');
+    fs.writeFileSync(process.argv[1], raw);
   " "$VSCODE_PKG" "$VERSION"
 fi
 
 echo ""
-echo "Done. All packages at $VERSION (vscode version unchanged, dep updated)"
+echo "Done. All packages at $VERSION"
 echo ""
 echo "Not covered by this script — check by hand:"
 echo "  - server/Cargo.toml, rasterizer/Cargo.toml (own version line)"
