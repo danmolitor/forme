@@ -5,7 +5,11 @@ const DEFAULT_ACCENT = '#2563eb';
 
 export default function Invoice(data: InvoiceData) {
   const items = data.items || [];
-  const subtotal = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+  // Discount is a decimal fraction off the line total, matching `taxRate`'s
+  // units. Applied before tax, so tax is charged on the discounted amount.
+  const lineTotal = (item: InvoiceData['items'][number]) =>
+    item.quantity * item.unitPrice * (1 - (item.discount || 0));
+  const subtotal = items.reduce((sum, item) => sum + lineTotal(item), 0);
   const tax = subtotal * (data.taxRate || 0);
   const total = subtotal + tax;
   const accent = data.theme?.primaryColor || DEFAULT_ACCENT;
@@ -64,15 +68,17 @@ export default function Invoice(data: InvoiceData) {
 
         {/* Line Items Table */}
         <Table columns={[
-          { width: { fraction: 0.45 } },
-          { width: { fraction: 0.15 } },
-          { width: { fraction: 0.2 } },
+          { width: { fraction: 0.38 } },
+          { width: { fraction: 0.1 } },
+          { width: { fraction: 0.18 } },
+          { width: { fraction: 0.14 } },
           { width: { fraction: 0.2 } }
         ]}>
           <Row header style={{ backgroundColor: accent }}>
             <Cell style={{ padding: 10 }}><Text style={{ fontSize: 9, fontWeight: 700, color: '#ffffff' }}>Description</Text></Cell>
             <Cell style={{ padding: 10 }}><Text style={{ fontSize: 9, fontWeight: 700, color: '#ffffff', textAlign: 'center' }}>Qty</Text></Cell>
             <Cell style={{ padding: 10 }}><Text style={{ fontSize: 9, fontWeight: 700, color: '#ffffff', textAlign: 'right' }}>Unit Price</Text></Cell>
+            <Cell style={{ padding: 10 }}><Text style={{ fontSize: 9, fontWeight: 700, color: '#ffffff', textAlign: 'right' }}>Discount</Text></Cell>
             <Cell style={{ padding: 10 }}><Text style={{ fontSize: 9, fontWeight: 700, color: '#ffffff', textAlign: 'right' }}>Amount</Text></Cell>
           </Row>
           {items.map((item, i) => (
@@ -87,7 +93,14 @@ export default function Invoice(data: InvoiceData) {
                 <Text style={{ fontSize: 9, color: '#475569', textAlign: 'right' }}>${item.unitPrice.toFixed(2)}</Text>
               </Cell>
               <Cell style={{ padding: 10 }}>
-                <Text style={{ fontSize: 9, color: '#1e293b', textAlign: 'right' }}>${(item.quantity * item.unitPrice).toFixed(2)}</Text>
+                {/* Em dash rather than "0%" so undiscounted lines read as
+                    "not applicable" instead of "discounted by nothing". */}
+                <Text style={{ fontSize: 9, color: item.discount ? '#059669' : '#94a3b8', textAlign: 'right' }}>
+                  {item.discount ? `-${(item.discount * 100).toFixed(0)}%` : '—'}
+                </Text>
+              </Cell>
+              <Cell style={{ padding: 10 }}>
+                <Text style={{ fontSize: 9, color: '#1e293b', textAlign: 'right' }}>${lineTotal(item).toFixed(2)}</Text>
               </Cell>
             </Row>
           ))}

@@ -1,3 +1,8 @@
 node_modules/
 dist/
 pkg/
+
+# Output of scripts/render-template-layout.mjs — a build artifact CI uploads
+# for the regression-demo job, never a committed baseline. Anchored to this
+# directory so it can't shadow anything under tests/__pdf_snapshots__/.
+/*-layout.json
