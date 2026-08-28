@@ -22,13 +22,26 @@
   table.lines tr { border-bottom: 1px solid #e5e7eb }
   table.lines { border-collapse: collapse; margin-top: 24pt }
 
+  /* the PAID stamp — the absolute-positioning use case */
+  .stamp {
+    position: absolute;
+    top: 6pt; right: 12pt;
+    border: 3px solid #16a34a;
+    color: #16a34a;
+    font-size: 22pt; font-weight: 700;
+    padding: 4pt 10pt;
+    letter-spacing: 2pt;
+  }
+  .misplaced { top: 50pt }  /* offsets without position: absolute -> warning */
+
   /* out-of-subset neighbors: named warnings, not errors */
   tbody tr:nth-of-type(3) { color: red }
   td::after { content: "!" }
 </style>
 </head>
 <body>
-  <h1>Zebra Invoice</h1>
+  <div class="stamp">PAID</div>
+  <h1 class="misplaced">Zebra Invoice</h1>
   <table>
     <thead>
       <tr><th>SKU</th><th>Item</th><th>Amount</th></tr>

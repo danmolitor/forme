@@ -936,6 +936,14 @@ fn to_engine_style(c: &Computed) -> Style {
     s.text_transform = c.text_transform;
     s.letter_spacing = c.letter_spacing;
 
+    if c.position_absolute {
+        s.position = Some(forme::model::Position::Absolute);
+        s.top = c.offsets[0];
+        s.right = c.offsets[1];
+        s.bottom = c.offsets[2];
+        s.left = c.offsets[3];
+    }
+
     if matches!(c.break_before, Some(crate::css::BreakVal::Page)) {
         s.break_before = Some(true);
     }
@@ -1166,7 +1174,11 @@ pub(crate) fn build_margin_band(
 // ── Margin collapsing (pass 3) ────────────────────────────────────────
 
 /// Whether a node participates in margin collapsing (block-level, in-flow).
+/// Absolutely positioned nodes are out of flow and never collapse.
 fn participates(node: &Node) -> bool {
+    if matches!(node.style.position, Some(forme::model::Position::Absolute)) {
+        return false;
+    }
     matches!(
         node.kind,
         NodeKind::View

@@ -145,6 +145,63 @@ fn first_child_color_and_warnings_contract() {
 }
 
 #[test]
+fn absolute_stamp_positions_without_disturbing_flow() {
+    let out = render_html_with_layout(FIXTURE, &HtmlOptions::default()).expect("render");
+    let page = &out.layout.pages[0];
+
+    fn find<'a>(
+        els: &'a [forme::layout::ElementInfo],
+        needle: &str,
+    ) -> Option<&'a forme::layout::ElementInfo> {
+        for el in els {
+            if el
+                .text_content
+                .as_deref()
+                .is_some_and(|t| t.contains(needle))
+            {
+                return Some(el);
+            }
+            if let Some(f) = find(&el.children, needle) {
+                return Some(f);
+            }
+        }
+        None
+    }
+
+    let stamp = find(&page.elements, "PAID").expect("stamp renders");
+    let heading = find(&page.elements, "Zebra Invoice").expect("h1");
+
+    // Out of flow: the heading still opens the document (the stamp,
+    // declared BEFORE it in source, consumed no vertical space).
+    assert!(
+        heading.y < stamp.y + 120.0,
+        "flow content must not be displaced far below the stamp"
+    );
+    // Positioned from the top of the containing block, near the top of
+    // the page (body's content box), not down in the flow.
+    assert!(
+        stamp.y < page.content_y + 40.0,
+        "stamp must sit near the top (top: 6pt), got y={}",
+        stamp.y
+    );
+    // And on the right half of the page (right: 12pt).
+    assert!(
+        stamp.x > page.width / 2.0,
+        "stamp must sit on the right side, got x={}",
+        stamp.x
+    );
+
+    // Offsets without position: absolute are named, not silent.
+    let (_, warnings) = html_to_document(FIXTURE, &HtmlOptions::default());
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.contains("without position: absolute")),
+        "{warnings:?}"
+    );
+}
+
+#[test]
 fn zebra_renders_and_writes_artifact() {
     let out = render_html_with_layout(FIXTURE, &HtmlOptions::default()).expect("render");
     assert!(out.pdf.starts_with(b"%PDF-"));

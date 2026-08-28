@@ -78,6 +78,7 @@ noted in the warnings).
 | `color`, `background-color`, `background` (solid colors) | gradients, background images |
 | `text-align`, `text-decoration`, `text-transform` (Unicode-aware), `letter-spacing` | percentage margins/padding (warned, treated as 0) |
 | `display: block / flex / none`, `flex-direction`, `justify-content`, `align-items`, `gap` | |
+| `position: absolute` + `top/right/bottom/left` — containing block is the element's PARENT (not the nearest positioned ancestor); offsets without `position: absolute` warn | |
 
 ### Paged media — the point of the whole thing
 

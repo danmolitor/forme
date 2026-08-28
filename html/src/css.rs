@@ -77,6 +77,11 @@ pub struct CssStyle {
     pub text_decoration: Option<TextDecoration>,
     pub text_transform: Option<TextTransform>,
     pub letter_spacing: Option<Length>,
+    pub position_absolute: Option<bool>,
+    pub top: Option<Length>,
+    pub right: Option<Length>,
+    pub bottom: Option<Length>,
+    pub left: Option<Length>,
     pub border_collapse: Option<bool>,
     pub break_before: Option<BreakVal>,
     pub break_after: Option<BreakVal>,
@@ -126,6 +131,11 @@ impl CssStyle {
             text_decoration,
             text_transform,
             letter_spacing,
+            position_absolute,
+            top,
+            right,
+            bottom,
+            left,
             border_collapse,
             break_before,
             break_after,
@@ -359,6 +369,28 @@ pub(crate) fn apply_declaration(
                 };
             }
         }
+
+        "position" => {
+            if let Ok(id) = p.expect_ident() {
+                match id.to_ascii_lowercase().as_str() {
+                    "absolute" => style.position_absolute = Some(true),
+                    // static/relative are the in-flow default; relative's
+                    // offset behavior is separate (warned at resolve time
+                    // if offsets are present without absolute).
+                    "static" | "relative" => style.position_absolute = Some(false),
+                    other @ ("fixed" | "sticky") => {
+                        warnings.push(format!(
+                            "position: {other} is unsupported (use a margin box for running content)"
+                        ));
+                    }
+                    other => warnings.push(format!("unsupported position value '{other}'")),
+                }
+            }
+        }
+        "top" => style.top = parse_length(p),
+        "right" => style.right = parse_length(p),
+        "bottom" => style.bottom = parse_length(p),
+        "left" => style.left = parse_length(p),
 
         "text-transform" => {
             if let Ok(id) = p.expect_ident() {
