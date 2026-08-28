@@ -649,6 +649,13 @@ impl Mapper {
         // separator pattern) are redistributed onto the row's cells,
         // since the engine paints only backgrounds at row level.
         let collapse = computed.border_collapse == Some(true);
+        let mut computed = computed.clone();
+        if collapse && computed.border_radius.is_some() {
+            // Per CSS (and Chrome), border-radius does not apply in the
+            // collapsed-borders model.
+            computed.border_radius = None;
+        }
+        let computed = &computed;
         let table_info = TableInfo {
             collapse,
             table_has_border: computed.border_width.iter().any(|w| *w > 0.0),
@@ -697,6 +704,17 @@ impl Mapper {
                     rows.push(self.map_tr(e, in_thead, font_size, table_info, row_pos));
                 }
                 DomNode::Element(e) if matches!(e.tag.as_str(), "thead" | "tbody" | "tfoot") => {
+                    // Section-level break-inside can't map to an engine
+                    // node (sections aren't boxes here) — say so rather
+                    // than silently accepting it. Row-level break-inside
+                    // IS honored: rows are atomic by engine design.
+                    let section_computed = self.computed_for(e, font_size);
+                    if section_computed.break_inside.is_some() {
+                        self.warnings.push(format!(
+                            "break-inside on <{}> is pending (rows are already atomic; put break-inside: avoid on the table to keep the whole table together)",
+                            e.tag
+                        ));
+                    }
                     // The section element is a selector ancestor
                     // (`tbody tr:nth-child(even)` — the zebra idiom).
                     self.stack.push(elem_key(e));
@@ -1097,6 +1115,9 @@ fn apply_collapsed_borders(
         cell.border_width[1] = row.border_width[1];
         cell.border_color = cell.border_color.or(row.border_color);
     }
+
+    // border-radius is ignored in the collapsed model (spec + Chrome).
+    cell.border_radius = None;
 
     // One owner per edge. Cells own right+bottom; top/left belong to the
     // previous row/cell (which drew them as ITS bottom/right), except on

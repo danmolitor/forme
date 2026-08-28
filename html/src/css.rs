@@ -449,6 +449,10 @@ pub(crate) fn apply_declaration(
         "orphans" => style.orphans = parse_count(p),
         "widows" => style.widows = parse_count(p),
 
+        "vertical-align" => {
+            warnings.push("vertical-align is pending — table cells top-align for now".to_string());
+        }
+
         other => {
             warnings.push(format!("unsupported property: {other}"));
         }
