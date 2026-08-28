@@ -17,6 +17,8 @@ OPTIONS:
                             (overrides the document's @page rule; default A4)
         --margin <pt>       Uniform page margin in points
                             (overrides @page margins; default 54)
+        --font <spec>       Register a TTF: 'Family=path.ttf'. Repeatable.
+                            Variants: 'Family:700=..', 'Family:bold:italic=..
     -q, --quiet             Suppress unsupported-CSS warnings
     -h, --help              Show this help
 `;
@@ -57,6 +59,29 @@ for (let i = 0; i < args.length; i++) {
     const v = Number(value());
     if (!Number.isFinite(v)) fail('invalid margin');
     options.pageMargin = v;
+  } else if (arg === '--font') {
+    const spec = value();
+    const eq = spec.indexOf('=');
+    if (eq < 1) fail(`--font expects 'Family=path', got '${spec}'`);
+    const head = spec.slice(0, eq);
+    const fontPath = spec.slice(eq + 1);
+    const [family, ...variants] = head.split(':');
+    let weight = 400;
+    let italic = false;
+    for (const v of variants) {
+      const lv = v.toLowerCase();
+      if (lv === 'bold') weight = 700;
+      else if (lv === 'italic') italic = true;
+      else if (/^\d+$/.test(lv)) weight = Number(lv);
+      else fail(`bad font variant '${v}'`);
+    }
+    let data;
+    try {
+      data = fs.readFileSync(fontPath);
+    } catch (e) {
+      fail(`cannot read font ${fontPath}: ${e.message}`);
+    }
+    (options.fonts ??= []).push({ family, data: new Uint8Array(data), weight, italic });
   } else if (arg === '-q' || arg === '--quiet') quiet = true;
   else if (arg.startsWith('-')) fail(`unknown option '${arg}'`);
   else if (input !== null) fail('multiple input files given');

@@ -38,6 +38,8 @@ pub struct Mapper {
     /// and popped around every recursion into an element's children —
     /// including inline elements, which stylesheet rules also target.
     stack: Vec<ElemKey>,
+    /// Families already attributed in a fallback warning (once each).
+    warned_fonts: Vec<String>,
     /// Set when a mapped element carried `break-after: page`; consumed by
     /// the containing `map_children` loop, which turns it into
     /// `break_before` on the NEXT sibling (the engine has no break-after).
@@ -53,6 +55,7 @@ pub fn map_html(body: &Element, sheet: Stylesheet, page: PageConfig) -> (Documen
         warnings: Vec::new(),
         sheet,
         stack: Vec::new(),
+        warned_fonts: Vec::new(),
         pending_break_after: false,
     };
     let children = match mapper.map_block_element(body, ROOT_FONT_SIZE) {
@@ -322,7 +325,43 @@ impl Mapper {
             merged = merged.merge(&r.block.important);
         }
         merged = merged.merge(&inline.important);
-        resolve(&merged, parent_font_size, &mut self.warnings)
+        let mut computed = resolve(&merged, parent_font_size, &mut self.warnings);
+        if let Some(families) = computed.font_family.take() {
+            computed.font_family = Some(self.resolve_families(&families));
+        }
+        computed
+    }
+
+    /// Post-process a font-family chain: name the specific family that
+    /// will fall back because its @font-face was skipped, and map the CSS
+    /// generic families onto the engine's built-in standard fonts.
+    fn resolve_families(&mut self, families: &str) -> String {
+        let mut out: Vec<String> = Vec::new();
+        for raw in families.split(',') {
+            let name = raw.trim().trim_matches(['"', '\'']).to_string();
+            if self
+                .sheet
+                .skipped_font_families
+                .iter()
+                .any(|f| f.eq_ignore_ascii_case(&name))
+                && !self
+                    .warned_fonts
+                    .iter()
+                    .any(|f| f.eq_ignore_ascii_case(&name))
+            {
+                self.warned_fonts.push(name.clone());
+                self.warnings.push(format!(
+                    "font-family '{name}' references a skipped @font-face — text using it falls back; provide the font via options.fonts / --font"
+                ));
+            }
+            out.push(match name.to_ascii_lowercase().as_str() {
+                "sans-serif" | "system-ui" | "ui-sans-serif" => "Helvetica".to_string(),
+                "serif" | "ui-serif" => "Times".to_string(),
+                "monospace" | "ui-monospace" => "Courier".to_string(),
+                _ => name,
+            });
+        }
+        out.join(", ")
     }
 
     /// Map a block-level element to an engine node.

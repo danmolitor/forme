@@ -15,6 +15,18 @@ struct WasmOptions {
     page_size: Option<String>,
     page_margin: Option<f64>,
     css: Option<String>,
+    #[serde(default)]
+    fonts: Vec<WasmFont>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct WasmFont {
+    family: String,
+    /// Base64-encoded TTF bytes.
+    data: String,
+    weight: Option<u32>,
+    italic: Option<bool>,
 }
 
 /// The result of a render: PDF bytes plus subset warnings.
@@ -52,6 +64,20 @@ pub fn render_html_wasm(html: &str, options_json: &str) -> Result<HtmlRenderResu
         css: raw.css,
         ..Default::default()
     };
+    for f in raw.fonts {
+        use base64::Engine as _;
+        let data = base64::engine::general_purpose::STANDARD
+            .decode(&f.data)
+            .map_err(|e| {
+                JsValue::from_str(&format!("invalid font data for '{}': {e}", f.family))
+            })?;
+        options.fonts.push(crate::FontSpec {
+            family: f.family,
+            data,
+            weight: f.weight.unwrap_or(400),
+            italic: f.italic.unwrap_or(false),
+        });
+    }
     if let Some(size) = raw.page_size {
         options.page_size = Some(match size.to_ascii_lowercase().as_str() {
             "a4" => PageSize::A4,

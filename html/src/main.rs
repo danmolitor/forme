@@ -6,7 +6,7 @@
 //! forme-html invoice.html --css print.css --page-size Letter --margin 36
 //! ```
 
-use forme_pdf_html::{render_html, HtmlOptions, PageSize};
+use forme_pdf_html::{render_html, FontSpec, HtmlOptions, PageSize};
 use std::process::ExitCode;
 
 const USAGE: &str = "\
@@ -22,6 +22,8 @@ OPTIONS:
                             (overrides the document's @page rule; default A4)
         --margin <pt>       Uniform page margin in points
                             (overrides @page margins; default 54)
+        --font <spec>       Register a TTF: 'Family=path.ttf'. Repeatable.
+                            Variants: 'Family:700=..', 'Family:bold:italic=..
     -q, --quiet             Suppress unsupported-CSS warnings
     -h, --help              Show this help
 ";
@@ -72,6 +74,35 @@ fn main() -> ExitCode {
                     let v = take_value(&mut i)?;
                     options.page_margin =
                         Some(v.parse().map_err(|_| format!("invalid margin '{v}'"))?);
+                }
+                "--font" => {
+                    let spec = take_value(&mut i)?;
+                    let (head, path) = spec
+                        .split_once('=')
+                        .ok_or_else(|| format!("--font expects 'Family=path', got '{spec}'"))?;
+                    let mut parts = head.split(':');
+                    let family = parts.next().unwrap_or_default().to_string();
+                    let mut weight = 400u32;
+                    let mut italic = false;
+                    for part in parts {
+                        match part.to_ascii_lowercase().as_str() {
+                            "bold" => weight = 700,
+                            "italic" => italic = true,
+                            n => {
+                                weight = n
+                                    .parse()
+                                    .map_err(|_| format!("bad font variant '{part}'"))?
+                            }
+                        }
+                    }
+                    let data =
+                        std::fs::read(path).map_err(|e| format!("cannot read font {path}: {e}"))?;
+                    options.fonts.push(FontSpec {
+                        family,
+                        data,
+                        weight,
+                        italic,
+                    });
                 }
                 "-q" | "--quiet" => quiet = true,
                 other if other.starts_with('-') => {

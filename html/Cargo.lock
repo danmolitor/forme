@@ -314,6 +314,7 @@ dependencies = [
 name = "forme-pdf-html"
 version = "0.0.1"
 dependencies = [
+ "base64",
  "cssparser",
  "forme-pdf",
  "getrandom",

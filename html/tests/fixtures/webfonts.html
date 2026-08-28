@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<!-- The web-font failure mode, written the way real templates are:
+     a Google Fonts @import, a CDN @font-face, a local @font-face, and
+     font-family chains that reference them + CSS generic families. -->
+<html>
+<head>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+
+    @font-face {
+      font-family: "Brand Sans";
+      src: url("https://cdn.example.com/fonts/brand-sans.woff2") format("woff2"),
+           url("https://cdn.example.com/fonts/brand-sans.ttf") format("truetype");
+    }
+    @font-face {
+      font-family: "Local Serif";
+      src: url("./fonts/local-serif.ttf");
+    }
+
+    body { font-family: "Inter", sans-serif }
+    h1 { font-family: "Brand Sans", sans-serif; font-size: 20pt }
+    .fine-print { font-family: "Local Serif", serif; font-size: 9pt; color: #666 }
+    code { font-family: monospace }
+  </style>
+</head>
+<body>
+  <h1>Brand Heading</h1>
+  <p>Body copy that wanted Inter and gets the sans-serif fallback.</p>
+  <p class="fine-print">Fine print that wanted Local Serif.</p>
+  <p><code>monospace snippet</code></p>
+</body>
+</html>

@@ -278,6 +278,9 @@ pub struct Stylesheet {
     /// Merged geometry from base `@page` rules ( `:first`/`:left`/`:right`
     /// variants are reported as pending and not yet applied).
     pub page: Option<PageRule>,
+    /// Families declared by skipped `@font-face` rules — used to name the
+    /// specific font that fell back when a rule references one.
+    pub skipped_font_families: Vec<String>,
 }
 
 impl Stylesheet {
@@ -294,6 +297,113 @@ impl Stylesheet {
                 .get_or_insert_with(PageRule::default)
                 .merge_from(pr);
         }
+        for f in other.skipped_font_families {
+            if !self.skipped_font_families.contains(&f) {
+                self.skipped_font_families.push(f);
+            }
+        }
+    }
+}
+
+/// Parse a skipped `@font-face` block enough to warn usefully: the family
+/// name (so the eventual fallback can be attributed) and whether the src
+/// was remote (not fetched, by design) or a local path (loading pending —
+/// pass the file via options.fonts / --font).
+fn parse_font_face(parser: &mut Parser<'_, '_>, warnings: &mut Vec<String>) -> Option<String> {
+    // Skip prelude, find the block.
+    loop {
+        match parser.next_including_whitespace() {
+            Ok(Token::CurlyBracketBlock) => break,
+            Ok(_) => continue,
+            Err(_) => return None,
+        }
+    }
+    let mut family: Option<String> = None;
+    let mut remote = false;
+    let mut local: Option<String> = None;
+    let _ = parser.parse_nested_block(|p| -> Result<(), cssparser::ParseError<'_, ()>> {
+        while !p.is_exhausted() {
+            let _ = p.parse_until_after(
+                cssparser::Delimiter::Semicolon,
+                |d| -> Result<(), cssparser::ParseError<'_, ()>> {
+                    let name = d.expect_ident()?.to_ascii_lowercase();
+                    d.expect_colon()?;
+                    match name.as_str() {
+                        "font-family" => {
+                            while let Ok(t) = d.next() {
+                                match t {
+                                    Token::QuotedString(s) | Token::Ident(s) => {
+                                        family = Some(s.as_ref().to_string());
+                                    }
+                                    _ => {}
+                                }
+                            }
+                        }
+                        "src" => {
+                            while let Ok(t) = d.next() {
+                                let t = t.clone();
+                                match &t {
+                                    Token::UnquotedUrl(u) => {
+                                        classify_font_src(u, &mut remote, &mut local);
+                                    }
+                                    Token::Function(f) if f.eq_ignore_ascii_case("url") => {
+                                        let _ = d.parse_nested_block(
+                                            |q| -> Result<(), cssparser::ParseError<'_, ()>> {
+                                                while let Ok(t) = q.next() {
+                                                    if let Token::QuotedString(s) = t {
+                                                        classify_font_src(
+                                                            s,
+                                                            &mut remote,
+                                                            &mut local,
+                                                        );
+                                                    }
+                                                }
+                                                Ok(())
+                                            },
+                                        );
+                                    }
+                                    Token::Function(_) => {
+                                        // format(...) etc.
+                                        let _ = d.parse_nested_block(
+                                            |q| -> Result<(), cssparser::ParseError<'_, ()>> {
+                                                while q.next().is_ok() {}
+                                                Ok(())
+                                            },
+                                        );
+                                    }
+                                    _ => {}
+                                }
+                            }
+                        }
+                        _ => while d.next().is_ok() {},
+                    }
+                    Ok(())
+                },
+            );
+        }
+        Ok(())
+    });
+
+    let shown = family.clone().unwrap_or_else(|| "<unnamed>".to_string());
+    if remote {
+        warnings.push(format!(
+            "@font-face '{shown}': remote fonts are not fetched; provide the font file via options.fonts / --font (see README: Using web fonts)"
+        ));
+    } else if let Some(path) = local {
+        warnings.push(format!(
+            "@font-face '{shown}': local src '{path}' is not loaded yet; pass it via --font '{shown}={path}' or options.fonts"
+        ));
+    } else {
+        warnings.push(format!("@font-face '{shown}' skipped (no usable src)"));
+    }
+    family
+}
+
+fn classify_font_src(url: &str, remote: &mut bool, local: &mut Option<String>) {
+    if url.starts_with("http://") || url.starts_with("https://") || url.starts_with("//") {
+        *remote = true;
+    } else if local.is_none() {
+        *local = Some(url.to_string());
     }
 }
 
@@ -313,6 +423,36 @@ pub fn parse_stylesheet(css: &str, warnings: &mut Vec<String>) -> Stylesheet {
         match &tok {
             Token::AtKeyword(name) if name.eq_ignore_ascii_case("page") => {
                 parse_page_rule(&mut parser, &mut sheet, warnings);
+                prelude = SelectorPrelude::new();
+            }
+            Token::AtKeyword(name) if name.eq_ignore_ascii_case("import") => {
+                warnings.push(
+                    "external stylesheet imports are not fetched; inline the CSS or pass it via --css / options.css"
+                        .to_string(),
+                );
+                // Statement form: consume through the terminating `;`.
+                loop {
+                    match parser.next_including_whitespace() {
+                        Ok(Token::Semicolon) | Err(_) => break,
+                        Ok(Token::Function(_)) | Ok(Token::ParenthesisBlock) => {
+                            let _ = parser.parse_nested_block(
+                                |p| -> Result<(), cssparser::ParseError<'_, ()>> {
+                                    while p.next_including_whitespace().is_ok() {}
+                                    Ok(())
+                                },
+                            );
+                        }
+                        Ok(_) => continue,
+                    }
+                }
+                prelude = SelectorPrelude::new();
+            }
+            Token::AtKeyword(name) if name.eq_ignore_ascii_case("font-face") => {
+                if let Some(family) = parse_font_face(&mut parser, warnings) {
+                    if !sheet.skipped_font_families.contains(&family) {
+                        sheet.skipped_font_families.push(family);
+                    }
+                }
                 prelude = SelectorPrelude::new();
             }
             Token::AtKeyword(name) => {

@@ -77,7 +77,8 @@ noted in the warnings).
 | `width`, `height` (`px`, `pt`, `em`, `rem`, `%`, `in`, `cm`, `mm`) | CSS Grid — flex covers document layouts |
 | | `min-width`/`max-width`/`min-height`/`max-height` — pending: the engine clamps these only in flex-shrink and table-row paths today |
 | | `dashed`/`dotted` border styles — pending: the PDF stroke path has no dash patterns yet (style keywords parse and are ignored) |
-| `font-family` (fallback chains), `font-size`, `font-weight`, `font-style`, `line-height` | CSS variables |
+| `font-family` (fallback chains; generics `sans-serif`/`serif`/`monospace` map to Helvetica/Times/Courier), `font-size`, `font-weight`, `font-style`, `line-height` | CSS variables |
+| provided fonts: `options.fonts` / `--font Family=path.ttf` | `@font-face` fetching — remote srcs are never fetched (loud, family-naming warnings); local srcs pending (use `--font`); `@import` never fetched |
 | `color`, `background-color`, `background` (solid colors) | gradients, background images — engine paint work, not a mapping gap |
 | `text-align`, `text-decoration`, `text-transform` (Unicode-aware), `letter-spacing` | percentage margins/padding (warned, treated as 0) |
 | `display: block / flex / none`, `flex-direction`, `justify-content`, `align-items`, `gap` | |
@@ -111,6 +112,36 @@ a running browser to use it. The engine underneath this crate has had
 running headers/footers, header repetition, and widow/orphan control from
 the start — the pending column above is CSS syntax wiring, not layout
 capability.
+
+## Using web fonts
+
+Templates in the wild say `@import url('https://fonts.googleapis.com/...')`
+or `@font-face { src: url(https://...) }`. Nothing here fetches the
+network — by design — and instead of a silent Helvetica swap you get
+warnings naming the import, the skipped `@font-face` family, and every
+`font-family` that references it. The one-step migration:
+
+1. Download the TTF (for Google Fonts: pick the family → Download all, or
+   fetch the URL inside their CSS).
+2. Hand it over under the same family name:
+
+```bash
+forme-html invoice.html --font 'Inter=fonts/Inter-Regular.ttf'                         --font 'Inter:bold=fonts/Inter-Bold.ttf'
+```
+
+```js
+renderHtml(html, {
+  fonts: [
+    { family: 'Inter', data: fs.readFileSync('fonts/Inter-Regular.ttf') },
+    { family: 'Inter', data: fs.readFileSync('fonts/Inter-Bold.ttf'), weight: 700 },
+  ],
+});
+```
+
+Your CSS keeps saying `font-family: "Inter", sans-serif` — the declared
+name stays first in the chain, so providing the font later changes
+nothing else. Fonts are subsetted automatically; only glyphs used in the
+document embed.
 
 ## Semantics worth knowing
 

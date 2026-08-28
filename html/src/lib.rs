@@ -35,6 +35,31 @@ pub use forme::model::PageSize;
 use forme::model::{Edges, PageConfig};
 pub use forme::{FormeError, LayoutInfo};
 
+/// A font provided by the caller — the offline half of the web-font
+/// migration recipe (download the TTF, hand it over here or via
+/// `--font Family=path` on the CLI).
+#[derive(Debug, Clone)]
+pub struct FontSpec {
+    /// The family name templates reference in `font-family`.
+    pub family: String,
+    /// Raw TTF bytes.
+    pub data: Vec<u8>,
+    /// CSS weight (400 regular, 700 bold, ...). Defaults to 400.
+    pub weight: u32,
+    pub italic: bool,
+}
+
+impl FontSpec {
+    pub fn new(family: impl Into<String>, data: Vec<u8>) -> Self {
+        FontSpec {
+            family: family.into(),
+            data,
+            weight: 400,
+            italic: false,
+        }
+    }
+}
+
 /// Options for HTML rendering.
 ///
 /// Page geometry precedence: an explicit option here overrides the
@@ -51,6 +76,8 @@ pub struct HtmlOptions {
     /// equal-specificity rules here win ties, mirroring a stylesheet
     /// appended at the end of the document.
     pub css: Option<String>,
+    /// Fonts registered with the engine (TTF bytes keyed by family name).
+    pub fonts: Vec<FontSpec>,
 }
 
 /// Rendered output: PDF bytes plus any warnings about unsupported CSS.
@@ -254,6 +281,15 @@ pub fn html_to_document(html: &str, options: &HtmlOptions) -> (forme::Document, 
     let (mut doc, map_warnings) = map::map_html(&body, stylesheet, config);
     warnings.extend(map_warnings);
     doc.first_page = first_page;
+    for font in &options.fonts {
+        use base64::Engine as _;
+        doc.fonts.push(forme::model::FontEntry {
+            family: font.family.clone(),
+            src: base64::engine::general_purpose::STANDARD.encode(&font.data),
+            weight: font.weight,
+            italic: font.italic,
+        });
+    }
     if !bands.is_empty() {
         if let Some(body_view) = doc.children.first_mut() {
             // Bands go first so the engine registers them before any
