@@ -77,13 +77,14 @@ noted in the warnings).
 | `border-collapse` on tables (single-owner-per-edge emulation; `tr` borders redistribute to cells; CSS's widest-border-wins conflict rule is approximated — the earlier edge wins; `border-radius` is ignored under collapse, per spec and Chrome) | |
 | `break-inside: avoid` on `<tr>` — honored: rows are atomic by engine design (a row taller than a full page still paginates) | `break-inside` on `<thead>`/`<tbody>` — pending; use it on the table |
 | `width`, `height` (`px`, `pt`, `em`, `rem`, `%`, `in`, `cm`, `mm`) | CSS Grid — flex covers document layouts |
-| | `min-width`/`max-width`/`min-height`/`max-height` — pending: the engine clamps these only in flex-shrink and table-row paths today |
+| `max-width`, `min-width`, `min-height` on block-level boxes — the centered column (`max-width` + `margin: 0 auto`) works | `max-height` — pending: down-clamping is clipping semantics; flex-item min/max — pending |
 | | `dashed`/`dotted` border styles — pending: the PDF stroke path has no dash patterns yet (style keywords parse and are ignored) |
 | `font-family` (fallback chains; generics `sans-serif`/`serif`/`monospace` map to Helvetica/Times/Courier), `font-size`, `font-weight`, `font-style`, `line-height` | CSS variables |
 | provided fonts: `options.fonts` / `--font Family=path.ttf` | `@font-face` fetching — remote srcs are never fetched (loud, family-naming warnings); local srcs pending (use `--font`); `@import` never fetched |
 | `color`, `background-color`, `background` (solid colors) | gradients, background images — engine paint work, not a mapping gap |
 | `text-align` (incl. `justify` — Knuth-Plass + real inter-word distribution), `text-decoration`, `text-transform` (Unicode-aware), `letter-spacing` | percentage margins/padding (warned, treated as 0) |
-| `&nbsp;` and friends: entities decode and U+00A0 survives whitespace collapsing (non-breaking, non-collapsing) | `vertical-align` — pending; table cells top-align |
+| `&nbsp;` and friends: entities decode and U+00A0 survives whitespace collapsing (non-breaking, non-collapsing) | |
+| `vertical-align: top/middle/bottom` on table cells + the legacy `valign` attribute — CSS's `baseline` default maps to top (documented divergence; baseline-across-cells is typography work) | |
 | `display: block / flex / none`, `flex-direction`, `justify-content`, `align-items`, `gap` | |
 | `position: absolute` + `top/right/bottom/left` — containing block is the element's PARENT (not the nearest positioned ancestor); offsets without `position: absolute` warn | |
 

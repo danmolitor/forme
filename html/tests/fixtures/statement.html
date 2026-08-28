@@ -24,6 +24,12 @@
       .status { color: #ff0000; }
       p.status { color: #b45309 !important; }      /* important beats inline */
 
+      /* The centered document column — the max-width idiom. */
+      .sheet { max-width: 420pt; margin: 0 auto }
+
+      /* Middle-aligned totals: multi-line note next to a single amount. */
+      tr.grand td { vertical-align: middle }
+
       /* Source-order tie: same specificity, later wins. */
       .tie { color: #111111; }
       .tie { color: #0000ff; }
@@ -37,6 +43,7 @@
     </style>
   </head>
   <body>
+   <div class="sheet">
     <h1>Account Statement</h1>
     <p class="muted">Statement period: August 1–28, 2026</p>
 
@@ -59,9 +66,14 @@
           <td>Support plan</td>
           <td class="amount">$25.00</td>
         </tr>
-        <tr id="grand-total">
-          <td colspan="2">Total</td>
+        <tr id="grand-total" class="grand">
+          <td colspan="2">Total for the period<br>including all fees<br>and adjustments</td>
           <td class="amount">$74.00</td>
+        </tr>
+        <tr>
+          <td>Carried<br>forward</td>
+          <td valign="middle">legacy valign attr</td>
+          <td class="amount">$0.00</td>
         </tr>
       </tbody>
     </table>
@@ -73,5 +85,6 @@
     <ul>
       <li>Autopay is enabled for this account.</li>
     </ul>
+   </div>
   </body>
 </html>

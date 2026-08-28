@@ -760,6 +760,25 @@ impl Mapper {
             match child {
                 DomNode::Element(e) if matches!(e.tag.as_str(), "td" | "th") => {
                     let mut cell_computed = self.computed_for(e, row_computed.font_size);
+                    // Legacy HTML valign attribute (the wkhtmltopdf-era
+                    // dialect): a presentational hint below CSS — the
+                    // cell's own attr, then the row's, apply only when no
+                    // CSS vertical-align matched.
+                    if cell_computed.vertical_align.is_none() {
+                        let attr_valign =
+                            e.attr("valign")
+                                .or_else(|| el.attr("valign"))
+                                .and_then(|v| match v.to_ascii_lowercase().as_str() {
+                                    "top" => Some(forme::style::VerticalAlign::Top),
+                                    "middle" | "center" => {
+                                        Some(forme::style::VerticalAlign::Middle)
+                                    }
+                                    "bottom" => Some(forme::style::VerticalAlign::Bottom),
+                                    "baseline" => Some(forme::style::VerticalAlign::Top),
+                                    _ => None,
+                                });
+                        cell_computed.vertical_align = attr_valign;
+                    }
                     if table_info.collapse {
                         apply_collapsed_borders(
                             &mut cell_computed,
@@ -974,6 +993,10 @@ fn to_engine_style(c: &Computed) -> Style {
 
     s.width = c.width;
     s.height = c.height;
+    s.max_width = c.max_width;
+    s.min_width = c.min_width;
+    s.min_height = c.min_height;
+    s.vertical_align = c.vertical_align;
 
     s.font_family = c.font_family.clone();
     if c.font_size_explicit {

@@ -11,7 +11,7 @@
 use crate::css::{BreakInsideVal, BreakVal, CssDisplay, CssStyle, Length, LineHeight};
 use forme::style::{
     AlignItems, Color, Dimension, FlexDirection, JustifyContent, TextAlign, TextDecoration,
-    TextTransform,
+    TextTransform, VerticalAlign,
 };
 
 /// CSS default `medium` (16px) in points. Matches the engine's own root
@@ -64,6 +64,10 @@ pub struct Computed {
     pub gap: Option<f64>,
 
     pub border_collapse: Option<bool>,
+    pub vertical_align: Option<VerticalAlign>,
+    pub max_width: Option<Dimension>,
+    pub min_width: Option<Dimension>,
+    pub min_height: Option<Dimension>,
     pub position_absolute: bool,
     /// Offsets in points, meaningful only with `position_absolute`.
     pub offsets: [Option<f64>; 4],
@@ -167,6 +171,10 @@ pub fn resolve(css: &CssStyle, parent_font_size: f64, warnings: &mut Vec<String>
         justify_content: css.justify_content,
         align_items: css.align_items,
         gap: css.gap,
+        vertical_align: css.vertical_align,
+        max_width: dim(css.max_width),
+        min_width: dim(css.min_width),
+        min_height: dim(css.min_height),
         position_absolute: css.position_absolute == Some(true),
         offsets: {
             let abs = css.position_absolute == Some(true);

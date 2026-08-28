@@ -7,6 +7,7 @@
 use cssparser::{Delimiter, ParseError, Parser, ParserInput, Token};
 use forme::style::{
     AlignItems, Color, FlexDirection, JustifyContent, TextAlign, TextDecoration, TextTransform,
+    VerticalAlign,
 };
 
 /// A CSS length as written. Absolute units are normalized to points at parse
@@ -77,6 +78,10 @@ pub struct CssStyle {
     pub text_decoration: Option<TextDecoration>,
     pub text_transform: Option<TextTransform>,
     pub letter_spacing: Option<Length>,
+    pub vertical_align: Option<VerticalAlign>,
+    pub max_width: Option<Length>,
+    pub min_width: Option<Length>,
+    pub min_height: Option<Length>,
     pub position_absolute: Option<bool>,
     pub top: Option<Length>,
     pub right: Option<Length>,
@@ -131,6 +136,10 @@ impl CssStyle {
             text_decoration,
             text_transform,
             letter_spacing,
+            vertical_align,
+            max_width,
+            min_width,
+            min_height,
             position_absolute,
             top,
             right,
@@ -450,7 +459,27 @@ pub(crate) fn apply_declaration(
         "widows" => style.widows = parse_count(p),
 
         "vertical-align" => {
-            warnings.push("vertical-align is pending — table cells top-align for now".to_string());
+            if let Ok(id) = p.expect_ident() {
+                style.vertical_align = match id.to_ascii_lowercase().as_str() {
+                    "top" => Some(VerticalAlign::Top),
+                    "middle" => Some(VerticalAlign::Middle),
+                    "bottom" => Some(VerticalAlign::Bottom),
+                    // CSS defaults to baseline; baseline-across-cells is
+                    // real typography work — it maps to the engine's top
+                    // default WITHOUT a warning (documented divergence).
+                    "baseline" => Some(VerticalAlign::Top),
+                    other => {
+                        warnings.push(format!("unsupported vertical-align value '{other}'"));
+                        None
+                    }
+                };
+            }
+        }
+        "max-width" => style.max_width = parse_length(p),
+        "min-width" => style.min_width = parse_length(p),
+        "min-height" => style.min_height = parse_length(p),
+        "max-height" => {
+            warnings.push("max-height is pending (clipping semantics undecided)".to_string());
         }
 
         other => {

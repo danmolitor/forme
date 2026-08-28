@@ -11400,3 +11400,140 @@ fn first_page_restores_margin_when_its_band_is_suppressed() {
         "page 2 body content must start below the band (~{band_height}pt), got {content_min_y}"
     );
 }
+
+// ─── Pre-launch round: vertical-align + max-width (fails-first pins) ───
+
+#[test]
+fn middle_aligned_cell_centers_in_the_row_box() {
+    // Two cells: three lines vs one line, the short one middle-aligned.
+    // The short cell's content y-center must equal the row's y-center
+    // EXACTLY (exact-value, per the page-selection standard).
+    fn cell(text: &str, valign: Option<VerticalAlign>) -> Node {
+        Node {
+            kind: NodeKind::TableCell {
+                col_span: 1,
+                row_span: 1,
+            },
+            style: Style {
+                vertical_align: valign,
+                ..Default::default()
+            },
+            children: vec![make_text(text, 12.0)],
+            id: None,
+            source_location: None,
+            bookmark: None,
+            href: None,
+            alt: None,
+        }
+    }
+    let table = Node {
+        kind: NodeKind::Table { columns: vec![] },
+        style: Style::default(),
+        children: vec![Node {
+            kind: NodeKind::TableRow { is_header: false },
+            style: Style::default(),
+            children: vec![
+                cell("one\ntwo\nthree", None),
+                cell("mid", Some(VerticalAlign::Middle)),
+            ],
+            id: None,
+            source_location: None,
+            bookmark: None,
+            href: None,
+            alt: None,
+        }],
+        id: None,
+        source_location: None,
+        bookmark: None,
+        href: None,
+        alt: None,
+    };
+    let doc = default_doc(vec![table]);
+    let (_pdf, layout) = forme::render_with_layout(&doc).expect("Should render");
+
+    fn find_cells<'a>(
+        els: &'a [forme::layout::ElementInfo],
+        out: &mut Vec<&'a forme::layout::ElementInfo>,
+    ) {
+        for el in els {
+            if el.node_type == "TableCell" {
+                out.push(el);
+            }
+            find_cells(&el.children, out);
+        }
+    }
+    let mut cells = Vec::new();
+    for page in &layout.pages {
+        find_cells(&page.elements, &mut cells);
+    }
+    assert_eq!(cells.len(), 2);
+    let (tall, short) = (cells[0], cells[1]);
+    assert!(tall.height > 40.0, "three lines: {}", tall.height);
+
+    // The short cell's inner Text container.
+    fn first_text(els: &[forme::layout::ElementInfo]) -> Option<&forme::layout::ElementInfo> {
+        for el in els {
+            if el.kind == "None" && el.node_type == "Text" {
+                return Some(el);
+            }
+            if let Some(t) = first_text(&el.children) {
+                return Some(t);
+            }
+        }
+        None
+    }
+    let text = first_text(&short.children).expect("short cell text");
+    let row_center = short.y + short.height / 2.0;
+    let text_center = text.y + text.height / 2.0;
+    assert!(
+        (text_center - row_center).abs() < 0.01,
+        "middle-aligned content center {text_center} must equal row center {row_center}"
+    );
+}
+
+#[test]
+fn max_width_clamps_and_auto_margins_center_the_column() {
+    // The centered document column: max-width + margin: 0 auto.
+    let column = Node {
+        kind: NodeKind::View,
+        style: Style {
+            max_width: Some(Dimension::Pt(400.0)),
+            margin: Some(MarginEdges {
+                top: EdgeValue::Pt(0.0),
+                right: EdgeValue::Auto,
+                bottom: EdgeValue::Pt(0.0),
+                left: EdgeValue::Auto,
+            }),
+            background_color: Some(Color::rgb(0.95, 0.95, 0.95)),
+            ..Default::default()
+        },
+        children: vec![make_text("column content", 12.0)],
+        id: None,
+        source_location: None,
+        bookmark: None,
+        href: None,
+        alt: None,
+    };
+    // Wrapped in a body-like container: auto-margin centering applies to
+    // the CHILDREN of a container (the HTML mapper always provides a body
+    // View), not to document-root nodes.
+    let body = make_view(vec![column]);
+    let doc = default_doc(vec![body]);
+    let (_pdf, layout) = forme::render_with_layout(&doc).expect("Should render");
+
+    let page = &layout.pages[0];
+    let el = &page.elements[0].children[0];
+    assert_eq!(el.node_type, "View");
+    assert!(
+        (el.width - 400.0).abs() < 0.01,
+        "max-width must clamp the auto width to 400, got {}",
+        el.width
+    );
+    let expected_x = page.content_x + (page.content_width - 400.0) / 2.0;
+    assert!(
+        (el.x - expected_x).abs() < 0.01,
+        "auto margins must center the clamped column: x {} != {}",
+        el.x,
+        expected_x
+    );
+}

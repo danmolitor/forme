@@ -180,11 +180,29 @@ fn pending_polish_warnings_are_named() {
         thead { break-inside: avoid }
       </style>
       <table><thead><tr><td>h</td></tr></thead><tbody><tr><td>b</td></tr></tbody></table>"#;
-    let (_, warnings) = html_to_document(html, &HtmlOptions::default());
+    let (doc, warnings) = html_to_document(html, &HtmlOptions::default());
+    // vertical-align is live now: it lands on the cell and does NOT warn.
+    fn find_cell(nodes: &[Node]) -> Option<&Node> {
+        for n in nodes {
+            if matches!(n.kind, NodeKind::TableCell { .. }) {
+                return Some(n);
+            }
+            if let Some(f) = find_cell(&n.children) {
+                return Some(f);
+            }
+        }
+        None
+    }
+    let cell = find_cell(&doc.children).expect("cell");
     assert!(
-        warnings
-            .iter()
-            .any(|w| w.contains("vertical-align is pending")),
+        matches!(
+            cell.style.vertical_align,
+            Some(forme::style::VerticalAlign::Middle)
+        ),
+        "vertical-align: middle must reach the cell"
+    );
+    assert!(
+        !warnings.iter().any(|w| w.contains("vertical-align")),
         "{warnings:?}"
     );
     assert!(

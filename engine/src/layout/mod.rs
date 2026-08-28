@@ -1732,7 +1732,10 @@ impl LayoutEngine {
         let outer_width = match style.width {
             SizeConstraint::Fixed(w) => w,
             SizeConstraint::Auto => available_width - margin.horizontal(),
-        };
+        }
+        // min wins over max on conflict, per CSS.
+        .min(style.max_width)
+        .max(style.min_width);
         let inner_width = outer_width - padding.horizontal() - border.horizontal();
 
         let children_height =
@@ -1740,7 +1743,8 @@ impl LayoutEngine {
         let total_height = match style.height {
             SizeConstraint::Fixed(h) => h,
             SizeConstraint::Auto => children_height + padding.vertical() + border.vertical(),
-        };
+        }
+        .max(style.min_height);
 
         let node_x = x + margin.left;
 
@@ -2122,8 +2126,18 @@ impl LayoutEngine {
                             .min(available_width);
                         let w = match child_style.width {
                             SizeConstraint::Fixed(fw) => fw,
+                            // Auto width + max-width is the centered-column
+                            // idiom: the block fills, the clamp shrinks it,
+                            // auto margins split what's left. Plain auto
+                            // keeps the engine's shrink-to-fit behavior.
+                            SizeConstraint::Auto if child_style.max_width.is_finite() => {
+                                (available_width - child_margin.horizontal())
+                                    .min(child_style.max_width)
+                            }
                             SizeConstraint::Auto => intrinsic,
-                        };
+                        }
+                        .min(child_style.max_width)
+                        .max(child_style.min_width);
                         let lw = if has_explicit_width {
                             available_width
                         } else {
@@ -3243,6 +3257,28 @@ impl LayoutEngine {
             let content_x = cell_x + cell_style.padding.left + cell_style.border_width.left;
             let saved_y = cursor.y;
             cursor.y += cell_style.padding.top + cell_style.border_width.top;
+
+            // vertical-align: middle/bottom — the row box height is already
+            // resolved (measured above the loop), so offset this cell's
+            // content within it. Top is the default and costs nothing.
+            if !matches!(cell_style.vertical_align, crate::style::VerticalAlign::Top) {
+                let content_h: f64 = cell
+                    .children
+                    .iter()
+                    .map(|ch| {
+                        let ch_style = ch.style.resolve(Some(&cell_style), inner_width);
+                        self.measure_node_height(ch, inner_width, &ch_style, font_context)
+                    })
+                    .sum();
+                let inner_row =
+                    row_height - cell_style.padding.vertical() - cell_style.border_width.vertical();
+                let slack = (inner_row - content_h).max(0.0);
+                cursor.y += match cell_style.vertical_align {
+                    crate::style::VerticalAlign::Middle => slack / 2.0,
+                    crate::style::VerticalAlign::Bottom => slack,
+                    crate::style::VerticalAlign::Top => 0.0,
+                };
+            }
 
             // Save cursor state in case cell content triggers page breaks
             let cursor_before_cell = cursor.clone();
@@ -5259,16 +5295,21 @@ impl LayoutEngine {
                 if let SizeConstraint::Fixed(h) = style.height {
                     return h;
                 }
-                // Match layout_view: when width is Auto, margin reduces the outer width
+                // Match layout_view: when width is Auto, margin reduces the
+                // outer width; min/max clamp identically or measured heights
+                // disagree with laid-out widths.
                 let outer_width = match style.width {
                     SizeConstraint::Fixed(w) => w,
                     SizeConstraint::Auto => available_width - style.margin.horizontal(),
-                };
+                }
+                .min(style.max_width)
+                .max(style.min_width);
                 let inner_width =
                     outer_width - style.padding.horizontal() - style.border_width.horizontal();
                 let children_height =
                     self.measure_children_height(&node.children, inner_width, style, font_context);
-                children_height + style.padding.vertical() + style.border_width.vertical()
+                (children_height + style.padding.vertical() + style.border_width.vertical())
+                    .max(style.min_height)
             }
         }
     }

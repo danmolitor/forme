@@ -120,6 +120,9 @@ pub struct Style {
     /// Overflow behavior for container elements.
     pub overflow: Option<Overflow>,
 
+    /// Vertical alignment for table-cell content (top/middle/bottom).
+    pub vertical_align: Option<VerticalAlign>,
+
     // ── Color & Background ─────────────────────────────────────
     /// Text color.
     pub color: Option<Color>,
@@ -345,6 +348,18 @@ pub enum TextTransform {
     Uppercase,
     Lowercase,
     Capitalize,
+}
+
+/// Vertical alignment of table-cell content within its row box.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum VerticalAlign {
+    /// Content starts at the top of the cell (the engine's historical
+    /// behavior; CSS's `baseline` default maps here).
+    #[default]
+    Top,
+    Middle,
+    Bottom,
 }
 
 /// Overflow behavior for container elements.
@@ -617,6 +632,7 @@ pub struct ResolvedStyle {
     pub direction: Direction,
     pub text_overflow: TextOverflow,
     pub line_breaking: LineBreaking,
+    pub vertical_align: VerticalAlign,
 
     // Visual
     pub color: Color,
@@ -772,6 +788,7 @@ impl Style {
                 .direction
                 .unwrap_or(parent.map(|p| p.direction).unwrap_or_default()),
             text_overflow: self.text_overflow.unwrap_or_default(),
+            vertical_align: self.vertical_align.unwrap_or_default(),
             line_breaking: self
                 .line_breaking
                 .unwrap_or(parent.map(|p| p.line_breaking).unwrap_or_default()),
