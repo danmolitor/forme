@@ -133,11 +133,37 @@ fn first_child_color_and_warnings_contract() {
     let (_, _, second_col) = cells.iter().find(|(r, c, _)| *r == 1 && *c == 1).unwrap();
     assert!(second_col.style.color.is_none(), "second column untouched");
 
-    // Out-of-subset neighbors are named, not silent, and don't error.
+    // nth-of-type is supported now: the 3rd tbody row goes red —
+    // matching Chrome's rendering of this same fixture.
+    fn tables2<'a>(nodes: &'a [Node], out: &mut Vec<&'a Node>) {
+        for n in nodes {
+            if matches!(n.kind, NodeKind::Table { .. }) {
+                out.push(n);
+            }
+            tables2(&n.children, out);
+        }
+    }
+    let mut ts = Vec::new();
+    tables2(&doc.children, &mut ts);
+    // Table rows: [thead, b1, b2, b3, b4, totals] — 3rd tbody row = index 3.
+    // The color lands on the ROW node (cells inherit through the engine);
+    // asserting the cell would pass for the wrong reason via
+    // td:first-child's own color rule.
+    let red_row = &ts[0].children[3];
     assert!(
-        warnings.iter().any(|w| w.contains("nth-of-type")),
-        "nth-of-type named: {warnings:?}"
+        red_row.style.color.is_some(),
+        "tbody tr:nth-of-type(3) must carry the color"
     );
+    let neighbor_row = &ts[0].children[2];
+    assert!(
+        neighbor_row.style.color.is_none(),
+        "other tbody rows must not"
+    );
+    assert!(
+        !warnings.iter().any(|w| w.contains("nth-of-type")),
+        "nth-of-type must no longer warn: {warnings:?}"
+    );
+    // The genuinely out-of-subset neighbor still warns.
     assert!(
         warnings.iter().any(|w| w.contains("pseudo-element")),
         "::after named: {warnings:?}"

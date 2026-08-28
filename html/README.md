@@ -55,8 +55,9 @@ the bar is "what does an invoice, report, statement, or contract need."
 | type (`td`), class (`.total`), id (`#header`), universal (`*`) | pseudo-elements (`::before`, `::after`) |
 | compounds (`td.amount`, `p.note.small`) | attribute selectors (`[type=text]`) |
 | descendant (`table td`) and child (`ul > li`) combinators | sibling combinators (`+`, `~`) |
-| grouping (`h1, h2`) | `:nth-of-type` and other tree pseudo-classes (pending) |
+| grouping (`h1, h2`) | `:nth-last-child` and remaining tree pseudo-classes (pending) |
 | `:first-child`, `:last-child`, `:nth-child(even\|odd\|an+b)` — the zebra-stripe family | `:hover` and interaction pseudo-classes — permanent: print has no hover |
+| `:first-of-type`, `:last-of-type`, `:nth-of-type(even\|odd\|an+b)` | |
 | `!important` | |
 
 Cascade order: UA defaults → stylesheet rules by (specificity, source

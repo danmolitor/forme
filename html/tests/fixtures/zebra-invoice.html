@@ -34,8 +34,10 @@
   }
   .misplaced { top: 50pt }  /* offsets without position: absolute -> warning */
 
-  /* out-of-subset neighbors: named warnings, not errors */
-  tbody tr:nth-of-type(3) { color: red }
+  /* the of-type family (matches Chrome's rendering of this file) */
+  tbody tr:nth-of-type(3) { color: #dc2626 }
+
+  /* out-of-subset neighbor: named warning, not an error */
   td::after { content: "!" }
 </style>
 </head>

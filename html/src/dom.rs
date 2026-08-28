@@ -19,6 +19,11 @@ pub struct Element {
     pub index: usize,
     /// Number of element children in the parent (for `:last-child`).
     pub sibling_count: usize,
+    /// 0-based position among same-TAG element siblings (what
+    /// `:nth-of-type` counts). Assigned once at parse time.
+    pub type_index: usize,
+    /// Number of same-tag element siblings (for `:last-of-type`).
+    pub type_count: usize,
 }
 
 impl Element {
@@ -60,6 +65,8 @@ pub fn parse_html_with_styles(html: &str) -> (Element, Vec<String>) {
         children: root.children,
         index: 0,
         sibling_count: 1,
+        type_index: 0,
+        type_count: 1,
     });
     (body, styles)
 }
@@ -95,6 +102,8 @@ fn convert(handle: &Handle) -> Element {
         children,
         index: 0,
         sibling_count: 1,
+        type_index: 0,
+        type_count: 1,
     }
 }
 
@@ -104,11 +113,23 @@ fn assign_sibling_positions(out: &mut [DomNode]) {
         .iter()
         .filter(|n| matches!(n, DomNode::Element(_)))
         .count();
+    let mut type_counts: std::collections::HashMap<String, usize> =
+        std::collections::HashMap::new();
+    for node in out.iter() {
+        if let DomNode::Element(e) = node {
+            *type_counts.entry(e.tag.clone()).or_insert(0) += 1;
+        }
+    }
     let mut idx = 0;
+    let mut type_seen: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
     for node in out.iter_mut() {
         if let DomNode::Element(e) = node {
             e.index = idx;
             e.sibling_count = count;
+            let seen = type_seen.entry(e.tag.clone()).or_insert(0);
+            e.type_index = *seen;
+            *seen += 1;
+            e.type_count = type_counts[&e.tag];
             idx += 1;
         }
     }
@@ -137,6 +158,8 @@ fn convert_children(handle: &Handle, out: &mut Vec<DomNode>) {
                     children: grandchildren,
                     index: 0,
                     sibling_count: 0,
+                    type_index: 0,
+                    type_count: 0,
                 }));
             }
             NodeData::Text { contents } => {

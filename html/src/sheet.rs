@@ -121,6 +121,13 @@ pub enum Pseudo {
         a: i32,
         b: i32,
     },
+    FirstOfType,
+    LastOfType,
+    /// `:nth-of-type(an+b)` — same forms, counting same-tag siblings.
+    NthOfType {
+        a: i32,
+        b: i32,
+    },
 }
 
 /// One compound selector: everything between combinators.
@@ -159,18 +166,22 @@ impl Compound {
         if !self.classes.iter().all(|c| key.classes.contains(c)) {
             return false;
         }
+        fn nth_matches(a: i32, b: i32, index: usize) -> bool {
+            let i = index as i32 + 1; // 1-based
+            if a == 0 {
+                i == b
+            } else {
+                let d = i - b;
+                d % a == 0 && d / a >= 0
+            }
+        }
         self.pseudos.iter().all(|p| match p {
             Pseudo::FirstChild => key.index == 0,
             Pseudo::LastChild => key.index + 1 == key.count,
-            Pseudo::NthChild { a, b } => {
-                let i = key.index as i32 + 1; // :nth-child is 1-based
-                if *a == 0 {
-                    i == *b
-                } else {
-                    let d = i - b;
-                    d % a == 0 && d / a >= 0
-                }
-            }
+            Pseudo::NthChild { a, b } => nth_matches(*a, *b, key.index),
+            Pseudo::FirstOfType => key.type_index == 0,
+            Pseudo::LastOfType => key.type_index + 1 == key.type_count,
+            Pseudo::NthOfType { a, b } => nth_matches(*a, *b, key.type_index),
         })
     }
 }
@@ -201,6 +212,10 @@ pub struct ElemKey {
     pub index: usize,
     /// Total element children in the parent.
     pub count: usize,
+    /// 0-based position among same-tag siblings.
+    pub type_index: usize,
+    /// Total same-tag siblings.
+    pub type_count: usize,
 }
 
 impl Selector {
@@ -990,6 +1005,8 @@ impl SelectorPrelude {
                     match id.to_ascii_lowercase().as_str() {
                         "first-child" => self.current.pseudos.push(Pseudo::FirstChild),
                         "last-child" => self.current.pseudos.push(Pseudo::LastChild),
+                        "first-of-type" => self.current.pseudos.push(Pseudo::FirstOfType),
+                        "last-of-type" => self.current.pseudos.push(Pseudo::LastOfType),
                         other => {
                             if self.unsupported.is_none() {
                                 self.unsupported = Some(format!("pseudo-class ':{other}'"));
@@ -1056,15 +1073,17 @@ impl SelectorPrelude {
         if self.unsupported.is_some() {
             return;
         }
-        if !was_pseudo || name != "nth-child" {
+        if !was_pseudo || !matches!(name, "nth-child" | "nth-of-type") {
             self.unsupported = Some(format!("selector function '{name}()'"));
             return;
         }
         match nth {
-            Some((a, b)) => self.current.pseudos.push(Pseudo::NthChild { a, b }),
+            Some((a, b)) if name == "nth-child" => {
+                self.current.pseudos.push(Pseudo::NthChild { a, b })
+            }
+            Some((a, b)) => self.current.pseudos.push(Pseudo::NthOfType { a, b }),
             None => {
-                self.unsupported =
-                    Some(":nth-child() argument (use even, odd, or an+b)".to_string());
+                self.unsupported = Some(format!(":{name}() argument (use even, odd, or an+b)"));
             }
         }
     }
@@ -1124,6 +1143,8 @@ mod tests {
             classes: classes.iter().map(|s| s.to_string()).collect(),
             index: 0,
             count: 1,
+            type_index: 0,
+            type_count: 1,
         }
     }
 
@@ -1295,6 +1316,8 @@ mod tests {
             classes: vec![],
             index: i,
             count: 6,
+            type_index: i,
+            type_count: 6,
         };
         let m = |rule: usize, idx: usize| s.rules[rule].selector.matches(&key(idx), &[]);
         // even: 1-based 2,4,6 → 0-based 1,3,5
@@ -1319,6 +1342,8 @@ mod tests {
             classes: vec![],
             index: i,
             count: n,
+            type_index: i,
+            type_count: n,
         };
         assert!(s.rules[0].selector.matches(&key(0, 3), &[]));
         assert!(!s.rules[0].selector.matches(&key(1, 3), &[]));
@@ -1330,10 +1355,38 @@ mod tests {
 
     #[test]
     fn unsupported_pseudo_forms_warn_by_name() {
-        let (s, w) = sheet("tr:nth-of-type(2) { color: red } td::after { content: \"x\" }");
+        let (s, w) = sheet("tr:nth-last-child(2) { color: red } td::after { content: \"x\" }");
         assert!(s.rules.is_empty());
-        assert!(w.iter().any(|m| m.contains("nth-of-type")), "{w:?}");
+        assert!(w.iter().any(|m| m.contains("nth-last-child")), "{w:?}");
         assert!(w.iter().any(|m| m.contains("pseudo-element")), "{w:?}");
+    }
+
+    #[test]
+    fn of_type_family_counts_same_tag_siblings_only() {
+        let (s, w) = sheet(
+            "p:first-of-type { color: red } p:last-of-type { color: red } \
+             p:nth-of-type(even) { color: red }",
+        );
+        assert!(w.is_empty(), "{w:?}");
+        // A <p> that is the 4th element child but the 2nd <p>:
+        // div p div p → this key is the second p.
+        let key = ElemKey {
+            tag: "p".into(),
+            id: None,
+            classes: vec![],
+            index: 3,
+            count: 4,
+            type_index: 1,
+            type_count: 2,
+        };
+        assert!(!s.rules[0].selector.matches(&key, &[]), "not first-of-type");
+        assert!(s.rules[1].selector.matches(&key, &[]), "is last-of-type");
+        assert!(
+            s.rules[2].selector.matches(&key, &[]),
+            "2nd of type == even"
+        );
+        // Same-class specificity as the child family.
+        assert_eq!(s.rules[0].selector.specificity, 1_001);
     }
 
     #[test]

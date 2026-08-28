@@ -296,6 +296,8 @@ fn elem_key(el: &Element) -> ElemKey {
             .unwrap_or_default(),
         index: el.index,
         count: el.sibling_count,
+        type_index: el.type_index,
+        type_count: el.type_count,
     }
 }
 
