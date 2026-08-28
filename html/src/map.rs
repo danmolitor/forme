@@ -122,6 +122,8 @@ struct RunStyle {
     italic: Option<bool>,
     color: Option<Color>,
     text_decoration: Option<TextDecoration>,
+    text_transform: Option<forme::style::TextTransform>,
+    letter_spacing: Option<f64>,
     href: Option<String>,
 }
 
@@ -139,6 +141,8 @@ impl RunStyle {
             italic: c.italic.or(self.italic),
             color: c.color.or(self.color),
             text_decoration: c.text_decoration.or(self.text_decoration),
+            text_transform: c.text_transform.or(self.text_transform),
+            letter_spacing: c.letter_spacing.or(self.letter_spacing),
             href: href.map(str::to_string).or_else(|| self.href.clone()),
         }
     }
@@ -166,6 +170,8 @@ impl RunStyle {
             && self.italic == other.italic
             && color_eq(self.color, other.color)
             && deco_eq(self.text_decoration, other.text_decoration)
+            && self.text_transform.map(|t| t as u8) == other.text_transform.map(|t| t as u8)
+            && self.letter_spacing == other.letter_spacing
             && self.href == other.href
     }
 
@@ -183,6 +189,8 @@ impl RunStyle {
             }),
             color: self.color,
             text_decoration: self.text_decoration,
+            text_transform: self.text_transform,
+            letter_spacing: self.letter_spacing,
             ..Default::default()
         }
     }
@@ -925,6 +933,8 @@ fn to_engine_style(c: &Computed) -> Style {
     s.color = c.color;
     s.background_color = c.background_color;
     s.text_decoration = c.text_decoration;
+    s.text_transform = c.text_transform;
+    s.letter_spacing = c.letter_spacing;
 
     if matches!(c.break_before, Some(crate::css::BreakVal::Page)) {
         s.break_before = Some(true);

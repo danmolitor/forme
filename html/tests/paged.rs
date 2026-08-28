@@ -276,3 +276,58 @@ fn first_page_suppresses_letterhead_and_keeps_its_margin() {
         assert!(found, "footer counter missing on page {}", i + 1);
     }
 }
+
+#[test]
+fn text_transform_and_letter_spacing_reach_the_page() {
+    let out = render_html_with_layout(LETTERHEAD, &HtmlOptions::default()).expect("render");
+    // Uppercasing happens engine-side at glyph time — assert from the
+    // LAYOUT, including the non-ASCII é → É.
+    let mut found = false;
+    for page in &out.layout.pages {
+        walk(&page.elements, &mut |el| {
+            if el
+                .text_content
+                .as_deref()
+                .is_some_and(|t| t.contains("INTERNAL — ÉDITION RÉSERVÉE"))
+            {
+                found = true;
+            }
+        });
+    }
+    assert!(found, "uppercase transform (with Unicode é→É) must render");
+
+    // letter-spacing lands on the mapped node in points.
+    let (doc, warnings) = html_to_document(LETTERHEAD, &HtmlOptions::default());
+    fn find_kicker(nodes: &[forme::Node]) -> Option<&forme::Node> {
+        for n in nodes {
+            if let forme::NodeKind::Text { content, .. } = &n.kind {
+                if content.contains("édition réservée") {
+                    return Some(n);
+                }
+            }
+            if let Some(f) = find_kicker(&n.children) {
+                return Some(f);
+            }
+        }
+        None
+    }
+    let kicker = find_kicker(&doc.children).expect("kicker node");
+    assert_eq!(
+        kicker.style.letter_spacing,
+        Some(3.0),
+        "letter-spacing: 3pt"
+    );
+    assert!(
+        matches!(
+            kicker.style.text_transform,
+            Some(forme::style::TextTransform::Uppercase)
+        ),
+        "text-transform: uppercase"
+    );
+
+    // The fake neighbor property is named, not silent.
+    assert!(
+        warnings.iter().any(|w| w.contains("text-transform-origin")),
+        "{warnings:?}"
+    );
+}

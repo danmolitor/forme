@@ -76,7 +76,7 @@ noted in the warnings).
 | `width`, `height` (`px`, `pt`, `em`, `rem`, `%`, `in`, `cm`, `mm`) | CSS Grid (flex covers document layouts) |
 | `font-family` (fallback chains), `font-size`, `font-weight`, `font-style`, `line-height` | CSS variables |
 | `color`, `background-color`, `background` (solid colors) | gradients, background images |
-| `text-align`, `text-decoration` | percentage margins/padding (warned, treated as 0) |
+| `text-align`, `text-decoration`, `text-transform` (Unicode-aware), `letter-spacing` | percentage margins/padding (warned, treated as 0) |
 | `display: block / flex / none`, `flex-direction`, `justify-content`, `align-items`, `gap` | |
 
 ### Paged media — the point of the whole thing

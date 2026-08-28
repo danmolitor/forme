@@ -11,6 +11,7 @@
 use crate::css::{BreakInsideVal, BreakVal, CssDisplay, CssStyle, Length, LineHeight};
 use forme::style::{
     AlignItems, Color, Dimension, FlexDirection, JustifyContent, TextAlign, TextDecoration,
+    TextTransform,
 };
 
 /// CSS default `medium` (16px) in points. Matches the engine's own root
@@ -52,6 +53,9 @@ pub struct Computed {
     pub color: Option<Color>,
     pub background_color: Option<Color>,
     pub text_decoration: Option<TextDecoration>,
+    pub text_transform: Option<TextTransform>,
+    /// Resolved to points (em against the element's own font size).
+    pub letter_spacing: Option<f64>,
 
     pub display: CssDisplay,
     pub flex_direction: Option<FlexDirection>,
@@ -151,6 +155,10 @@ pub fn resolve(css: &CssStyle, parent_font_size: f64, warnings: &mut Vec<String>
         color: css.color,
         background_color: css.background_color,
         text_decoration: css.text_decoration,
+        text_transform: css.text_transform,
+        letter_spacing: css
+            .letter_spacing
+            .map(|l| to_pt(l, warnings, "letter-spacing")),
         display: css.display.unwrap_or(CssDisplay::Block),
         flex_direction: css.flex_direction,
         justify_content: css.justify_content,

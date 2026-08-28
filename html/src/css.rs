@@ -5,7 +5,9 @@
 //! list rather than silently dropped — the documented-subset contract.
 
 use cssparser::{Delimiter, ParseError, Parser, ParserInput, Token};
-use forme::style::{AlignItems, Color, FlexDirection, JustifyContent, TextAlign, TextDecoration};
+use forme::style::{
+    AlignItems, Color, FlexDirection, JustifyContent, TextAlign, TextDecoration, TextTransform,
+};
 
 /// A CSS length as written. Absolute units are normalized to points at parse
 /// time; font-relative and percentage units survive until style resolution.
@@ -73,6 +75,8 @@ pub struct CssStyle {
     pub align_items: Option<AlignItems>,
     pub gap: Option<f64>,
     pub text_decoration: Option<TextDecoration>,
+    pub text_transform: Option<TextTransform>,
+    pub letter_spacing: Option<Length>,
     pub border_collapse: Option<bool>,
     pub break_before: Option<BreakVal>,
     pub break_after: Option<BreakVal>,
@@ -120,6 +124,8 @@ impl CssStyle {
             align_items,
             gap,
             text_decoration,
+            text_transform,
+            letter_spacing,
             border_collapse,
             break_before,
             break_after,
@@ -354,6 +360,30 @@ pub(crate) fn apply_declaration(
             }
         }
 
+        "text-transform" => {
+            if let Ok(id) = p.expect_ident() {
+                style.text_transform = match id.to_ascii_lowercase().as_str() {
+                    "uppercase" => Some(TextTransform::Uppercase),
+                    "lowercase" => Some(TextTransform::Lowercase),
+                    "capitalize" => Some(TextTransform::Capitalize),
+                    "none" => Some(TextTransform::None),
+                    other => {
+                        warnings.push(format!("unsupported text-transform value '{other}'"));
+                        None
+                    }
+                };
+            }
+        }
+        "letter-spacing" => {
+            let tok = p.next().ok().cloned();
+            style.letter_spacing = match tok.as_ref() {
+                Some(Token::Ident(id)) if id.eq_ignore_ascii_case("normal") => {
+                    Some(Length::Pt(0.0))
+                }
+                Some(t) => token_to_length(t),
+                None => None,
+            };
+        }
         "border-collapse" => {
             if let Ok(id) = p.expect_ident() {
                 style.border_collapse = match id.to_ascii_lowercase().as_str() {
