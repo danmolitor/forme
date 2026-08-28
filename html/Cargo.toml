@@ -1,0 +1,16 @@
+[package]
+name = "forme-pdf-html"
+# Not on the shared release line until it ships — like server/ and rasterizer/
+# it versions independently for now.
+version = "0.0.1"
+edition = "2021"
+description = "HTML + print-CSS input path for the forme-pdf engine. Satori for paginated documents."
+license = "MIT"
+repository = "https://github.com/formepdf/forme"
+publish = false
+
+[dependencies]
+cssparser = "0.37.0"
+forme-pdf = { version = "0.13.0", path = "../engine" }
+html5ever = "0.39.0"
+markup5ever_rcdom = "0.39.0"

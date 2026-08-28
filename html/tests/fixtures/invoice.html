@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<!--
+  Spike fixture: a realistic invoice template, written the way a
+  developer's template actually looks. DELIBERATELY not cleaned up:
+  indentation, newlines between tags, comments, and inline elements
+  split across source lines all stress whitespace collapsing.
+-->
+<html>
+  <head>
+    <title>Invoice #2024-001</title>
+    <style>
+      /* Real templates ship a stylesheet; the spike ignores it (Phase 1).
+         Present so the parse path sees one. */
+      body { color: #111; }
+    </style>
+  </head>
+  <body>
+
+    <!-- Letterhead: flex row with logo and address block -->
+    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+      <img
+        src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+        width="48" height="48" alt="logo">
+      <div style="text-align: right;">
+        <strong>Acme Widget Co.</strong><br>
+        123 Main St<br>
+        Springfield, IL 62704
+      </div>
+    </div>
+
+    <!--
+      Default-margin sequence #1: h1 followed by p with NO inline margin
+      styles. The UA margins must collapse: h1's 0.67em (against its own
+      24pt = 16.08pt) vs p's 1em (12pt) -> one 16.08pt gap, not 28.08.
+    -->
+    <h1>Invoice #2024-001</h1>
+    <p>
+      Billed to
+      <strong>Wayne
+        Enterprises</strong>
+      on August 28, 2026.
+    </p>
+    <!-- Default-margin sequence #2: p followed by p -> 12pt, not 24. -->
+    <p>
+      Due <strong>net <span style="color: #c00">30</span></strong>
+      days.
+    </p>
+
+    <table style="width: 100%; border: 1px solid #ccc;">
+      <thead>
+        <tr style="background-color: #f3f4f6;">
+          <th style="width: 50%; text-align: left; padding: 6px;">Description</th>
+          <th style="width: 15%; padding: 6px;">Qty</th>
+          <th style="width: 15%; padding: 6px;">Unit</th>
+          <th style="width: 20%; text-align: right; padding: 6px;">Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="padding: 6px;">Widget Pro</td>
+          <td style="padding: 6px; text-align: center;">2</td>
+          <td style="padding: 6px; text-align: center;">$49.00</td>
+          <td style="padding: 6px; text-align: right;">$98.00</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px;">Widget Enterprise</td>
+          <td style="padding: 6px; text-align: center;">1</td>
+          <td style="padding: 6px; text-align: center;">$199.00</td>
+          <td style="padding: 6px; text-align: right;">$199.00</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px;">Mounting bracket</td>
+          <td style="padding: 6px; text-align: center;">4</td>
+          <td style="padding: 6px; text-align: center;">$12.50</td>
+          <td style="padding: 6px; text-align: right;">$50.00</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px;">Installation service</td>
+          <td style="padding: 6px; text-align: center;">3</td>
+          <td style="padding: 6px; text-align: center;">$85.00</td>
+          <td style="padding: 6px; text-align: right;">$255.00</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px;">Extended warranty (2yr)</td>
+          <td style="padding: 6px; text-align: center;">1</td>
+          <td style="padding: 6px; text-align: center;">$79.00</td>
+          <td style="padding: 6px; text-align: right;">$79.00</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px;">Shipping &amp; handling</td>
+          <td style="padding: 6px; text-align: center;">1</td>
+          <td style="padding: 6px; text-align: center;">$24.00</td>
+          <td style="padding: 6px; text-align: right;">$24.00</td>
+        </tr>
+        <tr style="font-weight: bold;">
+          <td colspan="2" style="padding: 6px;">Total</td>
+          <td style="padding: 6px;"></td>
+          <td style="padding: 6px; text-align: right;">$705.00</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Default-margin sequence #3: h2 after the table. -->
+    <h2>Payment terms</h2>
+    <ul>
+      <li>Payment due within 30 days of invoice date.</li>
+      <li>Make checks payable to <em>Acme Widget Co.</em></li>
+      <li>A 1.5% monthly finance charge applies to late balances.</li>
+    </ul>
+
+    <p style="color: #666; font-size: 10px; transform: rotate(0.5deg);">
+      Thank you for your business!
+    </p>
+
+  </body>
+</html>

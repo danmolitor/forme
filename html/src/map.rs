@@ -1,0 +1,1034 @@
+//! Box mapping: styled DOM → `forme` document tree.
+//!
+//! This is the spike's core novel work. Three normalization passes happen
+//! here, in this order:
+//!
+//! 1. **Whitespace collapsing** (CSS Text §8.1, `white-space: normal`):
+//!    done inside `InlineFlattener` while flattening inline content into
+//!    `TextRun`s, so collapsing state naturally spans inline-element
+//!    boundaries (`</span> <span>` → one space).
+//! 2. **Anonymous-box normalization**: consecutive inline children of a
+//!    block group into one `Text` node; block children split the groups
+//!    (HTML's anonymous block box rule).
+//! 3. **Margin pre-collapse**: the engine's margins are additive by design,
+//!    so CSS margin collapsing is resolved here — adjacent siblings and
+//!    parent/first-last-child collapse-through. Flex containers are
+//!    excluded (flex formatting contexts never collapse margins).
+
+use crate::css::{parse_style_attr, CssDisplay};
+use crate::dom::{DomNode, Element};
+use crate::style::{resolve, Computed, MarginV, ROOT_FONT_SIZE};
+use crate::ua::ua_style;
+use forme::model::{
+    ColumnDef, ColumnWidth, EdgeValue, Edges, ListMarkerType, MarginEdges, Metadata, PageConfig,
+};
+use forme::style::{
+    Color, CornerValues, Dimension, EdgeValues, FlexDirection, FontStyle, TextDecoration,
+};
+use forme::{Document, Node, NodeKind, Style, TextRun};
+
+pub struct Mapper {
+    pub warnings: Vec<String>,
+}
+
+/// Map a parsed `<body>` element to a complete engine document.
+pub fn map_html(body: &Element, page: PageConfig) -> (Document, Vec<String>) {
+    let mut mapper = Mapper {
+        warnings: Vec::new(),
+    };
+    let children = match mapper.map_block_element(body, ROOT_FONT_SIZE) {
+        Some(node) => vec![node],
+        None => vec![],
+    };
+    let doc = Document {
+        children,
+        metadata: Metadata::default(),
+        default_page: page,
+        fonts: vec![],
+        default_style: None,
+        tagged: false,
+        pdfa: None,
+        pdf_ua: false,
+        embedded_data: None,
+        flatten_forms: false,
+        certification: None,
+    };
+    (doc, mapper.warnings)
+}
+
+/// Elements that generate inline boxes (flattened into TextRuns).
+fn is_inline(tag: &str) -> bool {
+    matches!(
+        tag,
+        "span"
+            | "b"
+            | "strong"
+            | "i"
+            | "em"
+            | "u"
+            | "s"
+            | "strike"
+            | "del"
+            | "a"
+            | "small"
+            | "code"
+            | "abbr"
+            | "label"
+            | "sub"
+            | "sup"
+            | "mark"
+            | "time"
+    )
+}
+
+/// Elements that produce no boxes at all.
+fn is_skip(tag: &str) -> bool {
+    matches!(
+        tag,
+        "script" | "style" | "head" | "title" | "meta" | "link" | "template" | "noscript"
+    )
+}
+
+// ── Inline flattening (pass 1 + run construction) ─────────────────────
+
+/// The effective inline style at a point in the flattening walk. Only
+/// deltas from the containing block are tracked — the engine resolves each
+/// run against the Text node's style, so unset fields inherit correctly.
+#[derive(Debug, Clone, Default)]
+struct RunStyle {
+    font_family: Option<String>,
+    font_size: Option<f64>,
+    font_weight: Option<u32>,
+    italic: Option<bool>,
+    color: Option<Color>,
+    text_decoration: Option<TextDecoration>,
+    href: Option<String>,
+}
+
+impl RunStyle {
+    /// Layer an inline element's computed style over this one.
+    fn apply(&self, c: &Computed, href: Option<&str>) -> RunStyle {
+        RunStyle {
+            font_family: c.font_family.clone().or_else(|| self.font_family.clone()),
+            font_size: if c.font_size_explicit {
+                Some(c.font_size)
+            } else {
+                self.font_size
+            },
+            font_weight: c.font_weight.or(self.font_weight),
+            italic: c.italic.or(self.italic),
+            color: c.color.or(self.color),
+            text_decoration: c.text_decoration.or(self.text_decoration),
+            href: href.map(str::to_string).or_else(|| self.href.clone()),
+        }
+    }
+
+    /// Field-by-field equality. Manual because the engine's Color and
+    /// TextDecoration don't derive PartialEq.
+    fn same(&self, other: &RunStyle) -> bool {
+        fn color_eq(a: Option<Color>, b: Option<Color>) -> bool {
+            match (a, b) {
+                (None, None) => true,
+                (Some(a), Some(b)) => a.r == b.r && a.g == b.g && a.b == b.b && a.a == b.a,
+                _ => false,
+            }
+        }
+        fn deco_eq(a: Option<TextDecoration>, b: Option<TextDecoration>) -> bool {
+            match (a, b) {
+                (None, None) => true,
+                (Some(a), Some(b)) => std::mem::discriminant(&a) == std::mem::discriminant(&b),
+                _ => false,
+            }
+        }
+        self.font_family == other.font_family
+            && self.font_size == other.font_size
+            && self.font_weight == other.font_weight
+            && self.italic == other.italic
+            && color_eq(self.color, other.color)
+            && deco_eq(self.text_decoration, other.text_decoration)
+            && self.href == other.href
+    }
+
+    fn to_engine(&self) -> Style {
+        Style {
+            font_family: self.font_family.clone(),
+            font_size: self.font_size,
+            font_weight: self.font_weight,
+            font_style: self.italic.map(|i| {
+                if i {
+                    FontStyle::Italic
+                } else {
+                    FontStyle::Normal
+                }
+            }),
+            color: self.color,
+            text_decoration: self.text_decoration,
+            ..Default::default()
+        }
+    }
+}
+
+/// Streaming whitespace collapser + run builder. Collapsing state spans the
+/// whole inline group, so it works across element boundaries.
+struct InlineFlattener {
+    runs: Vec<TextRun>,
+    current: String,
+    current_style: RunStyle,
+    /// Whitespace seen but not yet emitted (may be dropped at boundaries).
+    pending_space: bool,
+    /// Whether any non-whitespace character has been emitted since the last
+    /// hard boundary (group start or <br>). Suppresses leading spaces.
+    emitted_any: bool,
+}
+
+impl InlineFlattener {
+    fn new() -> Self {
+        InlineFlattener {
+            runs: Vec::new(),
+            current: String::new(),
+            current_style: RunStyle::default(),
+            pending_space: false,
+            emitted_any: false,
+        }
+    }
+
+    fn text(&mut self, text: &str, style: &RunStyle) {
+        for ch in text.chars() {
+            // U+00A0 (nbsp) is deliberately NOT whitespace here — it must
+            // survive collapsing.
+            if ch.is_ascii_whitespace() {
+                self.pending_space = true;
+            } else {
+                if self.pending_space && self.emitted_any {
+                    self.push_char(' ', style);
+                }
+                self.pending_space = false;
+                self.push_char(ch, style);
+                self.emitted_any = true;
+            }
+        }
+    }
+
+    fn push_char(&mut self, ch: char, style: &RunStyle) {
+        if !style.same(&self.current_style) {
+            self.flush();
+            self.current_style = style.clone();
+        }
+        self.current.push(ch);
+    }
+
+    /// <br>: a hard line break. Spaces before it are dropped; spaces after
+    /// it are leading spaces of the new line and dropped too.
+    fn hard_break(&mut self) {
+        self.pending_space = false;
+        // The newline belongs to whatever run is open; if none is open yet,
+        // it opens the current style's run.
+        self.current.push('\n');
+        self.emitted_any = false;
+    }
+
+    fn flush(&mut self) {
+        if !self.current.is_empty() {
+            self.runs.push(TextRun {
+                content: std::mem::take(&mut self.current),
+                style: self.current_style.to_engine(),
+                href: self.current_style.href.clone(),
+            });
+        }
+    }
+
+    fn finish(mut self) -> Vec<TextRun> {
+        self.flush();
+        // A trailing bare-newline run (e.g. <br> at the very end) renders
+        // as an empty extra line; drop pure-newline tails.
+        while let Some(last) = self.runs.last() {
+            if last.content.chars().all(|c| c == '\n') {
+                self.runs.pop();
+            } else {
+                break;
+            }
+        }
+        self.runs
+    }
+}
+
+// ── The mapper ────────────────────────────────────────────────────────
+
+impl Mapper {
+    /// Compute an element's style: UA defaults layered under its inline
+    /// `style=""` attribute, resolved against the parent's font size.
+    fn computed_for(&mut self, el: &Element, parent_font_size: f64) -> Computed {
+        let inline = parse_style_attr(el.attr("style").unwrap_or(""), &mut self.warnings);
+        let merged = ua_style(&el.tag).merge(&inline);
+        resolve(&merged, parent_font_size, &mut self.warnings)
+    }
+
+    /// Map a block-level element to an engine node.
+    pub fn map_block_element(&mut self, el: &Element, parent_font_size: f64) -> Option<Node> {
+        if is_skip(&el.tag) {
+            return None;
+        }
+        let mut computed = self.computed_for(el, parent_font_size);
+        if computed.display == CssDisplay::None {
+            return None;
+        }
+
+        match el.tag.as_str() {
+            "table" => self.map_table(el, &computed),
+            "ul" | "ol" => self.map_list(el, &computed),
+            "img" => self.map_img(el, &computed),
+            "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => {
+                let level = el.tag.as_bytes()[1] - b'0';
+                self.map_paragraph_like(el, computed, Some(level))
+            }
+            "p" => self.map_paragraph_like(el, computed, None),
+            _ => {
+                // Generic block container (div, section, header, ...).
+                let mut children = self.map_children(&el.children, &computed);
+                if computed.display == CssDisplay::Block {
+                    collapse_sibling_margins(&mut children);
+                    collapse_into_parent(&mut computed, &mut children);
+                }
+                Some(make_node(
+                    NodeKind::View,
+                    to_engine_style(&computed),
+                    children,
+                ))
+            }
+        }
+    }
+
+    /// Map the children of a block container, grouping consecutive inline
+    /// content into anonymous Text nodes (pass 2).
+    fn map_children(&mut self, children: &[DomNode], parent: &Computed) -> Vec<Node> {
+        let mut out: Vec<Node> = Vec::new();
+        let mut inline_buf: Vec<&DomNode> = Vec::new();
+
+        for child in children {
+            let is_inline_item = match child {
+                DomNode::Text(_) => true,
+                DomNode::Element(e) => is_inline(&e.tag) || e.tag == "br",
+            };
+            if is_inline_item {
+                inline_buf.push(child);
+            } else if let DomNode::Element(e) = child {
+                self.flush_inline_group(&mut inline_buf, parent, &mut out);
+                if !is_skip(&e.tag) {
+                    if let Some(node) = self.map_block_element(e, parent.font_size) {
+                        out.push(node);
+                    }
+                }
+            }
+        }
+        self.flush_inline_group(&mut inline_buf, parent, &mut out);
+        out
+    }
+
+    /// Flatten a pending inline group into an anonymous Text node. Groups
+    /// that collapse to nothing (inter-block whitespace) produce no node.
+    fn flush_inline_group(
+        &mut self,
+        buf: &mut Vec<&DomNode>,
+        parent: &Computed,
+        out: &mut Vec<Node>,
+    ) {
+        if buf.is_empty() {
+            return;
+        }
+        let items = std::mem::take(buf);
+        let mut flattener = InlineFlattener::new();
+        let base = RunStyle::default();
+        for item in items {
+            self.flatten_item(item, &base, parent.font_size, &mut flattener);
+        }
+        let runs = flattener.finish();
+        if runs.is_empty() {
+            return;
+        }
+        out.push(text_node_from_runs(runs, Style::default(), None));
+    }
+
+    /// Recursive inline flattening (pass 1 lives in the flattener's state).
+    fn flatten_item(
+        &mut self,
+        item: &DomNode,
+        style: &RunStyle,
+        font_size: f64,
+        flattener: &mut InlineFlattener,
+    ) {
+        match item {
+            DomNode::Text(t) => flattener.text(t, style),
+            DomNode::Element(e) if e.tag == "br" => flattener.hard_break(),
+            DomNode::Element(e) if is_skip(&e.tag) => {}
+            DomNode::Element(e) if is_inline(&e.tag) => {
+                let computed = self.computed_for(e, font_size);
+                let href = if e.tag == "a" { e.attr("href") } else { None };
+                let inner = style.apply(&computed, href);
+                for child in &e.children {
+                    self.flatten_item(child, &inner, computed.font_size, flattener);
+                }
+            }
+            DomNode::Element(e) => {
+                // A block (or replaced) element inside inline flow — the
+                // spike doesn't support it. Loudly recorded, not silent.
+                self.warnings.push(format!(
+                    "<{}> inside inline flow is unsupported in the spike (skipped)",
+                    e.tag
+                ));
+            }
+        }
+    }
+
+    /// `<p>` / `<h#>`: all-inline children become a single Text/Heading
+    /// node carrying the element's own style. Box props (background,
+    /// border, padding) get a wrapping View, since the engine treats text
+    /// nodes as pure text containers.
+    fn map_paragraph_like(
+        &mut self,
+        el: &Element,
+        mut computed: Computed,
+        level: Option<u8>,
+    ) -> Option<Node> {
+        let has_block_child = el.children.iter().any(|c| {
+            matches!(c, DomNode::Element(e) if !is_inline(&e.tag) && !is_skip(&e.tag) && e.tag != "br")
+        });
+        if has_block_child {
+            // Invalid-but-real HTML (block inside <p>). Fall back to a
+            // generic container.
+            let mut children = self.map_children(&el.children, &computed);
+            collapse_sibling_margins(&mut children);
+            collapse_into_parent(&mut computed, &mut children);
+            return Some(make_node(
+                NodeKind::View,
+                to_engine_style(&computed),
+                children,
+            ));
+        }
+
+        let mut flattener = InlineFlattener::new();
+        let base = RunStyle::default();
+        for child in &el.children {
+            self.flatten_item(child, &base, computed.font_size, &mut flattener);
+        }
+        let runs = flattener.finish();
+        if runs.is_empty() {
+            // Empty paragraphs are dropped (their collapse-through
+            // behavior is documented as out of spike scope).
+            return None;
+        }
+
+        let needs_box_wrapper = computed.background_color.is_some()
+            || computed.border_width.iter().any(|w| *w > 0.0)
+            || computed.padding.iter().any(|p| *p > 0.0);
+
+        if needs_box_wrapper {
+            let (box_style, text_style) = split_box_and_text_style(&computed);
+            let text = text_node_from_runs_kind(runs, text_style, level);
+            Some(make_node(NodeKind::View, box_style, vec![text]))
+        } else {
+            Some(text_node_from_runs_kind(
+                runs,
+                to_engine_style(&computed),
+                level,
+            ))
+        }
+    }
+
+    fn map_list(&mut self, el: &Element, computed: &Computed) -> Option<Node> {
+        let ordered = el.tag == "ol";
+        let start = el
+            .attr("start")
+            .and_then(|s| s.parse::<u32>().ok())
+            .unwrap_or(1);
+        let mut items = Vec::new();
+        for child in &el.children {
+            match child {
+                DomNode::Element(e) if e.tag == "li" => {
+                    let li_computed = self.computed_for(e, computed.font_size);
+                    let li_children = self.map_children(&e.children, &li_computed);
+                    items.push(make_node(
+                        NodeKind::ListItem,
+                        to_engine_style(&li_computed),
+                        li_children,
+                    ));
+                }
+                DomNode::Text(t) if t.trim().is_empty() => {}
+                other => {
+                    self.warnings
+                        .push(format!("unexpected list child ignored: {other:?}"));
+                }
+            }
+        }
+        Some(make_node(
+            NodeKind::List {
+                ordered,
+                marker_type: if ordered {
+                    ListMarkerType::Decimal
+                } else {
+                    ListMarkerType::Disc
+                },
+                start,
+            },
+            to_engine_style(computed),
+            items,
+        ))
+    }
+
+    fn map_img(&mut self, el: &Element, computed: &Computed) -> Option<Node> {
+        let src = match el.attr("src") {
+            Some(s) => s.to_string(),
+            None => return None,
+        };
+        if src.starts_with("http://") || src.starts_with("https://") {
+            // Constitution: no external resource fetching.
+            self.warnings.push(format!(
+                "external image not fetched (provide data URIs or local files): {src}"
+            ));
+            return None;
+        }
+        let attr_dim = |name: &str| -> Option<f64> {
+            el.attr(name)
+                .and_then(|v| v.parse::<f64>().ok())
+                .map(|px| px * 0.75)
+        };
+        let width = match computed.width {
+            Some(Dimension::Pt(v)) => Some(v),
+            _ => attr_dim("width"),
+        };
+        let height = match computed.height {
+            Some(Dimension::Pt(v)) => Some(v),
+            _ => attr_dim("height"),
+        };
+        Some(make_node(
+            NodeKind::Image { src, width, height },
+            to_engine_style(computed),
+            vec![],
+        ))
+    }
+
+    fn map_table(&mut self, el: &Element, computed: &Computed) -> Option<Node> {
+        let mut rows: Vec<Node> = Vec::new();
+        self.collect_rows(&el.children, computed.font_size, false, &mut rows);
+
+        // Column definitions from the first row's cell widths. Mixed
+        // specified/unspecified widths become Auto for the gaps; if nothing
+        // is specified, the engine distributes evenly.
+        let columns = self.columns_from_first_row(el, computed.font_size);
+
+        Some(make_node(
+            NodeKind::Table { columns },
+            to_engine_style(computed),
+            rows,
+        ))
+    }
+
+    fn collect_rows(
+        &mut self,
+        children: &[DomNode],
+        font_size: f64,
+        in_thead: bool,
+        rows: &mut Vec<Node>,
+    ) {
+        for child in children {
+            match child {
+                DomNode::Element(e) if e.tag == "tr" => {
+                    rows.push(self.map_tr(e, in_thead, font_size));
+                }
+                DomNode::Element(e) if matches!(e.tag.as_str(), "thead" | "tbody" | "tfoot") => {
+                    self.collect_rows(&e.children, font_size, e.tag == "thead", rows);
+                }
+                DomNode::Text(t) if t.trim().is_empty() => {}
+                other => {
+                    self.warnings
+                        .push(format!("unexpected table child ignored: {other:?}"));
+                }
+            }
+        }
+    }
+
+    fn map_tr(&mut self, el: &Element, is_header: bool, font_size: f64) -> Node {
+        let row_computed = self.computed_for(el, font_size);
+        let mut cells = Vec::new();
+        for child in &el.children {
+            match child {
+                DomNode::Element(e) if matches!(e.tag.as_str(), "td" | "th") => {
+                    let cell_computed = self.computed_for(e, row_computed.font_size);
+                    let span = |name: &str| -> u32 {
+                        e.attr(name)
+                            .and_then(|v| v.parse::<u32>().ok())
+                            .unwrap_or(1)
+                            .max(1)
+                    };
+                    let content = self.map_children(&e.children, &cell_computed);
+                    cells.push(make_node(
+                        NodeKind::TableCell {
+                            col_span: span("colspan"),
+                            row_span: span("rowspan"),
+                        },
+                        to_engine_style(&cell_computed),
+                        content,
+                    ));
+                }
+                DomNode::Text(t) if t.trim().is_empty() => {}
+                other => {
+                    self.warnings
+                        .push(format!("unexpected row child ignored: {other:?}"));
+                }
+            }
+        }
+        make_node(
+            NodeKind::TableRow { is_header },
+            to_engine_style(&row_computed),
+            cells,
+        )
+    }
+
+    fn columns_from_first_row(&mut self, table: &Element, font_size: f64) -> Vec<ColumnDef> {
+        let Some(first_row) = find_first_tr(&table.children) else {
+            return vec![];
+        };
+        let mut defs = Vec::new();
+        let mut any_specified = false;
+        for child in &first_row.children {
+            if let DomNode::Element(e) = child {
+                if !matches!(e.tag.as_str(), "td" | "th") {
+                    continue;
+                }
+                let colspan = e
+                    .attr("colspan")
+                    .and_then(|v| v.parse::<u32>().ok())
+                    .unwrap_or(1);
+                if colspan > 1 {
+                    // Spanned first-row cells make per-column widths
+                    // ambiguous; let the engine distribute evenly.
+                    return vec![];
+                }
+                let computed = self.computed_for(e, font_size);
+                let def = match computed.width {
+                    Some(Dimension::Percent(p)) => {
+                        any_specified = true;
+                        ColumnDef {
+                            width: ColumnWidth::Fraction(p / 100.0),
+                        }
+                    }
+                    Some(Dimension::Pt(v)) => {
+                        any_specified = true;
+                        ColumnDef {
+                            width: ColumnWidth::Fixed(v),
+                        }
+                    }
+                    _ => ColumnDef {
+                        width: ColumnWidth::Auto,
+                    },
+                };
+                defs.push(def);
+            }
+        }
+        if any_specified {
+            defs
+        } else {
+            vec![]
+        }
+    }
+}
+
+fn find_first_tr(children: &[DomNode]) -> Option<&Element> {
+    for child in children {
+        if let DomNode::Element(e) = child {
+            match e.tag.as_str() {
+                "tr" => return Some(e),
+                "thead" | "tbody" | "tfoot" => {
+                    if let Some(tr) = find_first_tr(&e.children) {
+                        return Some(tr);
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    None
+}
+
+// ── Node/style construction ───────────────────────────────────────────
+
+fn make_node(kind: NodeKind, style: Style, children: Vec<Node>) -> Node {
+    Node {
+        kind,
+        style,
+        children,
+        id: None,
+        source_location: None,
+        bookmark: None,
+        href: None,
+        alt: None,
+    }
+}
+
+/// Concatenated plain text of all runs. The engine ignores `content` when
+/// `runs` is non-empty during layout, but `measure_intrinsic_width` reads
+/// ONLY `content` (engine gap, recorded in the gate verdict) — without this
+/// shadow copy, runs-based text measures 0 wide inside flex rows and
+/// collapses to one character per line.
+fn shadow_content(runs: &[TextRun]) -> String {
+    runs.iter().map(|r| r.content.as_str()).collect()
+}
+
+fn text_node_from_runs(runs: Vec<TextRun>, style: Style, href: Option<String>) -> Node {
+    make_node(
+        NodeKind::Text {
+            content: shadow_content(&runs),
+            href,
+            runs,
+        },
+        style,
+        vec![],
+    )
+}
+
+/// Build a Text or Heading node. A single unstyled run collapses to plain
+/// `content` (the common case, and what the React serializer emits too).
+fn text_node_from_runs_kind(mut runs: Vec<TextRun>, style: Style, level: Option<u8>) -> Node {
+    let single_plain =
+        runs.len() == 1 && runs[0].href.is_none() && is_default_style(&runs[0].style);
+    let (content, runs) = if single_plain {
+        (runs.remove(0).content, vec![])
+    } else {
+        (shadow_content(&runs), runs)
+    };
+    let kind = match level {
+        Some(level) => NodeKind::Heading {
+            level,
+            content,
+            href: None,
+            runs,
+        },
+        None => NodeKind::Text {
+            content,
+            href: None,
+            runs,
+        },
+    };
+    make_node(kind, style, vec![])
+}
+
+fn is_default_style(s: &Style) -> bool {
+    s.font_family.is_none()
+        && s.font_size.is_none()
+        && s.font_weight.is_none()
+        && s.font_style.is_none()
+        && s.color.is_none()
+        && s.text_decoration.is_none()
+}
+
+/// Convert a resolved style to the engine's Style. Margins are always
+/// emitted explicitly (the collapse pass edits them); other fields only
+/// when set, so the engine's own inheritance does the rest.
+fn to_engine_style(c: &Computed) -> Style {
+    let mut s = Style::default();
+
+    let ev = |m: MarginV| -> EdgeValue {
+        match m {
+            MarginV::Pt(v) => EdgeValue::Pt(v),
+            MarginV::Auto => EdgeValue::Auto,
+        }
+    };
+    s.margin = Some(MarginEdges {
+        top: ev(c.margin[0]),
+        right: ev(c.margin[1]),
+        bottom: ev(c.margin[2]),
+        left: ev(c.margin[3]),
+    });
+
+    if c.padding.iter().any(|p| *p > 0.0) {
+        s.padding = Some(Edges {
+            top: c.padding[0],
+            right: c.padding[1],
+            bottom: c.padding[2],
+            left: c.padding[3],
+        });
+    }
+    if c.border_width.iter().any(|w| *w > 0.0) {
+        s.border_width = Some(EdgeValues {
+            top: c.border_width[0],
+            right: c.border_width[1],
+            bottom: c.border_width[2],
+            left: c.border_width[3],
+        });
+        s.border_color = Some(EdgeValues::uniform(c.border_color.unwrap_or(Color::BLACK)));
+    }
+    if let Some(r) = c.border_radius {
+        s.border_radius = Some(CornerValues::uniform(r));
+    }
+
+    s.width = c.width;
+    s.height = c.height;
+
+    s.font_family = c.font_family.clone();
+    if c.font_size_explicit {
+        s.font_size = Some(c.font_size);
+    }
+    s.font_weight = c.font_weight;
+    s.font_style = c.italic.map(|i| {
+        if i {
+            FontStyle::Italic
+        } else {
+            FontStyle::Normal
+        }
+    });
+    s.line_height = c.line_height;
+    s.text_align = c.text_align;
+    s.color = c.color;
+    s.background_color = c.background_color;
+    s.text_decoration = c.text_decoration;
+
+    if c.display == CssDisplay::Flex {
+        // CSS flex defaults to row; the engine's View defaults to column.
+        s.flex_direction = Some(c.flex_direction.unwrap_or(FlexDirection::Row));
+    } else {
+        s.flex_direction = c.flex_direction;
+    }
+    s.justify_content = c.justify_content;
+    s.align_items = c.align_items;
+    s.gap = c.gap;
+
+    s
+}
+
+/// Split a paragraph's style into box props (for a wrapping View) and text
+/// props (for the inner Text node). Margins go on the View so the collapse
+/// pass sees them.
+fn split_box_and_text_style(c: &Computed) -> (Style, Style) {
+    let full = to_engine_style(c);
+    let box_style = Style {
+        margin: full.margin,
+        padding: full.padding,
+        border_width: full.border_width,
+        border_color: full.border_color,
+        border_radius: full.border_radius,
+        background_color: full.background_color,
+        width: full.width,
+        height: full.height,
+        ..Default::default()
+    };
+    let text_style = Style {
+        font_family: full.font_family,
+        font_size: full.font_size,
+        font_weight: full.font_weight,
+        font_style: full.font_style,
+        line_height: full.line_height,
+        text_align: full.text_align,
+        color: full.color,
+        text_decoration: full.text_decoration,
+        ..Default::default()
+    };
+    (box_style, text_style)
+}
+
+// ── Margin collapsing (pass 3) ────────────────────────────────────────
+
+/// Whether a node participates in margin collapsing (block-level, in-flow).
+fn participates(node: &Node) -> bool {
+    matches!(
+        node.kind,
+        NodeKind::View
+            | NodeKind::Text { .. }
+            | NodeKind::Heading { .. }
+            | NodeKind::List { .. }
+            | NodeKind::Table { .. }
+            | NodeKind::Image { .. }
+    )
+}
+
+fn margin_of(node: &Node) -> MarginEdges {
+    node.style.margin.unwrap_or_default()
+}
+
+/// The CSS collapse formula for two adjoining margins:
+/// max of the positives plus min of the negatives.
+fn collapse2(a: f64, b: f64) -> f64 {
+    a.max(b).max(0.0) + a.min(b).min(0.0)
+}
+
+/// Collapse adjacent sibling margins in place: A's bottom absorbs the
+/// joint value, B's top zeroes (the engine adds margins, so sum == joint).
+pub fn collapse_sibling_margins(children: &mut [Node]) {
+    for i in 1..children.len() {
+        let (head, tail) = children.split_at_mut(i);
+        let a = head.last_mut().unwrap();
+        let b = &mut tail[0];
+        if !participates(a) || !participates(b) {
+            continue;
+        }
+        let (ma, mb) = (margin_of(a), margin_of(b));
+        let (EdgeValue::Pt(bottom), EdgeValue::Pt(top)) = (ma.bottom, mb.top) else {
+            continue; // auto margins don't collapse in the spike
+        };
+        let joint = collapse2(bottom, top);
+        set_margin(a, |m| m.bottom = EdgeValue::Pt(joint));
+        set_margin(b, |m| m.top = EdgeValue::Pt(0.0));
+    }
+}
+
+/// Parent/first-and-last-child collapse-through: when nothing (border or
+/// padding) separates a block parent's edge from its first/last child's
+/// margin, the two margins collapse into the parent's.
+pub fn collapse_into_parent(parent: &mut Computed, children: &mut [Node]) {
+    if children.is_empty() {
+        return;
+    }
+    // Top edge.
+    if parent.border_width[0] == 0.0 && parent.padding[0] == 0.0 {
+        let first = &mut children[0];
+        if participates(first) {
+            if let (MarginV::Pt(pm), EdgeValue::Pt(cm)) = (parent.margin[0], margin_of(first).top) {
+                parent.margin[0] = MarginV::Pt(collapse2(pm, cm));
+                set_margin(first, |m| m.top = EdgeValue::Pt(0.0));
+            }
+        }
+    }
+    // Bottom edge — only when the parent's height is auto.
+    if parent.border_width[2] == 0.0 && parent.padding[2] == 0.0 && parent.height.is_none() {
+        let last = children.last_mut().unwrap();
+        if participates(last) {
+            if let (MarginV::Pt(pm), EdgeValue::Pt(cm)) = (parent.margin[2], margin_of(last).bottom)
+            {
+                parent.margin[2] = MarginV::Pt(collapse2(pm, cm));
+                set_margin(last, |m| m.bottom = EdgeValue::Pt(0.0));
+            }
+        }
+    }
+}
+
+fn set_margin(node: &mut Node, f: impl FnOnce(&mut MarginEdges)) {
+    let mut m = node.style.margin.unwrap_or_default();
+    f(&mut m);
+    node.style.margin = Some(m);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::dom::parse_html;
+
+    fn map(html: &str) -> (Document, Vec<String>) {
+        let body = parse_html(html);
+        map_html(&body, PageConfig::default())
+    }
+
+    fn body_children(doc: &Document) -> &[Node] {
+        &doc.children[0].children
+    }
+
+    #[test]
+    fn whitespace_collapses_across_inline_boundaries() {
+        let (doc, _) = map("<p>Due <strong>net\n   <span>30</span></strong>\n days.</p>");
+        let p = &body_children(&doc)[0];
+        let NodeKind::Text { runs, .. } = &p.kind else {
+            panic!("expected Text, got {:?}", p.kind);
+        };
+        let full: String = runs.iter().map(|r| r.content.as_str()).collect();
+        assert_eq!(full, "Due net 30 days.");
+    }
+
+    #[test]
+    fn whitespace_only_text_between_blocks_is_dropped() {
+        let (doc, _) = map("<div>\n  <p>a</p>\n  <p>b</p>\n</div>");
+        let div = &body_children(&doc)[0];
+        assert_eq!(div.children.len(), 2);
+    }
+
+    #[test]
+    fn sibling_margins_collapse_to_max() {
+        // h1 (mb = 0.67em × 24pt = 16.08) then p (mt = 1em × 12pt = 12):
+        // joint margin must be 16.08, split as h1.bottom=16.08 / p.top=0.
+        let (doc, _) = map("<h1>Title</h1><p>Body</p>");
+        let kids = body_children(&doc);
+        let h1_bottom = match kids[0].style.margin.unwrap().bottom {
+            EdgeValue::Pt(v) => v,
+            _ => panic!(),
+        };
+        let p_top = match kids[1].style.margin.unwrap().top {
+            EdgeValue::Pt(v) => v,
+            _ => panic!(),
+        };
+        assert!((h1_bottom - 16.08).abs() < 1e-6, "got {h1_bottom}");
+        assert_eq!(p_top, 0.0);
+    }
+
+    #[test]
+    fn h1_margin_collapses_into_body() {
+        // body margin-top (6pt) collapses with h1's 16.08 → body carries
+        // 16.08 and h1's top zeroes.
+        let (doc, _) = map("<h1>Title</h1>");
+        let body = &doc.children[0];
+        let body_top = match body.style.margin.unwrap().top {
+            EdgeValue::Pt(v) => v,
+            _ => panic!(),
+        };
+        assert!((body_top - 16.08).abs() < 1e-6, "got {body_top}");
+        let h1_top = match body.children[0].style.margin.unwrap().top {
+            EdgeValue::Pt(v) => v,
+            _ => panic!(),
+        };
+        assert_eq!(h1_top, 0.0);
+    }
+
+    #[test]
+    fn thead_rows_are_headers() {
+        let (doc, _) = map(
+            "<table><thead><tr><th>A</th></tr></thead><tbody><tr><td>1</td></tr></tbody></table>",
+        );
+        let table = &body_children(&doc)[0];
+        let NodeKind::Table { .. } = table.kind else {
+            panic!()
+        };
+        let headers: Vec<bool> = table
+            .children
+            .iter()
+            .map(|r| match r.kind {
+                NodeKind::TableRow { is_header } => is_header,
+                _ => panic!(),
+            })
+            .collect();
+        assert_eq!(headers, vec![true, false]);
+    }
+
+    #[test]
+    fn colspan_parses() {
+        let (doc, _) = map("<table><tr><td colspan=\"2\">x</td></tr></table>");
+        let cell = &body_children(&doc)[0].children[0].children[0];
+        match cell.kind {
+            NodeKind::TableCell { col_span, .. } => assert_eq!(col_span, 2),
+            _ => panic!(),
+        }
+    }
+
+    #[test]
+    fn br_becomes_newline() {
+        let (doc, _) = map("<p>line one<br>line two</p>");
+        let p = &body_children(&doc)[0];
+        let NodeKind::Text { content, runs, .. } = &p.kind else {
+            panic!()
+        };
+        let full = if runs.is_empty() {
+            content.clone()
+        } else {
+            runs.iter().map(|r| r.content.as_str()).collect()
+        };
+        assert_eq!(full, "line one\nline two");
+    }
+
+    #[test]
+    fn flex_display_defaults_to_row() {
+        let (doc, _) = map("<div style=\"display:flex\"><p>a</p><p>b</p></div>");
+        let div = &body_children(&doc)[0];
+        assert!(matches!(div.style.flex_direction, Some(FlexDirection::Row)));
+    }
+
+    #[test]
+    fn external_image_warns_and_drops() {
+        let (doc, warnings) = map("<img src=\"https://example.com/x.png\">");
+        assert!(body_children(&doc).is_empty());
+        assert!(warnings.iter().any(|w| w.contains("external image")));
+    }
+}
