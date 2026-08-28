@@ -664,19 +664,10 @@ fn make_node(kind: NodeKind, style: Style, children: Vec<Node>) -> Node {
     }
 }
 
-/// Concatenated plain text of all runs. The engine ignores `content` when
-/// `runs` is non-empty during layout, but `measure_intrinsic_width` reads
-/// ONLY `content` (engine gap, recorded in the gate verdict) — without this
-/// shadow copy, runs-based text measures 0 wide inside flex rows and
-/// collapses to one character per line.
-fn shadow_content(runs: &[TextRun]) -> String {
-    runs.iter().map(|r| r.content.as_str()).collect()
-}
-
 fn text_node_from_runs(runs: Vec<TextRun>, style: Style, href: Option<String>) -> Node {
     make_node(
         NodeKind::Text {
-            content: shadow_content(&runs),
+            content: String::new(),
             href,
             runs,
         },
@@ -693,7 +684,7 @@ fn text_node_from_runs_kind(mut runs: Vec<TextRun>, style: Style, level: Option<
     let (content, runs) = if single_plain {
         (runs.remove(0).content, vec![])
     } else {
-        (shadow_content(&runs), runs)
+        (String::new(), runs)
     };
     let kind = match level {
         Some(level) => NodeKind::Heading {

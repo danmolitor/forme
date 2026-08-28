@@ -9828,12 +9828,17 @@ fn test_view_auto_height_wraps_table_tightly() {
     let pages = layout_doc(&doc);
     assert_eq!(pages.len(), 1);
 
-    // The View wraps 5 TableRows of 16pt each (font_size 10 × line_height 1.4
-    // = 14pt text, + 2pt cell vertical padding). Total content = 80pt.
+    // The View wraps a Table container element (rows nest inside it since
+    // the Table-wrapper change) holding 5 TableRows of 16pt each
+    // (font_size 10 × line_height 1.4 = 14pt text, + 2pt cell vertical
+    // padding). Total content = 80pt.
     let view_el = &pages[0].elements[0];
     assert_eq!(view_el.node_type.as_deref(), Some("View"));
-    assert_eq!(view_el.children.len(), 5, "expected 5 TableRow children");
-    let row_h_sum: f64 = view_el.children.iter().map(|r| r.height).sum();
+    assert_eq!(view_el.children.len(), 1, "expected the Table wrapper");
+    let table_el = &view_el.children[0];
+    assert_eq!(table_el.node_type.as_deref(), Some("Table"));
+    assert_eq!(table_el.children.len(), 5, "expected 5 TableRow children");
+    let row_h_sum: f64 = table_el.children.iter().map(|r| r.height).sum();
     assert!(
         (view_el.height - row_h_sum).abs() < 0.5,
         "View height ({:.2}) should equal sum of row heights ({:.2})",
@@ -10852,5 +10857,73 @@ fn test_svg_stroke_linecap_inherited_from_group() {
         streams.contains("1 J"),
         "PDF content stream should contain `1 J` (round linecap inherited from <g>). Streams:\n{}",
         streams
+    );
+}
+
+// ─── Flex overflow robustness (found by the HTML input path spike) ─────
+
+/// Collect all rendered text from a layout, all pages, depth-first.
+fn all_layout_text(layout: &forme::LayoutInfo) -> String {
+    fn walk(els: &[forme::layout::ElementInfo], out: &mut String) {
+        for el in els {
+            if let Some(t) = &el.text_content {
+                out.push_str(t);
+                out.push(' ');
+            }
+            walk(&el.children, out);
+        }
+    }
+    let mut out = String::new();
+    for page in &layout.pages {
+        walk(&page.elements, &mut out);
+    }
+    out
+}
+
+/// During the forme-pdf-html spike, a flex-row item taller than a page
+/// (a zero-width text measuring one character per line) produced an empty
+/// first page and silently dropped every sibling AFTER the flex row.
+/// This pins the failure mode: content following an overflowing flex row
+/// must still render, and no blank leading page may be emitted.
+#[test]
+fn siblings_after_overflowing_flex_row_still_render() {
+    let tall_text = vec!["line"; 200].join("\n");
+    let row = make_styled_view(
+        Style {
+            flex_direction: Some(FlexDirection::Row),
+            ..Default::default()
+        },
+        vec![make_text(&tall_text, 12.0)],
+    );
+    let after = make_text("CONTENT AFTER THE FLEX ROW", 12.0);
+
+    let doc = Document {
+        children: vec![row, after],
+        metadata: Metadata::default(),
+        default_page: PageConfig::default(),
+        fonts: vec![],
+        default_style: None,
+        tagged: false,
+        pdfa: None,
+        pdf_ua: false,
+        embedded_data: None,
+        flatten_forms: false,
+        certification: None,
+    };
+
+    let (_pdf, layout) = forme::render_with_layout(&doc).expect("Should render");
+    let text = all_layout_text(&layout);
+    assert!(
+        text.contains("CONTENT AFTER THE FLEX ROW"),
+        "sibling after an overflowing flex row was swallowed; pages: {}",
+        layout.pages.len()
+    );
+    assert!(
+        layout
+            .pages
+            .first()
+            .map(|p| !p.elements.is_empty())
+            .unwrap_or(false),
+        "first page must not be empty"
     );
 }

@@ -79,3 +79,29 @@ end-to-end whitespace, 8 table rows, H1/H2/Image node types, three-line
 `<br>` address, `transform` → warnings not error, stylesheet text doesn't
 render) + 1 doc test. `cargo fmt` clean, `cargo clippy --all-targets
 -- -W clippy::all` zero warnings.
+
+---
+
+## Post-verdict addendum (2026-08-28, same day)
+
+Phase 1 opened with the engine fixes; the three gaps above are now resolved:
+
+1. **Fixed** — `measure_intrinsic_width` is run-aware (and Heading-aware,
+   and takes the widest line of multi-line text). The mapper's
+   shadow-content workaround is **deleted**; all spike tests pass against
+   the real fix. Locked by three engine unit tests.
+2. **Fixed** — `layout_table` emits a `Table` wrapper element per page
+   fragment (clone semantics, like breakable Views). The fixture's 1px
+   table border now paints. Coordinated change: `ElementNodeType` gained
+   `'Table'`, the layout-shape contract test flipped, `getTableRows()`
+   looks through wrappers, and pdf-testkit's extractor already accepted
+   both shapes — its dogfood test passes against the new shape unchanged.
+   Remaining at 0.14 release time: pdf-testkit's pinned union adds
+   `'Table'` (33 entries) once the new `@formepdf/core` is installed.
+3. **Fixed, and the distrust was earned** — the swallowed-siblings test
+   was written before concluding anything, and it FAILED: the empty
+   leading page was real, hidden by the width fix, reproducible with any
+   flex line taller than a page. Root cause: `layout_flex_row`'s page-break
+   check pushed a new page even when the current page was empty. Now
+   guarded (`cursor.y > 0.0`, matching the other break sites) and pinned
+   by `siblings_after_overflowing_flex_row_still_render`.

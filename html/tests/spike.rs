@@ -127,8 +127,21 @@ fn whitespace_collapses_through_the_whole_pipeline() {
 #[test]
 fn table_maps_with_header_and_all_rows() {
     let out = render_fixture();
-    // The engine emits no Table wrapper element — rows are pushed directly
-    // (observed in the layout dump; recorded in the gate verdict).
+    // The Table wrapper element exists since the engine's Table-wrapper
+    // change (gate-verdict gap #2) — table-level border/background now
+    // have a paint target and structural consumers see a real Table node.
+    let tables = collect_by_node_type(&out, "Table");
+    assert_eq!(tables.len(), 1, "exactly one Table wrapper element");
+    assert_eq!(
+        tables[0].children.len(),
+        8,
+        "all rows nest inside the Table wrapper"
+    );
+    assert_eq!(
+        tables[0].kind, "Rect",
+        "the fixture's 1px table border must have a paint target"
+    );
+
     let rows = collect_by_node_type(&out, "TableRow");
     // 1 header + 6 line items + 1 totals row.
     assert_eq!(rows.len(), 8, "8 table rows");

@@ -155,7 +155,7 @@ const RICH_FIXTURE = h(
 const NODE_TYPE_KEYS = {
   View: 1, Text: 1, TextLine: 1,
   H1: 1, H2: 1, H3: 1, H4: 1, H5: 1, H6: 1,
-  TableRow: 1, TableCell: 1,
+  Table: 1, TableRow: 1, TableCell: 1,
   List: 1, ListItem: 1, Lbl: 1,
   FixedHeader: 1, FixedFooter: 1,
   Bookmark: 1,
@@ -284,26 +284,39 @@ describe('layout shape conformance', () => {
   const renderPromise = renderDocumentWithLayout(RICH_FIXTURE);
 
   describe('enforced transforms (from ElementInfo JSDoc)', () => {
-    it('<Table> unwraps into sibling TableRow nodes — no `Table` wrapper node exists', async () => {
+    it('<Table> emits a `Table` wrapper element with its TableRow nodes nested inside', async () => {
+      // Contract flipped with engine 0.14 (coordinated change): layout used
+      // to unwrap tables into sibling rows, which left table-level
+      // border/background with no paint target and forced structural
+      // consumers (tagged PDF, pdf-testkit's extractor) to synthesize the
+      // table from loose rows. pdf-testkit's `fromFormeLayout` already
+      // accepts both shapes.
       const { layout } = await renderPromise;
-      const tables: string[] = [];
+      const tables: { el: ElementInfo; path: string }[] = [];
       for (const page of layout.pages) {
         for (let i = 0; i < page.elements.length; i++) {
           for (const hit of walk(page.elements[i], `pages[?].elements[${i}]`)) {
-            if ((hit.el.nodeType as string) === 'Table') tables.push(hit.path);
+            if ((hit.el.nodeType as string) === 'Table') tables.push(hit);
           }
         }
       }
-      expect(tables, `Expected no \`Table\` wrapper nodes (\`<Table>\` must unwrap to sibling \`TableRow\` nodes at the containing page/View level). Found nodeType=Table at: ${tables.join(', ')}`).toEqual([]);
+      expect(tables.length, 'Expected at least one `Table` wrapper element (the fixture renders a <Table>). Found none.').toBeGreaterThan(0);
 
-      // Also assert positive: TableRow nodes appear at the containing page level
-      const rows: string[] = [];
-      for (const page of layout.pages) {
-        for (let i = 0; i < page.elements.length; i++) {
-          if (page.elements[i].nodeType === 'TableRow') rows.push(`pages[?].elements[${i}]`);
+      // Every wrapper holds only TableRow children; no loose rows remain
+      // outside a wrapper.
+      for (const { el, path } of tables) {
+        expect(el.children.length, `Table wrapper at ${path} must contain its rows`).toBeGreaterThan(0);
+        for (const child of el.children) {
+          expect(child.nodeType, `Table wrapper at ${path} must contain only TableRow children`).toBe('TableRow');
         }
       }
-      expect(rows.length, `Expected TableRow nodes as direct children of a Page (the unwrap target). Found none.`).toBeGreaterThan(0);
+      const looseRows: string[] = [];
+      for (const page of layout.pages) {
+        for (let i = 0; i < page.elements.length; i++) {
+          if (page.elements[i].nodeType === 'TableRow') looseRows.push(`pages[?].elements[${i}]`);
+        }
+      }
+      expect(looseRows, `TableRow nodes must nest inside a Table wrapper, not sit loose at page level. Found: ${looseRows.join(', ')}`).toEqual([]);
     });
 
     it('<Fixed> splits by position — emits FixedHeader / FixedFooter, never generic `Fixed`', async () => {

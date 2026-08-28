@@ -188,19 +188,26 @@ export function getHeadingLevel(node: ElementInfo): 1 | 2 | 3 | 4 | 5 | 6 | null
 }
 
 /**
- * Every `TableRow` that is a direct child of `parent`.
+ * Every `TableRow` under `parent`, looking through `Table` wrapper nodes.
  *
- * Encapsulates the invariant that `<Table>` unwraps at layout time —
- * its `<Row>` children become sibling `TableRow` nodes on the
- * containing page/View, and there is no `Table` wrapper node to hang
- * rows off of. Pass the containing `page` (or the parent `View` that
- * held the `<Table>` in JSX) as `parent`.
+ * Since engine 0.14, `<Table>` emits a `Table` container element per page
+ * fragment with the rows nested inside it. Pass the containing `page`
+ * (or the parent `View` that held the `<Table>` in JSX) as `parent` —
+ * or a `Table` element directly. Loose sibling rows (the pre-0.14 shape)
+ * are still returned for compatibility with stored layouts.
  *
  * Returns rows in source order.
  */
 export function getTableRows(parent: PageInfo | ElementInfo): ElementInfo[] {
   const kids = 'elements' in parent ? parent.elements : parent.children;
-  return kids.filter((k) => k.nodeType === 'TableRow');
+  const rows: ElementInfo[] = [];
+  for (const k of kids) {
+    if (k.nodeType === 'TableRow') rows.push(k);
+    else if (k.nodeType === 'Table') {
+      rows.push(...k.children.filter((c) => c.nodeType === 'TableRow'));
+    }
+  }
+  return rows;
 }
 
 /**

@@ -71,7 +71,11 @@ export type ElementPosition = 'Relative' | 'Absolute';
  * runtime actually emits, not what the JSX author wrote:
  *
  * - Six discrete heading tags (`H1`–`H6`) — NO generic `'Heading'`
- * - `TableRow` / `TableCell` — NO `Table` wrapper (unwrapped by layout)
+ * - `Table` wrapper containing `TableRow` / `TableCell` — one wrapper per
+ *   page fragment when the table breaks across pages (clone semantics,
+ *   like `View`). Before engine 0.14 layout unwrapped tables to sibling
+ *   rows; the wrapper was added so table-level border/background paint
+ *   and structural consumers get a real table node.
  * - `List` + `ListItem` + `Lbl` — from `<OrderedList>` / `<UnorderedList>`
  * - `FixedHeader` / `FixedFooter` — NO single `Fixed` (split by position)
  * - `Bookmark` — zero-height marker from `bookmark` on a container, emitted
@@ -96,7 +100,9 @@ export type ElementNodeType =
   | 'TextLine'
   // Semantic headings (discrete per tag)
   | 'H1' | 'H2' | 'H3' | 'H4' | 'H5' | 'H6'
-  // Table primitives — no 'Table' wrapper node
+  // Table primitives — 'Table' wraps its rows (one wrapper per page
+  // fragment when the table breaks)
+  | 'Table'
   | 'TableRow'
   | 'TableCell'
   // Lists — <OrderedList> and <UnorderedList> both produce 'List'

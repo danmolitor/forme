@@ -2505,8 +2505,13 @@ impl LayoutEngine {
                 })
                 .fold(0.0f64, f64::max);
 
-            // Page break check for this line
-            if line_height > cursor.remaining_height() {
+            // Page break check for this line. The `cursor.y > 0.0` guard
+            // matches the other break sites: when the current page is
+            // already empty, moving to a fresh page can't gain space — a
+            // line taller than a full page would otherwise emit a blank
+            // page and then overflow anyway (found by the HTML spike's
+            // taller-than-page flex item).
+            if line_height > cursor.remaining_height() && cursor.y > 0.0 {
                 pages.push(cursor.finalize());
                 *cursor = cursor.new_page();
             }
@@ -2902,6 +2907,16 @@ impl LayoutEngine {
             }
         }
 
+        // Snapshot-and-collect state for the Table wrapper element (same
+        // clone-semantics fragment wrapping as layout_breakable_view). Two
+        // consumers need a real Table container: table-level border and
+        // background have no paint target without one, and structural
+        // consumers (tagged PDF /Table, pdf-testkit's extractor) otherwise
+        // have to synthesize the table from loose rows.
+        let initial_page_count = pages.len();
+        let snapshot = cursor.elements.len();
+        let rect_start_y = cursor.content_y + cursor.y + margin.top;
+
         cursor.y += margin.top + padding.top + border.top;
 
         let cell_x_start = table_x + padding.left + border.left;
@@ -2995,6 +3010,110 @@ impl LayoutEngine {
                 font_context,
                 pages,
             );
+        }
+
+        // Wrap the laid-out rows in a Table container element. Always
+        // emitted (structural consumers need it even without visuals); the
+        // draw command is a Rect only when there's something to paint.
+        let has_visual = style.background_color.is_some()
+            || style.background.is_some()
+            || style.border_width.top > 0.0
+            || style.border_width.right > 0.0
+            || style.border_width.bottom > 0.0
+            || style.border_width.left > 0.0;
+        let draw_cmd = if has_visual {
+            DrawCommand::Rect {
+                background: style.background_color,
+                border_width: style.border_width,
+                border_color: style.border_color,
+                border_radius: style.border_radius,
+                opacity: 1.0,
+                box_shadow: style.box_shadow.map(Box::new),
+                background_gradient: style.background.clone().map(Box::new),
+            }
+        } else {
+            DrawCommand::None
+        };
+        let make_wrapper =
+            |y: f64, height: f64, children: Vec<LayoutElement>, draw| LayoutElement {
+                x: table_x,
+                y,
+                width: table_width,
+                height,
+                draw,
+                children,
+                node_type: Some(node_kind_name(&node.kind).to_string()),
+                resolved_style: Some(style.clone()),
+                source_location: node.source_location.clone(),
+                href: node.href.clone(),
+                bookmark: None,
+                alt: None,
+                is_header_row: false,
+                overflow: Overflow::default(),
+                opacity: style.opacity,
+            };
+
+        let table_bottom_y = cursor.content_y + cursor.y + padding.bottom + border.bottom;
+
+        if pages.len() == initial_page_count {
+            // No page breaks: simple wrap.
+            let child_elements: Vec<LayoutElement> = cursor.elements.drain(snapshot..).collect();
+            cursor.elements.push(make_wrapper(
+                rect_start_y,
+                table_bottom_y - rect_start_y,
+                child_elements,
+                draw_cmd,
+            ));
+        } else {
+            // Page breaks occurred: clone-semantics fragment per page,
+            // mirroring layout_breakable_view.
+
+            // A. The page the table started on — wrap from the snapshot.
+            let page = &mut pages[initial_page_count];
+            let footer_h: f64 = page.fixed_footer.iter().map(|(_, h)| *h).sum();
+            let page_content_bottom =
+                page.config.margin.top + (page.height - page.config.margin.vertical()) - footer_h;
+            let our_elements: Vec<LayoutElement> = page.elements.drain(snapshot..).collect();
+            if !our_elements.is_empty() {
+                page.elements.push(make_wrapper(
+                    rect_start_y,
+                    page_content_bottom - rect_start_y,
+                    our_elements,
+                    draw_cmd.clone(),
+                ));
+            }
+
+            // B. Intermediate pages — entirely table content.
+            for page in &mut pages[initial_page_count + 1..] {
+                let header_h: f64 = page.fixed_header.iter().map(|(_, h)| *h).sum();
+                let content_top = page.config.margin.top + header_h;
+                let footer_h: f64 = page.fixed_footer.iter().map(|(_, h)| *h).sum();
+                let content_bottom = page.config.margin.top
+                    + (page.height - page.config.margin.vertical())
+                    - footer_h;
+                let all_elements: Vec<LayoutElement> = std::mem::take(&mut page.elements);
+                if !all_elements.is_empty() {
+                    page.elements.push(make_wrapper(
+                        content_top,
+                        content_bottom - content_top,
+                        all_elements,
+                        draw_cmd.clone(),
+                    ));
+                }
+            }
+
+            // C. Current page — everything on it is table content.
+            let all_elements: Vec<LayoutElement> = std::mem::take(&mut cursor.elements);
+            if !all_elements.is_empty() {
+                let header_h: f64 = cursor.fixed_header.iter().map(|(_, h)| *h).sum();
+                let content_top = cursor.content_y + header_h;
+                cursor.elements.push(make_wrapper(
+                    content_top,
+                    table_bottom_y - content_top,
+                    all_elements,
+                    draw_cmd,
+                ));
+            }
         }
 
         cursor.y += padding.bottom + border.bottom + margin.bottom;
@@ -5272,18 +5391,59 @@ impl LayoutEngine {
             NodeKind::Svg { width, .. } => {
                 *width + style.padding.horizontal() + style.margin.horizontal()
             }
-            NodeKind::Text { content, .. } => {
-                let content = substitute_page_placeholders(content);
-                let transformed = apply_text_transform(&content, style.text_transform);
-                let italic = matches!(style.font_style, FontStyle::Italic | FontStyle::Oblique);
-                let text_width = font_context.measure_string(
-                    &transformed,
-                    &style.font_family,
-                    style.font_weight,
-                    italic,
-                    style.font_size,
-                    style.letter_spacing,
-                );
+            NodeKind::Text { content, runs, .. } | NodeKind::Heading { content, runs, .. } => {
+                // Runs-based text measures per run with each run's own
+                // resolved style — `content` is empty (or a shadow copy)
+                // when runs are present, so measuring it alone reports a
+                // zero/approximate width and flex rows collapse the node
+                // to one character per line.
+                let text_width = if !runs.is_empty() {
+                    runs.iter()
+                        .map(|run| {
+                            let run_style = run.style.resolve(Some(style), 0.0);
+                            let run_content = substitute_page_placeholders(&run.content);
+                            let transformed =
+                                apply_text_transform(&run_content, run_style.text_transform);
+                            let italic = matches!(
+                                run_style.font_style,
+                                FontStyle::Italic | FontStyle::Oblique
+                            );
+                            // A hard break ('\n') restarts the line: the
+                            // intrinsic width of multi-line text is the
+                            // widest line, so measure segments separately.
+                            transformed
+                                .split('\n')
+                                .map(|segment| {
+                                    font_context.measure_string(
+                                        segment,
+                                        &run_style.font_family,
+                                        run_style.font_weight,
+                                        italic,
+                                        run_style.font_size,
+                                        run_style.letter_spacing,
+                                    )
+                                })
+                                .fold(0.0f64, f64::max)
+                        })
+                        .sum()
+                } else {
+                    let content = substitute_page_placeholders(content);
+                    let transformed = apply_text_transform(&content, style.text_transform);
+                    let italic = matches!(style.font_style, FontStyle::Italic | FontStyle::Oblique);
+                    transformed
+                        .split('\n')
+                        .map(|segment| {
+                            font_context.measure_string(
+                                segment,
+                                &style.font_family,
+                                style.font_weight,
+                                italic,
+                                style.font_size,
+                                style.letter_spacing,
+                            )
+                        })
+                        .fold(0.0f64, f64::max)
+                };
                 // Add tiny epsilon to prevent exact-boundary line wrapping when
                 // this width is later used as max_width for line breaking
                 text_width + 0.01 + style.padding.horizontal() + style.margin.horizontal()
@@ -5386,7 +5546,7 @@ impl LayoutEngine {
         font_context: &FontContext,
     ) -> f64 {
         match &node.kind {
-            NodeKind::Text { content, runs, .. } => {
+            NodeKind::Text { content, runs, .. } | NodeKind::Heading { content, runs, .. } => {
                 let word_width = if !runs.is_empty() {
                     // For styled runs, measure each run's widest word
                     runs.iter()
@@ -5935,6 +6095,114 @@ mod tests {
             href: None,
             alt: None,
         }
+    }
+
+    fn make_runs_text(runs: Vec<crate::model::TextRun>) -> Node {
+        Node {
+            kind: NodeKind::Text {
+                content: String::new(),
+                href: None,
+                runs,
+            },
+            style: Style::default(),
+            children: vec![],
+            id: None,
+            source_location: None,
+            bookmark: None,
+            href: None,
+            alt: None,
+        }
+    }
+
+    #[test]
+    fn intrinsic_width_measures_runs_not_just_content() {
+        // Found by the HTML input path: a runs-based Text node (empty
+        // `content`) used to measure ~0 intrinsic width, so flex rows
+        // collapsed it to one character per line.
+        let engine = LayoutEngine::new();
+        let font_context = FontContext::new();
+
+        let runs_node = make_runs_text(vec![
+            crate::model::TextRun {
+                content: "Hello ".to_string(),
+                style: Style::default(),
+                href: None,
+            },
+            crate::model::TextRun {
+                content: "World".to_string(),
+                style: Style {
+                    font_weight: Some(700),
+                    ..Default::default()
+                },
+                href: None,
+            },
+        ]);
+        let plain_node = make_text("Hello World", 12.0);
+
+        let runs_style = runs_node.style.resolve(None, 0.0);
+        let plain_style = plain_node.style.resolve(None, 0.0);
+        let runs_w = engine.measure_intrinsic_width(&runs_node, &runs_style, &font_context);
+        let plain_w = engine.measure_intrinsic_width(&plain_node, &plain_style, &font_context);
+
+        // Must be in the same ballpark as the plain-content equivalent
+        // (slightly wider: the second run is bold).
+        assert!(
+            runs_w >= plain_w,
+            "runs width ({runs_w}) must not undershoot plain width ({plain_w})"
+        );
+        assert!(
+            runs_w < plain_w * 1.5,
+            "runs width ({runs_w}) should be close to plain width ({plain_w})"
+        );
+    }
+
+    #[test]
+    fn intrinsic_width_of_multiline_text_is_widest_line() {
+        let engine = LayoutEngine::new();
+        let font_context = FontContext::new();
+
+        let multiline = make_text("123 Main St\nSpringfield, IL 62704", 12.0);
+        let widest = make_text("Springfield, IL 62704", 12.0);
+
+        let m_style = multiline.style.resolve(None, 0.0);
+        let w_style = widest.style.resolve(None, 0.0);
+        let m_w = engine.measure_intrinsic_width(&multiline, &m_style, &font_context);
+        let w_w = engine.measure_intrinsic_width(&widest, &w_style, &font_context);
+
+        assert!(
+            (m_w - w_w).abs() < 0.01,
+            "multiline intrinsic width ({m_w}) must equal its widest line ({w_w})"
+        );
+    }
+
+    #[test]
+    fn intrinsic_width_of_heading_measures_its_text() {
+        // Heading used to fall through to the children-recursion arm and
+        // measure zero (headings are leaves).
+        let engine = LayoutEngine::new();
+        let font_context = FontContext::new();
+
+        let heading = Node {
+            kind: NodeKind::Heading {
+                level: 1,
+                content: "Invoice #2024-001".to_string(),
+                href: None,
+                runs: vec![],
+            },
+            style: Style {
+                font_size: Some(24.0),
+                ..Default::default()
+            },
+            children: vec![],
+            id: None,
+            source_location: None,
+            bookmark: None,
+            href: None,
+            alt: None,
+        };
+        let style = heading.style.resolve(None, 0.0);
+        let w = engine.measure_intrinsic_width(&heading, &style, &font_context);
+        assert!(w > 100.0, "24pt heading text must measure wide, got {w}");
     }
 
     #[test]
