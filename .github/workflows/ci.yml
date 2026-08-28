@@ -25,6 +25,48 @@ jobs:
       - name: PDF size regression check
         run: bash .github/scripts/check-pdf-size.sh
 
+  html-parity:
+    name: HTML Input Path (tests + native/WASM parity)
+    runs-on: ubuntu-latest
+    needs: engine
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+      - name: Run tests
+        working-directory: html
+        run: cargo test
+      - name: Check formatting
+        working-directory: html
+        run: cargo fmt --check
+      - name: Clippy
+        working-directory: html
+        run: cargo clippy --all-targets -- -D warnings
+      - name: Build native CLI
+        working-directory: html
+        run: cargo build --release --bin forme-html
+      - name: Build WASM package
+        working-directory: packages/html
+        run: ./build.sh
+      - name: Native vs WASM byte-equality
+        # Determinism across compilation targets is load-bearing for two
+        # launch claims (same engine everywhere; reproducible output).
+        # This is the tripwire form of the packaging verification's
+        # one-time observation: render the fixture corpus through both
+        # targets and require identical bytes.
+        run: |
+          set -e
+          for f in letterhead report zebra-invoice; do
+            ./html/target/release/forme-html "html/tests/fixtures/$f.html" -o "/tmp/$f-native.pdf" -q
+            node packages/html/bin/forme-html.js "html/tests/fixtures/$f.html" -o "/tmp/$f-wasm.pdf" -q
+            cmp "/tmp/$f-native.pdf" "/tmp/$f-wasm.pdf"
+            echo "$f: byte-identical"
+          done
+
   packages:
     name: TypeScript Packages
     runs-on: ubuntu-latest

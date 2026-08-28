@@ -44,7 +44,8 @@ the bar is "what does an invoice, report, statement, or contract need."
 | `span`, `b`/`strong`, `i`/`em`, `u`, `s`/`strike`/`del`, `a`, `small`, `code`, `mark`, `sub`, `sup` | forms (`<input>`, `<select>`, ...) |
 | `table`, `thead`, `tbody`, `tfoot`, `tr`, `td`, `th` (+ `colspan`/`rowspan`; `<thead>` rows repeat on every page) | |
 | `ul`, `ol` (+ `start`), `li` | |
-| `img` — data URIs and local files only | external `http(s)` image fetching |
+| `img` (block-level) — data URIs and local files only | external `http(s)` image fetching |
+| | inline `<img>` mid-paragraph — the engine's text model has no inline-replaced box (spike verdict); engine design, not a gap |
 | `style` blocks (anywhere in the document) | `<link rel="stylesheet">` (pass CSS via `HtmlOptions::css`) |
 
 ### Selectors
@@ -70,12 +71,14 @@ noted in the warnings).
 
 | In | Out |
 |---|---|
-| `margin`, `padding` (+ longhands, 1–4 value shorthands), CSS margin collapsing | floats |
+| `margin`, `padding` (+ longhands, 1–4 value shorthands), CSS margin collapsing | floats — real layout work for an old-template audience; demand decides |
 | `border`, `border-top/right/bottom/left`, `border-width`, `border-color`, `border-radius` | `position: fixed/sticky`, transforms, animation |
 | `border-collapse` on tables (single-owner-per-edge emulation; `tr` borders redistribute to cells; CSS's widest-border-wins conflict rule is approximated — the earlier edge wins) | |
-| `width`, `height` (`px`, `pt`, `em`, `rem`, `%`, `in`, `cm`, `mm`) | CSS Grid (flex covers document layouts) |
+| `width`, `height` (`px`, `pt`, `em`, `rem`, `%`, `in`, `cm`, `mm`) | CSS Grid — flex covers document layouts |
+| | `min-width`/`max-width`/`min-height`/`max-height` — pending: the engine clamps these only in flex-shrink and table-row paths today |
+| | `dashed`/`dotted` border styles — pending: the PDF stroke path has no dash patterns yet (style keywords parse and are ignored) |
 | `font-family` (fallback chains), `font-size`, `font-weight`, `font-style`, `line-height` | CSS variables |
-| `color`, `background-color`, `background` (solid colors) | gradients, background images |
+| `color`, `background-color`, `background` (solid colors) | gradients, background images — engine paint work, not a mapping gap |
 | `text-align`, `text-decoration`, `text-transform` (Unicode-aware), `letter-spacing` | percentage margins/padding (warned, treated as 0) |
 | `display: block / flex / none`, `flex-direction`, `justify-content`, `align-items`, `gap` | |
 | `position: absolute` + `top/right/bottom/left` — containing block is the element's PARENT (not the nearest positioned ancestor); offsets without `position: absolute` warn | |
