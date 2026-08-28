@@ -139,7 +139,7 @@ After bumping the engine/server/rasterizer versions, **two Dockerfiles** still r
 Update peer/runtime dependencies that pin to the formepdf packages:
 - [ ] `packages/react/package.json` — `@formepdf/shared`
 - [ ] `packages/core/package.json` — `@formepdf/react`
-- [ ] `packages/renderer/package.json` — `@formepdf/core`, `@formepdf/react`
+- [ ] `packages/renderer/package.json` — `@formepdf/core`, `@formepdf/react`, and `@formepdf/html` **once it joins the shared line**. `@formepdf/html` is currently pinned at `0.1.0` and versions independently (the crate `html/Cargo.toml` is at `0.0.1`, still off the release line like `server/`/`rasterizer/`). The moment it moves onto the shared version, renderer's pin must move in lockstep — same hard invariant as `@formepdf/core`: renderer's HTML input path (`renderHtmlFromFile`/`renderHtmlFromSource`) calls this exact `@formepdf/html` build, so a version skew ships a renderer against a mismatched engine. When you make the switch, also add `packages/html/package.json` to the npm-packages bump list, `html/Cargo.toml` to the non-npm list (dropping its "versions independently" comment), and `packages/html/CHANGELOG.md` to the changelogs list.
 - [ ] `packages/svelte/package.json` — `@formepdf/shared` (dep), `@formepdf/core` (optional peer, `^` range)
 - [ ] `packages/preact/package.json` — `@formepdf/shared` (dep), `@formepdf/react` (devDep for parity tests)
 - [ ] `packages/cli/package.json` — `@formepdf/renderer`
