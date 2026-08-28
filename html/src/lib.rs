@@ -21,6 +21,9 @@
 //! std::fs::write("invoice.pdf", &out.pdf).unwrap();
 //! ```
 
+#[cfg(feature = "wasm")]
+mod wasm;
+
 mod css;
 mod dom;
 mod map;

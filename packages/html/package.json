@@ -1,0 +1,39 @@
+{
+  "name": "@formepdf/html",
+  "version": "0.1.0",
+  "description": "HTML + print-CSS to PDF on the Forme engine — pagination, running headers, page counters. No headless browser.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/formepdf/forme.git",
+    "directory": "packages/html"
+  },
+  "homepage": "https://formepdf.com",
+  "type": "commonjs",
+  "main": "./index.js",
+  "types": "./index.d.ts",
+  "bin": {
+    "forme-html": "bin/forme-html.js"
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "bin/",
+    "pkg-node/"
+  ],
+  "scripts": {
+    "build": "./build.sh",
+    "test": "node test/smoke.js"
+  },
+  "keywords": [
+    "pdf",
+    "html-to-pdf",
+    "print-css",
+    "paged-media",
+    "wkhtmltopdf-alternative",
+    "wasm"
+  ],
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -9,11 +9,24 @@ license = "MIT"
 repository = "https://github.com/formepdf/forme"
 publish = false
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
 [dependencies]
 cssparser = "0.37.0"
 forme-pdf = { version = "0.13.0", path = "../engine" }
 html5ever = "0.39.0"
 markup5ever_rcdom = "0.39.0"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+wasm-bindgen = { version = "0.2", optional = true }
+# getrandom's js feature gives the engine's transitive getrandom (via its
+# crypto deps) a wasm32 backend through feature unification.
+getrandom = { version = "0.2", features = ["js"], optional = true }
+
+[features]
+wasm = ["wasm-bindgen", "getrandom", "forme-pdf/wasm"]
 
 [[bin]]
 name = "forme-html"

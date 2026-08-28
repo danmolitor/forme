@@ -49,3 +49,5 @@ test-*.json
 # Generated preview HTML embed (packages/svelte build step)
 packages/svelte/src/preview/preview-html.generated.ts
 html/target/
+packages/html/pkg-node/
+packages/html/*.tgz
