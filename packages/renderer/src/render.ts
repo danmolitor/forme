@@ -18,6 +18,10 @@ export interface RenderResult {
   pdf: Uint8Array;
   layout: LayoutInfo;
   renderTimeMs: number;
+  /// Unsupported-subset notices from the input path. The core/JSX pipeline
+  /// surfaces none today, so it's always `[]` here; the HTML path populates
+  /// it from the mapper. Same field, both paths.
+  warnings: string[];
 }
 
 /// Full pipeline: bundle TSX file → resolve element → serialize → resolve assets → WASM render.
@@ -117,7 +121,9 @@ export async function renderFromElement(
   const { pdf, layout } = await renderPdfWithLayout(JSON.stringify(doc));
   const renderTimeMs = Math.round(performance.now() - start);
 
-  return { pdf, layout, renderTimeMs };
+  // The core WASM binding surfaces no warnings today; keep the field present
+  // and empty so both input paths share one RenderResult shape.
+  return { pdf, layout, renderTimeMs, warnings: [] };
 }
 
 function applyPageSizeOverride(

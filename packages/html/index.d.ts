@@ -22,4 +22,27 @@ export interface RenderHtmlResult {
   warnings: string[];
 }
 
+/**
+ * The laid-out node tree. This is the same shape `@formepdf/core` emits for
+ * JSX renders; re-declared here as an opaque structure so this package
+ * carries no hard dependency on `@formepdf/core`'s types.
+ */
+export interface LayoutInfo {
+  pages: unknown[];
+}
+
+export interface RenderHtmlLayoutResult extends RenderHtmlResult {
+  /** The laid-out node tree — drives tree/inspector/overlay tooling. */
+  layout: LayoutInfo;
+}
+
 export function renderHtml(html: string, options?: RenderHtmlOptions): RenderHtmlResult;
+
+/**
+ * Render to PDF plus `LayoutInfo`. The layout is identical in shape to a
+ * core JSX render's, so downstream tooling consumes both paths uniformly.
+ */
+export function renderHtmlWithLayout(
+  html: string,
+  options?: RenderHtmlOptions,
+): RenderHtmlLayoutResult;

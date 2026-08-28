@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@formepdf/core": "0.13.0",
+    "@formepdf/html": "0.1.0",
     "@formepdf/react": "0.13.0",
     "esbuild": "^0.24.0"
   },

@@ -2,7 +2,13 @@ import * as vscode from 'vscode';
 import { readFile, writeFile } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { dirname, basename, join } from 'node:path';
-import { renderFromFile, renderFromSource } from '@formepdf/renderer';
+import {
+  renderFromFile,
+  renderFromSource,
+  renderHtmlFromFile,
+  renderHtmlFromSource,
+  type RenderResult,
+} from '@formepdf/renderer';
 import type { LayoutStore, SelectionEvent } from './layout-store.js';
 
 const DEBOUNCE_MS = 400;
@@ -385,8 +391,24 @@ export class FormePreviewPanel {
       return this.renderPython(filePath);
     }
 
+    // HTML files go straight to the engine — no bundling, no companion data,
+    // no asset resolution. The source string is the document; the engine owns
+    // pagination via the document's own @page rules. Converges into the same
+    // emitResult tail as JSX.
+    if (filePath.endsWith('.html')) {
+      try {
+        const result = source
+          ? renderHtmlFromSource(source)
+          : await renderHtmlFromFile(filePath);
+        this.emitResult(result);
+      } catch (err) {
+        this.emitError(err);
+      }
+      return;
+    }
+
     // Find companion data file
-    const base = filePath.replace(/\.(tsx|jsx|ts|js|py)$/, '');
+    const base = filePath.replace(/\.(tsx|jsx|ts|js|py|html)$/, '');
     const dataCandidates = [
       `${base}.data.json`,
       `${base}-data.json`,
@@ -430,31 +452,44 @@ export class FormePreviewPanel {
           })
         : await renderFromFile(filePath, renderOpts);
 
-      this.lastPdf = result.pdf;
-      const pdfBase64 = Buffer.from(result.pdf).toString('base64');
-
-      this.panel.webview.postMessage({
-        type: 'pdfData',
-        pdf: pdfBase64,
-        layout: result.layout,
-        renderTime: result.renderTimeMs,
-      });
-
-      // Push layout to store for tree + inspector
-      if (result.layout) {
-        this.store.setLayout(result.layout);
-      }
-
-      const pageCount = result.layout?.pages?.length ?? 0;
-      this.statusBarItem.text = `$(file-pdf) ${pageCount} page${pageCount !== 1 ? 's' : ''} · ${result.renderTimeMs}ms`;
+      this.emitResult(result);
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      this.panel.webview.postMessage({
-        type: 'error',
-        message,
-      });
-      this.statusBarItem.text = `$(error) Forme: build error`;
+      this.emitError(err);
     }
+  }
+
+  /// The format-agnostic render tail: ship the PDF + layout + warnings to
+  /// the webview, feed the layout store (tree + inspector), and update the
+  /// status bar. Shared verbatim by the JSX and HTML paths — any input that
+  /// produces a RenderResult lands here.
+  private emitResult(result: RenderResult) {
+    this.lastPdf = result.pdf;
+    const pdfBase64 = Buffer.from(result.pdf).toString('base64');
+
+    this.panel.webview.postMessage({
+      type: 'pdfData',
+      pdf: pdfBase64,
+      layout: result.layout,
+      renderTime: result.renderTimeMs,
+      warnings: result.warnings ?? [],
+    });
+
+    // Push layout to store for tree + inspector
+    if (result.layout) {
+      this.store.setLayout(result.layout);
+    }
+
+    const pageCount = result.layout?.pages?.length ?? 0;
+    this.statusBarItem.text = `$(file-pdf) ${pageCount} page${pageCount !== 1 ? 's' : ''} · ${result.renderTimeMs}ms`;
+  }
+
+  private emitError(err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    this.panel.webview.postMessage({
+      type: 'error',
+      message,
+    });
+    this.statusBarItem.text = `$(error) Forme: build error`;
   }
 
   private async renderPython(filePath: string) {

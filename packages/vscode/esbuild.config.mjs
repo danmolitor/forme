@@ -15,11 +15,15 @@ const root = resolve(__dirname, '../..');
 mkdirSync(resolve(__dirname, 'dist/preview'), { recursive: true });
 
 const corePkgDir = resolve(root, 'packages/core');
+const htmlPkgDir = resolve(root, 'packages/html');
 const rendererPkgDir = resolve(root, 'packages/renderer');
 
 const corePkg = existsSync(join(corePkgDir, 'pkg-node'))
   ? corePkgDir
   : resolve(__dirname, 'node_modules/@formepdf/core');
+const htmlPkg = existsSync(join(htmlPkgDir, 'pkg-node'))
+  ? htmlPkgDir
+  : resolve(__dirname, 'node_modules/@formepdf/html');
 const rendererPkg = existsSync(join(rendererPkgDir, 'dist/preview'))
   ? rendererPkgDir
   : resolve(__dirname, 'node_modules/@formepdf/renderer');
@@ -49,6 +53,15 @@ await build({
 cpSync(
   resolve(corePkg, 'pkg-node/forme_bg.wasm'),
   resolve(__dirname, 'dist/forme_bg.wasm'),
+);
+
+// The HTML input path is a second, sibling WASM blob — core consumers must
+// not pay for html5ever/cssparser, so it stays out of the core bundle. The
+// nodejs glue for @formepdf/html loads `${__dirname}/forme_pdf_html_bg.wasm`,
+// which resolves to dist/ after esbuild inlines it into extension.js.
+cpSync(
+  resolve(htmlPkg, 'pkg-node/forme_pdf_html_bg.wasm'),
+  resolve(__dirname, 'dist/forme_pdf_html_bg.wasm'),
 );
 
 console.log('Built extension');

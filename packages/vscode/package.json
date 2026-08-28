@@ -73,7 +73,14 @@
       "editor/title": [
         {
           "command": "forme.openPreviewToSide",
-          "when": "forme.isFormeFile",
+          "when": "forme.isFormeFile || resourceExtname == .html",
+          "group": "navigation"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "forme.openPreview",
+          "when": "resourceExtname == .html",
           "group": "navigation"
         }
       ]

@@ -8,6 +8,12 @@ export {
 } from './render.js';
 
 export {
+  renderHtmlFromFile,
+  renderHtmlFromSource,
+  type HtmlRenderOptions,
+} from './html.js';
+
+export {
   resolveElement,
   type ResolveElementOptions,
 } from './element.js';

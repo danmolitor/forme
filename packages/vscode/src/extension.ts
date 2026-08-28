@@ -4,7 +4,18 @@ import { LayoutStore } from './layout-store.js';
 import { ComponentTreeProvider } from './component-tree-provider.js';
 import { InspectorViewProvider } from './inspector-view-provider.js';
 
+// workspaceState key: the set of .html files the user has opted into
+// previewing (URI strings). HTML preview is command-driven — there's no
+// import signature to auto-detect on — so once previewed we remember the
+// file to restore its isFormeFile affordances on reopen.
+const HTML_PREVIEWS_KEY = 'forme.htmlPreviews';
+
+// Module-scoped so detectFormeFile can consult workspaceState without
+// threading context through every call site.
+let extContext: vscode.ExtensionContext | undefined;
+
 export function activate(context: vscode.ExtensionContext) {
+  extContext = context;
   // One-time welcome message on first install
   const hasShownWelcome = context.globalState.get('forme.welcomeShown');
   if (!hasShownWelcome) {
@@ -102,19 +113,19 @@ export function activate(context: vscode.ExtensionContext) {
     }),
   );
 
-  // Register commands
+  // Register commands. Both accept an optional URI so the explorer
+  // context-menu entry (which passes the clicked file) works alongside the
+  // editor-title button (which uses the active editor).
+  const openPreview = (toSide: boolean) => (uri?: vscode.Uri) => {
+    const target = uri ?? vscode.window.activeTextEditor?.document.uri;
+    if (!target) return;
+    rememberIfHtml(context, target);
+    FormePreviewPanel.createOrShow(context, target, toSide, store, false);
+    updateFormeContext(vscode.window.activeTextEditor);
+  };
   context.subscriptions.push(
-    vscode.commands.registerCommand('forme.openPreview', () => {
-      const editor = vscode.window.activeTextEditor;
-      if (!editor) return;
-      FormePreviewPanel.createOrShow(context, editor.document.uri, false, store, false);
-    }),
-
-    vscode.commands.registerCommand('forme.openPreviewToSide', () => {
-      const editor = vscode.window.activeTextEditor;
-      if (!editor) return;
-      FormePreviewPanel.createOrShow(context, editor.document.uri, true, store, false);
-    }),
+    vscode.commands.registerCommand('forme.openPreview', openPreview(false)),
+    vscode.commands.registerCommand('forme.openPreviewToSide', openPreview(true)),
   );
 
   context.subscriptions.push(store);
@@ -135,7 +146,26 @@ function detectFormeFile(doc: vscode.TextDocument): boolean {
   if (doc.languageId === 'python') {
     return text.includes('import formepdf') || text.includes('from formepdf');
   }
+  // HTML has no import signature to sniff — it's a document, not a script —
+  // so it counts as a Forme file only once the user has opted in by
+  // previewing it at least once.
+  if (doc.fileName.endsWith('.html')) {
+    return isRememberedHtml(doc.uri);
+  }
   return false;
+}
+
+function isRememberedHtml(uri: vscode.Uri): boolean {
+  const list = extContext?.workspaceState.get<string[]>(HTML_PREVIEWS_KEY, []) ?? [];
+  return list.includes(uri.toString());
+}
+
+function rememberIfHtml(context: vscode.ExtensionContext, uri: vscode.Uri): void {
+  if (!uri.fsPath.endsWith('.html')) return;
+  const list = context.workspaceState.get<string[]>(HTML_PREVIEWS_KEY, []);
+  if (!list.includes(uri.toString())) {
+    context.workspaceState.update(HTML_PREVIEWS_KEY, [...list, uri.toString()]);
+  }
 }
 
 function maybeAutoOpen(

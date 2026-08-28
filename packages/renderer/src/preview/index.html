@@ -147,6 +147,57 @@
 
   .badge.render-time { color: #4ade80; }
   .badge.page-count { color: var(--text-muted); }
+  .badge.warnings {
+    color: #fbbf24;
+    border-color: rgba(251, 191, 36, 0.4);
+    cursor: pointer;
+    user-select: none;
+  }
+  .badge.warnings:hover { background: rgba(251, 191, 36, 0.1); }
+  .badge.warnings .warn-icon { font-size: 12px; line-height: 1; }
+
+  #warnings-popover {
+    position: absolute;
+    top: var(--toolbar-height);
+    right: 8px;
+    z-index: 50;
+    max-width: 380px;
+    max-height: 320px;
+    overflow-y: auto;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    font-family: var(--font-mono);
+    font-size: 11px;
+  }
+  #warnings-popover .warn-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    color: #fbbf24;
+    font-weight: 600;
+  }
+  #warnings-popover .warn-dismiss {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    padding: 0 2px;
+  }
+  #warnings-popover .warn-dismiss:hover { color: var(--text-muted); }
+  #warnings-popover .warn-item {
+    padding: 6px 10px;
+    color: var(--text-muted);
+    border-bottom: 1px solid rgba(39, 39, 42, 0.5);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  #warnings-popover .warn-item:last-child { border-bottom: none; }
 
   /* -- Zoom controls ----------------------------------- */
   .zoom-controls {
@@ -853,6 +904,12 @@
       <span id="page-count">0</span> pages
     </div>
 
+    <div class="badge warnings" id="warnings-badge" style="display:none"
+         title="Unsupported CSS in this document — click for details">
+      <span class="warn-icon">&#9888;</span>
+      <span id="warnings-count">0</span>
+    </div>
+
     <div class="toolbar-separator"></div>
 
     <div class="zoom-controls">
@@ -870,6 +927,14 @@
 
 <div id="error-overlay">
   <button class="error-dismiss" id="error-dismiss">&times;</button>
+</div>
+
+<div id="warnings-popover" style="display:none">
+  <div class="warn-head">
+    <span id="warnings-popover-title">Unsupported CSS</span>
+    <button class="warn-dismiss" id="warnings-dismiss" title="Dismiss">&times;</button>
+  </div>
+  <div id="warnings-list"></div>
 </div>
 
 <div id="left-sidebar">
@@ -975,6 +1040,12 @@
   const renderBadge = document.getElementById('render-badge');
   const pageCountEl = document.getElementById('page-count');
   const pageBadge = document.getElementById('page-badge');
+  const warningsBadge = document.getElementById('warnings-badge');
+  const warningsCountEl = document.getElementById('warnings-count');
+  const warningsPopover = document.getElementById('warnings-popover');
+  const warningsListEl = document.getElementById('warnings-list');
+  const warningsPopoverTitle = document.getElementById('warnings-popover-title');
+  const warningsDismiss = document.getElementById('warnings-dismiss');
   const statusDot = document.getElementById('status-dot');
   const zoomLevelEl = document.getElementById('zoom-level');
   const modeControl = document.getElementById('mode-control');
@@ -2466,6 +2537,34 @@
 
   // -- VS Code message handler --------------------------------------
   if (isVSCode) {
+    // Unsupported-CSS notices from the HTML input path (empty for JSX). The
+    // badge in the status strip shows the count; clicking it expands the
+    // full list. This is the subset table as a live experience — an
+    // unsupported property in the user's CSS shows up here within one render.
+    function setWarnings(warnings) {
+      const list = Array.isArray(warnings) ? warnings : [];
+      if (list.length === 0) {
+        warningsBadge.style.display = 'none';
+        warningsPopover.style.display = 'none';
+        return;
+      }
+      warningsCountEl.textContent = String(list.length);
+      warningsBadge.style.display = 'inline-flex';
+      warningsPopoverTitle.textContent =
+        list.length === 1 ? '1 unsupported property' : list.length + ' unsupported properties';
+      warningsListEl.innerHTML = list
+        .map((w) => '<div class="warn-item">' + escapeHtml(String(w)) + '</div>')
+        .join('');
+    }
+
+    warningsBadge.addEventListener('click', () => {
+      warningsPopover.style.display =
+        warningsPopover.style.display === 'none' ? 'block' : 'none';
+    });
+    warningsDismiss.addEventListener('click', () => {
+      warningsPopover.style.display = 'none';
+    });
+
     window.addEventListener('message', async (event) => {
       const msg = event.data;
       if (!msg || !msg.type) return;
@@ -2478,6 +2577,7 @@
           renderTimeEl.textContent = msg.renderTime + 'ms';
           renderBadge.style.display = 'inline-flex';
         }
+        setWarnings(msg.warnings);
         await reload(bytes.buffer, msg.layout);
         setTimeout(zoomToFit, 300);
       }
