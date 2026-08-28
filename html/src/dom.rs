@@ -51,14 +51,19 @@ pub(crate) fn parse_html(html: &str) -> Element {
     parse_html_with_styles(html).0
 }
 
-/// Parse an HTML string, returning the `<body>` element and the text of
-/// every `<style>` block in the document — including the ones in `<head>`,
-/// which the body-only mapper never sees.
-pub fn parse_html_with_styles(html: &str) -> (Element, Vec<String>) {
+/// Parse an HTML string, returning the `<body>` element, the text of
+/// every `<style>` block, and the href of every stylesheet `<link>` —
+/// all collected from the WHOLE document, because they live in `<head>`,
+/// which the body-only mapper never sees. The links are collected purely
+/// to warn: nothing is fetched, and a silently dropped
+/// `<link rel="stylesheet">` would render the most common template shape
+/// on earth unstyled with zero explanation.
+pub fn parse_html_with_styles(html: &str) -> (Element, Vec<String>, Vec<String>) {
     let dom: RcDom = parse_document(RcDom::default(), Default::default()).one(html);
     let root = convert(&dom.document);
     let mut styles = Vec::new();
-    collect_style_texts(&root, &mut styles);
+    let mut links = Vec::new();
+    collect_style_sources(&root, &mut styles, &mut links);
     let body = find_body(&root).unwrap_or(Element {
         tag: "body".to_string(),
         attrs: vec![],
@@ -68,10 +73,10 @@ pub fn parse_html_with_styles(html: &str) -> (Element, Vec<String>) {
         type_index: 0,
         type_count: 1,
     });
-    (body, styles)
+    (body, styles, links)
 }
 
-fn collect_style_texts(el: &Element, out: &mut Vec<String>) {
+fn collect_style_sources(el: &Element, styles: &mut Vec<String>, links: &mut Vec<String>) {
     for child in &el.children {
         if let DomNode::Element(e) = child {
             if e.tag == "style" {
@@ -83,9 +88,15 @@ fn collect_style_texts(el: &Element, out: &mut Vec<String>) {
                         _ => None,
                     })
                     .collect();
-                out.push(text);
+                styles.push(text);
             } else {
-                collect_style_texts(e, out);
+                if e.tag == "link"
+                    && e.attr("rel")
+                        .is_some_and(|r| r.eq_ignore_ascii_case("stylesheet"))
+                {
+                    links.push(e.attr("href").unwrap_or("<no href>").to_string());
+                }
+                collect_style_sources(e, styles, links);
             }
         }
     }

@@ -212,3 +212,32 @@ fn pending_polish_warnings_are_named() {
         "{warnings:?}"
     );
 }
+
+#[test]
+fn stylesheet_links_warn_with_the_remedy_other_links_stay_silent() {
+    // The most common template shape on earth: HTML + linked stylesheet.
+    // Nothing is fetched (by design) — but the skip must be LOUD, in the
+    // same shape as the @import warning. Non-stylesheet links (icons,
+    // preloads) don't affect rendering and stay silent.
+    let html = r#"<!DOCTYPE html>
+      <html><head>
+        <link rel="stylesheet" href="brand.css">
+        <link rel="icon" href="favicon.ico">
+      </head>
+      <body><h1>Linked</h1></body></html>"#;
+    let out = render_html(html, &HtmlOptions::default()).expect("render");
+    assert!(out.pdf.starts_with(b"%PDF-"));
+    assert!(
+        out.warnings
+            .iter()
+            .any(|w| w.contains("stylesheet link 'brand.css' is not fetched")
+                && w.contains("--css / options.css")),
+        "{:?}",
+        out.warnings
+    );
+    assert!(
+        !out.warnings.iter().any(|w| w.contains("favicon")),
+        "icon links must stay silent: {:?}",
+        out.warnings
+    );
+}

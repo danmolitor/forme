@@ -46,7 +46,7 @@ the bar is "what does an invoice, report, statement, or contract need."
 | `ul`, `ol` (+ `start`), `li` | |
 | `img` (block-level) — data URIs and local files only | external `http(s)` image fetching |
 | | inline `<img>` mid-paragraph — the engine's text model has no inline-replaced box (spike verdict); engine design, not a gap |
-| `style` blocks (anywhere in the document) | `<link rel="stylesheet">` (pass CSS via `HtmlOptions::css`) |
+| `style` blocks (anywhere in the document) | `<link rel="stylesheet">` — never fetched; warns with the href and the remedy (`--css` / `options.css`) |
 
 ### Selectors
 

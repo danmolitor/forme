@@ -154,7 +154,12 @@ fn page_config(
 /// for tests and tooling that want to inspect the mapping itself.
 pub fn html_to_document(html: &str, options: &HtmlOptions) -> (forme::Document, Vec<String>) {
     let mut warnings = Vec::new();
-    let (body, style_texts) = dom::parse_html_with_styles(html);
+    let (body, style_texts, stylesheet_links) = dom::parse_html_with_styles(html);
+    for href in &stylesheet_links {
+        warnings.push(format!(
+            "stylesheet link '{href}' is not fetched — inline the CSS in a <style> block or pass the file via --css / options.css"
+        ));
+    }
 
     let mut stylesheet = sheet::Stylesheet::default();
     for text in &style_texts {
