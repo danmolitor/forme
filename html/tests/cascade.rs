@@ -54,15 +54,43 @@ fn assert_color(node: &Node, hex: &str, what: &str) {
 
 #[test]
 fn type_rule_from_stylesheet_applies() {
+    // THE FIXTURE FLIP: this used to assert #1a365d while the frozen
+    // Chrome reference showed magenta — the pair documented the @media
+    // divergence. @media print applies now (print is our native media
+    // type); the pair agrees, and the Chrome reference was right all
+    // along. The screen block's garish green must NOT win.
     let (doc, _) = mapped();
     let h1 = find_by_text(&doc.children, "Account Statement").expect("h1");
     assert!(matches!(h1.kind, NodeKind::Heading { level: 1, .. }));
-    assert_color(h1, "#1a365d", "h1 color from stylesheet");
+    assert_color(h1, "#ff00ff", "@media print h1 color applies");
     assert_eq!(
         h1.style.font_size,
         Some(20.0),
-        "h1 font-size from stylesheet"
+        "h1 font-size from the base stylesheet still applies"
     );
+    // @media screen body background must not leak in.
+    assert!(
+        doc.children[0].style.background_color.is_none(),
+        "screen-only styling must be excluded"
+    );
+}
+
+#[test]
+fn media_feature_queries_warn_and_media_adds_no_specificity() {
+    let (doc, warnings) = mapped();
+    // Feature query: conservatively excluded, named warning.
+    let muted = find_by_text(&doc.children, "Statement period").expect("muted");
+    assert_color(muted, "#666666", "(min-width) block must not apply");
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.contains("media features are not evaluated")),
+        "{warnings:?}"
+    );
+    // Equal specificity, later in source, OUTSIDE the block → wins:
+    // @media adds no specificity.
+    let oc = find_by_text(&doc.children, "Order check paragraph").expect("order check");
+    assert_color(oc, "#654321", "later outside rule wins the tie");
 }
 
 #[test]
@@ -173,9 +201,10 @@ fn unsupported_selector_skipped_but_group_partner_applies() {
         warnings.iter().any(|w| w.contains("unsupported selector")),
         "td:hover must be reported: {warnings:?}"
     );
+    // Well-formed print/screen @media blocks are handled, not warned.
     assert!(
-        warnings.iter().any(|w| w.contains("@media")),
-        "@media must be reported: {warnings:?}"
+        !warnings.iter().any(|w| w.contains("@media")),
+        "print/screen blocks must not warn: {warnings:?}"
     );
 }
 

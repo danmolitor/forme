@@ -320,6 +320,55 @@ impl Stylesheet {
     }
 }
 
+/// How a media-query list relates to our native media type (print).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum MediaVerdict {
+    Match,
+    NoMatch,
+    CantEvaluate,
+}
+
+/// Evaluate a media-query list against PRINT. Deliberately tiny: bare
+/// media types (with the legacy `only` prefix) evaluate; anything with
+/// feature queries, `not`, or `and` chains is conservatively excluded —
+/// never apply rules whose condition wasn't understood. The list is OR:
+/// one matching member includes the block regardless of the rest.
+fn evaluate_media_query_list(tokens: &[Token]) -> MediaVerdict {
+    let mut verdict = MediaVerdict::NoMatch;
+    for query in tokens.split(|t| matches!(t, Token::Comma)) {
+        let parts: Vec<&Token> = query
+            .iter()
+            .filter(|t| !matches!(t, Token::WhiteSpace(_)))
+            .collect();
+        let q = match parts.as_slice() {
+            [Token::Ident(t)] => type_matches(t),
+            [Token::Ident(only), Token::Ident(t)] if only.eq_ignore_ascii_case("only") => {
+                type_matches(t)
+            }
+            [] => continue,
+            _ => MediaVerdict::CantEvaluate,
+        };
+        match q {
+            MediaVerdict::Match => return MediaVerdict::Match,
+            MediaVerdict::CantEvaluate => verdict = MediaVerdict::CantEvaluate,
+            MediaVerdict::NoMatch => {}
+        }
+    }
+    verdict
+}
+
+fn type_matches(t: &str) -> MediaVerdict {
+    match t.to_ascii_lowercase().as_str() {
+        "print" | "all" => MediaVerdict::Match,
+        // `not` / `and` as a bare first ident means a form we don't
+        // evaluate ("not print", "print and ...") — conservative.
+        "not" | "and" => MediaVerdict::CantEvaluate,
+        // Known-or-unknown other types (screen, speech, tv, ...): a paged
+        // renderer is not them. Unknown types don't match, per spec.
+        _ => MediaVerdict::NoMatch,
+    }
+}
+
 /// Parse a skipped `@font-face` block enough to warn usefully: the family
 /// name (so the eventual fallback can be attributed) and whether the src
 /// was remote (not fetched, by design) or a local path (loading pending —
@@ -428,7 +477,14 @@ pub fn parse_stylesheet(css: &str, warnings: &mut Vec<String>) -> Stylesheet {
     let mut sheet = Stylesheet::default();
     let mut pin = ParserInput::new(css);
     let mut parser = Parser::new(&mut pin);
+    parse_rules(&mut parser, &mut sheet, warnings);
+    sheet
+}
 
+/// The rule loop, recursive so `@media` blocks parse their contents into
+/// the same cascade (which also makes nested `@media` and `@page` inside
+/// `@media print` fall out naturally).
+fn parse_rules(parser: &mut Parser<'_, '_>, sheet: &mut Stylesheet, warnings: &mut Vec<String>) {
     let mut prelude = SelectorPrelude::new();
     loop {
         let tok = match parser.next_including_whitespace() {
@@ -437,7 +493,7 @@ pub fn parse_stylesheet(css: &str, warnings: &mut Vec<String>) -> Stylesheet {
         };
         match &tok {
             Token::AtKeyword(name) if name.eq_ignore_ascii_case("page") => {
-                parse_page_rule(&mut parser, &mut sheet, warnings);
+                parse_page_rule(parser, sheet, warnings);
                 prelude = SelectorPrelude::new();
             }
             Token::AtKeyword(name) if name.eq_ignore_ascii_case("import") => {
@@ -463,9 +519,61 @@ pub fn parse_stylesheet(css: &str, warnings: &mut Vec<String>) -> Stylesheet {
                 prelude = SelectorPrelude::new();
             }
             Token::AtKeyword(name) if name.eq_ignore_ascii_case("font-face") => {
-                if let Some(family) = parse_font_face(&mut parser, warnings) {
+                if let Some(family) = parse_font_face(parser, warnings) {
                     if !sheet.skipped_font_families.contains(&family) {
                         sheet.skipped_font_families.push(family);
+                    }
+                }
+                prelude = SelectorPrelude::new();
+            }
+            Token::AtKeyword(name) if name.eq_ignore_ascii_case("media") => {
+                // Collect the media-query prelude, then include or skip
+                // the block. This is a paged PDF renderer: PRINT is the
+                // native media type.
+                let mut cond: Vec<Token> = Vec::new();
+                let mut found_block = false;
+                loop {
+                    match parser.next_including_whitespace() {
+                        Ok(Token::CurlyBracketBlock) => {
+                            found_block = true;
+                            break;
+                        }
+                        Ok(t) => cond.push(t.clone()),
+                        Err(_) => break,
+                    }
+                }
+                if found_block {
+                    match evaluate_media_query_list(&cond) {
+                        MediaVerdict::Match => {
+                            let _ = parser.parse_nested_block(
+                                |p| -> Result<(), cssparser::ParseError<'_, ()>> {
+                                    parse_rules(p, sheet, warnings);
+                                    Ok(())
+                                },
+                            );
+                        }
+                        MediaVerdict::NoMatch => {
+                            // screen etc: standard, silent exclusion —
+                            // Chrome's print path does the same.
+                            let _ = parser.parse_nested_block(
+                                |p| -> Result<(), cssparser::ParseError<'_, ()>> {
+                                    while p.next_including_whitespace().is_ok() {}
+                                    Ok(())
+                                },
+                            );
+                        }
+                        MediaVerdict::CantEvaluate => {
+                            warnings.push(
+                                "media features are not evaluated (only media types: print/screen/all); block skipped"
+                                    .to_string(),
+                            );
+                            let _ = parser.parse_nested_block(
+                                |p| -> Result<(), cssparser::ParseError<'_, ()>> {
+                                    while p.next_including_whitespace().is_ok() {}
+                                    Ok(())
+                                },
+                            );
+                        }
                     }
                 }
                 prelude = SelectorPrelude::new();
@@ -527,7 +635,6 @@ pub fn parse_stylesheet(css: &str, warnings: &mut Vec<String>) -> Stylesheet {
             other => prelude.push_token(other),
         }
     }
-    sheet
 }
 
 /// Parse an `@page` rule: prelude (base or a pseudo-page variant), then a
@@ -1216,11 +1323,72 @@ mod tests {
     }
 
     #[test]
-    fn at_rules_skipped_with_warning_rest_parses() {
+    fn media_print_blocks_join_the_cascade() {
         let (s, w) = sheet("@media print { td { color: red } } h1 { color: blue }");
+        assert_eq!(s.rules.len(), 2, "print block's rules included");
+        assert!(w.is_empty(), "{w:?}");
+        // Source order is preserved across the block boundary.
+        assert!(s.rules[0].order < s.rules[1].order);
+    }
+
+    #[test]
+    fn media_screen_excluded_silently_unknown_at_rules_still_warn() {
+        let (s, w) = sheet("@media screen { td { color: red } } @supports (a:b) { p { color: red } } h1 { color: blue }");
+        assert_eq!(s.rules.len(), 1, "only h1 survives");
+        assert!(
+            !w.iter().any(|m| m.contains("media")),
+            "screen exclusion is silent: {w:?}"
+        );
+        assert!(w.iter().any(|m| m.contains("@supports")));
+    }
+
+    #[test]
+    fn media_only_print_and_comma_lists_match() {
+        let (s, _) = sheet("@media only print { p { color: red } }");
         assert_eq!(s.rules.len(), 1);
-        assert!(s.rules[0].selector.compounds[0].tag.as_deref() == Some("h1"));
-        assert!(w.iter().any(|m| m.contains("@media")));
+        let (s2, _) = sheet("@media screen, print { p { color: red } }");
+        assert_eq!(s2.rules.len(), 1, "one matching member includes the block");
+        let (s3, _) = sheet("@media screen, speech { p { color: red } }");
+        assert!(s3.rules.is_empty());
+    }
+
+    #[test]
+    fn media_features_and_not_are_conservatively_excluded() {
+        for css in [
+            "@media (min-width: 600px) { p { color: red } }",
+            "@media not print { p { color: red } }",
+            "@media print and (color) { p { color: red } }",
+        ] {
+            let (s, w) = sheet(css);
+            assert!(s.rules.is_empty(), "{css}");
+            assert!(
+                w.iter()
+                    .any(|m| m.contains("media features are not evaluated")),
+                "{css}: {w:?}"
+            );
+        }
+        // A comma list where one member matches outright still includes,
+        // regardless of an unevaluatable sibling.
+        let (s, w) = sheet("@media print, (min-width: 600px) { p { color: red } }");
+        assert_eq!(s.rules.len(), 1);
+        assert!(w.is_empty(), "match wins the OR list: {w:?}");
+    }
+
+    #[test]
+    fn nested_media_and_page_inside_media_recurse() {
+        let (s, w) =
+            sheet("@media print { @media all { p { color: red } } @page { margin: 30pt } }");
+        assert_eq!(s.rules.len(), 1, "nested matching media includes");
+        assert_eq!(
+            s.page.expect("page rule inside @media print").margin[0],
+            Some(Length::Pt(30.0))
+        );
+        assert!(w.is_empty(), "{w:?}");
+        // A nested NON-matching media excludes just its block.
+        let (s2, _) =
+            sheet("@media print { @media screen { p { color: red } } q { color: blue } }");
+        assert_eq!(s2.rules.len(), 1);
+        assert!(s2.rules[0].selector.compounds[0].tag.as_deref() == Some("q"));
     }
 
     #[test]

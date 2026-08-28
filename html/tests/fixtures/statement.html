@@ -39,7 +39,16 @@
       /* Unsupported selector: skipped with a warning, .kept still applies. */
       td:hover, .kept { text-decoration: underline; }
 
-      @media print { h1 { color: #ff00ff; } }      /* skipped, warned */
+      /* Puppeteer-audience styling: print blocks APPLY (our native
+         media type), screen blocks are excluded, feature queries are
+         conservatively skipped with a warning. */
+      @media print { h1 { color: #ff00ff; } }
+      @media screen { h1 { color: #00ff00; } body { background-color: #000000 } }
+      @media (min-width: 600px) { .muted { color: #ff0000 } }
+
+      /* @media adds NO specificity: the later outside rule wins the tie. */
+      @media print { .order-check { color: #111111 } }
+      .order-check { color: #654321 }
     </style>
   </head>
   <body>
@@ -81,6 +90,7 @@
     <p class="status" style="color: #00ff00">Payment overdue</p>
     <p class="tie">Tie-breaker paragraph</p>
     <p class="kept">Kept selector paragraph</p>
+    <p class="order-check">Order check paragraph</p>
 
     <ul>
       <li>Autopay is enabled for this account.</li>

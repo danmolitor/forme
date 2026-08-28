@@ -98,6 +98,16 @@ noted in the warnings).
 | `orphans` / `widows` | `@page` `bleed` / `marks` |
 | `<thead>` repetition across breaks, table-cell overflow preservation (engine-native) | |
 
+**`@media` media-type evaluation**: this is a paged PDF renderer, so
+`print` is its native media type — `@media print` (and `all`, `only
+print`, comma lists with a match) join the cascade with normal
+specificity; `@media screen` is excluded silently, exactly like Chrome's
+print path. Templates styled for Puppeteer's print-default render
+correctly. Feature queries (`(min-width: ...)`, `not`, `and` chains) are
+conservatively excluded with a named warning — rules never apply under a
+condition that wasn't understood. Nested `@media` and `@page` inside
+`@media print` both work.
+
 Page-geometry precedence: an explicit `HtmlOptions`/CLI value overrides the
 document's `@page` rule, which overrides the defaults — the same way a
 print dialog overrides a stylesheet.
