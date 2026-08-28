@@ -134,9 +134,132 @@ pub fn html_to_document(html: &str, options: &HtmlOptions) -> (forme::Document, 
         stylesheet.append(sheet::parse_stylesheet(css, &mut warnings));
     }
 
-    let config = page_config(options, stylesheet.page.as_ref(), &mut warnings);
-    let (doc, map_warnings) = map::map_html(&body, stylesheet, config);
+    let mut config = page_config(options, stylesheet.page.as_ref(), &mut warnings);
+
+    // Margin boxes: the band trick. Each occupied edge's page margin is
+    // zeroed and a Fixed band of exactly that height takes its place, so
+    // the band occupies precisely the strip CSS calls the margin and
+    // content starts exactly where @page declared.
+    //
+    // The :first interaction (designed, not discovered): when :first
+    // suppresses a band via `content: none`, that page's config RESTORES
+    // the real margin — otherwise page one's content would start at the
+    // physical top of the paper, the two features individually correct
+    // and jointly wrong.
+    let mut bands: Vec<forme::Node> = Vec::new();
+    let mut first_page: Option<forme::model::PageConfig> = None;
+    if let Some(rule) = stylesheet.page.as_ref() {
+        use forme::model::FixedPageFilter;
+
+        let resolve_len = |l: css::Length, warnings: &mut Vec<String>| -> Option<f64> {
+            match l {
+                css::Length::Pt(v) => Some(v),
+                css::Length::Em(e) => Some(e * style::ROOT_FONT_SIZE),
+                css::Length::Rem(r) => Some(r * style::ROOT_FONT_SIZE),
+                css::Length::Auto => None,
+                css::Length::Percent(_) => {
+                    warnings.push("percentage @page :first margins are unsupported".to_string());
+                    None
+                }
+            }
+        };
+        let first_rule = rule.first.as_ref();
+        let first_margin = |idx: usize, warnings: &mut Vec<String>| -> Option<f64> {
+            first_rule
+                .and_then(|f| f.margin[idx])
+                .and_then(|l| resolve_len(l, warnings))
+        };
+        let orig_top = config.margin.top;
+        let orig_bottom = config.margin.bottom;
+        let mut first_cfg = config.clone();
+        first_cfg.margin.top = first_margin(0, &mut warnings).unwrap_or(orig_top);
+        first_cfg.margin.right = first_margin(1, &mut warnings).unwrap_or(config.margin.right);
+        first_cfg.margin.bottom = first_margin(2, &mut warnings).unwrap_or(orig_bottom);
+        first_cfg.margin.left = first_margin(3, &mut warnings).unwrap_or(config.margin.left);
+
+        let mut edge = |top: bool| {
+            let boxes: Vec<&sheet::MarginBox> = rule
+                .margin_boxes
+                .iter()
+                .filter(|b| b.position.is_top() == top)
+                .collect();
+            let band_height = if top { orig_top } else { orig_bottom };
+            if boxes.is_empty() || band_height <= 0.0 {
+                return;
+            }
+            let suppressed: Vec<bool> = boxes
+                .iter()
+                .map(|b| first_rule.is_some_and(|f| f.suppress.contains(&b.position)))
+                .collect();
+            let any_suppressed = suppressed.iter().any(|s| *s);
+            if any_suppressed && !suppressed.iter().all(|s| *s) {
+                warnings.push(format!(
+                    "@page :first suppresses only some {} margin boxes; the whole band is suppressed on the first page",
+                    if top { "top" } else { "bottom" }
+                ));
+            }
+            let filter = if any_suppressed {
+                FixedPageFilter::NotFirst
+            } else {
+                FixedPageFilter::All
+            };
+            bands.push(map::build_margin_band(
+                &boxes,
+                band_height,
+                top,
+                filter,
+                &mut warnings,
+            ));
+            // The band replaces the margin on pages it appears on.
+            if top {
+                config.margin.top = 0.0;
+                if any_suppressed {
+                    // Band absent on page one: the restore rule. An
+                    // explicit :first margin override wins over the plain
+                    // restored value (first_cfg already holds it).
+                } else {
+                    if first_cfg.margin.top != orig_top {
+                        warnings.push(
+                            "@page :first margin-top with margin boxes on the first page is unsupported (suppress the boxes with content: none, or match the margins)".to_string(),
+                        );
+                    }
+                    first_cfg.margin.top = 0.0;
+                }
+            } else {
+                config.margin.bottom = 0.0;
+                if !any_suppressed {
+                    if first_cfg.margin.bottom != orig_bottom {
+                        warnings.push(
+                            "@page :first margin-bottom with margin boxes on the first page is unsupported (suppress the boxes with content: none, or match the margins)".to_string(),
+                        );
+                    }
+                    first_cfg.margin.bottom = 0.0;
+                }
+            }
+        };
+        edge(true);
+        edge(false);
+
+        let margins_differ = |a: &forme::model::Edges, b: &forme::model::Edges| {
+            a.top != b.top || a.right != b.right || a.bottom != b.bottom || a.left != b.left
+        };
+        if margins_differ(&first_cfg.margin, &config.margin) {
+            first_page = Some(first_cfg);
+        }
+    }
+
+    let (mut doc, map_warnings) = map::map_html(&body, stylesheet, config);
     warnings.extend(map_warnings);
+    doc.first_page = first_page;
+    if !bands.is_empty() {
+        if let Some(body_view) = doc.children.first_mut() {
+            // Bands go first so the engine registers them before any
+            // content lands on page one.
+            for band in bands.into_iter().rev() {
+                body_view.children.insert(0, band);
+            }
+        }
+    }
     (doc, warnings)
 }
 

@@ -475,9 +475,11 @@ fn node_kind_name(kind: &NodeKind) -> &'static str {
         NodeKind::TableCell { .. } => "TableCell",
         NodeKind::Fixed {
             position: FixedPosition::Header,
+            ..
         } => "FixedHeader",
         NodeKind::Fixed {
             position: FixedPosition::Footer,
+            ..
         } => "FixedFooter",
         NodeKind::Page { .. } => "Page",
         NodeKind::PageBreak => "PageBreak",
@@ -980,6 +982,14 @@ pub struct LayoutEngine {
 #[derive(Debug, Clone)]
 struct PageCursor {
     config: PageConfig,
+    /// The config subsequent pages use — differs from `config` only on a
+    /// first page created from `Document::first_page` (@page :first).
+    base_config: PageConfig,
+    /// 0-based index of this page within the document. Kept in sync with
+    /// the `pages` vec at document level; table cell-overflow pages can
+    /// briefly skew it, which only matters for First/NotFirst filters and
+    /// resolves at injection time where the real index is used.
+    page_index: usize,
     content_width: f64,
     content_height: f64,
     y: f64,
@@ -1002,6 +1012,8 @@ impl PageCursor {
 
         Self {
             config: config.clone(),
+            base_config: config.clone(),
+            page_index: 0,
             content_width,
             content_height,
             y: 0.0,
@@ -1015,8 +1027,28 @@ impl PageCursor {
         }
     }
 
+    /// First-page cursor: lays out with `first`'s geometry while
+    /// subsequent pages fall back to `base` (@page :first).
+    fn new_first(first: &PageConfig, base: &PageConfig) -> Self {
+        let mut cursor = PageCursor::new(first);
+        cursor.base_config = base.clone();
+        cursor
+    }
+
+    fn fixed_page_filter(node: &Node) -> crate::model::FixedPageFilter {
+        match &node.kind {
+            NodeKind::Fixed { pages, .. } => *pages,
+            _ => crate::model::FixedPageFilter::All,
+        }
+    }
+
     fn remaining_height(&self) -> f64 {
-        let footer_height: f64 = self.fixed_footer.iter().map(|(_, h)| *h).sum();
+        let footer_height: f64 = self
+            .fixed_footer
+            .iter()
+            .filter(|(n, _)| Self::fixed_page_filter(n).applies(self.page_index))
+            .map(|(_, h)| *h)
+            .sum();
         (self.content_height - self.y - footer_height).max(0.0)
     }
 
@@ -1034,13 +1066,21 @@ impl PageCursor {
     }
 
     fn new_page(&self) -> Self {
-        let mut cursor = PageCursor::new(&self.config);
+        // Subsequent pages use the base config — identical to `config`
+        // except when this cursor was a first page with its own geometry.
+        let mut cursor = PageCursor::new(&self.base_config);
+        cursor.page_index = self.page_index + 1;
         cursor.fixed_header = self.fixed_header.clone();
         cursor.fixed_footer = self.fixed_footer.clone();
         cursor.watermarks = self.watermarks.clone();
         cursor.continuation_top_offset = self.continuation_top_offset;
 
-        let header_height: f64 = cursor.fixed_header.iter().map(|(_, h)| *h).sum();
+        let header_height: f64 = cursor
+            .fixed_header
+            .iter()
+            .filter(|(n, _)| Self::fixed_page_filter(n).applies(cursor.page_index))
+            .map(|(_, h)| *h)
+            .sum();
         cursor.y = header_height + cursor.continuation_top_offset;
 
         cursor
@@ -1079,7 +1119,10 @@ impl LayoutEngine {
     /// Main entry point: lay out a document into pages.
     pub fn layout(&self, document: &Document, font_context: &FontContext) -> Vec<LayoutPage> {
         let mut pages: Vec<LayoutPage> = Vec::new();
-        let mut cursor = PageCursor::new(&document.default_page);
+        let mut cursor = match &document.first_page {
+            Some(first) => PageCursor::new_first(first, &document.default_page),
+            None => PageCursor::new(&document.default_page),
+        };
 
         // Build a root resolved style from document default_style + lang
         let base = document.default_style.clone().unwrap_or_default();
@@ -1096,6 +1139,7 @@ impl LayoutEngine {
                         pages.push(cursor.finalize());
                     }
                     cursor = PageCursor::new(config);
+                    cursor.page_index = pages.len();
 
                     // Build a page-level root style that carries document lang
                     // AND has a fixed height matching the page content area.
@@ -1192,12 +1236,16 @@ impl LayoutEngine {
                 *cursor = cursor.new_page();
             }
 
-            NodeKind::Fixed { position } => {
+            NodeKind::Fixed { position, pages } => {
                 let height = self.measure_node_height(node, available_width, &style, font_context);
                 match position {
                     FixedPosition::Header => {
                         cursor.fixed_header.push((node.clone(), height));
-                        cursor.y += height;
+                        // Space is only consumed on pages the element
+                        // actually appears on (CSS :first suppression).
+                        if pages.applies(cursor.page_index) {
+                            cursor.y += height;
+                        }
                     }
                     FixedPosition::Footer => {
                         cursor.fixed_footer.push((node.clone(), height));
@@ -5735,7 +5783,7 @@ impl LayoutEngine {
     }
 
     fn inject_fixed_elements(&self, pages: &mut [LayoutPage], font_context: &FontContext) {
-        for page in pages.iter_mut() {
+        for (page_index, page) in pages.iter_mut().enumerate() {
             // Inject watermarks behind all content
             if !page.watermarks.is_empty() {
                 let (page_w, page_h) = page.config.size.dimensions();
@@ -5883,6 +5931,11 @@ impl LayoutEngine {
             if !page.fixed_header.is_empty() {
                 let mut hdr_cursor = PageCursor::new(&page.config);
                 for (node, _h) in &page.fixed_header {
+                    // The enumerate index is the authoritative page number
+                    // for First/NotFirst filtering.
+                    if !PageCursor::fixed_page_filter(node).applies(page_index) {
+                        continue;
+                    }
                     let cw = hdr_cursor.content_width;
                     let cx = hdr_cursor.content_x;
                     let style = node.style.resolve(None, cw);
@@ -5908,10 +5961,18 @@ impl LayoutEngine {
             // correct footer position.
             if !page.fixed_footer.is_empty() {
                 let mut ftr_cursor = PageCursor::new(&page.config);
-                let total_ftr: f64 = page.fixed_footer.iter().map(|(_, h)| *h).sum();
+                let total_ftr: f64 = page
+                    .fixed_footer
+                    .iter()
+                    .filter(|(n, _)| PageCursor::fixed_page_filter(n).applies(page_index))
+                    .map(|(_, h)| *h)
+                    .sum();
                 let target_y = ftr_cursor.content_height - total_ftr;
                 // Layout from y=0
                 for (node, _h) in &page.fixed_footer {
+                    if !PageCursor::fixed_page_filter(node).applies(page_index) {
+                        continue;
+                    }
                     let cw = ftr_cursor.content_width;
                     let cx = ftr_cursor.content_x;
                     let style = node.style.resolve(None, cw);
@@ -6460,6 +6521,7 @@ mod tests {
             )],
             metadata: Default::default(),
             default_page: PageConfig::default(),
+            first_page: None,
             fonts: vec![],
             tagged: false,
             pdfa: None,
@@ -6518,6 +6580,7 @@ mod tests {
             )],
             metadata: Default::default(),
             default_page: PageConfig::default(),
+            first_page: None,
             fonts: vec![],
             tagged: false,
             pdfa: None,
@@ -6577,6 +6640,7 @@ mod tests {
             )],
             metadata: Default::default(),
             default_page: PageConfig::default(),
+            first_page: None,
             fonts: vec![],
             tagged: false,
             pdfa: None,
@@ -6647,6 +6711,7 @@ mod tests {
             )],
             metadata: Default::default(),
             default_page: PageConfig::default(),
+            first_page: None,
             fonts: vec![],
             tagged: false,
             pdfa: None,
@@ -6796,6 +6861,7 @@ mod tests {
             )],
             metadata: Default::default(),
             default_page: PageConfig::default(),
+            first_page: None,
             fonts: vec![],
             tagged: false,
             pdfa: None,
@@ -6865,6 +6931,7 @@ mod tests {
             )],
             metadata: Default::default(),
             default_page: PageConfig::default(),
+            first_page: None,
             fonts: vec![],
             tagged: false,
             pdfa: None,
@@ -6946,6 +7013,7 @@ mod tests {
             )],
             metadata: Default::default(),
             default_page: PageConfig::default(),
+            first_page: None,
             fonts: vec![],
             tagged: false,
             pdfa: None,
@@ -7005,6 +7073,7 @@ mod tests {
             )],
             metadata: Default::default(),
             default_page: PageConfig::default(),
+            first_page: None,
             fonts: vec![],
             tagged: false,
             pdfa: None,
@@ -7075,6 +7144,7 @@ mod tests {
             )],
             metadata: Default::default(),
             default_page: PageConfig::default(),
+            first_page: None,
             fonts: vec![],
             tagged: false,
             pdfa: None,
@@ -7156,6 +7226,7 @@ mod tests {
             )],
             metadata: Default::default(),
             default_page: PageConfig::default(),
+            first_page: None,
             fonts: vec![],
             tagged: false,
             pdfa: None,
@@ -7236,6 +7307,7 @@ mod tests {
             )],
             metadata: Default::default(),
             default_page: PageConfig::default(),
+            first_page: None,
             fonts: vec![],
             tagged: false,
             pdfa: None,
@@ -7310,6 +7382,7 @@ mod tests {
             )],
             metadata: Default::default(),
             default_page: PageConfig::default(),
+            first_page: None,
             fonts: vec![],
             tagged: false,
             pdfa: None,
@@ -7376,6 +7449,7 @@ mod tests {
             )],
             metadata: Default::default(),
             default_page: PageConfig::default(),
+            first_page: None,
             fonts: vec![],
             tagged: false,
             pdfa: None,

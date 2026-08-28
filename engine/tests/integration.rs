@@ -111,6 +111,7 @@ fn default_doc(children: Vec<Node>) -> Document {
         children,
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
+        first_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -572,6 +573,7 @@ fn test_metadata_in_output() {
             lang: None,
         },
         default_page: PageConfig::default(),
+        first_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -712,6 +714,7 @@ fn render_with_custom_font(font_data: &[u8], text: &str) -> Vec<u8> {
         }],
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
+        first_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -865,6 +868,7 @@ fn test_mixed_standard_and_custom_fonts() {
         ],
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
+        first_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -1207,6 +1211,7 @@ fn make_fixed_header(text: &str) -> Node {
     Node {
         kind: NodeKind::Fixed {
             position: FixedPosition::Header,
+            pages: FixedPageFilter::default(),
         },
         style: Style {
             padding: Some(Edges::uniform(8.0)),
@@ -1226,6 +1231,7 @@ fn make_fixed_footer(text: &str) -> Node {
     Node {
         kind: NodeKind::Fixed {
             position: FixedPosition::Footer,
+            pages: FixedPageFilter::default(),
         },
         style: Style {
             padding: Some(Edges::uniform(8.0)),
@@ -1338,6 +1344,7 @@ fn test_footer_reduces_content_area() {
     let big_footer = Node {
         kind: NodeKind::Fixed {
             position: FixedPosition::Footer,
+            pages: FixedPageFilter::default(),
         },
         style: Style {
             padding: Some(Edges::symmetric(40.0, 8.0)), // tall footer
@@ -1819,6 +1826,7 @@ fn test_page_number_placeholder_single_page() {
             Node {
                 kind: NodeKind::Fixed {
                     position: FixedPosition::Footer,
+                    pages: FixedPageFilter::default(),
                 },
                 style: Style::default(),
                 children: vec![make_text("Page {{pageNumber}} of {{totalPages}}", 12.0)],
@@ -1855,6 +1863,7 @@ fn test_page_number_placeholder_multi_page() {
     let mut page_children: Vec<Node> = vec![Node {
         kind: NodeKind::Fixed {
             position: FixedPosition::Footer,
+            pages: FixedPageFilter::default(),
         },
         style: Style {
             font_size: Some(10.0),
@@ -3243,6 +3252,7 @@ fn test_breakable_view_with_background_splits_across_pages() {
             wrap: true,
             ..Default::default()
         },
+        first_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -3286,6 +3296,7 @@ fn test_breakable_view_background_does_not_overlap_footer() {
     let footer = Node {
         kind: NodeKind::Fixed {
             position: FixedPosition::Footer,
+            pages: FixedPageFilter::default(),
         },
         style: Style {
             padding: Some(Edges::uniform(footer_padding)),
@@ -3323,6 +3334,7 @@ fn test_breakable_view_background_does_not_overlap_footer() {
             wrap: true,
             ..Default::default()
         },
+        first_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -3394,6 +3406,7 @@ fn test_breakable_view_without_visual_stays_unwrapped() {
             wrap: true,
             ..Default::default()
         },
+        first_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -3725,6 +3738,7 @@ fn test_breakable_view_continuation_page_has_top_padding() {
         children: vec![breakable_view],
         metadata: Metadata::default(),
         default_page: page_config,
+        first_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -4077,6 +4091,7 @@ fn test_document_lang_in_pdf_catalog() {
             lang: Some("en-US".to_string()),
         },
         default_page: PageConfig::default(),
+        first_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -4319,6 +4334,7 @@ fn test_justified_text_produces_valid_pdf() {
             wrap: true,
         ..Default::default()
         },
+        first_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -4377,6 +4393,7 @@ fn test_lang_inherits_to_text_nodes() {
             wrap: true,
             ..Default::default()
         },
+        first_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -4450,6 +4467,7 @@ fn test_per_node_lang_override() {
             wrap: true,
             ..Default::default()
         },
+        first_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -4476,6 +4494,7 @@ fn test_tagged_pdf_has_struct_tree_root() {
         )],
         metadata: Default::default(),
         default_page: PageConfig::default(),
+        first_page: None,
         fonts: vec![],
         tagged: true,
         pdfa: None,
@@ -4532,6 +4551,7 @@ fn test_tagged_pdf_parent_tree_consistency() {
         )],
         metadata: Default::default(),
         default_page: PageConfig::default(),
+        first_page: None,
         fonts: vec![],
         tagged: true,
         pdfa: None,
@@ -4606,6 +4626,7 @@ fn test_tagged_pdf_nested_text_roles() {
         )],
         metadata: Default::default(),
         default_page: PageConfig::default(),
+        first_page: None,
         fonts: vec![],
         tagged: true,
         pdfa: None,
@@ -4702,6 +4723,7 @@ fn test_tagged_pdf_table_th_td() {
         )],
         metadata: Default::default(),
         default_page: PageConfig::default(),
+        first_page: None,
         fonts: vec![],
         tagged: true,
         pdfa: None,
@@ -4755,6 +4777,7 @@ fn test_tagged_pdf_figure_alt_text() {
         )],
         metadata: Default::default(),
         default_page: PageConfig::default(),
+        first_page: None,
         fonts: vec![],
         tagged: true,
         pdfa: None,
@@ -5023,6 +5046,7 @@ fn test_qrcode_renders_to_pdf() {
         }],
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
+        first_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -5056,6 +5080,7 @@ fn test_qrcode_with_explicit_size() {
         }],
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
+        first_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -5101,6 +5126,7 @@ fn test_qrcode_page_break() {
         children,
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
+        first_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -5158,6 +5184,7 @@ fn test_font_fallback_chain_in_document() {
         }],
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
+        first_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -5237,6 +5264,7 @@ fn test_text_overflow_ellipsis_single_line() {
             wrap: true,
             ..Default::default()
         },
+        first_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -5606,6 +5634,7 @@ fn test_document_default_style() {
         )],
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
+        first_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -5640,6 +5669,7 @@ fn test_embedded_data_round_trip() {
         )],
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
+        first_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -5727,6 +5757,7 @@ fn test_barcode_renders_to_pdf() {
         }],
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
+        first_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -5794,6 +5825,7 @@ fn test_barcode_layout_dimensions() {
         }],
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
+        first_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -5846,6 +5878,7 @@ fn auto_margin_horizontal_centers_child() {
         children: vec![page],
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
+        first_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -5902,6 +5935,7 @@ fn auto_margin_left_pushes_right() {
         children: vec![page],
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
+        first_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -6222,6 +6256,7 @@ fn test_bar_chart_layout_dimensions() {
         }],
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
+        first_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -6970,6 +7005,7 @@ fn test_pdf_ua_has_viewer_preferences() {
             ..Default::default()
         },
         default_page: PageConfig::default(),
+        first_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -7001,6 +7037,7 @@ fn test_pdf_ua_has_xmp_pdfuaid() {
             ..Default::default()
         },
         default_page: PageConfig::default(),
+        first_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -7025,6 +7062,7 @@ fn test_pdf_ua_forces_tagging() {
         children: vec![Node::text("Tagged by UA", Style::default())],
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
+        first_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -7060,6 +7098,7 @@ fn test_pdf_ua_and_pdfa_combined_xmp() {
             ..Default::default()
         },
         default_page: PageConfig::default(),
+        first_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -7097,6 +7136,7 @@ fn test_tagged_pdf_has_tab_order() {
         children: vec![Node::text("Tab order test", Style::default())],
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
+        first_page: None,
         fonts: vec![],
         tagged: true,
         pdfa: None,
@@ -7121,6 +7161,7 @@ fn test_untagged_pdf_no_tab_order() {
         children: vec![Node::text("No tabs", Style::default())],
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
+        first_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -7145,6 +7186,7 @@ fn test_tagged_role_map_complete() {
         children: vec![Node::text("RoleMap test", Style::default())],
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
+        first_page: None,
         fonts: vec![],
         tagged: true,
         pdfa: None,
@@ -7176,6 +7218,7 @@ fn test_tagged_struct_tree_has_lang() {
             ..Default::default()
         },
         default_page: PageConfig::default(),
+        first_page: None,
         fonts: vec![],
         tagged: true,
         pdfa: None,
@@ -7558,6 +7601,7 @@ fn test_certify_at_render_time() {
         children: vec![make_text("Render-time signed", 12.0)],
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
+        first_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -8007,6 +8051,7 @@ fn test_page_placeholder_survives_line_breaking() {
         children: vec![page],
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
+        first_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -8091,6 +8136,7 @@ fn test_two_pass_multi_page_common_case() {
         children: vec![page],
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
+        first_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -8142,6 +8188,7 @@ fn test_render_performance() {
         children: vec![page],
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
+        first_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -8227,6 +8274,7 @@ fn test_multi_weight_font_resolution() {
         ],
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
+        first_page: None,
         tagged: false,
         default_style: None,
         embedded_data: None,
@@ -8272,6 +8320,7 @@ fn test_svg_opacity_produces_ext_gstate() {
         fonts: vec![],
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
+        first_page: None,
         tagged: false,
         default_style: None,
         embedded_data: None,
@@ -8319,6 +8368,7 @@ fn test_svg_fill_opacity_produces_ext_gstate() {
         fonts: vec![],
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
+        first_page: None,
         tagged: false,
         default_style: None,
         embedded_data: None,
@@ -8360,6 +8410,7 @@ fn test_svg_inherited_group_opacity() {
         fonts: vec![],
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
+        first_page: None,
         tagged: false,
         default_style: None,
         embedded_data: None,
@@ -8676,6 +8727,7 @@ fn test_page_background_opacity_creates_extgstate() {
         children: vec![make_text("on top", 12.0)],
         metadata: Metadata::default(),
         default_page: config,
+        first_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -10262,6 +10314,7 @@ fn test_heading_emits_h1_through_h6_structure_roles_in_tagged_pdf() {
         )],
         metadata: Default::default(),
         default_page: PageConfig::default(),
+        first_page: None,
         fonts: vec![],
         tagged: true,
         pdfa: None,
@@ -10298,6 +10351,7 @@ fn test_heading_renders_text_content() {
         )],
         metadata: Default::default(),
         default_page: PageConfig::default(),
+        first_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -10487,6 +10541,7 @@ fn test_list_emits_l_li_lbl_in_tagged_pdf() {
         )],
         metadata: Default::default(),
         default_page: PageConfig::default(),
+        first_page: None,
         fonts: vec![],
         tagged: true,
         pdfa: None,
@@ -10901,6 +10956,7 @@ fn siblings_after_overflowing_flex_row_still_render() {
         children: vec![row, after],
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
+        first_page: None,
         fonts: vec![],
         default_style: None,
         tagged: false,
@@ -11108,4 +11164,239 @@ fn unbreakable_table_moves_to_next_page_whole() {
         "unbreakable table must stay on one page: {row_pages:?}"
     );
     assert_eq!(first, 1, "table must have moved off the crowded first page");
+}
+
+// ─── @page :first support (first_page config + FixedPageFilter) ────────
+
+fn fixed_band(height: f64, pages: FixedPageFilter) -> Node {
+    Node {
+        kind: NodeKind::Fixed {
+            position: FixedPosition::Header,
+            pages,
+        },
+        style: Style::default(),
+        children: vec![Node {
+            kind: NodeKind::View,
+            style: Style {
+                height: Some(Dimension::Pt(height)),
+                background_color: Some(Color::rgb(0.9, 0.9, 0.9)),
+                ..Default::default()
+            },
+            children: vec![make_text("RUNNING HEADER", 10.0)],
+            id: None,
+            source_location: None,
+            bookmark: None,
+            href: None,
+            alt: None,
+        }],
+        id: None,
+        source_location: None,
+        bookmark: None,
+        href: None,
+        alt: None,
+    }
+}
+
+fn tall_content(lines: usize) -> Node {
+    make_text(&vec!["content line"; lines].join("\n"), 12.0)
+}
+
+#[test]
+fn first_page_config_gives_page_one_its_own_margins() {
+    let doc = Document {
+        children: vec![tall_content(60)],
+        metadata: Metadata::default(),
+        default_page: PageConfig {
+            margin: Edges::uniform(54.0),
+            ..Default::default()
+        },
+        first_page: Some(PageConfig {
+            margin: Edges {
+                top: 120.0,
+                right: 54.0,
+                bottom: 54.0,
+                left: 54.0,
+            },
+            ..Default::default()
+        }),
+        fonts: vec![],
+        default_style: None,
+        tagged: false,
+        pdfa: None,
+        pdf_ua: false,
+        embedded_data: None,
+        flatten_forms: false,
+        certification: None,
+    };
+    let (_pdf, layout) = forme::render_with_layout(&doc).expect("Should render");
+    assert!(layout.pages.len() >= 2, "content must flow to page 2");
+    assert_eq!(layout.pages[0].content_y, 120.0, ":first margin-top");
+    assert_eq!(layout.pages[1].content_y, 54.0, "later pages use default");
+}
+
+#[test]
+fn not_first_header_skips_page_one() {
+    let doc = Document {
+        children: vec![
+            fixed_band(40.0, FixedPageFilter::NotFirst),
+            tall_content(80),
+        ],
+        metadata: Metadata::default(),
+        default_page: PageConfig::default(),
+        first_page: None,
+        fonts: vec![],
+        default_style: None,
+        tagged: false,
+        pdfa: None,
+        pdf_ua: false,
+        embedded_data: None,
+        flatten_forms: false,
+        certification: None,
+    };
+    let (_pdf, layout) = forme::render_with_layout(&doc).expect("Should render");
+    assert!(layout.pages.len() >= 2);
+
+    let page_has_header = |i: usize| -> bool {
+        let mut found = false;
+        fn walk(
+            els: &[forme::layout::ElementInfo],
+            f: &mut impl FnMut(&forme::layout::ElementInfo),
+        ) {
+            for el in els {
+                f(el);
+                walk(&el.children, f);
+            }
+        }
+        walk(&layout.pages[i].elements, &mut |el| {
+            if el
+                .text_content
+                .as_deref()
+                .is_some_and(|t| t.contains("RUNNING HEADER"))
+            {
+                found = true;
+            }
+        });
+        found
+    };
+    assert!(
+        !page_has_header(0),
+        "NotFirst header must not appear on page 1"
+    );
+    assert!(page_has_header(1), "NotFirst header must appear on page 2");
+
+    // Page 1 content starts at the margin; page 2 content starts below the band.
+    let first_el_y = |i: usize| {
+        layout.pages[i]
+            .elements
+            .iter()
+            .map(|e| e.y)
+            .fold(f64::MAX, f64::min)
+    };
+    assert!(
+        (first_el_y(0) - 54.0).abs() < 0.5,
+        "page 1 content at margin, got {}",
+        first_el_y(0)
+    );
+    // Page 2: band at margin top, content shifted 40pt down.
+    assert!(
+        (first_el_y(1) - 54.0).abs() < 0.5,
+        "page 2 band at margin top"
+    );
+}
+
+/// THE user-mandated interaction test: margin boxes (band trick: engine
+/// margin zeroed, Fixed band = the physical margin strip) combined with
+/// :first suppressing the running header. Individually correct, jointly
+/// wrong without the restore rule — page 1's content would start at the
+/// physical top of the paper (y = 0) because the margin it should have
+/// had was the band that got filtered off. `first_page` restoring the
+/// real margin is the fix; this test renders exactly that combination.
+#[test]
+fn first_page_restores_margin_when_its_band_is_suppressed() {
+    let band_height = 72.0;
+    let doc = Document {
+        children: vec![
+            fixed_band(band_height, FixedPageFilter::NotFirst),
+            tall_content(80),
+        ],
+        metadata: Metadata::default(),
+        // Band trick: top margin lives in the band, not the config...
+        default_page: PageConfig {
+            margin: Edges {
+                top: 0.0,
+                right: 54.0,
+                bottom: 54.0,
+                left: 54.0,
+            },
+            ..Default::default()
+        },
+        // ...so the page WITHOUT the band restores the real margin.
+        first_page: Some(PageConfig {
+            margin: Edges {
+                top: band_height,
+                right: 54.0,
+                bottom: 54.0,
+                left: 54.0,
+            },
+            ..Default::default()
+        }),
+        fonts: vec![],
+        default_style: None,
+        tagged: false,
+        pdfa: None,
+        pdf_ua: false,
+        embedded_data: None,
+        flatten_forms: false,
+        certification: None,
+    };
+    let (_pdf, layout) = forme::render_with_layout(&doc).expect("Should render");
+    assert!(layout.pages.len() >= 2);
+
+    // Page 1: no band, real margin restored — content must NOT start at
+    // the physical top of the paper.
+    let first_el_y = |i: usize| {
+        layout.pages[i]
+            .elements
+            .iter()
+            .map(|e| e.y)
+            .fold(f64::MAX, f64::min)
+    };
+    assert_eq!(
+        layout.pages[0].content_y, band_height,
+        "page 1 config must carry the restored margin"
+    );
+    assert!(
+        (first_el_y(0) - band_height).abs() < 0.5,
+        "page 1 content must start at the restored margin ({band_height}pt), got {}",
+        first_el_y(0)
+    );
+
+    // Page 2: band occupies the top strip (y = 0, the zeroed margin) and
+    // content starts exactly below it — where the margin would have been.
+    assert_eq!(layout.pages[1].content_y, 0.0);
+    assert!(
+        (first_el_y(1) - 0.0).abs() < 0.5,
+        "page 2 band must sit at the physical top, got {}",
+        first_el_y(1)
+    );
+    let mut content_min_y = f64::MAX;
+    fn walk(els: &[forme::layout::ElementInfo], f: &mut impl FnMut(&forme::layout::ElementInfo)) {
+        for el in els {
+            f(el);
+            walk(&el.children, f);
+        }
+    }
+    walk(&layout.pages[1].elements, &mut |el| {
+        if el
+            .text_content
+            .as_deref()
+            .is_some_and(|t| t.contains("content line"))
+        {
+            content_min_y = content_min_y.min(el.y);
+        }
+    });
+    assert!(
+        (content_min_y - band_height).abs() < 1.0,
+        "page 2 body content must start below the band (~{band_height}pt), got {content_min_y}"
+    );
 }

@@ -29,6 +29,13 @@ pub struct Document {
     #[serde(default)]
     pub default_page: PageConfig,
 
+    /// Page configuration for the FIRST page only, when it differs from
+    /// `default_page` (CSS `@page :first`). Margins and background may
+    /// vary; size should match `default_page` — flowing content bakes
+    /// widths at layout time, so per-page size changes are not supported.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub first_page: Option<PageConfig>,
+
     /// Custom fonts to register before layout. Each entry contains
     /// the font family name, base64-encoded font data, weight, and style.
     #[serde(default)]
@@ -577,10 +584,14 @@ pub enum NodeKind {
         row_span: u32,
     },
 
-    /// A fixed element that repeats on every page (headers, footers, page numbers).
+    /// A fixed element that repeats on pages (headers, footers, page numbers).
     Fixed {
         /// Where to place this element on the page.
         position: FixedPosition,
+        /// Which pages this element appears on (CSS `@page :first`
+        /// suppression maps to `NotFirst`). Defaults to all pages.
+        #[serde(default)]
+        pages: FixedPageFilter,
     },
 
     /// An explicit page break.
@@ -1060,6 +1071,30 @@ pub enum FixedPosition {
     Header,
     /// Bottom of the content area (above margin).
     Footer,
+}
+
+/// Which pages a fixed element repeats on.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum FixedPageFilter {
+    /// Every page (the default).
+    #[default]
+    All,
+    /// The first page only.
+    First,
+    /// Every page except the first.
+    NotFirst,
+}
+
+impl FixedPageFilter {
+    /// Does a fixed element with this filter appear on `page_index`
+    /// (0-based)?
+    pub fn applies(self, page_index: usize) -> bool {
+        match self {
+            FixedPageFilter::All => true,
+            FixedPageFilter::First => page_index == 0,
+            FixedPageFilter::NotFirst => page_index > 0,
+        }
+    }
 }
 
 /// Source code location for click-to-source in the dev server inspector.

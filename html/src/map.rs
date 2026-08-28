@@ -17,11 +17,12 @@
 
 use crate::css::{parse_style_attr, CssDisplay};
 use crate::dom::{DomNode, Element};
-use crate::sheet::{ElemKey, Rule, Stylesheet};
+use crate::sheet::{ElemKey, MarginBox, MarginBoxPos, Rule, Stylesheet};
 use crate::style::{resolve, Computed, MarginV, ROOT_FONT_SIZE};
 use crate::ua::ua_style;
 use forme::model::{
-    ColumnDef, ColumnWidth, EdgeValue, Edges, ListMarkerType, MarginEdges, Metadata, PageConfig,
+    ColumnDef, ColumnWidth, EdgeValue, Edges, FixedPosition, ListMarkerType, MarginEdges, Metadata,
+    PageConfig,
 };
 use forme::style::{
     Color, CornerValues, Dimension, EdgeValues, FlexDirection, FontStyle, TextDecoration,
@@ -62,6 +63,7 @@ pub fn map_html(body: &Element, sheet: Stylesheet, page: PageConfig) -> (Documen
         children,
         metadata: Metadata::default(),
         default_page: page,
+        first_page: None,
         fonts: vec![],
         default_style: None,
         tagged: false,
@@ -910,6 +912,100 @@ fn split_box_and_text_style(c: &Computed) -> (Style, Style) {
         ..Default::default()
     };
     (box_style, text_style)
+}
+
+// ── Margin boxes → Fixed bands ────────────────────────────────────────
+
+/// Build the Fixed node for one margin band (top or bottom).
+///
+/// The band trick that makes the mapping exact: the engine's page margin
+/// on this edge is set to 0 and this Fixed node, with explicit height
+/// equal to the declared `@page` margin, occupies precisely the strip CSS
+/// calls the margin. Content then starts exactly where `@page` said.
+/// Inside: a 3-cell flex row (left/center/right), vertically centered via
+/// justify-content on the fixed-height band.
+pub(crate) fn build_margin_band(
+    boxes: &[&MarginBox],
+    band_height: f64,
+    top: bool,
+    pages: forme::model::FixedPageFilter,
+    warnings: &mut Vec<String>,
+) -> Node {
+    let mut cells: Vec<Node> = Vec::new();
+    for slot in [0, 1, 2] {
+        let want = match (top, slot) {
+            (true, 0) => MarginBoxPos::TopLeft,
+            (true, 1) => MarginBoxPos::TopCenter,
+            (true, _) => MarginBoxPos::TopRight,
+            (false, 0) => MarginBoxPos::BottomLeft,
+            (false, 1) => MarginBoxPos::BottomCenter,
+            (false, _) => MarginBoxPos::BottomRight,
+        };
+        let align = match slot {
+            0 => forme::style::TextAlign::Left,
+            1 => forme::style::TextAlign::Center,
+            _ => forme::style::TextAlign::Right,
+        };
+        let cell_style = Style {
+            width: Some(Dimension::Percent(100.0 / 3.0)),
+            text_align: Some(align),
+            ..Default::default()
+        };
+        let content_node = boxes.iter().find(|b| b.position == want).map(|b| {
+            let computed = resolve(&b.style.normal, ROOT_FONT_SIZE, warnings);
+            let mut text_style = to_engine_style(&computed);
+            // Slot position dictates alignment unless the box set its own.
+            if text_style.text_align.is_none() {
+                text_style.text_align = Some(align);
+            }
+            // The band cell has no margins of its own.
+            text_style.margin = None;
+            make_node(
+                NodeKind::Text {
+                    content: b.content.clone(),
+                    href: None,
+                    runs: vec![],
+                },
+                text_style,
+                vec![],
+            )
+        });
+        cells.push(make_node(
+            NodeKind::View,
+            cell_style,
+            content_node.into_iter().collect(),
+        ));
+    }
+
+    let row = make_node(
+        NodeKind::View,
+        Style {
+            flex_direction: Some(FlexDirection::Row),
+            ..Default::default()
+        },
+        cells,
+    );
+    let band = make_node(
+        NodeKind::View,
+        Style {
+            height: Some(Dimension::Pt(band_height)),
+            justify_content: Some(forme::style::JustifyContent::Center),
+            ..Default::default()
+        },
+        vec![row],
+    );
+    make_node(
+        NodeKind::Fixed {
+            position: if top {
+                FixedPosition::Header
+            } else {
+                FixedPosition::Footer
+            },
+            pages,
+        },
+        Style::default(),
+        vec![band],
+    )
 }
 
 // ── Margin collapsing (pass 3) ────────────────────────────────────────

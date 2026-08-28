@@ -23,6 +23,61 @@ use cssparser::{Parser, ParserInput, Token};
 pub struct PageRule {
     pub size: Option<(f64, f64)>,
     pub margin: [Option<Length>; 4],
+    /// Margin boxes from the base `@page` rule (`@top-center`, ...).
+    pub margin_boxes: Vec<MarginBox>,
+    /// The `@page :first` variant, when present.
+    pub first: Option<FirstPageRule>,
+}
+
+/// The `@page :first` subset: margin overrides plus suppression of the
+/// base rule's margin boxes (`content: none` inside a box at-rule).
+#[derive(Debug, Clone, Default)]
+pub struct FirstPageRule {
+    pub margin: [Option<Length>; 4],
+    /// Box positions suppressed on the first page via `content: none`.
+    pub suppress: Vec<MarginBoxPos>,
+}
+
+/// The six supported margin boxes (corner boxes are out of subset).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MarginBoxPos {
+    TopLeft,
+    TopCenter,
+    TopRight,
+    BottomLeft,
+    BottomCenter,
+    BottomRight,
+}
+
+impl MarginBoxPos {
+    pub fn is_top(self) -> bool {
+        matches!(
+            self,
+            MarginBoxPos::TopLeft | MarginBoxPos::TopCenter | MarginBoxPos::TopRight
+        )
+    }
+
+    fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "top-left" => Some(MarginBoxPos::TopLeft),
+            "top-center" => Some(MarginBoxPos::TopCenter),
+            "top-right" => Some(MarginBoxPos::TopRight),
+            "bottom-left" => Some(MarginBoxPos::BottomLeft),
+            "bottom-center" => Some(MarginBoxPos::BottomCenter),
+            "bottom-right" => Some(MarginBoxPos::BottomRight),
+            _ => None,
+        }
+    }
+}
+
+/// One margin box: where it goes, its resolved `content()` template
+/// (counters already rewritten to the engine's `{{pageNumber}}` /
+/// `{{totalPages}}` placeholders), and any styling declared in its body.
+#[derive(Debug, Clone)]
+pub struct MarginBox {
+    pub position: MarginBoxPos,
+    pub content: String,
+    pub style: DeclBlock,
 }
 
 impl PageRule {
@@ -33,6 +88,23 @@ impl PageRule {
         for i in 0..4 {
             if other.margin[i].is_some() {
                 self.margin[i] = other.margin[i];
+            }
+        }
+        for mb in other.margin_boxes {
+            self.margin_boxes.retain(|b| b.position != mb.position);
+            self.margin_boxes.push(mb);
+        }
+        if let Some(first) = other.first {
+            let slot = self.first.get_or_insert_with(FirstPageRule::default);
+            for i in 0..4 {
+                if first.margin[i].is_some() {
+                    slot.margin[i] = first.margin[i];
+                }
+            }
+            for s in first.suppress {
+                if !slot.suppress.contains(&s) {
+                    slot.suppress.push(s);
+                }
             }
         }
     }
@@ -252,10 +324,11 @@ pub fn parse_stylesheet(css: &str, warnings: &mut Vec<String>) -> Stylesheet {
     sheet
 }
 
-/// Parse an `@page` rule: prelude (base or a pseudo-page variant we don't
-/// support yet), then a body of page descriptors. `size` and `margin*` are
-/// applied; margin-box at-rules (`@top-center`, ...) and other descriptors
-/// (`bleed`, `marks`, ...) are reported.
+/// Parse an `@page` rule: prelude (base or a pseudo-page variant), then a
+/// body of page descriptors and margin-box at-rules. `:first` supports
+/// margin overrides and `content: none` box suppression; `:left`/`:right`
+/// wait for demand (flowing-element x positions bake at layout time, so
+/// mirrored margins would misplace page-crossing fragments).
 fn parse_page_rule(
     parser: &mut Parser<'_, '_>,
     sheet: &mut Stylesheet,
@@ -268,15 +341,29 @@ fn parse_page_rule(
             Ok(Token::CurlyBracketBlock) => break,
             Ok(Token::Colon) => {
                 if let Ok(Token::Ident(id)) = parser.next_including_whitespace() {
-                    pseudo = Some(id.as_ref().to_string());
+                    pseudo = Some(id.to_ascii_lowercase());
                 }
             }
             Ok(_) => continue,
             Err(_) => return, // EOF before a block: nothing to do
         }
     }
+    let is_first = pseudo.as_deref() == Some("first");
+    if let Some(p) = &pseudo {
+        if !is_first {
+            warnings.push(format!(
+                "@page :{p} variants are not supported (rule skipped){}",
+                if matches!(p.as_str(), "left" | "right") {
+                    " — mirrored margins wait for re-layout-per-page"
+                } else {
+                    ""
+                }
+            ));
+        }
+    }
 
     let mut rule = PageRule::default();
+    let mut first = FirstPageRule::default();
     let mut local_warnings: Vec<String> = Vec::new();
     let _ = parser.parse_nested_block(|p| -> Result<(), cssparser::ParseError<'_, ()>> {
         loop {
@@ -287,24 +374,54 @@ fn parse_page_rule(
             match &tok {
                 Token::WhiteSpace(_) | Token::Semicolon => continue,
                 Token::AtKeyword(name) => {
-                    // Margin boxes: @top-left ... @bottom-right.
-                    local_warnings.push(format!(
-                        "@page margin box @{name} is not supported yet (skipped)"
-                    ));
-                    // Skip its block.
+                    let box_name = name.to_ascii_lowercase();
+                    let pos = MarginBoxPos::from_name(&box_name);
+                    if pos.is_none() {
+                        local_warnings.push(format!(
+                            "@page box @{box_name} is unsupported (only the six main margin boxes; skipped)"
+                        ));
+                    }
+                    // Find and parse the box body either way (to consume it).
+                    let mut body: Option<(Option<String>, DeclBlock)> = None;
                     loop {
                         match p.next_including_whitespace() {
                             Ok(Token::CurlyBracketBlock) => {
-                                let _ = p.parse_nested_block(
-                                    |q| -> Result<(), cssparser::ParseError<'_, ()>> {
-                                        while q.next_including_whitespace().is_ok() {}
-                                        Ok(())
+                                let parsed = p.parse_nested_block(
+                                    |q| -> Result<(Option<String>, DeclBlock), cssparser::ParseError<'_, ()>> {
+                                        Ok(parse_margin_box_body(q, &mut local_warnings))
                                     },
                                 );
+                                body = parsed.ok();
                                 break;
                             }
                             Ok(Token::Semicolon) | Err(_) => break,
                             Ok(_) => continue,
+                        }
+                    }
+                    if let (Some(pos), Some((content, style))) = (pos, body) {
+                        match content {
+                            // `content: none`
+                            None => {
+                                if is_first {
+                                    first.suppress.push(pos);
+                                } else {
+                                    rule.margin_boxes.retain(|b| b.position != pos);
+                                }
+                            }
+                            Some(content) => {
+                                if is_first {
+                                    local_warnings.push(format!(
+                                        "@page :first with its own @{box_name} content is unsupported (only `content: none` suppression; skipped)"
+                                    ));
+                                } else {
+                                    rule.margin_boxes.retain(|b| b.position != pos);
+                                    rule.margin_boxes.push(MarginBox {
+                                        position: pos,
+                                        content,
+                                        style,
+                                    });
+                                }
+                            }
                         }
                     }
                 }
@@ -316,7 +433,11 @@ fn parse_page_rule(
                     let _ = p.parse_until_after(
                         cssparser::Delimiter::Semicolon,
                         |v| -> Result<(), cssparser::ParseError<'_, ()>> {
-                            apply_page_descriptor(&name, v, &mut rule, &mut local_warnings);
+                            if is_first {
+                                apply_first_page_descriptor(&name, v, &mut first, &mut local_warnings);
+                            } else {
+                                apply_page_descriptor(&name, v, &mut rule, &mut local_warnings);
+                            }
                             Ok(())
                         },
                     );
@@ -328,16 +449,128 @@ fn parse_page_rule(
     });
     warnings.append(&mut local_warnings);
 
-    if let Some(pseudo) = pseudo {
-        warnings.push(format!(
-            "@page :{pseudo} variants are not supported yet (rule skipped)"
-        ));
-        return;
+    match pseudo {
+        None => {
+            sheet
+                .page
+                .get_or_insert_with(PageRule::default)
+                .merge_from(rule);
+        }
+        Some(_) if is_first => {
+            let delta = PageRule {
+                first: Some(first),
+                ..Default::default()
+            };
+            sheet
+                .page
+                .get_or_insert_with(PageRule::default)
+                .merge_from(delta);
+        }
+        Some(_) => {} // unsupported variant, already warned
     }
-    sheet
-        .page
-        .get_or_insert_with(PageRule::default)
-        .merge_from(rule);
+}
+
+/// A margin-box body: a `content` descriptor plus optional styling.
+/// Returns (content template, style). `content: none` → content = None.
+fn parse_margin_box_body(
+    p: &mut Parser<'_, '_>,
+    warnings: &mut Vec<String>,
+) -> (Option<String>, DeclBlock) {
+    let mut content: Option<String> = None;
+    let mut saw_content_none = false;
+    let mut style = DeclBlock::default();
+    while !p.is_exhausted() {
+        let _ = p.parse_until_after(
+            cssparser::Delimiter::Semicolon,
+            |d| -> Result<(), cssparser::ParseError<'_, ()>> {
+                let name = d.expect_ident()?.to_ascii_lowercase();
+                d.expect_colon()?;
+                if name == "content" {
+                    let (text, none) = parse_content_value(d, warnings);
+                    if none {
+                        saw_content_none = true;
+                    } else {
+                        content = Some(text);
+                    }
+                } else {
+                    // Regular styling for the box (color, font-size, ...).
+                    let mut decl = crate::css::CssStyle::default();
+                    let _ = d.parse_until_before(
+                        cssparser::Delimiter::Bang,
+                        |v| -> Result<(), cssparser::ParseError<'_, ()>> {
+                            crate::css::apply_declaration(&name, v, &mut decl, warnings);
+                            Ok(())
+                        },
+                    );
+                    style.normal = style.normal.merge(&decl);
+                }
+                Ok(())
+            },
+        );
+    }
+    if saw_content_none {
+        (None, style)
+    } else {
+        (Some(content.unwrap_or_default()), style)
+    }
+}
+
+/// `content: "Page " counter(page) " of " counter(pages)` → the engine's
+/// placeholder template. Unsupported content values (attr(), url(),
+/// string(), named counters) are reported.
+fn parse_content_value(p: &mut Parser<'_, '_>, warnings: &mut Vec<String>) -> (String, bool) {
+    let mut out = String::new();
+    let mut none = false;
+    while let Ok(tok) = p.next() {
+        let tok = tok.clone();
+        match &tok {
+            Token::QuotedString(s) => out.push_str(s.as_ref()),
+            Token::Ident(id) if id.eq_ignore_ascii_case("none") => none = true,
+            Token::Function(f) if f.eq_ignore_ascii_case("counter") => {
+                let counter =
+                    p.parse_nested_block(|q| -> Result<String, cssparser::ParseError<'_, ()>> {
+                        let mut name = String::new();
+                        while let Ok(t) = q.next() {
+                            if let Token::Ident(id) = t {
+                                name = id.to_ascii_lowercase();
+                            }
+                        }
+                        Ok(name)
+                    });
+                match counter.as_deref() {
+                    Ok("page") => out.push_str("{{pageNumber}}"),
+                    Ok("pages") => out.push_str("{{totalPages}}"),
+                    Ok(other) => {
+                        warnings.push(format!("unsupported counter '{other}' in content()"));
+                    }
+                    Err(_) => {}
+                }
+            }
+            other => {
+                warnings.push(format!("unsupported content() component: {other:?}"));
+            }
+        }
+    }
+    (out, none)
+}
+
+/// `@page :first` descriptors: margins only.
+fn apply_first_page_descriptor(
+    name: &str,
+    p: &mut Parser<'_, '_>,
+    first: &mut FirstPageRule,
+    warnings: &mut Vec<String>,
+) {
+    let mut probe = PageRule::default();
+    apply_page_descriptor(name, p, &mut probe, warnings);
+    if probe.size.is_some() {
+        warnings.push("@page :first size overrides are unsupported (margins only)".to_string());
+    }
+    for i in 0..4 {
+        if probe.margin[i].is_some() {
+            first.margin[i] = probe.margin[i];
+        }
+    }
 }
 
 /// One descriptor inside an `@page` body.
@@ -681,18 +914,48 @@ mod tests {
     }
 
     #[test]
-    fn at_page_pseudo_variant_warns_pending() {
+    fn at_page_first_margin_overrides_parse() {
         let (s, w) = sheet("@page :first { margin-top: 90pt } h1 { color: red }");
-        assert!(s.page.is_none(), "variant rule must not apply yet");
-        assert!(w.iter().any(|m| m.contains(":first")));
+        let first = s.page.unwrap().first.expect(":first captured");
+        assert_eq!(first.margin[0], Some(Length::Pt(90.0)));
+        assert!(w.is_empty(), "{w:?}");
         assert_eq!(s.rules.len(), 1, "following rules still parse");
     }
 
     #[test]
-    fn at_page_margin_box_warns_pending() {
-        let (s, w) = sheet("@page { margin: 54pt; @bottom-center { content: counter(page) } }");
-        assert_eq!(s.page.unwrap().margin[0], Some(Length::Pt(54.0)));
-        assert!(w.iter().any(|m| m.contains("@bottom-center")));
+    fn margin_box_content_counters_rewrite_to_placeholders() {
+        let (s, w) = sheet(
+            "@page { margin: 54pt; @bottom-center { content: \"Page \" counter(page) \" of \" counter(pages); color: #666 } }",
+        );
+        let page = s.page.unwrap();
+        assert_eq!(page.margin[0], Some(Length::Pt(54.0)));
+        assert_eq!(page.margin_boxes.len(), 1);
+        let mb = &page.margin_boxes[0];
+        assert_eq!(mb.position, MarginBoxPos::BottomCenter);
+        assert_eq!(mb.content, "Page {{pageNumber}} of {{totalPages}}");
+        assert!(mb.style.normal.color.is_some());
+        assert!(w.is_empty(), "{w:?}");
+    }
+
+    #[test]
+    fn first_content_none_suppresses_box() {
+        let (s, w) = sheet(
+            "@page { margin: 72pt; @top-center { content: \"Running\" } } \
+             @page :first { @top-center { content: none } }",
+        );
+        let page = s.page.unwrap();
+        assert_eq!(page.margin_boxes.len(), 1, "base box survives");
+        let first = page.first.expect(":first captured");
+        assert_eq!(first.suppress, vec![MarginBoxPos::TopCenter]);
+        assert!(w.is_empty(), "{w:?}");
+    }
+
+    #[test]
+    fn corner_boxes_and_left_right_variants_warn() {
+        let (_, w) = sheet("@page { @top-left-corner { content: \"x\" } }");
+        assert!(w.iter().any(|m| m.contains("@top-left-corner")));
+        let (_, w2) = sheet("@page :left { margin-right: 1in }");
+        assert!(w2.iter().any(|m| m.contains(":left")));
     }
 
     #[test]

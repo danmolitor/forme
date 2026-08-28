@@ -193,7 +193,7 @@ pub(crate) fn parse_declarations(
 }
 
 /// Dispatch one declaration into the style bag.
-fn apply_declaration(
+pub(crate) fn apply_declaration(
     name: &str,
     p: &mut Parser<'_, '_>,
     style: &mut CssStyle,

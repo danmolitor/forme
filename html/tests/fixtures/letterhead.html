@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<!--
+  The headline combo: a running letterhead in the top margin via margin
+  boxes, suppressed on the first (title) page via @page :first — the
+  interaction the band trick + page filters were designed together for.
+-->
+<html>
+<head>
+  <style>
+    @page {
+      margin: 72pt 54pt;
+      @top-center { content: "ACME WIDGET CO. — CONFIDENTIAL"; color: #888; font-size: 9pt }
+      @bottom-right { content: counter(page); color: #888 }
+    }
+    @page :first {
+      @top-center { content: none }
+    }
+    h1 { text-align: center; margin-top: 200pt }
+    .lede { text-align: center; color: #555 }
+    h2 { break-before: page }
+  </style>
+</head>
+<body>
+  <h1>2026 Strategy Memo</h1>
+  <p class="lede">Prepared for the board — do not distribute.</p>
+
+  <h2>Background</h2>
+  <p>Body content on an inner page, beneath the running letterhead.</p>
+
+  <h2>Recommendation</h2>
+  <p>More inner-page content, same letterhead.</p>
+</body>
+</html>
