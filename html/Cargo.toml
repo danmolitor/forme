@@ -14,3 +14,7 @@ cssparser = "0.37.0"
 forme-pdf = { version = "0.13.0", path = "../engine" }
 html5ever = "0.39.0"
 markup5ever_rcdom = "0.39.0"
+
+[[bin]]
+name = "forme-html"
+path = "src/main.rs"

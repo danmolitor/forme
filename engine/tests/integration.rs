@@ -10927,3 +10927,92 @@ fn siblings_after_overflowing_flex_row_still_render() {
         "first page must not be empty"
     );
 }
+
+/// Colspan regression (found by the HTML input path's totals rows): a
+/// `colspan=2` cell in a 3-column table must consume BOTH columns' widths,
+/// and the following cell must sit in the third column's slot — not the
+/// second's. The cell index was being used as the column index.
+#[test]
+fn colspan_cell_spans_columns_and_next_cell_lands_after_them() {
+    fn cell(text: &str, col_span: u32) -> Node {
+        Node {
+            kind: NodeKind::TableCell {
+                col_span,
+                row_span: 1,
+            },
+            style: Style::default(),
+            children: vec![make_text(text, 12.0)],
+            id: None,
+            source_location: None,
+            bookmark: None,
+            href: None,
+            alt: None,
+        }
+    }
+    fn row(cells: Vec<Node>) -> Node {
+        Node {
+            kind: NodeKind::TableRow { is_header: false },
+            style: Style::default(),
+            children: cells,
+            id: None,
+            source_location: None,
+            bookmark: None,
+            href: None,
+            alt: None,
+        }
+    }
+    let table = Node {
+        kind: NodeKind::Table { columns: vec![] }, // 3 equal columns
+        style: Style::default(),
+        children: vec![
+            row(vec![cell("a", 1), cell("b", 1), cell("c", 1)]),
+            row(vec![cell("Total", 2), cell("$74.00", 1)]),
+        ],
+        id: None,
+        source_location: None,
+        bookmark: None,
+        href: None,
+        alt: None,
+    };
+    let doc = default_doc(vec![table]);
+    let (_pdf, layout) = forme::render_with_layout(&doc).expect("Should render");
+
+    // Find both rows' cells.
+    fn cells_of_rows(els: &[forme::layout::ElementInfo], out: &mut Vec<Vec<(f64, f64)>>) {
+        for el in els {
+            if el.node_type == "TableRow" {
+                out.push(
+                    el.children
+                        .iter()
+                        .filter(|c| c.node_type == "TableCell")
+                        .map(|c| (c.x, c.width))
+                        .collect(),
+                );
+            }
+            cells_of_rows(&el.children, out);
+        }
+    }
+    let mut rows: Vec<Vec<(f64, f64)>> = Vec::new();
+    for page in &layout.pages {
+        cells_of_rows(&page.elements, &mut rows);
+    }
+    assert_eq!(rows.len(), 2);
+    let (normal, totals) = (&rows[0], &rows[1]);
+    assert_eq!(normal.len(), 3);
+    assert_eq!(totals.len(), 2);
+
+    let col_w = normal[0].1;
+    // The colspan cell is twice a normal column wide...
+    assert!(
+        (totals[0].1 - 2.0 * col_w).abs() < 0.5,
+        "colspan=2 cell width {} should be 2 × column width {col_w}",
+        totals[0].1
+    );
+    // ...and the following cell starts where the THIRD column starts.
+    assert!(
+        (totals[1].0 - normal[2].0).abs() < 0.5,
+        "cell after colspan starts at {}, third column starts at {}",
+        totals[1].0,
+        normal[2].0
+    );
+}

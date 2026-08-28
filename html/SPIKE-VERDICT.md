@@ -105,3 +105,12 @@ Phase 1 opened with the engine fixes; the three gaps above are now resolved:
    check pushed a new page even when the current page was empty. Now
    guarded (`cursor.y > 0.0`, matching the other break sites) and pinned
    by `siblings_after_overflowing_flex_row_still_render`.
+
+**Gap #4 (found during Phase 1, same day):** `layout_table_row` indexed
+`col_widths` by cell position, ignoring `col_span` — a colspan cell got one
+column's width and every following cell landed a slot too far left. The
+spike's invoice fixture masked it with an extra empty `<td>`; the Phase 1
+statement fixture's leaner totals row exposed it. Fixed in both the layout
+and row-height paths, pinned by
+`colspan_cell_spans_columns_and_next_cell_lands_after_them`. Four engine
+bugs from one new input path.

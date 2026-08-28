@@ -3145,8 +3145,19 @@ impl LayoutEngine {
 
         let mut all_overflow_pages: Vec<LayoutPage> = Vec::new();
         let mut cell_x = start_x;
-        for (i, cell) in row.children.iter().enumerate() {
-            let col_width = col_widths.get(i).copied().unwrap_or(0.0);
+        // Track the column index separately from the cell index: a colspan
+        // cell consumes several columns' widths, and the next cell must
+        // start past ALL of them. Indexing col_widths by cell position put
+        // every cell after a colspan one slot too far left (found by the
+        // HTML input path's totals rows).
+        let mut col_idx = 0usize;
+        for cell in row.children.iter() {
+            let span = match &cell.kind {
+                NodeKind::TableCell { col_span, .. } => (*col_span).max(1) as usize,
+                _ => 1,
+            };
+            let col_width: f64 = col_widths.iter().skip(col_idx).take(span).copied().sum();
+            col_idx += span;
 
             let cell_style = cell.style.resolve(Some(&row_style), col_width);
 
@@ -5625,8 +5636,14 @@ impl LayoutEngine {
             .resolve(Some(parent_style), col_widths.iter().sum());
         let mut max_height: f64 = 0.0;
 
-        for (i, cell) in row.children.iter().enumerate() {
-            let col_width = col_widths.get(i).copied().unwrap_or(0.0);
+        let mut col_idx = 0usize;
+        for cell in row.children.iter() {
+            let span = match &cell.kind {
+                NodeKind::TableCell { col_span, .. } => (*col_span).max(1) as usize,
+                _ => 1,
+            };
+            let col_width: f64 = col_widths.iter().skip(col_idx).take(span).copied().sum();
+            col_idx += span;
             let cell_style = cell.style.resolve(Some(&row_style), col_width);
             let inner_width =
                 col_width - cell_style.padding.horizontal() - cell_style.border_width.horizontal();

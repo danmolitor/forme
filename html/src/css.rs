@@ -1,9 +1,8 @@
-//! Inline-style declaration parsing via cssparser.
-//!
-//! Spike scope: `style=""` attributes only — stylesheet rules, selectors,
-//! and the cascade are Phase 1. Unknown properties are collected into a
-//! warnings list rather than silently dropped (the strict-mode seed from
-//! the spec).
+//! CSS declaration parsing via cssparser: property values, shorthand
+//! expansion, and the `!important` split. Shared by inline `style=""`
+//! attributes and stylesheet rule bodies (see `sheet.rs` for selectors
+//! and the cascade). Unknown properties are collected into a warnings
+//! list rather than silently dropped — the documented-subset contract.
 
 use cssparser::{Delimiter, ParseError, Parser, ParserInput, Token};
 use forme::style::{AlignItems, Color, FlexDirection, JustifyContent, TextAlign, TextDecoration};
@@ -106,26 +105,67 @@ impl CssStyle {
     }
 }
 
+/// A parsed declaration block, split by importance. `!important`
+/// declarations cascade in a higher bucket than everything normal.
+#[derive(Debug, Clone, Default)]
+pub struct DeclBlock {
+    pub normal: CssStyle,
+    pub important: CssStyle,
+}
+
 /// Parse a `style=""` attribute value. Malformed declarations are skipped
 /// (per CSS error recovery); unknown-but-well-formed properties land in
 /// `warnings`.
-pub fn parse_style_attr(input: &str, warnings: &mut Vec<String>) -> CssStyle {
-    let mut style = CssStyle::default();
+pub fn parse_style_attr(input: &str, warnings: &mut Vec<String>) -> DeclBlock {
+    let mut block = DeclBlock::default();
     let mut pin = ParserInput::new(input);
     let mut parser = Parser::new(&mut pin);
+    parse_declarations(&mut parser, &mut block, warnings);
+    block
+}
 
+/// The shared declaration-list loop: used for `style=""` attributes and
+/// for rule bodies inside stylesheets.
+pub(crate) fn parse_declarations(
+    parser: &mut Parser<'_, '_>,
+    block: &mut DeclBlock,
+    warnings: &mut Vec<String>,
+) {
     while !parser.is_exhausted() {
         let _ = parser.parse_until_after(
             Delimiter::Semicolon,
             |p| -> Result<(), ParseError<'_, ()>> {
                 let name = p.expect_ident()?.to_ascii_lowercase();
                 p.expect_colon()?;
-                apply_declaration(&name, p, &mut style, warnings);
+                // Bound the value at `!` so multi-token value parsers
+                // (margin shorthand, border, font-family) can't swallow a
+                // trailing `!important`.
+                let mut decl = CssStyle::default();
+                let _ =
+                    p.parse_until_before(Delimiter::Bang, |p| -> Result<(), ParseError<'_, ()>> {
+                        apply_declaration(&name, p, &mut decl, warnings);
+                        Ok(())
+                    });
+                let important = p
+                    .try_parse(|p| -> Result<(), ParseError<'_, ()>> {
+                        p.expect_delim('!')?;
+                        let id = p.expect_ident()?;
+                        if id.eq_ignore_ascii_case("important") {
+                            Ok(())
+                        } else {
+                            Err(p.new_custom_error(()))
+                        }
+                    })
+                    .is_ok();
+                if important {
+                    block.important = block.important.merge(&decl);
+                } else {
+                    block.normal = block.normal.merge(&decl);
+                }
                 Ok(())
             },
         );
     }
-    style
 }
 
 /// Dispatch one declaration into the style bag.
@@ -526,8 +566,26 @@ mod tests {
 
     fn parse(s: &str) -> (CssStyle, Vec<String>) {
         let mut warnings = Vec::new();
-        let style = parse_style_attr(s, &mut warnings);
-        (style, warnings)
+        let block = parse_style_attr(s, &mut warnings);
+        (block.normal, warnings)
+    }
+
+    #[test]
+    fn important_lands_in_its_own_bucket() {
+        let mut w = Vec::new();
+        let block = parse_style_attr("color: red !important; font-weight: bold", &mut w);
+        assert!(block.important.color.is_some());
+        assert!(block.normal.color.is_none());
+        assert_eq!(block.normal.font_weight, Some(700));
+    }
+
+    #[test]
+    fn important_after_shorthand_value() {
+        // The Bang delimiter must stop the multi-token margin parser.
+        let mut w = Vec::new();
+        let block = parse_style_attr("margin: 8px 16px !important", &mut w);
+        assert_eq!(block.important.margin[0], Some(Length::Pt(6.0)));
+        assert!(block.normal.margin[0].is_none());
     }
 
     #[test]

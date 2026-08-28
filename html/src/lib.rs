@@ -4,9 +4,14 @@
 //! paginated documents". Hand it the HTML you already have, get a correctly
 //! paginated PDF back. No headless browser.
 //!
-//! Phase 0 spike scope: inline styles (`style=""` attributes) plus a
-//! hardcoded UA stylesheet. Stylesheet CSS, selectors, and the cascade are
-//! Phase 1; `@page` and the paged-media features are Phase 2.
+//! Styling comes from three cascading origins: a built-in UA stylesheet,
+//! the document's `<style>` blocks (plus `HtmlOptions::css`), and inline
+//! `style=""` attributes. The supported CSS subset is documented
+//! property-by-property in the README; everything outside it is reported
+//! in the output's `warnings` — never silently dropped.
+//!
+//! `@page` and the paged-media features (margin boxes, `break-*`,
+//! counters) are the next phase.
 //!
 //! ```no_run
 //! use forme_pdf_html::{render_html, HtmlOptions};
@@ -19,6 +24,7 @@
 mod css;
 mod dom;
 mod map;
+mod sheet;
 mod style;
 mod ua;
 
@@ -32,8 +38,12 @@ pub struct HtmlOptions {
     /// Page size. Defaults to A4 (the engine default).
     pub page_size: PageSize,
     /// Uniform page margin in points. Defaults to the engine's 54pt
-    /// (~0.75in). `@page` margin parsing is Phase 2.
+    /// (~0.75in). `@page` margin parsing is the next phase.
     pub page_margin: Option<f64>,
+    /// Additional CSS applied AFTER the document's own `<style>` blocks —
+    /// equal-specificity rules here win ties, mirroring a stylesheet
+    /// appended at the end of the document.
+    pub css: Option<String>,
 }
 
 impl Default for HtmlOptions {
@@ -41,6 +51,7 @@ impl Default for HtmlOptions {
         HtmlOptions {
             page_size: PageSize::A4,
             page_margin: None,
+            css: None,
         }
     }
 }
@@ -78,8 +89,20 @@ fn page_config(options: &HtmlOptions) -> PageConfig {
 /// Convert HTML to the engine's document tree without rendering. Exposed
 /// for tests and tooling that want to inspect the mapping itself.
 pub fn html_to_document(html: &str, options: &HtmlOptions) -> (forme::Document, Vec<String>) {
-    let body = dom::parse_html(html);
-    map::map_html(&body, page_config(options))
+    let mut warnings = Vec::new();
+    let (body, style_texts) = dom::parse_html_with_styles(html);
+
+    let mut stylesheet = sheet::Stylesheet::default();
+    for text in &style_texts {
+        stylesheet.append(sheet::parse_stylesheet(text, &mut warnings));
+    }
+    if let Some(css) = &options.css {
+        stylesheet.append(sheet::parse_stylesheet(css, &mut warnings));
+    }
+
+    let (doc, map_warnings) = map::map_html(&body, stylesheet, page_config(options));
+    warnings.extend(map_warnings);
+    (doc, warnings)
 }
 
 /// Render an HTML string to PDF bytes.

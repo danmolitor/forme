@@ -34,18 +34,47 @@ pub enum DomNode {
     Text(String),
 }
 
-/// Parse an HTML string and return the `<body>` element.
-///
-/// html5ever builds the full html/head/body scaffolding even for fragments,
-/// so a body element always exists.
-pub fn parse_html(html: &str) -> Element {
+/// Parse an HTML string and return the `<body>` element. Test convenience
+/// wrapper around [`parse_html_with_styles`].
+#[cfg(test)]
+pub(crate) fn parse_html(html: &str) -> Element {
+    parse_html_with_styles(html).0
+}
+
+/// Parse an HTML string, returning the `<body>` element and the text of
+/// every `<style>` block in the document — including the ones in `<head>`,
+/// which the body-only mapper never sees.
+pub fn parse_html_with_styles(html: &str) -> (Element, Vec<String>) {
     let dom: RcDom = parse_document(RcDom::default(), Default::default()).one(html);
     let root = convert(&dom.document);
-    find_body(&root).unwrap_or(Element {
+    let mut styles = Vec::new();
+    collect_style_texts(&root, &mut styles);
+    let body = find_body(&root).unwrap_or(Element {
         tag: "body".to_string(),
         attrs: vec![],
         children: root.children,
-    })
+    });
+    (body, styles)
+}
+
+fn collect_style_texts(el: &Element, out: &mut Vec<String>) {
+    for child in &el.children {
+        if let DomNode::Element(e) = child {
+            if e.tag == "style" {
+                let text: String = e
+                    .children
+                    .iter()
+                    .filter_map(|c| match c {
+                        DomNode::Text(t) => Some(t.as_str()),
+                        _ => None,
+                    })
+                    .collect();
+                out.push(text);
+            } else {
+                collect_style_texts(e, out);
+            }
+        }
+    }
 }
 
 /// Convert the rcdom graph into the owned tree. The document node itself

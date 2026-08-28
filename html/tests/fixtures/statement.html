@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<!--
+  Phase 1 fixture: styled via a real stylesheet, the way templates in the
+  wild actually are — classes, descendant selectors, specificity conflicts,
+  and one !important. Inline styles appear only where the test needs to
+  prove cascade priority.
+-->
+<html>
+  <head>
+    <title>Account Statement</title>
+    <style>
+      /* Deliberate conflicts: each pair is a cascade assertion. */
+      body { color: #222222; }
+      h1 { color: #1a365d; font-size: 20pt; }
+
+      td { padding: 20px; color: #999999; }        /* loses both to table td */
+      table td { padding: 4px 6px; color: #333333; } /* (0,0,2) beats (0,0,1) */
+
+      .amount { text-align: right; }
+      .muted { color: #666666; }
+
+      #grand-total td { font-weight: 700; }        /* id wins over everything */
+
+      .status { color: #ff0000; }
+      p.status { color: #b45309 !important; }      /* important beats inline */
+
+      /* Source-order tie: same specificity, later wins. */
+      .tie { color: #111111; }
+      .tie { color: #0000ff; }
+
+      ul > li { color: #444444; }                  /* child combinator */
+
+      /* Unsupported selector: skipped with a warning, .kept still applies. */
+      td:hover, .kept { text-decoration: underline; }
+
+      @media print { h1 { color: #ff00ff; } }      /* skipped, warned */
+    </style>
+  </head>
+  <body>
+    <h1>Account Statement</h1>
+    <p class="muted">Statement period: August 1–28, 2026</p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Description</th>
+          <th class="amount">Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Aug 03</td>
+          <td>Widget Pro subscription</td>
+          <td class="amount">$49.00</td>
+        </tr>
+        <tr>
+          <td>Aug 17</td>
+          <td>Support plan</td>
+          <td class="amount">$25.00</td>
+        </tr>
+        <tr id="grand-total">
+          <td colspan="2">Total</td>
+          <td class="amount">$74.00</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p class="status" style="color: #00ff00">Payment overdue</p>
+    <p class="tie">Tie-breaker paragraph</p>
+    <p class="kept">Kept selector paragraph</p>
+
+    <ul>
+      <li>Autopay is enabled for this account.</li>
+    </ul>
+  </body>
+</html>

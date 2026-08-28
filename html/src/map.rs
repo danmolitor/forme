@@ -17,6 +17,7 @@
 
 use crate::css::{parse_style_attr, CssDisplay};
 use crate::dom::{DomNode, Element};
+use crate::sheet::{ElemKey, Rule, Stylesheet};
 use crate::style::{resolve, Computed, MarginV, ROOT_FONT_SIZE};
 use crate::ua::ua_style;
 use forme::model::{
@@ -29,12 +30,21 @@ use forme::{Document, Node, NodeKind, Style, TextRun};
 
 pub struct Mapper {
     pub warnings: Vec<String>,
+    /// Cascade input: document `<style>` blocks + any caller-provided CSS,
+    /// already concatenated in origin order.
+    sheet: Stylesheet,
+    /// Ancestor identities (root → parent) for selector matching. Pushed
+    /// and popped around every recursion into an element's children —
+    /// including inline elements, which stylesheet rules also target.
+    stack: Vec<ElemKey>,
 }
 
 /// Map a parsed `<body>` element to a complete engine document.
-pub fn map_html(body: &Element, page: PageConfig) -> (Document, Vec<String>) {
+pub fn map_html(body: &Element, sheet: Stylesheet, page: PageConfig) -> (Document, Vec<String>) {
     let mut mapper = Mapper {
         warnings: Vec::new(),
+        sheet,
+        stack: Vec::new(),
     };
     let children = match mapper.map_block_element(body, ROOT_FONT_SIZE) {
         Some(node) => vec![node],
@@ -254,12 +264,44 @@ impl InlineFlattener {
 
 // ── The mapper ────────────────────────────────────────────────────────
 
+/// Build a selector-matching identity from an element's tag + attributes.
+fn elem_key(el: &Element) -> ElemKey {
+    ElemKey {
+        tag: el.tag.clone(),
+        id: el.attr("id").map(str::to_string),
+        classes: el
+            .attr("class")
+            .map(|c| c.split_whitespace().map(str::to_string).collect())
+            .unwrap_or_default(),
+    }
+}
+
 impl Mapper {
-    /// Compute an element's style: UA defaults layered under its inline
-    /// `style=""` attribute, resolved against the parent's font size.
+    /// Compute an element's style through the full cascade:
+    /// UA defaults → matching stylesheet rules ascending by (specificity,
+    /// source order) → inline style → `!important` rules in the same
+    /// order → inline `!important`. Resolved against the parent font size.
     fn computed_for(&mut self, el: &Element, parent_font_size: f64) -> Computed {
+        let key = elem_key(el);
+        let mut matched: Vec<&Rule> = self
+            .sheet
+            .rules
+            .iter()
+            .filter(|r| r.selector.matches(&key, &self.stack))
+            .collect();
+        matched.sort_by_key(|r| (r.selector.specificity, r.order));
+
         let inline = parse_style_attr(el.attr("style").unwrap_or(""), &mut self.warnings);
-        let merged = ua_style(&el.tag).merge(&inline);
+
+        let mut merged = ua_style(&el.tag);
+        for r in &matched {
+            merged = merged.merge(&r.block.normal);
+        }
+        merged = merged.merge(&inline.normal);
+        for r in &matched {
+            merged = merged.merge(&r.block.important);
+        }
+        merged = merged.merge(&inline.important);
         resolve(&merged, parent_font_size, &mut self.warnings)
     }
 
@@ -273,7 +315,9 @@ impl Mapper {
             return None;
         }
 
-        match el.tag.as_str() {
+        // The element becomes an ancestor for everything mapped inside it.
+        self.stack.push(elem_key(el));
+        let node = match el.tag.as_str() {
             "table" => self.map_table(el, &computed),
             "ul" | "ol" => self.map_list(el, &computed),
             "img" => self.map_img(el, &computed),
@@ -295,7 +339,9 @@ impl Mapper {
                     children,
                 ))
             }
-        }
+        };
+        self.stack.pop();
+        node
     }
 
     /// Map the children of a block container, grouping consecutive inline
@@ -364,9 +410,11 @@ impl Mapper {
                 let computed = self.computed_for(e, font_size);
                 let href = if e.tag == "a" { e.attr("href") } else { None };
                 let inner = style.apply(&computed, href);
+                self.stack.push(elem_key(e));
                 for child in &e.children {
                     self.flatten_item(child, &inner, computed.font_size, flattener);
                 }
+                self.stack.pop();
             }
             DomNode::Element(e) => {
                 // A block (or replaced) element inside inline flow — the
@@ -445,7 +493,9 @@ impl Mapper {
             match child {
                 DomNode::Element(e) if e.tag == "li" => {
                     let li_computed = self.computed_for(e, computed.font_size);
+                    self.stack.push(elem_key(e));
                     let li_children = self.map_children(&e.children, &li_computed);
+                    self.stack.pop();
                     items.push(make_node(
                         NodeKind::ListItem,
                         to_engine_style(&li_computed),
@@ -548,6 +598,7 @@ impl Mapper {
 
     fn map_tr(&mut self, el: &Element, is_header: bool, font_size: f64) -> Node {
         let row_computed = self.computed_for(el, font_size);
+        self.stack.push(elem_key(el));
         let mut cells = Vec::new();
         for child in &el.children {
             match child {
@@ -559,7 +610,9 @@ impl Mapper {
                             .unwrap_or(1)
                             .max(1)
                     };
+                    self.stack.push(elem_key(e));
                     let content = self.map_children(&e.children, &cell_computed);
+                    self.stack.pop();
                     cells.push(make_node(
                         NodeKind::TableCell {
                             col_span: span("colspan"),
@@ -576,6 +629,7 @@ impl Mapper {
                 }
             }
         }
+        self.stack.pop();
         make_node(
             NodeKind::TableRow { is_header },
             to_engine_style(&row_computed),
@@ -903,7 +957,7 @@ mod tests {
 
     fn map(html: &str) -> (Document, Vec<String>) {
         let body = parse_html(html);
-        map_html(&body, PageConfig::default())
+        map_html(&body, Stylesheet::default(), PageConfig::default())
     }
 
     fn body_children(doc: &Document) -> &[Node] {
