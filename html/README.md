@@ -79,13 +79,32 @@ noted in the warnings).
 
 ### Paged media — the point of the whole thing
 
-Working today, inherited from the engine: page-native pagination, `<thead>`
-repetition across page breaks, widow/orphan control, table-cell overflow
-preservation.
+| In | Pending (warned) |
+|---|---|
+| `@page` `size` (named, dimensions, `landscape`) and `margin` | `@page :first` / `:left` / `:right` variants |
+| `break-before` / `break-after` / `break-inside: avoid` | margin boxes (`@top-center`, ...) for running headers/footers |
+| legacy `page-break-*` aliases (the wkhtmltopdf-era spelling) | page counters (`counter(page)` / `counter(pages)`) |
+| `orphans` / `widows` | `@page` `bleed` / `marks` |
+| `<thead>` repetition across breaks, table-cell overflow preservation (engine-native) | |
 
-Next phase (in progress): `@page` (size, margins, `:first`/`:left`/`:right`),
-margin boxes for running headers/footers, `break-before/after/inside`,
-page counters ("Page X of Y"). `@page` rules currently warn as skipped.
+Page-geometry precedence: an explicit `HtmlOptions`/CLI value overrides the
+document's `@page` rule, which overrides the defaults — the same way a
+print dialog overrides a stylesheet.
+
+**Verified against Chrome print output**: the report fixture
+(`tests/fixtures/report.html`) renders with page-for-page identical break
+positions in both engines — `break-after` isolating the summary page,
+`break-inside: avoid` moving a table to the next page whole, and the
+legacy alias opening its own page. Frozen reference:
+`tests/fixtures/report.chrome-reference.pdf`.
+
+**How this compares.** wkhtmltopdf (archived 2023) and DomPDF never
+shipped margin boxes or reliable break control. Chrome only gained
+margin-box generated content in Chrome 131 (late 2024) and still requires
+a running browser to use it. The engine underneath this crate has had
+running headers/footers, header repetition, and widow/orphan control from
+the start — the pending column above is CSS syntax wiring, not layout
+capability.
 
 ## Semantics worth knowing
 

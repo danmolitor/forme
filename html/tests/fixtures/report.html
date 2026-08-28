@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<!--
+  Phase 2 fixture: paged media, written like a real print stylesheet —
+  including the parts we don't support yet (:first, @bottom-center, bleed),
+  which must land in warnings, not errors. Uses both modern break-* and the
+  wkhtmltopdf-era page-break-* aliases the migration audience actually has.
+-->
+<html>
+<head>
+  <title>Quarterly Report</title>
+  <style>
+    @page {
+      size: Letter;
+      margin: 72pt 60pt;
+      bleed: 3mm;                       /* unsupported descriptor -> warning */
+      @bottom-center {                  /* margin box -> pending warning */
+        content: "Page " counter(page) " of " counter(pages);
+      }
+    }
+    @page :first { margin-top: 120pt }  /* variant -> pending warning */
+
+    body { color: #1f2430; }
+    h1 { font-size: 22pt; }
+    h2.section {
+        break-before: page;             /* modern name */
+        font-size: 16pt;
+        color: #1a365d; }
+    .legacy-section { page-break-before: always }   /* wkhtmltopdf-era alias */
+    .summary { break-after: page }
+    table { break-inside: avoid }
+    p { orphans: 3; widows: 3 }
+    td, th { padding: 4px 8px }
+    .filler { color: #444 }
+  </style>
+</head>
+<body>
+
+  <h1>Quarterly Report</h1>
+  <p class="summary">
+    Executive summary: revenue grew for the third consecutive quarter.
+    The sections that follow each start on their own page.
+  </p>
+
+  <h2 class="section">Section One — Filler</h2>
+  <p class="filler">Paragraph one of the filler block, present to give the page some body.</p>
+  <p class="filler">Paragraph two of the filler block, present to give the page some body.</p>
+  <p class="filler">Paragraph three of the filler block, present to give the page some body.</p>
+  <!-- Deterministic spacer: eats most of the page so the table below
+       cannot fit in what remains. -->
+  <div style="height: 430pt"></div>
+  <p class="filler">Final paragraph, pushing the table close to the page bottom.</p>
+
+  <!-- Sized so it won't fit in what's left of the page: break-inside:
+       avoid must move it to the next page WHOLE, not split it. -->
+  <table>
+    <thead>
+      <tr><th>Region</th><th>Q3</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>North</td><td>$412k</td></tr>
+      <tr><td>South</td><td>$388k</td></tr>
+      <tr><td>East</td><td>$293k</td></tr>
+      <tr><td>West</td><td>$305k</td></tr>
+      <tr><td>Central</td><td>$251k</td></tr>
+      <tr><td>Offshore</td><td>$140k</td></tr>
+    </tbody>
+  </table>
+
+  <h2 class="legacy-section">Section Two — Legacy Alias</h2>
+  <p>This section used <em>page-break-before: always</em>, the pre-2018
+     spelling every wkhtmltopdf template still carries.</p>
+
+</body>
+</html>

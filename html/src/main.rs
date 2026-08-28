@@ -18,8 +18,10 @@ USAGE:
 OPTIONS:
     -o, --output <file>     Output path (default: input with .pdf extension)
         --css <file>        Extra stylesheet applied after the document's own
-        --page-size <size>  A4 (default), A3, A5, Letter, Legal, Tabloid
-        --margin <pt>       Uniform page margin in points (default: 54)
+        --page-size <size>  A4, A3, A5, Letter, Legal, Tabloid
+                            (overrides the document's @page rule; default A4)
+        --margin <pt>       Uniform page margin in points
+                            (overrides @page margins; default 54)
     -q, --quiet             Suppress unsupported-CSS warnings
     -h, --help              Show this help
 ";
@@ -56,7 +58,7 @@ fn main() -> ExitCode {
                 "--css" => css_path = Some(take_value(&mut i)?),
                 "--page-size" => {
                     let v = take_value(&mut i)?;
-                    options.page_size = match v.to_ascii_lowercase().as_str() {
+                    options.page_size = Some(match v.to_ascii_lowercase().as_str() {
                         "a4" => PageSize::A4,
                         "a3" => PageSize::A3,
                         "a5" => PageSize::A5,
@@ -64,7 +66,7 @@ fn main() -> ExitCode {
                         "legal" => PageSize::Legal,
                         "tabloid" => PageSize::Tabloid,
                         other => return Err(format!("unknown page size '{other}'")),
-                    };
+                    });
                 }
                 "--margin" => {
                     let v = take_value(&mut i)?;

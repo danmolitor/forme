@@ -8,7 +8,7 @@
 //! wrong silently halves h1's UA margins and would make the spike's
 //! margin-collapse assertion pass for the wrong reason.
 
-use crate::css::{CssDisplay, CssStyle, Length, LineHeight};
+use crate::css::{BreakInsideVal, BreakVal, CssDisplay, CssStyle, Length, LineHeight};
 use forme::style::{
     AlignItems, Color, Dimension, FlexDirection, JustifyContent, TextAlign, TextDecoration,
 };
@@ -58,6 +58,12 @@ pub struct Computed {
     pub justify_content: Option<JustifyContent>,
     pub align_items: Option<AlignItems>,
     pub gap: Option<f64>,
+
+    pub break_before: Option<BreakVal>,
+    pub break_after: Option<BreakVal>,
+    pub break_inside: Option<BreakInsideVal>,
+    pub orphans: Option<u32>,
+    pub widows: Option<u32>,
 }
 
 /// Resolve a merged declaration bag against the parent's computed font size.
@@ -149,6 +155,11 @@ pub fn resolve(css: &CssStyle, parent_font_size: f64, warnings: &mut Vec<String>
         justify_content: css.justify_content,
         align_items: css.align_items,
         gap: css.gap,
+        break_before: css.break_before,
+        break_after: css.break_after,
+        break_inside: css.break_inside,
+        orphans: css.orphans,
+        widows: css.widows,
     }
 }
 

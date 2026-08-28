@@ -2907,6 +2907,31 @@ impl LayoutEngine {
             }
         }
 
+        // break-inside: avoid (wrap: false). Row-by-row pagination below
+        // ignores breakability, so an unbreakable table that doesn't fit
+        // must move to a fresh page here — whole — before any row lands.
+        // A table taller than a full page falls through to normal
+        // pagination: breaking is unavoidable and splitting beats clipping.
+        if !style.breakable {
+            let total_height: f64 = node
+                .children
+                .iter()
+                .map(|r| self.measure_table_row_height(r, &col_widths, style, font_context))
+                .sum::<f64>()
+                + padding.vertical()
+                + border.vertical();
+            let fresh_page_available = cursor.content_height
+                - cursor.fixed_header.iter().map(|(_, h)| *h).sum::<f64>()
+                - cursor.fixed_footer.iter().map(|(_, h)| *h).sum::<f64>();
+            if total_height > cursor.remaining_height()
+                && total_height <= fresh_page_available
+                && cursor.y > 0.0
+            {
+                pages.push(cursor.finalize());
+                *cursor = cursor.new_page();
+            }
+        }
+
         // Snapshot-and-collect state for the Table wrapper element (same
         // clone-semantics fragment wrapping as layout_breakable_view). Two
         // consumers need a real Table container: table-level border and

@@ -37,6 +37,13 @@ pub struct Mapper {
     /// and popped around every recursion into an element's children —
     /// including inline elements, which stylesheet rules also target.
     stack: Vec<ElemKey>,
+    /// Set when a mapped element carried `break-after: page`; consumed by
+    /// the containing `map_children` loop, which turns it into
+    /// `break_before` on the NEXT sibling (the engine has no break-after).
+    /// A set flag surviving to the end of a container deliberately leaks
+    /// to the container's own next sibling — that matches CSS break
+    /// propagation from last children to the parent's after-edge.
+    pending_break_after: bool,
 }
 
 /// Map a parsed `<body>` element to a complete engine document.
@@ -45,6 +52,7 @@ pub fn map_html(body: &Element, sheet: Stylesheet, page: PageConfig) -> (Documen
         warnings: Vec::new(),
         sheet,
         stack: Vec::new(),
+        pending_break_after: false,
     };
     let children = match mapper.map_block_element(body, ROOT_FONT_SIZE) {
         Some(node) => vec![node],
@@ -314,6 +322,7 @@ impl Mapper {
         if computed.display == CssDisplay::None {
             return None;
         }
+        let computed_break_after = computed.break_after;
 
         // The element becomes an ancestor for everything mapped inside it.
         self.stack.push(elem_key(el));
@@ -341,6 +350,12 @@ impl Mapper {
             }
         };
         self.stack.pop();
+        // Set AFTER the children recursion: the flag targets this element's
+        // next sibling, and setting it earlier would hand it to our own
+        // first block child instead.
+        if matches!(computed_break_after, Some(crate::css::BreakVal::Page)) {
+            self.pending_break_after = true;
+        }
         node
     }
 
@@ -360,8 +375,21 @@ impl Mapper {
             } else if let DomNode::Element(e) = child {
                 self.flush_inline_group(&mut inline_buf, parent, &mut out);
                 if !is_skip(&e.tag) {
-                    if let Some(node) = self.map_block_element(e, parent.font_size) {
-                        out.push(node);
+                    // A pending break-after from the previous sibling
+                    // becomes break_before here (the engine's only break
+                    // primitive). If this element maps to nothing
+                    // (display:none), the pending break carries forward.
+                    let pending = std::mem::take(&mut self.pending_break_after);
+                    match self.map_block_element(e, parent.font_size) {
+                        Some(mut node) => {
+                            if pending {
+                                node.style.break_before = Some(true);
+                            }
+                            out.push(node);
+                        }
+                        None => {
+                            self.pending_break_after = self.pending_break_after || pending;
+                        }
                     }
                 }
             }
@@ -391,7 +419,11 @@ impl Mapper {
         if runs.is_empty() {
             return;
         }
-        out.push(text_node_from_runs(runs, Style::default(), None));
+        let mut style = Style::default();
+        if std::mem::take(&mut self.pending_break_after) {
+            style.break_before = Some(true);
+        }
+        out.push(text_node_from_runs(runs, style, None));
     }
 
     /// Recursive inline flattening (pass 1 lives in the flattener's state).
@@ -825,6 +857,17 @@ fn to_engine_style(c: &Computed) -> Style {
     s.color = c.color;
     s.background_color = c.background_color;
     s.text_decoration = c.text_decoration;
+
+    if matches!(c.break_before, Some(crate::css::BreakVal::Page)) {
+        s.break_before = Some(true);
+    }
+    if matches!(c.break_inside, Some(crate::css::BreakInsideVal::Avoid)) {
+        // The engine's wrap=false means "keep together; move to the next
+        // page if it doesn't fit" — exactly break-inside: avoid.
+        s.wrap = Some(false);
+    }
+    s.min_orphan_lines = c.orphans;
+    s.min_widow_lines = c.widows;
 
     if c.display == CssDisplay::Flex {
         // CSS flex defaults to row; the engine's View defaults to column.

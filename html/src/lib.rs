@@ -33,27 +33,21 @@ use forme::model::{Edges, PageConfig};
 pub use forme::{FormeError, LayoutInfo};
 
 /// Options for HTML rendering.
-#[derive(Debug, Clone)]
+///
+/// Page geometry precedence: an explicit option here overrides the
+/// document's `@page` rule, which overrides the defaults (A4, 54pt
+/// margins) — mirroring how a print dialog overrides a stylesheet.
+#[derive(Debug, Clone, Default)]
 pub struct HtmlOptions {
-    /// Page size. Defaults to A4 (the engine default).
-    pub page_size: PageSize,
-    /// Uniform page margin in points. Defaults to the engine's 54pt
-    /// (~0.75in). `@page` margin parsing is the next phase.
+    /// Page size override. `None` uses `@page size` if present, else A4.
+    pub page_size: Option<PageSize>,
+    /// Uniform page margin override in points. `None` uses `@page margin`
+    /// if present, else the engine's 54pt (~0.75in).
     pub page_margin: Option<f64>,
     /// Additional CSS applied AFTER the document's own `<style>` blocks —
     /// equal-specificity rules here win ties, mirroring a stylesheet
     /// appended at the end of the document.
     pub css: Option<String>,
-}
-
-impl Default for HtmlOptions {
-    fn default() -> Self {
-        HtmlOptions {
-            page_size: PageSize::A4,
-            page_margin: None,
-            css: None,
-        }
-    }
 }
 
 /// Rendered output: PDF bytes plus any warnings about unsupported CSS.
@@ -75,11 +69,51 @@ pub struct HtmlLayoutOutput {
     pub warnings: Vec<String>,
 }
 
-fn page_config(options: &HtmlOptions) -> PageConfig {
-    let mut config = PageConfig {
-        size: options.page_size,
-        ..Default::default()
-    };
+fn page_config(
+    options: &HtmlOptions,
+    page_rule: Option<&sheet::PageRule>,
+    warnings: &mut Vec<String>,
+) -> PageConfig {
+    let mut config = PageConfig::default();
+
+    // @page size, then the explicit option on top.
+    if let Some((w, h)) = page_rule.and_then(|r| r.size) {
+        config.size = PageSize::Custom {
+            width: w,
+            height: h,
+        };
+    }
+    if let Some(size) = options.page_size {
+        config.size = size;
+    }
+
+    // @page margins, then the explicit uniform-margin option on top.
+    if let Some(rule) = page_rule {
+        let resolve = |l: css::Length, warnings: &mut Vec<String>| -> Option<f64> {
+            match l {
+                css::Length::Pt(v) => Some(v),
+                css::Length::Em(e) => Some(e * style::ROOT_FONT_SIZE),
+                css::Length::Rem(r) => Some(r * style::ROOT_FONT_SIZE),
+                css::Length::Auto => None,
+                css::Length::Percent(_) => {
+                    warnings.push("percentage @page margins are unsupported".to_string());
+                    None
+                }
+            }
+        };
+        if let Some(v) = rule.margin[0].and_then(|l| resolve(l, warnings)) {
+            config.margin.top = v;
+        }
+        if let Some(v) = rule.margin[1].and_then(|l| resolve(l, warnings)) {
+            config.margin.right = v;
+        }
+        if let Some(v) = rule.margin[2].and_then(|l| resolve(l, warnings)) {
+            config.margin.bottom = v;
+        }
+        if let Some(v) = rule.margin[3].and_then(|l| resolve(l, warnings)) {
+            config.margin.left = v;
+        }
+    }
     if let Some(m) = options.page_margin {
         config.margin = Edges::uniform(m);
     }
@@ -100,7 +134,8 @@ pub fn html_to_document(html: &str, options: &HtmlOptions) -> (forme::Document, 
         stylesheet.append(sheet::parse_stylesheet(css, &mut warnings));
     }
 
-    let (doc, map_warnings) = map::map_html(&body, stylesheet, page_config(options));
+    let config = page_config(options, stylesheet.page.as_ref(), &mut warnings);
+    let (doc, map_warnings) = map::map_html(&body, stylesheet, config);
     warnings.extend(map_warnings);
     (doc, warnings)
 }

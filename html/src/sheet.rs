@@ -13,8 +13,30 @@
 //! parent/sibling pointers our owned DOM doesn't have, and the subset
 //! above needs ~150 lines total. Swappable later if the subset grows.
 
-use crate::css::{parse_declarations, DeclBlock};
+use crate::css::{parse_declarations, DeclBlock, Length};
 use cssparser::{Parser, ParserInput, Token};
+
+/// Page geometry from `@page` rules: size in points, margins as written
+/// (em resolves against the root font size at application time).
+/// Multiple `@page` blocks merge, later winning per-field.
+#[derive(Debug, Clone, Default)]
+pub struct PageRule {
+    pub size: Option<(f64, f64)>,
+    pub margin: [Option<Length>; 4],
+}
+
+impl PageRule {
+    fn merge_from(&mut self, other: PageRule) {
+        if other.size.is_some() {
+            self.size = other.size;
+        }
+        for i in 0..4 {
+            if other.margin[i].is_some() {
+                self.margin[i] = other.margin[i];
+            }
+        }
+    }
+}
 
 /// One compound selector: everything between combinators.
 #[derive(Debug, Clone, Default)]
@@ -144,6 +166,9 @@ pub struct Rule {
 #[derive(Debug, Clone, Default)]
 pub struct Stylesheet {
     pub rules: Vec<Rule>,
+    /// Merged geometry from base `@page` rules ( `:first`/`:left`/`:right`
+    /// variants are reported as pending and not yet applied).
+    pub page: Option<PageRule>,
 }
 
 impl Stylesheet {
@@ -155,6 +180,11 @@ impl Stylesheet {
             r.order += base;
         }
         self.rules.extend(other.rules);
+        if let Some(pr) = other.page {
+            self.page
+                .get_or_insert_with(PageRule::default)
+                .merge_from(pr);
+        }
     }
 }
 
@@ -172,15 +202,12 @@ pub fn parse_stylesheet(css: &str, warnings: &mut Vec<String>) -> Stylesheet {
             Err(_) => break,
         };
         match &tok {
+            Token::AtKeyword(name) if name.eq_ignore_ascii_case("page") => {
+                parse_page_rule(&mut parser, &mut sheet, warnings);
+                prelude = SelectorPrelude::new();
+            }
             Token::AtKeyword(name) => {
-                warnings.push(format!(
-                    "@{name} rules are unsupported in v0 (skipped){}",
-                    if name.eq_ignore_ascii_case("page") {
-                        " — @page support is planned"
-                    } else {
-                        ""
-                    }
-                ));
+                warnings.push(format!("@{name} rules are unsupported (skipped)"));
                 // Consume the at-rule: everything up to a `;` (statement
                 // form) or through its `{}` block.
                 loop {
@@ -223,6 +250,187 @@ pub fn parse_stylesheet(css: &str, warnings: &mut Vec<String>) -> Stylesheet {
         }
     }
     sheet
+}
+
+/// Parse an `@page` rule: prelude (base or a pseudo-page variant we don't
+/// support yet), then a body of page descriptors. `size` and `margin*` are
+/// applied; margin-box at-rules (`@top-center`, ...) and other descriptors
+/// (`bleed`, `marks`, ...) are reported.
+fn parse_page_rule(
+    parser: &mut Parser<'_, '_>,
+    sheet: &mut Stylesheet,
+    warnings: &mut Vec<String>,
+) {
+    // Prelude: collect any pseudo-page selector before the block.
+    let mut pseudo: Option<String> = None;
+    loop {
+        match parser.next_including_whitespace() {
+            Ok(Token::CurlyBracketBlock) => break,
+            Ok(Token::Colon) => {
+                if let Ok(Token::Ident(id)) = parser.next_including_whitespace() {
+                    pseudo = Some(id.as_ref().to_string());
+                }
+            }
+            Ok(_) => continue,
+            Err(_) => return, // EOF before a block: nothing to do
+        }
+    }
+
+    let mut rule = PageRule::default();
+    let mut local_warnings: Vec<String> = Vec::new();
+    let _ = parser.parse_nested_block(|p| -> Result<(), cssparser::ParseError<'_, ()>> {
+        loop {
+            let tok = match p.next_including_whitespace() {
+                Ok(t) => t.clone(),
+                Err(_) => break,
+            };
+            match &tok {
+                Token::WhiteSpace(_) | Token::Semicolon => continue,
+                Token::AtKeyword(name) => {
+                    // Margin boxes: @top-left ... @bottom-right.
+                    local_warnings.push(format!(
+                        "@page margin box @{name} is not supported yet (skipped)"
+                    ));
+                    // Skip its block.
+                    loop {
+                        match p.next_including_whitespace() {
+                            Ok(Token::CurlyBracketBlock) => {
+                                let _ = p.parse_nested_block(
+                                    |q| -> Result<(), cssparser::ParseError<'_, ()>> {
+                                        while q.next_including_whitespace().is_ok() {}
+                                        Ok(())
+                                    },
+                                );
+                                break;
+                            }
+                            Ok(Token::Semicolon) | Err(_) => break,
+                            Ok(_) => continue,
+                        }
+                    }
+                }
+                Token::Ident(name) => {
+                    let name = name.to_ascii_lowercase();
+                    if p.expect_colon().is_err() {
+                        continue;
+                    }
+                    let _ = p.parse_until_after(
+                        cssparser::Delimiter::Semicolon,
+                        |v| -> Result<(), cssparser::ParseError<'_, ()>> {
+                            apply_page_descriptor(&name, v, &mut rule, &mut local_warnings);
+                            Ok(())
+                        },
+                    );
+                }
+                _ => continue,
+            }
+        }
+        Ok(())
+    });
+    warnings.append(&mut local_warnings);
+
+    if let Some(pseudo) = pseudo {
+        warnings.push(format!(
+            "@page :{pseudo} variants are not supported yet (rule skipped)"
+        ));
+        return;
+    }
+    sheet
+        .page
+        .get_or_insert_with(PageRule::default)
+        .merge_from(rule);
+}
+
+/// One descriptor inside an `@page` body.
+fn apply_page_descriptor(
+    name: &str,
+    p: &mut Parser<'_, '_>,
+    rule: &mut PageRule,
+    warnings: &mut Vec<String>,
+) {
+    match name {
+        "size" => {
+            if let Some(size) = parse_page_size(p, warnings) {
+                rule.size = Some(size);
+            }
+        }
+        "margin" => {
+            let mut vals = Vec::new();
+            while let Ok(tok) = p.next() {
+                let tok = tok.clone();
+                match crate::css::token_to_length(&tok) {
+                    Some(l) => vals.push(l),
+                    None => break,
+                }
+            }
+            let expanded: Option<[Length; 4]> = match vals.as_slice() {
+                [a] => Some([*a; 4]),
+                [v, h] => Some([*v, *h, *v, *h]),
+                [t, h, b] => Some([*t, *h, *b, *h]),
+                [t, r, b, l] => Some([*t, *r, *b, *l]),
+                _ => None,
+            };
+            if let Some(m) = expanded {
+                rule.margin = m.map(Some);
+            }
+        }
+        "margin-top" | "margin-right" | "margin-bottom" | "margin-left" => {
+            let idx = match name {
+                "margin-top" => 0,
+                "margin-right" => 1,
+                "margin-bottom" => 2,
+                _ => 3,
+            };
+            if let Ok(tok) = p.next() {
+                let tok = tok.clone();
+                rule.margin[idx] = crate::css::token_to_length(&tok);
+            }
+        }
+        other => {
+            warnings.push(format!(
+                "@page descriptor '{other}' is unsupported (skipped)"
+            ));
+        }
+    }
+}
+
+/// `size: <named> | <length>{1,2} | [<named>|<length>{1,2}] [portrait|landscape]`
+fn parse_page_size(p: &mut Parser<'_, '_>, warnings: &mut Vec<String>) -> Option<(f64, f64)> {
+    let mut dims: Vec<f64> = Vec::new();
+    let mut named: Option<(f64, f64)> = None;
+    let mut landscape = false;
+    while let Ok(tok) = p.next() {
+        let tok = tok.clone();
+        match &tok {
+            Token::Ident(id) => match id.to_ascii_lowercase().as_str() {
+                "a3" => named = Some((841.89, 1190.55)),
+                "a4" | "auto" => named = Some((595.28, 841.89)),
+                "a5" => named = Some((419.53, 595.28)),
+                "letter" => named = Some((612.0, 792.0)),
+                "legal" => named = Some((612.0, 1008.0)),
+                "tabloid" | "ledger" => named = Some((792.0, 1224.0)),
+                "landscape" => landscape = true,
+                "portrait" => {}
+                other => {
+                    warnings.push(format!("@page size '{other}' is unsupported"));
+                    return None;
+                }
+            },
+            _ => match crate::css::token_to_length(&tok) {
+                Some(Length::Pt(v)) => dims.push(v),
+                _ => {
+                    warnings.push("@page size accepts named sizes or absolute lengths".to_string());
+                    return None;
+                }
+            },
+        }
+    }
+    let (w, h) = match (named, dims.as_slice()) {
+        (Some(n), []) => n,
+        (None, [s]) => (*s, *s),
+        (None, [w, h]) => (*w, *h),
+        _ => return None,
+    };
+    Some(if landscape && h > w { (h, w) } else { (w, h) })
 }
 
 /// Incremental selector-prelude builder fed one token at a time.
@@ -455,9 +663,44 @@ mod tests {
     }
 
     #[test]
-    fn at_page_warning_mentions_plan() {
-        let (_, w) = sheet("@page { margin: 1in }");
-        assert!(w.iter().any(|m| m.contains("@page support is planned")));
+    fn at_page_size_and_margin_parse() {
+        let (s, w) = sheet("@page { size: Letter; margin: 1in 0.5in }");
+        let page = s.page.expect("page rule");
+        assert_eq!(page.size, Some((612.0, 792.0)));
+        assert_eq!(page.margin[0], Some(Length::Pt(72.0)));
+        assert_eq!(page.margin[1], Some(Length::Pt(36.0)));
+        assert!(w.is_empty(), "{w:?}");
+    }
+
+    #[test]
+    fn at_page_landscape_and_dimensions() {
+        let (s, _) = sheet("@page { size: A4 landscape }");
+        assert_eq!(s.page.unwrap().size, Some((841.89, 595.28)));
+        let (s2, _) = sheet("@page { size: 8.5in 11in }");
+        assert_eq!(s2.page.unwrap().size, Some((612.0, 792.0)));
+    }
+
+    #[test]
+    fn at_page_pseudo_variant_warns_pending() {
+        let (s, w) = sheet("@page :first { margin-top: 90pt } h1 { color: red }");
+        assert!(s.page.is_none(), "variant rule must not apply yet");
+        assert!(w.iter().any(|m| m.contains(":first")));
+        assert_eq!(s.rules.len(), 1, "following rules still parse");
+    }
+
+    #[test]
+    fn at_page_margin_box_warns_pending() {
+        let (s, w) = sheet("@page { margin: 54pt; @bottom-center { content: counter(page) } }");
+        assert_eq!(s.page.unwrap().margin[0], Some(Length::Pt(54.0)));
+        assert!(w.iter().any(|m| m.contains("@bottom-center")));
+    }
+
+    #[test]
+    fn at_page_unknown_descriptor_warns() {
+        let (s, w) = sheet("@page { bleed: 3mm; marks: crop; size: Legal }");
+        assert_eq!(s.page.unwrap().size, Some((612.0, 1008.0)));
+        assert!(w.iter().any(|m| m.contains("'bleed'")));
+        assert!(w.iter().any(|m| m.contains("'marks'")));
     }
 
     #[test]

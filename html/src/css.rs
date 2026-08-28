@@ -33,6 +33,20 @@ pub enum CssDisplay {
     None,
 }
 
+/// `break-before` / `break-after` values the engine can honor.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BreakVal {
+    Auto,
+    Page,
+}
+
+/// `break-inside` values the engine can honor.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BreakInsideVal {
+    Auto,
+    Avoid,
+}
+
 /// The declaration bag for one element: UA defaults and the inline style
 /// both produce one of these; `merge` layers them. Edge arrays are
 /// [top, right, bottom, left].
@@ -59,6 +73,11 @@ pub struct CssStyle {
     pub align_items: Option<AlignItems>,
     pub gap: Option<f64>,
     pub text_decoration: Option<TextDecoration>,
+    pub break_before: Option<BreakVal>,
+    pub break_after: Option<BreakVal>,
+    pub break_inside: Option<BreakInsideVal>,
+    pub orphans: Option<u32>,
+    pub widows: Option<u32>,
 }
 
 impl CssStyle {
@@ -99,7 +118,12 @@ impl CssStyle {
             justify_content,
             align_items,
             gap,
-            text_decoration
+            text_decoration,
+            break_before,
+            break_after,
+            break_inside,
+            orphans,
+            widows
         );
         out
     }
@@ -328,9 +352,67 @@ fn apply_declaration(
             }
         }
 
+        // Modern names and the wkhtmltopdf-era `page-break-*` legacy
+        // aliases the migration audience's templates actually use.
+        "break-before" | "page-break-before" => {
+            style.break_before = parse_break_value(name, p, warnings);
+        }
+        "break-after" | "page-break-after" => {
+            style.break_after = parse_break_value(name, p, warnings);
+        }
+        "break-inside" | "page-break-inside" => {
+            if let Ok(id) = p.expect_ident() {
+                style.break_inside = match id.to_ascii_lowercase().as_str() {
+                    "avoid" | "avoid-page" => Some(BreakInsideVal::Avoid),
+                    "auto" => Some(BreakInsideVal::Auto),
+                    other => {
+                        warnings.push(format!("unsupported {name} value '{other}'"));
+                        None
+                    }
+                };
+            }
+        }
+        "orphans" => style.orphans = parse_count(p),
+        "widows" => style.widows = parse_count(p),
+
         other => {
             warnings.push(format!("unsupported property: {other}"));
         }
+    }
+}
+
+/// `page` / `always` force a break; `left`/`right` need the `:left`/`:right`
+/// page machinery and are reported; `avoid` (breaks) is not supported.
+fn parse_break_value(
+    name: &str,
+    p: &mut Parser<'_, '_>,
+    warnings: &mut Vec<String>,
+) -> Option<BreakVal> {
+    let id = p.next().ok()?.clone();
+    let cssparser::Token::Ident(id) = id else {
+        return None;
+    };
+    match id.to_ascii_lowercase().as_str() {
+        "page" | "always" => Some(BreakVal::Page),
+        "auto" => Some(BreakVal::Auto),
+        other @ ("left" | "right" | "recto" | "verso") => {
+            warnings.push(format!(
+                "{name}: {other} needs :left/:right page support (treated as 'page')"
+            ));
+            Some(BreakVal::Page)
+        }
+        other => {
+            warnings.push(format!("unsupported {name} value '{other}'"));
+            None
+        }
+    }
+}
+
+/// A small positive integer (orphans/widows).
+fn parse_count(p: &mut Parser<'_, '_>) -> Option<u32> {
+    match p.next().ok()? {
+        Token::Number { value, .. } if *value >= 1.0 => Some(*value as u32),
+        _ => None,
     }
 }
 
@@ -353,7 +435,7 @@ fn parse_length(p: &mut Parser<'_, '_>) -> Option<Length> {
     token_to_length(&tok)
 }
 
-fn token_to_length(tok: &Token) -> Option<Length> {
+pub(crate) fn token_to_length(tok: &Token) -> Option<Length> {
     match tok {
         Token::Dimension { value, unit, .. } => unit_to_length(*value as f64, unit),
         Token::Percentage { unit_value, .. } => Some(Length::Percent(*unit_value as f64 * 100.0)),

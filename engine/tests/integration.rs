@@ -11016,3 +11016,96 @@ fn colspan_cell_spans_columns_and_next_cell_lands_after_them() {
         normal[2].0
     );
 }
+
+/// Engine gap #5, found by the HTML input path's `break-inside: avoid`
+/// (report fixture): `wrap: false` on a Table was silently ignored —
+/// layout_table paginated row-by-row unconditionally, splitting the table
+/// and re-drawing its header on the continuation page. An unbreakable
+/// table that fits on a fresh page must move there whole.
+#[test]
+fn unbreakable_table_moves_to_next_page_whole() {
+    let spacer = Node {
+        kind: NodeKind::View,
+        style: Style {
+            height: Some(Dimension::Pt(650.0)),
+            ..Default::default()
+        },
+        children: vec![],
+        id: None,
+        source_location: None,
+        bookmark: None,
+        href: None,
+        alt: None,
+    };
+    fn row(label: &str, is_header: bool) -> Node {
+        Node {
+            kind: NodeKind::TableRow { is_header },
+            style: Style::default(),
+            children: vec![Node {
+                kind: NodeKind::TableCell {
+                    col_span: 1,
+                    row_span: 1,
+                },
+                style: Style::default(),
+                children: vec![make_text(label, 12.0)],
+                id: None,
+                source_location: None,
+                bookmark: None,
+                href: None,
+                alt: None,
+            }],
+            id: None,
+            source_location: None,
+            bookmark: None,
+            href: None,
+            alt: None,
+        }
+    }
+    let table = Node {
+        kind: NodeKind::Table { columns: vec![] },
+        style: Style {
+            wrap: Some(false), // break-inside: avoid
+            ..Default::default()
+        },
+        children: vec![
+            row("hdr", true),
+            row("r1", false),
+            row("r2", false),
+            row("r3", false),
+            row("r4", false),
+            row("r5", false),
+            row("r6", false),
+        ],
+        id: None,
+        source_location: None,
+        bookmark: None,
+        href: None,
+        alt: None,
+    };
+    let doc = default_doc(vec![spacer, table]);
+    let (_pdf, layout) = forme::render_with_layout(&doc).expect("Should render");
+
+    let mut row_pages: Vec<usize> = Vec::new();
+    fn walk_rows(els: &[forme::layout::ElementInfo], page: usize, out: &mut Vec<usize>) {
+        for el in els {
+            if el.node_type == "TableRow" {
+                out.push(page);
+            }
+            walk_rows(&el.children, page, out);
+        }
+    }
+    for (i, page) in layout.pages.iter().enumerate() {
+        walk_rows(&page.elements, i, &mut row_pages);
+    }
+    assert_eq!(
+        row_pages.len(),
+        7,
+        "7 source rows, no repeated header (repetition means it split): {row_pages:?}"
+    );
+    let first = row_pages[0];
+    assert!(
+        row_pages.iter().all(|p| *p == first),
+        "unbreakable table must stay on one page: {row_pages:?}"
+    );
+    assert_eq!(first, 1, "table must have moved off the crowded first page");
+}

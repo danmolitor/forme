@@ -114,3 +114,14 @@ statement fixture's leaner totals row exposed it. Fixed in both the layout
 and row-height paths, pinned by
 `colspan_cell_spans_columns_and_next_cell_lands_after_them`. Four engine
 bugs from one new input path.
+
+**Gap #5 (found by the Phase 2 report fixture, as predicted):**
+`break-inside: avoid` (`wrap: false`) on a Table was silently ignored —
+the breakability check lived only in `layout_view`, and `layout_table`
+paginated row-by-row unconditionally, splitting the "unbreakable" table
+and re-drawing its header on the continuation page (the 8th row in the
+layout was the tell). Fails-first at both levels: the html paged test and
+`unbreakable_table_moves_to_next_page_whole` in the engine. Fixed with a
+whole-table pre-fit check that moves the table to a fresh page when it
+fits there; tables taller than a full page still paginate (splitting
+beats clipping). Five engine bugs from one new input path.
