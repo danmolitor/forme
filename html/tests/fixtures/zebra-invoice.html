@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<!-- Gap-sprint fixture: the table styled the way tables actually are —
+     border-collapse, zebra stripes via :nth-child, tr border-bottom
+     separators, :first-child/:last-child touches. -->
+<html>
+<head>
+<style>
+  body { font-family: Helvetica; color: #1f2430 }
+  h1 { font-size: 18pt }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  th, td { border: 1px solid #d1d5db; padding: 6px 8px; text-align: left }
+  thead th { background-color: #1a365d; color: #ffffff; border: 1px solid #1a365d }
+  tbody tr:nth-child(even) { background-color: #f3f4f6 }
+  tbody tr:last-child td { font-weight: 700; border-top: 2px solid #1a365d }
+  td:first-child { color: #666666 }
+
+  /* separator-style second table, the OTHER common idiom */
+  table.lines td { border: none }
+  table.lines tr { border-bottom: 1px solid #e5e7eb }
+  table.lines { border-collapse: collapse; margin-top: 24pt }
+
+  /* out-of-subset neighbors: named warnings, not errors */
+  tbody tr:nth-of-type(3) { color: red }
+  td::after { content: "!" }
+</style>
+</head>
+<body>
+  <h1>Zebra Invoice</h1>
+  <table>
+    <thead>
+      <tr><th>SKU</th><th>Item</th><th>Amount</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>W-100</td><td>Widget Pro</td><td>$98.00</td></tr>
+      <tr><td>W-200</td><td>Widget Enterprise</td><td>$199.00</td></tr>
+      <tr><td>B-050</td><td>Mounting bracket</td><td>$50.00</td></tr>
+      <tr><td>S-300</td><td>Installation service</td><td>$255.00</td></tr>
+      <tr><td colspan="2">Total</td><td>$602.00</td></tr>
+    </tbody>
+  </table>
+
+  <table class="lines">
+    <tr><td>Subtotal</td><td>$602.00</td></tr>
+    <tr><td>Tax (8%)</td><td>$48.16</td></tr>
+    <tr><td>Due</td><td>$650.16</td></tr>
+  </table>
+</body>
+</html>

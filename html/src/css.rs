@@ -73,6 +73,7 @@ pub struct CssStyle {
     pub align_items: Option<AlignItems>,
     pub gap: Option<f64>,
     pub text_decoration: Option<TextDecoration>,
+    pub border_collapse: Option<bool>,
     pub break_before: Option<BreakVal>,
     pub break_after: Option<BreakVal>,
     pub break_inside: Option<BreakInsideVal>,
@@ -119,6 +120,7 @@ impl CssStyle {
             align_items,
             gap,
             text_decoration,
+            border_collapse,
             break_before,
             break_after,
             break_inside,
@@ -347,6 +349,16 @@ pub(crate) fn apply_declaration(
                     "underline" => Some(TextDecoration::Underline),
                     "line-through" => Some(TextDecoration::LineThrough),
                     "none" => Some(TextDecoration::None),
+                    _ => None,
+                };
+            }
+        }
+
+        "border-collapse" => {
+            if let Ok(id) = p.expect_ident() {
+                style.border_collapse = match id.to_ascii_lowercase().as_str() {
+                    "collapse" => Some(true),
+                    "separate" => Some(false),
                     _ => None,
                 };
             }

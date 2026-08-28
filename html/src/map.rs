@@ -283,6 +283,8 @@ fn elem_key(el: &Element) -> ElemKey {
             .attr("class")
             .map(|c| c.split_whitespace().map(str::to_string).collect())
             .unwrap_or_default(),
+        index: el.index,
+        count: el.sibling_count,
     }
 }
 
@@ -591,8 +593,30 @@ impl Mapper {
     }
 
     fn map_table(&mut self, el: &Element, computed: &Computed) -> Option<Node> {
+        // border-collapse: collapse — emulated over the engine's
+        // separate-borders cells. Each interior edge is drawn by exactly
+        // one owner: cells keep right+bottom; the first row/column keep
+        // top/left; when the table has its own border, the outer edges
+        // belong to the table wrapper and the outermost cell edges are
+        // suppressed too. Row borders (tr { border-bottom } — the zebra
+        // separator pattern) are redistributed onto the row's cells,
+        // since the engine paints only backgrounds at row level.
+        let collapse = computed.border_collapse == Some(true);
+        let table_info = TableInfo {
+            collapse,
+            table_has_border: computed.border_width.iter().any(|w| *w > 0.0),
+            total_rows: count_rows(&el.children),
+        };
         let mut rows: Vec<Node> = Vec::new();
-        self.collect_rows(&el.children, computed.font_size, false, &mut rows);
+        let mut next_row = 0usize;
+        self.collect_rows(
+            &el.children,
+            computed.font_size,
+            false,
+            &mut rows,
+            &table_info,
+            &mut next_row,
+        );
 
         // Column definitions from the first row's cell widths. Mixed
         // specified/unspecified widths become Auto for the gaps; if nothing
@@ -612,14 +636,32 @@ impl Mapper {
         font_size: f64,
         in_thead: bool,
         rows: &mut Vec<Node>,
+        table_info: &TableInfo,
+        next_row: &mut usize,
     ) {
         for child in children {
             match child {
                 DomNode::Element(e) if e.tag == "tr" => {
-                    rows.push(self.map_tr(e, in_thead, font_size));
+                    let row_pos = RowPos {
+                        first: *next_row == 0,
+                        last: *next_row + 1 == table_info.total_rows,
+                    };
+                    *next_row += 1;
+                    rows.push(self.map_tr(e, in_thead, font_size, table_info, row_pos));
                 }
                 DomNode::Element(e) if matches!(e.tag.as_str(), "thead" | "tbody" | "tfoot") => {
-                    self.collect_rows(&e.children, font_size, e.tag == "thead", rows);
+                    // The section element is a selector ancestor
+                    // (`tbody tr:nth-child(even)` — the zebra idiom).
+                    self.stack.push(elem_key(e));
+                    self.collect_rows(
+                        &e.children,
+                        font_size,
+                        e.tag == "thead",
+                        rows,
+                        table_info,
+                        next_row,
+                    );
+                    self.stack.pop();
                 }
                 DomNode::Text(t) if t.trim().is_empty() => {}
                 other => {
@@ -630,14 +672,38 @@ impl Mapper {
         }
     }
 
-    fn map_tr(&mut self, el: &Element, is_header: bool, font_size: f64) -> Node {
+    fn map_tr(
+        &mut self,
+        el: &Element,
+        is_header: bool,
+        font_size: f64,
+        table_info: &TableInfo,
+        row_pos: RowPos,
+    ) -> Node {
         let row_computed = self.computed_for(el, font_size);
         self.stack.push(elem_key(el));
+        let cell_count = el
+            .children
+            .iter()
+            .filter(|c| matches!(c, DomNode::Element(e) if matches!(e.tag.as_str(), "td" | "th")))
+            .count();
+        let mut cell_idx = 0usize;
         let mut cells = Vec::new();
         for child in &el.children {
             match child {
                 DomNode::Element(e) if matches!(e.tag.as_str(), "td" | "th") => {
-                    let cell_computed = self.computed_for(e, row_computed.font_size);
+                    let mut cell_computed = self.computed_for(e, row_computed.font_size);
+                    if table_info.collapse {
+                        apply_collapsed_borders(
+                            &mut cell_computed,
+                            &row_computed,
+                            table_info,
+                            row_pos,
+                            cell_idx == 0,
+                            cell_idx + 1 == cell_count,
+                        );
+                    }
+                    cell_idx += 1;
                     let span = |name: &str| -> u32 {
                         e.attr(name)
                             .and_then(|v| v.parse::<u32>().ok())
@@ -912,6 +978,85 @@ fn split_box_and_text_style(c: &Computed) -> (Style, Style) {
         ..Default::default()
     };
     (box_style, text_style)
+}
+
+// ── Table border collapsing ───────────────────────────────────────────
+
+/// Per-table context for collapsed-border emulation.
+struct TableInfo {
+    collapse: bool,
+    table_has_border: bool,
+    total_rows: usize,
+}
+
+/// A row's position within its table (thead + tbody flattened).
+#[derive(Clone, Copy)]
+struct RowPos {
+    first: bool,
+    last: bool,
+}
+
+fn count_rows(children: &[DomNode]) -> usize {
+    let mut n = 0;
+    for child in children {
+        if let DomNode::Element(e) = child {
+            match e.tag.as_str() {
+                "tr" => n += 1,
+                "thead" | "tbody" | "tfoot" => n += count_rows(&e.children),
+                _ => {}
+            }
+        }
+    }
+    n
+}
+
+/// The collapsed-border emulation for one cell: merge row-level borders
+/// down (the engine paints only backgrounds at row level), then give each
+/// interior edge exactly one owner. Uniform-border approximation — CSS's
+/// widest-border-wins conflict resolution is out of subset.
+fn apply_collapsed_borders(
+    cell: &mut Computed,
+    row: &Computed,
+    table: &TableInfo,
+    row_pos: RowPos,
+    first_cell: bool,
+    last_cell: bool,
+) {
+    // Row borders → cells: top/bottom to every cell, left/right to the
+    // edge cells. The cell's own border wins where both are set.
+    if row.border_width[0] > 0.0 && cell.border_width[0] == 0.0 {
+        cell.border_width[0] = row.border_width[0];
+        cell.border_color = cell.border_color.or(row.border_color);
+    }
+    if row.border_width[2] > 0.0 && cell.border_width[2] == 0.0 {
+        cell.border_width[2] = row.border_width[2];
+        cell.border_color = cell.border_color.or(row.border_color);
+    }
+    if first_cell && row.border_width[3] > 0.0 && cell.border_width[3] == 0.0 {
+        cell.border_width[3] = row.border_width[3];
+        cell.border_color = cell.border_color.or(row.border_color);
+    }
+    if last_cell && row.border_width[1] > 0.0 && cell.border_width[1] == 0.0 {
+        cell.border_width[1] = row.border_width[1];
+        cell.border_color = cell.border_color.or(row.border_color);
+    }
+
+    // One owner per edge. Cells own right+bottom; top/left belong to the
+    // previous row/cell (which drew them as ITS bottom/right), except on
+    // the table's outer edges, where either the first row/column keeps
+    // them or the table's own border does.
+    if !row_pos.first || table.table_has_border {
+        cell.border_width[0] = 0.0;
+    }
+    if !first_cell || table.table_has_border {
+        cell.border_width[3] = 0.0;
+    }
+    if last_cell && table.table_has_border {
+        cell.border_width[1] = 0.0;
+    }
+    if row_pos.last && table.table_has_border {
+        cell.border_width[2] = 0.0;
+    }
 }
 
 // ── Margin boxes → Fixed bands ────────────────────────────────────────

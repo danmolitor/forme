@@ -110,12 +110,26 @@ impl PageRule {
     }
 }
 
+/// The structural pseudo-classes in subset: the zebra-stripe family.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(clippy::enum_variant_names)] // the CSS names ARE :first-child/:last-child/:nth-child
+pub enum Pseudo {
+    FirstChild,
+    LastChild,
+    /// `:nth-child(an+b)` — `even` is (2,0), `odd` is (2,1).
+    NthChild {
+        a: i32,
+        b: i32,
+    },
+}
+
 /// One compound selector: everything between combinators.
 #[derive(Debug, Clone, Default)]
 pub struct Compound {
     pub tag: Option<String>,
     pub id: Option<String>,
     pub classes: Vec<String>,
+    pub pseudos: Vec<Pseudo>,
     /// An explicit `*`. Matching-wise it's a no-op (an empty compound
     /// matches everything anyway); this flag only marks the compound as
     /// deliberately present so `* { ... }` isn't dropped as empty.
@@ -124,7 +138,11 @@ pub struct Compound {
 
 impl Compound {
     fn is_empty(&self) -> bool {
-        !self.universal && self.tag.is_none() && self.id.is_none() && self.classes.is_empty()
+        !self.universal
+            && self.tag.is_none()
+            && self.id.is_none()
+            && self.classes.is_empty()
+            && self.pseudos.is_empty()
     }
 
     fn matches(&self, key: &ElemKey) -> bool {
@@ -138,7 +156,22 @@ impl Compound {
                 return false;
             }
         }
-        self.classes.iter().all(|c| key.classes.contains(c))
+        if !self.classes.iter().all(|c| key.classes.contains(c)) {
+            return false;
+        }
+        self.pseudos.iter().all(|p| match p {
+            Pseudo::FirstChild => key.index == 0,
+            Pseudo::LastChild => key.index + 1 == key.count,
+            Pseudo::NthChild { a, b } => {
+                let i = key.index as i32 + 1; // :nth-child is 1-based
+                if *a == 0 {
+                    i == *b
+                } else {
+                    let d = i - b;
+                    d % a == 0 && d / a >= 0
+                }
+            }
+        })
     }
 }
 
@@ -164,6 +197,10 @@ pub struct ElemKey {
     pub tag: String,
     pub id: Option<String>,
     pub classes: Vec<String>,
+    /// 0-based position among the parent's element children.
+    pub index: usize,
+    /// Total element children in the parent.
+    pub count: usize,
 }
 
 impl Selector {
@@ -175,7 +212,7 @@ impl Selector {
             if c.id.is_some() {
                 ids += 1;
             }
-            classes += c.classes.len() as u32;
+            classes += (c.classes.len() + c.pseudos.len()) as u32;
             if c.tag.is_some() {
                 types += 1;
             }
@@ -299,6 +336,20 @@ pub fn parse_stylesheet(css: &str, warnings: &mut Vec<String>) -> Stylesheet {
                     }
                 }
                 prelude = SelectorPrelude::new();
+            }
+            Token::Function(name) => {
+                // Block-start token: its arguments MUST be consumed here.
+                let fname = name.to_ascii_lowercase();
+                let args: Vec<Token> = parser
+                    .parse_nested_block(|p| -> Result<Vec<Token>, cssparser::ParseError<'_, ()>> {
+                        let mut toks = Vec::new();
+                        while let Ok(t) = p.next_including_whitespace() {
+                            toks.push(t.clone());
+                        }
+                        Ok(toks)
+                    })
+                    .unwrap_or_default();
+                prelude.push_function(&fname, parse_nth_args(&args));
             }
             Token::CurlyBracketBlock => {
                 let selectors = prelude.finish(warnings);
@@ -666,6 +717,74 @@ fn parse_page_size(p: &mut Parser<'_, '_>, warnings: &mut Vec<String>) -> Option
     Some(if landscape && h > w { (h, w) } else { (w, h) })
 }
 
+/// Parse `:nth-child()` arguments: `even`, `odd`, and the an+b forms the
+/// CSS tokenizer splits in creative ways (`2n+1` → Dimension(2,"n") +
+/// Number(+1); `n-2` → Ident("n-2")). Returns None for anything else.
+fn parse_nth_args(args: &[Token]) -> Option<(i32, i32)> {
+    let toks: Vec<&Token> = args
+        .iter()
+        .filter(|t| !matches!(t, Token::WhiteSpace(_)))
+        .collect();
+
+    // Ident forms: even / odd / n / -n / n-<b>
+    fn ident_form(s: &str) -> Option<(i32, Option<i32>)> {
+        match s {
+            "even" => Some((2, Some(0))),
+            "odd" => Some((2, Some(1))),
+            "n" => Some((1, None)),
+            "-n" => Some((-1, None)),
+            _ => {
+                let (a, rest) = if let Some(r) = s.strip_prefix("-n") {
+                    (-1, r)
+                } else if let Some(r) = s.strip_prefix('n') {
+                    (1, r)
+                } else {
+                    return None;
+                };
+                // rest like "-2"
+                rest.parse::<i32>().ok().map(|b| (a, Some(b)))
+            }
+        }
+    }
+
+    match toks.as_slice() {
+        [Token::Ident(id)] => {
+            let (a, b) = ident_form(&id.to_ascii_lowercase())?;
+            Some((a, b.unwrap_or(0)))
+        }
+        [Token::Ident(id), Token::Number {
+            value, has_sign, ..
+        }] => {
+            let (a, b) = ident_form(&id.to_ascii_lowercase())?;
+            if b.is_some() || !has_sign {
+                return None;
+            }
+            Some((a, *value as i32))
+        }
+        [Token::Number { value, .. }] => Some((0, *value as i32)),
+        [Token::Dimension { value, unit, .. }] => {
+            let unit = unit.to_ascii_lowercase();
+            if unit == "n" {
+                Some((*value as i32, 0))
+            } else if let Some(rest) = unit.strip_prefix("n-") {
+                let b: i32 = rest.parse().ok()?;
+                Some((*value as i32, -b))
+            } else {
+                None
+            }
+        }
+        [Token::Dimension { value, unit, .. }, Token::Number {
+            value: b, has_sign, ..
+        }] => {
+            if unit.to_ascii_lowercase() != "n" || !has_sign {
+                return None;
+            }
+            Some((*value as i32, *b as i32))
+        }
+        _ => None,
+    }
+}
+
 /// Incremental selector-prelude builder fed one token at a time.
 struct SelectorPrelude {
     /// Finished selectors in the current group (before each `,`).
@@ -677,6 +796,8 @@ struct SelectorPrelude {
     ws_pending: bool,
     /// An explicit `>` seen since the current compound ended.
     child_pending: bool,
+    /// A `:` was just seen — the next ident/function names a pseudo-class.
+    expecting_pseudo: bool,
     /// The current selector contains something outside the subset.
     unsupported: Option<String>,
     /// Skipped-selector notices accumulated across the group; drained
@@ -695,6 +816,7 @@ impl SelectorPrelude {
             current: Compound::default(),
             ws_pending: false,
             child_pending: false,
+            expecting_pseudo: false,
             unsupported: None,
             skipped: Vec::new(),
             expecting_class: false,
@@ -723,7 +845,18 @@ impl SelectorPrelude {
             }
             Token::Comma => self.end_selector(),
             Token::Ident(id) => {
-                if self.expecting_class {
+                if self.expecting_pseudo {
+                    self.expecting_pseudo = false;
+                    match id.to_ascii_lowercase().as_str() {
+                        "first-child" => self.current.pseudos.push(Pseudo::FirstChild),
+                        "last-child" => self.current.pseudos.push(Pseudo::LastChild),
+                        other => {
+                            if self.unsupported.is_none() {
+                                self.unsupported = Some(format!("pseudo-class ':{other}'"));
+                            }
+                        }
+                    }
+                } else if self.expecting_class {
                     self.current.classes.push(id.as_ref().to_string());
                     self.expecting_class = false;
                 } else {
@@ -747,12 +880,24 @@ impl SelectorPrelude {
                 self.begin_part();
                 self.current.id = Some(id.as_ref().to_string());
             }
+            Token::Colon => {
+                if self.expecting_pseudo {
+                    // `::` — pseudo-elements are out of subset.
+                    if self.unsupported.is_none() {
+                        self.unsupported =
+                            Some("pseudo-element ('::before', '::after', ...)".to_string());
+                    }
+                    self.expecting_pseudo = false;
+                } else {
+                    // Commit a pending combinator so `tbody :first-child`
+                    // starts a fresh compound.
+                    self.begin_part();
+                    self.expecting_pseudo = true;
+                }
+            }
             other => {
                 if self.unsupported.is_none() {
                     let what = match other {
-                        Token::Colon => {
-                            "pseudo-class/pseudo-element (':hover', '::before', ...)".to_string()
-                        }
                         Token::SquareBracketBlock => "attribute selector ('[...]')".to_string(),
                         Token::Delim('+') => "adjacent-sibling combinator ('+')".to_string(),
                         Token::Delim('~') => "general-sibling combinator ('~')".to_string(),
@@ -760,6 +905,26 @@ impl SelectorPrelude {
                     };
                     self.unsupported = Some(what);
                 }
+            }
+        }
+    }
+
+    /// A function token in the prelude — only `:nth-child(...)` is in
+    /// subset.
+    fn push_function(&mut self, name: &str, nth: Option<(i32, i32)>) {
+        let was_pseudo = std::mem::take(&mut self.expecting_pseudo);
+        if self.unsupported.is_some() {
+            return;
+        }
+        if !was_pseudo || name != "nth-child" {
+            self.unsupported = Some(format!("selector function '{name}()'"));
+            return;
+        }
+        match nth {
+            Some((a, b)) => self.current.pseudos.push(Pseudo::NthChild { a, b }),
+            None => {
+                self.unsupported =
+                    Some(":nth-child() argument (use even, odd, or an+b)".to_string());
             }
         }
     }
@@ -817,6 +982,8 @@ mod tests {
             tag: tag.to_string(),
             id: id.map(str::to_string),
             classes: classes.iter().map(|s| s.to_string()).collect(),
+            index: 0,
+            count: 1,
         }
     }
 
@@ -971,6 +1138,62 @@ mod tests {
         let (s, _) = sheet("p { color: red !important; margin: 0 }");
         assert!(s.rules[0].block.important.color.is_some());
         assert!(s.rules[0].block.normal.margin[0].is_some());
+    }
+
+    #[test]
+    fn nth_child_forms_parse_and_match() {
+        let (s, w) = sheet(
+            "tr:nth-child(even) { color: red } tr:nth-child(odd) { color: red } \
+             tr:nth-child(3) { color: red } tr:nth-child(2n+1) { color: red } \
+             tr:nth-child(n-1) { color: red }",
+        );
+        assert!(w.is_empty(), "{w:?}");
+        assert_eq!(s.rules.len(), 5);
+        let key = |i: usize| ElemKey {
+            tag: "tr".into(),
+            id: None,
+            classes: vec![],
+            index: i,
+            count: 6,
+        };
+        let m = |rule: usize, idx: usize| s.rules[rule].selector.matches(&key(idx), &[]);
+        // even: 1-based 2,4,6 → 0-based 1,3,5
+        assert!(m(0, 1) && m(0, 3) && !m(0, 0) && !m(0, 2));
+        // odd: 0-based 0,2,4
+        assert!(m(1, 0) && m(1, 2) && !m(1, 1));
+        // exactly 3
+        assert!(m(2, 2) && !m(2, 1) && !m(2, 3));
+        // 2n+1 == odd
+        assert!(m(3, 0) && m(3, 2) && !m(3, 1));
+        // n-1: every index (1-based i >= 0... a=1,b=-1 → i-(-1) ≥ 0 always)
+        assert!(m(4, 0) && m(4, 5));
+    }
+
+    #[test]
+    fn first_and_last_child_match_by_position() {
+        let (s, w) = sheet("li:first-child { color: red } li:last-child { color: red }");
+        assert!(w.is_empty(), "{w:?}");
+        let key = |i: usize, n: usize| ElemKey {
+            tag: "li".into(),
+            id: None,
+            classes: vec![],
+            index: i,
+            count: n,
+        };
+        assert!(s.rules[0].selector.matches(&key(0, 3), &[]));
+        assert!(!s.rules[0].selector.matches(&key(1, 3), &[]));
+        assert!(s.rules[1].selector.matches(&key(2, 3), &[]));
+        assert!(!s.rules[1].selector.matches(&key(0, 3), &[]));
+        // Pseudo-classes carry class-level specificity.
+        assert_eq!(s.rules[0].selector.specificity, 1_001);
+    }
+
+    #[test]
+    fn unsupported_pseudo_forms_warn_by_name() {
+        let (s, w) = sheet("tr:nth-of-type(2) { color: red } td::after { content: \"x\" }");
+        assert!(s.rules.is_empty());
+        assert!(w.iter().any(|m| m.contains("nth-of-type")), "{w:?}");
+        assert!(w.iter().any(|m| m.contains("pseudo-element")), "{w:?}");
     }
 
     #[test]

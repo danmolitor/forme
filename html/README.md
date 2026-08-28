@@ -51,10 +51,11 @@ the bar is "what does an invoice, report, statement, or contract need."
 
 | In | Out (warned, selector skipped) |
 |---|---|
-| type (`td`), class (`.total`), id (`#header`), universal (`*`) | pseudo-classes and pseudo-elements (`:hover`, `:first-child`, `::before`) |
+| type (`td`), class (`.total`), id (`#header`), universal (`*`) | pseudo-elements (`::before`, `::after`) |
 | compounds (`td.amount`, `p.note.small`) | attribute selectors (`[type=text]`) |
 | descendant (`table td`) and child (`ul > li`) combinators | sibling combinators (`+`, `~`) |
-| grouping (`h1, h2`) | |
+| grouping (`h1, h2`) | `:nth-of-type` and other tree pseudo-classes (pending) |
+| `:first-child`, `:last-child`, `:nth-child(even\|odd\|an+b)` — the zebra-stripe family | `:hover` and interaction pseudo-classes — permanent: print has no hover |
 | `!important` | |
 
 Cascade order: UA defaults → stylesheet rules by (specificity, source
@@ -70,7 +71,8 @@ noted in the warnings).
 | In | Out |
 |---|---|
 | `margin`, `padding` (+ longhands, 1–4 value shorthands), CSS margin collapsing | floats |
-| `border`, `border-top/right/bottom/left`, `border-width`, `border-color`, `border-radius` | `position: absolute/fixed/sticky`, transforms, animation |
+| `border`, `border-top/right/bottom/left`, `border-width`, `border-color`, `border-radius` | `position: fixed/sticky`, transforms, animation |
+| `border-collapse` on tables (single-owner-per-edge emulation; `tr` borders redistribute to cells; CSS's widest-border-wins conflict rule is approximated — the earlier edge wins) | |
 | `width`, `height` (`px`, `pt`, `em`, `rem`, `%`, `in`, `cm`, `mm`) | CSS Grid (flex covers document layouts) |
 | `font-family` (fallback chains), `font-size`, `font-weight`, `font-style`, `line-height` | CSS variables |
 | `color`, `background-color`, `background` (solid colors) | gradients, background images |

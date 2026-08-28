@@ -14,6 +14,11 @@ pub struct Element {
     pub tag: String,
     pub attrs: Vec<(String, String)>,
     pub children: Vec<DomNode>,
+    /// 0-based position among the parent's ELEMENT children (what
+    /// `:nth-child` counts). Assigned once at parse time.
+    pub index: usize,
+    /// Number of element children in the parent (for `:last-child`).
+    pub sibling_count: usize,
 }
 
 impl Element {
@@ -53,6 +58,8 @@ pub fn parse_html_with_styles(html: &str) -> (Element, Vec<String>) {
         tag: "body".to_string(),
         attrs: vec![],
         children: root.children,
+        index: 0,
+        sibling_count: 1,
     });
     (body, styles)
 }
@@ -86,6 +93,24 @@ fn convert(handle: &Handle) -> Element {
         tag: "#document".to_string(),
         attrs: vec![],
         children,
+        index: 0,
+        sibling_count: 1,
+    }
+}
+
+/// Fill in sibling indices after a children list is complete.
+fn assign_sibling_positions(out: &mut [DomNode]) {
+    let count = out
+        .iter()
+        .filter(|n| matches!(n, DomNode::Element(_)))
+        .count();
+    let mut idx = 0;
+    for node in out.iter_mut() {
+        if let DomNode::Element(e) = node {
+            e.index = idx;
+            e.sibling_count = count;
+            idx += 1;
+        }
     }
 }
 
@@ -110,6 +135,8 @@ fn convert_children(handle: &Handle, out: &mut Vec<DomNode>) {
                     tag,
                     attrs,
                     children: grandchildren,
+                    index: 0,
+                    sibling_count: 0,
                 }));
             }
             NodeData::Text { contents } => {
@@ -119,6 +146,7 @@ fn convert_children(handle: &Handle, out: &mut Vec<DomNode>) {
             _ => {}
         }
     }
+    assign_sibling_positions(out);
 }
 
 fn find_body(el: &Element) -> Option<Element> {

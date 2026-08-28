@@ -59,6 +59,7 @@ pub struct Computed {
     pub align_items: Option<AlignItems>,
     pub gap: Option<f64>,
 
+    pub border_collapse: Option<bool>,
     pub break_before: Option<BreakVal>,
     pub break_after: Option<BreakVal>,
     pub break_inside: Option<BreakInsideVal>,
@@ -155,6 +156,7 @@ pub fn resolve(css: &CssStyle, parent_font_size: f64, warnings: &mut Vec<String>
         justify_content: css.justify_content,
         align_items: css.align_items,
         gap: css.gap,
+        border_collapse: css.border_collapse,
         break_before: css.break_before,
         break_after: css.break_after,
         break_inside: css.break_inside,
