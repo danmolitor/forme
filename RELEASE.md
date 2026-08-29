@@ -1,5 +1,10 @@
 # Release Process
 
+> **`scripts/release.sh <version>` automates this document** — phased,
+> confirm-gated, idempotent (safe to re-run after a partial failure).
+> This file remains the reference for what the script does and for the
+> steps that stay manual (forme-go, downstream ripples).
+
 ## Version Strategy
 
 - Engine (Cargo) + all npm packages share the same version (e.g. 0.9.0)
@@ -7,6 +12,7 @@
 - Rust crate (`forme-pdf` on crates.io) follows the same version
 - Go SDK (`github.com/formepdf/forme-go`) uses a `v0.9.0` git tag
 - VS Code extension follows the same version as of 0.13.0. It publishes to the Marketplace rather than npm, which is why it used to version itself — but it bundles the engine WASM and `@formepdf/renderer` wholesale, so a number that had drifted three minors behind (0.10.5 against a 0.12.1 monorepo) said nothing about what was in the VSIX. It jumped 0.10.5 → 0.13.0; 0.11.x and 0.12.x have no extension release.
+- `@formepdf/html` + the `forme-pdf-html` crate joined the shared line at 0.14.0 (previously npm 0.1.0 / crate 0.0.1, unpublished). The crate stays `publish = false` — the HTML input path ships via **npm only**; the crate version tracks the line so artifacts describe themselves honestly.
 - **`server/` and `rasterizer/` are frozen at 0.10.5 and no longer track the release.** They exist to build the two Docker images (`formepdf/forme`, `formepdf/rasterizer`), which served the hosted API — that product line is shut down. 0.10.5 is the last version that actually shipped as an image, and leaving the crates there keeps the number honest rather than inventing versions nobody can pull.
 
   Do not bump them "for consistency". `server/Dockerfile:3` is `FROM formepdf/rasterizer:0.10.5`, which resolves against a tag that really exists on Docker Hub; moving the crate version without publishing a matching image either strands a phantom version or — if the pin follows — breaks the server build outright. Skip the entire Docker section below unless you are deliberately reviving the hosted API.
@@ -75,16 +81,20 @@ cd packages/sdk && npm run build       # TypeScript hosted API client
 cd packages/tailwind && npm run build  # tw() function, Tailwind v3
 cd packages/templates && npm run build # shared templates + Zod schemas
 
-# 9. Python SDK — rebuild WASM (only if engine/ changed)
+# 9. HTML input path (crate + npm package)
+cd html && cargo build            # forme-pdf-html crate (+ forme-html CLI)
+cd packages/html && ./build.sh    # wasm-pack nodejs build for @formepdf/html
+
+# 10. Python SDK — rebuild WASM (only if engine/ changed)
 cd packages/python-sdk
 bash build_wasm.sh   # builds wasm32-wasip1 target, copies to formepdf/forme.wasm
 
-# 10. Go SDK — rebuild WASM (only if engine/ changed)
-# The Go SDK is a separate git repo at packages/go-sdk/
-# It uses //go:embed for the WASM binary (gitignored, must be present locally)
-cd packages/go-sdk
-bash templates/build_wasm.sh   # or copy from engine target:
-# cp ../../engine/target/wasm32-wasip1/release/forme.wasm templates/forme.wasm
+# 11. Go SDK — rebuild WASM (only if engine/ changed)
+# The Go SDK is a SEPARATE git repo at ../forme-go (sibling of this repo).
+# It uses //go:embed for the WASM binary (tracked in that repo).
+# Its build_wasm.sh has a stale path (see Common Mistakes) — use the
+# python-sdk artifact, same target + flags:
+cp packages/python-sdk/formepdf/forme.wasm ../forme-go/templates/forme.wasm
 ```
 
 ---
@@ -108,14 +118,16 @@ Files to update when bumping (e.g. 0.8.3 -> 0.9.0):
 - [ ] `packages/sdk/package.json`
 - [ ] `packages/tailwind/package.json`
 - [ ] `packages/templates/package.json`
+- [ ] `packages/html/package.json` — on the shared line since 0.14.0; `scripts/bump-version.sh` handles it
 - [ ] `packages/vscode/package.json` — on the shared version line since 0.13.0; `scripts/bump-version.sh` handles it
 
 ### Non-npm packages
 - [ ] `engine/Cargo.toml` — `version = "0.9.0"`
+- [ ] `html/Cargo.toml` — version AND the `forme-pdf` dependency requirement (a 0.x requirement cannot resolve across minors); `scripts/bump-version.sh` handles both, plus `html/Cargo.lock`
 - [ ] `packages/python-sdk/pyproject.toml` — `version = "0.9.0"` (handled by `scripts/bump-version.sh`)
 - [ ] ~~`server/Cargo.toml`~~ — frozen at 0.10.5, do not bump (see Version Strategy)
 - [ ] ~~`rasterizer/Cargo.toml`~~ — frozen at 0.10.5, do not bump (see Version Strategy)
-- [ ] Go SDK `packages/go-sdk/` — no version file; versioned by git tag
+- [ ] Go SDK `../forme-go/` (separate repo) — no version file; versioned by git tag
 - [ ] `engine/Cargo.lock` — auto-regenerates on the next `cargo build` after a `Cargo.toml` bump. Stage and commit the resulting diff with the version bump; CI will fail if `Cargo.lock` is stale.
 
 ### Dockerfile rasterizer pins
@@ -169,6 +181,7 @@ Update peer/runtime dependencies that pin to the formepdf packages:
 - [ ] `packages/sdk/CHANGELOG.md`
 - [ ] `packages/tailwind/CHANGELOG.md`
 - [ ] `packages/templates/CHANGELOG.md`
+- [ ] `packages/html/CHANGELOG.md`
 - [ ] `packages/vscode/CHANGELOG.md`
 
 ### READMEs (if new components, APIs, or capabilities were added)
@@ -216,6 +229,14 @@ cd forme/packages/resend && npm run build
 cd forme/packages/sdk && npm run build
 cd forme/packages/tailwind && npm run build
 cd forme/packages/templates && npm run build
+cd forme/html && cargo build --release && cargo fmt --check && cargo clippy --all-targets -- -D warnings
+cd forme/packages/html && ./build.sh
+
+# 2b. Copied-artifact verification (stale-copy class — proven live, twice).
+#     vscode bundles snapshots of BOTH wasms; hashes must match sources.
+shasum -a 256 packages/core/pkg-node/forme_bg.wasm packages/vscode/dist/forme_bg.wasm      # identical
+shasum -a 256 packages/html/pkg-node/forme_pdf_html_bg.wasm packages/vscode/dist/forme_pdf_html_bg.wasm  # identical
+cmp packages/renderer/src/preview/index.html packages/renderer/dist/preview/index.html
 
 # 3. Every test suite must pass
 cd forme/engine && cargo test
@@ -229,6 +250,12 @@ cd forme/packages/hono && npm test
 cd forme/packages/next && npm test
 cd forme/packages/resend && npm test
 cd forme/packages/mcp && npm test
+cd forme/packages/core && npm run test:templates   # NOT in `npm test` — separate config, easy to miss
+cd forme/html && cargo test                        # HTML input path (incl. Chrome-parity fixtures)
+cd forme/packages/html && npm test                 # WASM smoke
+# Native-vs-WASM byte parity (the CI html-parity job, run locally):
+#   render each fixture through html/target/release/forme-html AND
+#   packages/html/bin/forme-html.js, cmp the outputs
 cd forme-go && go clean -testcache && go test ./...
 
 # 4. Lockfile must be regenerated after version bumps
@@ -274,6 +301,7 @@ cd packages/mcp && npm publish --access public
 cd packages/sdk && npm publish --access public
 cd packages/tailwind && npm publish --access public
 cd packages/templates && npm publish --access public
+cd packages/html && npm publish --access public
 ```
 
 ### VS Code extension
@@ -378,7 +406,7 @@ Note: The Dockerfile requires Rust 1.88+ due to dependencies. Use `rust:latest` 
 The Go SDK is published via git tag — pkg.go.dev indexes it automatically.
 
 ```bash
-cd packages/go-sdk
+cd ../forme-go   # separate repo, sibling of forme/
 # Verify tests pass
 go test ./...
 
@@ -434,14 +462,32 @@ cargo add forme-pdf@0.9.0
 # Go
 go get github.com/formepdf/forme-go@v0.9.0
 # Check https://pkg.go.dev/github.com/formepdf/forme-go@v0.9.0
+
+# @formepdf/html — the npx flow from a clean room
+mkdir /tmp/test-html && cd /tmp/test-html && npm init -y
+npm install @formepdf/html@{version}
+printf '<h1>hi</h1>' > t.html && npx forme-html t.html && head -c5 t.pdf  # %PDF-
 ```
+
+---
+
+## Downstream Ripples (after publish — easy to forget)
+
+- [ ] **pdf-testkit** (`../pdf-testkit`): bump its `@formepdf/core` devDep; the
+  installed-vs-pinned drift check will fire on any `ElementNodeType` change and
+  say exactly what to update. Known for 0.14: `'Table'` joins the union
+  (pinned list 32 → 33; `FORME_ROLE_BY_NODE_TYPE` already has `Table: 'table'`).
+- [ ] **forme-landing** + **forme-playground**: bump their `@formepdf/*` deps
+  to the new version (landing bundles react+core for the live demo;
+  playground uses `@formepdf/core/browser`).
+- [ ] **docs.formepdf.com** (`docs/`): pages affected by the release.
 
 ---
 
 ## Common Mistakes
 
-- **Stale WASM**: If `engine/` changed, must rebuild `packages/core` (`npm run build`) before anything else. The WASM binary is ~5.1MB (grew from 4.8MB in 0.7.x when signatures were added). **Also rebuild** the Python SDK (`packages/python-sdk/build_wasm.sh`) and Go SDK (`packages/go-sdk/templates/build_wasm.sh`) WASM binaries — these are separate wasm32-wasip1 builds, not the wasm-pack JS build.
-- **SDK WASM is gitignored**: Both `packages/python-sdk/formepdf/forme.wasm` and `packages/go-sdk/templates/forme.wasm` are in `.gitignore`. Use `git add -f` to stage them. The Go SDK is a separate git repo — commit and tag there independently.
+- **Stale WASM**: If `engine/` changed, must rebuild `packages/core` (`npm run build`) before anything else. The WASM binary is ~5.1MB (grew from 4.8MB in 0.7.x when signatures were added). **Also rebuild** the Python SDK (`packages/python-sdk/build_wasm.sh`) and Go SDK (`../forme-go/templates/build_wasm.sh`) WASM binaries — these are separate wasm32-wasip1 builds, not the wasm-pack JS build.
+- **SDK WASM is gitignored**: `packages/python-sdk/formepdf/forme.wasm` is gitignored (`git add -f`); `../forme-go/templates/forme.wasm` is tracked in that repo. Use `git add -f` to stage them. The Go SDK is a separate git repo — commit and tag there independently.
 - **Stale dist/**: Always rebuild `packages/renderer` before VS Code or CLI. A stale `dist/` can silently ship broken code.
 - **VS Code copies**: The VS Code esbuild config copies WASM from `packages/core/pkg/` and preview HTML from `packages/renderer/dist/preview/`. These are snapshots — rebuild VS Code after rebuilding core or renderer.
 - **Lockfile**: Run `npm install` from root after version bumps to update `package-lock.json`.

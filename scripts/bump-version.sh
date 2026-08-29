@@ -27,6 +27,16 @@ sed -i '' -E "1,/^version = \"[^\"]+\"/s/^version = \"[^\"]+\"/version = \"$VERS
 # Regenerate Cargo.lock
 (cd "$ROOT/engine" && cargo check --quiet 2>/dev/null)
 
+# ── HTML crate (joined the shared version line at 0.14.0) ──────────
+# publish = false stays: @formepdf/html ships via npm only; the crate
+# version tracks the line so the VSIX/npm artifacts describe themselves
+# honestly. The forme-pdf dependency REQUIREMENT must move with the
+# engine: on 0.x, "0.13" cannot resolve against a 0.14 engine.
+echo "  html/Cargo.toml"
+sed -i '' -E "1,/^version = \"[^\"]+\"/s/^version = \"[^\"]+\"/version = \"$VERSION\"/" "$ROOT/html/Cargo.toml"
+sed -i '' -E "s|^forme-pdf = \{ version = \"[^\"]+\"|forme-pdf = { version = \"$VERSION\"|" "$ROOT/html/Cargo.toml"
+(cd "$ROOT/html" && cargo check --quiet 2>/dev/null)
+
 # ── Python SDK (same version line as the engine and npm packages) ─
 echo "  packages/python-sdk/pyproject.toml"
 sed -i '' -E "1,/^version = \"[^\"]+\"/s/^version = \"[^\"]+\"/version = \"$VERSION\"/" \
@@ -37,7 +47,7 @@ sed -i '' -E "1,/^version = \"[^\"]+\"/s/^version = \"[^\"]+\"/version = \"$VERS
 # with the checklist in RELEASE.md — a package missing here is silently left on
 # the old version, which is how `shared`, `svelte`, `preact`, and `templates`
 # rode through two releases unbumped.
-NPM_PACKAGES=(shared react core renderer svelte preact cli hono next resend mcp sdk tailwind templates)
+NPM_PACKAGES=(shared react core renderer svelte preact cli hono next resend mcp sdk tailwind templates html)
 for pkg in "${NPM_PACKAGES[@]}"; do
   pkgfile="$ROOT/packages/$pkg/package.json"
   [ -f "$pkgfile" ] || continue
