@@ -66,9 +66,13 @@ npm test         # parity tests require @formepdf/react also built
 cd packages/cli
 npm run build
 
-# 8. VS Code extension (depends on renderer)
+# 8. HTML input path — MUST precede vscode, which snapshots its WASM
+cd html && cargo build            # forme-pdf-html crate (+ forme-html CLI)
+cd packages/html && ./build.sh    # wasm-pack nodejs build for @formepdf/html
+
+# 8b. VS Code extension (depends on renderer + core + html WASMs)
 cd packages/vscode
-npm run build    # esbuild bundle + copies WASM + preview HTML
+npm run build    # esbuild bundle + copies BOTH WASMs + preview HTML
 
 # 9. Integration and utility packages (depend on react + core)
 cd packages/hono && npm run build
@@ -81,15 +85,11 @@ cd packages/sdk && npm run build       # TypeScript hosted API client
 cd packages/tailwind && npm run build  # tw() function, Tailwind v3
 cd packages/templates && npm run build # shared templates + Zod schemas
 
-# 9. HTML input path (crate + npm package)
-cd html && cargo build            # forme-pdf-html crate (+ forme-html CLI)
-cd packages/html && ./build.sh    # wasm-pack nodejs build for @formepdf/html
-
-# 10. Python SDK — rebuild WASM (only if engine/ changed)
+# 9. Python SDK — rebuild WASM (only if engine/ changed)
 cd packages/python-sdk
 bash build_wasm.sh   # builds wasm32-wasip1 target, copies to formepdf/forme.wasm
 
-# 11. Go SDK — rebuild WASM (only if engine/ changed)
+# 10. Go SDK — rebuild WASM (only if engine/ changed)
 # The Go SDK is a SEPARATE git repo at ../forme-go (sibling of this repo).
 # It uses //go:embed for the WASM binary (tracked in that repo).
 # Its build_wasm.sh has a stale path (see Common Mistakes) — use the
