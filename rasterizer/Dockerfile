@@ -3,7 +3,7 @@
 #
 # Supports multi-arch: builds for linux/amd64 and linux/arm64.
 
-FROM rust:1.88-bookworm AS builder
+FROM rust:1.98-trixie AS builder
 
 WORKDIR /app
 
@@ -23,13 +23,13 @@ RUN touch src/main.rs
 RUN cargo build --release
 
 # --- Runtime stage ---
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 
 RUN apt-get update && apt-get install -y ca-certificates curl && rm -rf /var/lib/apt/lists/*
 
 # Download PDFium binary for the target architecture
 ARG TARGETARCH
-ARG PDFIUM_VERSION=chromium/7763
+ARG PDFIUM_VERSION=chromium/8021
 RUN set -eux; \
     case "$TARGETARCH" in \
       amd64) PDFIUM_ARCH="linux-x64" ;; \

@@ -13,12 +13,9 @@
 - Go SDK (`github.com/formepdf/forme-go`) uses a `v0.9.0` git tag
 - VS Code extension follows the same version as of 0.13.0. It publishes to the Marketplace rather than npm, which is why it used to version itself — but it bundles the engine WASM and `@formepdf/renderer` wholesale, so a number that had drifted three minors behind (0.10.5 against a 0.12.1 monorepo) said nothing about what was in the VSIX. It jumped 0.10.5 → 0.13.0; 0.11.x and 0.12.x have no extension release.
 - `@formepdf/html` + the `forme-pdf-html` crate joined the shared line at 0.14.0 (previously npm 0.1.0 / crate 0.0.1, unpublished). The crate stays `publish = false` — the HTML input path ships via **npm only**; the crate version tracks the line so artifacts describe themselves honestly.
-- **`server/` and `rasterizer/` are frozen at 0.10.5 and no longer track the release.** They exist to build the two Docker images (`formepdf/forme`, `formepdf/rasterizer`), which served the hosted API — that product line is shut down. 0.10.5 is the last version that actually shipped as an image, and leaving the crates there keeps the number honest rather than inventing versions nobody can pull.
-
-  Do not bump them "for consistency". `server/Dockerfile:3` is `FROM formepdf/rasterizer:0.10.5`, which resolves against a tag that really exists on Docker Hub; moving the crate version without publishing a matching image either strands a phantom version or — if the pin follows — breaks the server build outright. Skip the entire Docker section below unless you are deliberately reviving the hosted API.
-
-- Docker image (`formepdf/forme`) follows `server/`'s version — tagged as `{version}` and `latest`. Not published since 0.10.5; see above.
-- Rasterizer Docker image (`formepdf/rasterizer`) follows `rasterizer/`'s version. Not published since 0.10.5; see above.
+- `server/` + `rasterizer/` rejoined the shared line at 0.14.0 (previously frozen at 0.10.5 after the hosted-API shutdown — 0.11.x–0.13.x have no image). The unfreeze happened because the 0.10.5 images sat on ~March-era bases and accumulated CVEs (C grade on Docker Hub); publishing rebuilt images made a real version bump honest again. The rule that motivated the freeze still stands: **only bump these crates when you are actually publishing matching Docker images.** The version must always name a tag someone can pull — `server/Dockerfile:5` is `FROM formepdf/rasterizer:{version}` and breaks if the pin points at a phantom tag.
+- Docker image (`formepdf/forme`) follows `server/`'s version — tagged as `{version}` and `latest`. The image bundles the engine as a **path dependency** (`COPY engine/`), so a rebuild always compiles against current engine source regardless of the crate version number.
+- Rasterizer Docker image (`formepdf/rasterizer`) follows `rasterizer/`'s version. Publish order is mandatory: rasterizer first, then server (server's Dockerfile pulls the rasterizer image by tag). A second pin lives at `../forme-dashboard/packages/api/Dockerfile:7` (paused repo, kept buildable).
 
 ---
 
@@ -125,14 +122,14 @@ Files to update when bumping (e.g. 0.8.3 -> 0.9.0):
 - [ ] `engine/Cargo.toml` — `version = "0.9.0"`
 - [ ] `html/Cargo.toml` — version AND the `forme-pdf` dependency requirement (a 0.x requirement cannot resolve across minors); `scripts/bump-version.sh` handles both, plus `html/Cargo.lock`
 - [ ] `packages/python-sdk/pyproject.toml` — `version = "0.9.0"` (handled by `scripts/bump-version.sh`)
-- [ ] ~~`server/Cargo.toml`~~ — frozen at 0.10.5, do not bump (see Version Strategy)
-- [ ] ~~`rasterizer/Cargo.toml`~~ — frozen at 0.10.5, do not bump (see Version Strategy)
+- [ ] `server/Cargo.toml` + `server/Cargo.lock` — **only if publishing Docker images this release** (see Version Strategy); refresh the lock with `cargo check`
+- [ ] `rasterizer/Cargo.toml` + `rasterizer/Cargo.lock` — same rule as `server/`
 - [ ] Go SDK `../forme-go/` (separate repo) — no version file; versioned by git tag
 - [ ] `engine/Cargo.lock` — auto-regenerates on the next `cargo build` after a `Cargo.toml` bump. Stage and commit the resulting diff with the version bump; CI will fail if `Cargo.lock` is stale.
 
 ### Dockerfile rasterizer pins
 
-> **Not part of a normal release.** `server/` and `rasterizer/` are frozen at 0.10.5 and their images are no longer published, so both pins below correctly point at the last real tag. Leave them alone. The rest of this section applies only if the hosted API is revived.
+> Applies only when Docker images are being published this release (see Version Strategy — crate versions and image tags move together, or not at all).
 
 After bumping the engine/server/rasterizer versions, **two Dockerfiles** still reference the old rasterizer tag and must be bumped to the new version:
 - [ ] `server/Dockerfile` — `FROM formepdf/rasterizer:{version}` (line 3). Required: bump *after* the new rasterizer image is published to Docker Hub, *before* building the server image (server pulls rasterizer at build time).
@@ -151,7 +148,7 @@ After bumping the engine/server/rasterizer versions, **two Dockerfiles** still r
 Update peer/runtime dependencies that pin to the formepdf packages:
 - [ ] `packages/react/package.json` — `@formepdf/shared`
 - [ ] `packages/core/package.json` — `@formepdf/react`
-- [ ] `packages/renderer/package.json` — `@formepdf/core`, `@formepdf/react`, and `@formepdf/html` **once it joins the shared line**. `@formepdf/html` is currently pinned at `0.1.0` and versions independently (the crate `html/Cargo.toml` is at `0.0.1`, still off the release line like `server/`/`rasterizer/`). The moment it moves onto the shared version, renderer's pin must move in lockstep — same hard invariant as `@formepdf/core`: renderer's HTML input path (`renderHtmlFromFile`/`renderHtmlFromSource`) calls this exact `@formepdf/html` build, so a version skew ships a renderer against a mismatched engine. When you make the switch, also add `packages/html/package.json` to the npm-packages bump list, `html/Cargo.toml` to the non-npm list (dropping its "versions independently" comment), and `packages/html/CHANGELOG.md` to the changelogs list.
+- [ ] `packages/renderer/package.json` — `@formepdf/core`, `@formepdf/react`, `@formepdf/html` (all on the shared line since 0.14.0). Hard invariant: renderer's HTML input path (`renderHtmlFromFile`/`renderHtmlFromSource`) calls this exact `@formepdf/html` build, so a version skew ships a renderer against a mismatched engine.
 - [ ] `packages/svelte/package.json` — `@formepdf/shared` (dep), `@formepdf/core` (optional peer, `^` range)
 - [ ] `packages/preact/package.json` — `@formepdf/shared` (dep), `@formepdf/react` (devDep for parity tests)
 - [ ] `packages/cli/package.json` — `@formepdf/renderer`

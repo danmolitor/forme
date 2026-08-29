@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.14.0] - 2026-08-29
+
+_Security refresh of the Docker images (the published 0.10.5 images had accumulated base-image CVEs — C grade on Docker Hub). Rejoins the shared version line; 0.11.x–0.13.x have no image._
+
+### Changed
+- Builder base `rust:1.88-bookworm` → `rust:1.98-trixie`; runtime base `debian:bookworm-slim` → `debian:trixie-slim` (Debian 13)
+- PDFium `chromium/7763` → `chromium/8021`
+- Engine picked up at 0.14.0 via path dependency (everything since 0.10.5 — see engine CHANGELOG)
+
 ## [0.10.5] - 2026-06-29
 
 ### Fixed

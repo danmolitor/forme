@@ -2,9 +2,9 @@
 #   docker build -f server/Dockerfile -t formepdf/forme .
 
 # Pull pre-built rasterizer binary
-FROM formepdf/rasterizer:0.10.5 AS rasterizer
+FROM formepdf/rasterizer:0.14.0 AS rasterizer
 
-FROM rust:1.88-bookworm AS builder
+FROM rust:1.98-trixie AS builder
 
 WORKDIR /app
 
@@ -27,13 +27,13 @@ RUN touch src/main.rs
 RUN cargo build --release
 
 # --- Runtime stage ---
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 
 RUN apt-get update && apt-get install -y ca-certificates curl && rm -rf /var/lib/apt/lists/*
 
 # Download PDFium binary for the target architecture
 ARG TARGETARCH
-ARG PDFIUM_VERSION=chromium/7763
+ARG PDFIUM_VERSION=chromium/8021
 RUN set -eux; \
     case "${TARGETARCH:-amd64}" in \
       amd64) PDFIUM_ARCH="linux-x64" ;; \
