@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.0] - 2026-08-28
+
+### Changed
+
+- **`ElementNodeType` gains `'Table'` — a layout-shape contract change.** Layout used to unwrap `<Table>` into sibling `TableRow` nodes; it now emits a `Table` wrapper element per page fragment with the rows nested inside (so table-level border/background paint). The layout-shape conformance test flipped accordingly, and `getTableRows()` looks through the wrapper (loose rows from stored pre-0.14 layouts still return).
+- Embeds engine 0.14.0 — see `engine/CHANGELOG.md` for the layout fixes (runs intrinsic width, colspan indexing, unbreakable tables, vertical-align, min/max clamps, `@page :first`).
+
 ## [0.13.0] - 2026-08-27
 
 ### Fixed

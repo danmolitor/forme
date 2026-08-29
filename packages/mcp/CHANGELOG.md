@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.14.0] - 2026-08-28
+
+### Changed
+
+- Version alignment with the 0.14.0 release line; no functional changes in this package.
+
 ## [0.13.0] - 2026-08-27
 
 _Version bump only — 0.13.0 fixes three `bookmark` defects in the engine (duplicate PDF outline entries, no layout marker on the fits path, a `nodeType: "None"` leak) and adds a per-line discount column to the invoice in `@formepdf/templates`. No changes to this package._

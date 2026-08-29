@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.14.0] - 2026-08-28
+
+### Added
+
+- **Live preview for `.html` files** through the `@formepdf/html` WASM path, at feature parity with the JSX loop: render + page count + render-time badge, sidebar component tree, inspector, and layout overlays — all driven by the same `LayoutInfo` the engine emits for JSX.
+
+### Changed
+
+- The extension now bundles two WASM snapshots (`forme_bg.wasm` and `forme_pdf_html_bg.wasm`); the build hash-verifies both against their package sources.
+
 ## [0.13.0] - 2026-08-27
 
 **Version jump: 0.10.5 → 0.13.0.** The extension used to carry its own version because it publishes to the Marketplace rather than npm, but the two lines had drifted three minors apart while the extension bundles the engine and `@formepdf/renderer` wholesale — so the number told you nothing about what was actually inside the VSIX. It now tracks the monorepo version. No features were skipped; 0.11.x and 0.12.x simply never shipped as an extension release.

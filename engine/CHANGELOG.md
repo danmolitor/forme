@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.14.0] - 2026-08-28
+
+### Added
+
+- **`Table` wrapper element in layout output.** `layout_table` emits a `Table` container per page fragment (clone semantics, like breakable Views), so table-level `border`/`background` finally have a paint target and structural consumers (tagged PDF `/Table`, downstream extractors) get a real table node instead of loose rows.
+- **`vertical-align` for table cells.** New `VerticalAlign` on `Style` (top/middle/bottom, default top): cell content offsets within the resolved row box.
+- **`@page :first` support.** `Document.first_page` gives page one its own `PageConfig`; `PageCursor` tracks a page index; fixed elements carry a `FixedPageFilter` (All/First/NotFirst) honored at cursor-spacing time and authoritatively at injection by the real page index.
+- **Block-level min/max constraints.** `max_width`/`min_width`/`min_height` now clamp in `layout_view`, height measurement, and the auto-margin centering branch — auto width + finite max-width is the centered-column idiom (block fills, clamp shrinks, auto margins split the rest).
+
+### Fixed
+
+- **Runs-based text measured zero intrinsic width.** `measure_intrinsic_width` ignored `runs` (and measured leaf `Heading`s as 0, and whole multi-line strings instead of the widest line); flex rows collapsed such text to one character per line.
+- **`col_span` was ignored when indexing column widths.** Every cell after a colspan cell sat one column too far left; the spanning cell now consumes its columns' combined width in both layout and row-height measurement.
+- **`wrap: false` on tables was silently ignored** (break-inside: avoid): row-by-row pagination never consulted breakability. An unbreakable table that fits a fresh page now moves there whole.
+- **A flex line taller than the page emitted a blank leading page** before overflowing anyway; the break check now skips when the current page is empty.
+
 ## [0.13.0] - 2026-08-27
 
 ### Fixed

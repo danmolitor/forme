@@ -1,6 +1,6 @@
 # Changelog — @formepdf/html
 
-## [Unreleased]
+## [0.14.0] - 2026-08-28
 
 ### Added
 - First public release of the HTML + print-CSS input path ("Satori for

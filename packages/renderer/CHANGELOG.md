@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.14.0] - 2026-08-28
+
+### Added
+
+- **HTML input path**: `renderHtmlFromFile` / `renderHtmlFromSource` render `.html` sources through `@formepdf/html` (WASM), returning the same shape as the JSX pipeline — PDF bytes + `LayoutInfo` + subset warnings — so preview surfaces light up unchanged. The dual-mode preview HTML gains HTML-input support.
+
+### Changed
+
+- New runtime dependency on `@formepdf/html`, pinned to the shared version line (a skew here would pair the renderer with a mismatched engine build).
+
 ## [0.13.0] - 2026-08-27
 
 _Version bump only — 0.13.0 fixes three `bookmark` defects in the engine (duplicate PDF outline entries, no layout marker on the fits path, a `nodeType: "None"` leak) and adds a per-line discount column to the invoice in `@formepdf/templates`. No changes to this package._

@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.14.0] - 2026-08-28
+
+### Changed
+
+- Regenerated the embedded preview HTML from `@formepdf/renderer` (picks up the preview's HTML-input support). No Svelte-adapter API changes.
+
 ## [0.13.0] - 2026-08-27
 
 _Version bump only — 0.13.0 fixes three `bookmark` defects in the engine (duplicate PDF outline entries, no layout marker on the fits path, a `nodeType: "None"` leak) and adds a per-line discount column to the invoice in `@formepdf/templates`. No changes to this package._
