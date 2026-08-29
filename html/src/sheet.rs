@@ -998,10 +998,8 @@ fn parse_nth_args(args: &[Token]) -> Option<(i32, i32)> {
             _ => {
                 let (a, rest) = if let Some(r) = s.strip_prefix("-n") {
                     (-1, r)
-                } else if let Some(r) = s.strip_prefix('n') {
-                    (1, r)
                 } else {
-                    return None;
+                    (1, s.strip_prefix('n')?)
                 };
                 // rest like "-2"
                 rest.parse::<i32>().ok().map(|b| (a, Some(b)))

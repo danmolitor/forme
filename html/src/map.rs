@@ -610,10 +610,7 @@ impl Mapper {
     }
 
     fn map_img(&mut self, el: &Element, computed: &Computed) -> Option<Node> {
-        let src = match el.attr("src") {
-            Some(s) => s.to_string(),
-            None => return None,
-        };
+        let src = el.attr("src")?.to_string();
         if src.starts_with("http://") || src.starts_with("https://") {
             // Constitution: no external resource fetching.
             self.warnings.push(format!(
