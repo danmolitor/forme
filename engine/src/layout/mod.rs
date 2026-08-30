@@ -1225,7 +1225,17 @@ impl LayoutEngine {
             style.width = SizeConstraint::Fixed(w);
         }
 
-        if style.break_before {
+        // A forced break-before with no in-flow content yet on the page has
+        // nothing to break from, so it is suppressed — the same rule Chrome's
+        // print path applies. This covers both the document start and a
+        // consecutive forced break (which would otherwise emit a blank page).
+        // Migrated wkhtmltopdf-era templates set page-break-before on every
+        // section including the first; without this guard the document opens
+        // with a blank page. Keyed on committed in-flow boxes rather than
+        // `cursor.y` because the body's own margin (and any running header)
+        // advances `y` above zero before the first block is ever laid out —
+        // the content-bearing half of the swallowed-siblings guard above.
+        if style.break_before && !cursor.elements.is_empty() {
             pages.push(cursor.finalize());
             *cursor = cursor.new_page();
         }

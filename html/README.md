@@ -75,7 +75,7 @@ noted in the warnings).
 | `margin`, `padding` (+ longhands, 1–4 value shorthands), CSS margin collapsing | floats — real layout work for an old-template audience; demand decides |
 | `border`, `border-top/right/bottom/left`, `border-width`, `border-color`, `border-radius` | `position: fixed/sticky`, transforms, animation |
 | `border-collapse` on tables (single-owner-per-edge emulation; `tr` borders redistribute to cells; CSS's widest-border-wins conflict rule is approximated — the earlier edge wins; `border-radius` is ignored under collapse, per spec and Chrome) | |
-| `break-inside: avoid` on `<tr>` — honored: rows are atomic by engine design (a row taller than a full page still paginates) | `break-inside` on `<thead>`/`<tbody>` — pending; use it on the table |
+| `break-inside: avoid` on `<tr>` — honored: rows are atomic by engine design. A row taller than the page content area is **not** sliced across pages; it is placed whole and overflows (atomicity is the guarantee, not fragmentation). | `break-inside` on `<thead>`/`<tbody>` — pending; use it on the table. Slicing an over-tall row across pages is out of scope. |
 | `width`, `height` (`px`, `pt`, `em`, `rem`, `%`, `in`, `cm`, `mm`) | CSS Grid — flex covers document layouts |
 | `max-width`, `min-width`, `min-height` on block-level boxes — the centered column (`max-width` + `margin: 0 auto`) works | `max-height` — pending: down-clamping is clipping semantics; flex-item min/max — pending |
 | | `dashed`/`dotted` border styles — pending: the PDF stroke path has no dash patterns yet (style keywords parse and are ignored) |

@@ -544,15 +544,22 @@ impl Mapper {
             self.flatten_item(child, &base, computed.font_size, &mut flattener);
         }
         let runs = flattener.finish();
-        if runs.is_empty() {
-            // Empty paragraphs are dropped (their collapse-through
-            // behavior is documented as out of spike scope).
-            return None;
-        }
-
         let needs_box_wrapper = computed.background_color.is_some()
             || computed.border_width.iter().any(|w| *w > 0.0)
             || computed.padding.iter().any(|p| *p > 0.0);
+
+        if runs.is_empty() {
+            // An empty <p>/<h#> with no paint contributes nothing and is
+            // dropped (its margin collapse-through is out of scope). But when
+            // it carries a background, border, or padding, a browser still
+            // paints the box — dropping it would silently lose a styled
+            // element, which the render contract forbids. Emit the empty box.
+            if needs_box_wrapper {
+                let (box_style, _text_style) = split_box_and_text_style(&computed);
+                return Some(make_node(NodeKind::View, box_style, vec![]));
+            }
+            return None;
+        }
 
         if needs_box_wrapper {
             let (box_style, text_style) = split_box_and_text_style(&computed);
