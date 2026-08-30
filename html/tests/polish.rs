@@ -241,3 +241,32 @@ fn stylesheet_links_warn_with_the_remedy_other_links_stay_silent() {
         out.warnings
     );
 }
+
+// ── Floats: out of subset, warned loud with a remedy (Part 2, item 5) ──
+
+#[test]
+fn float_and_clear_warn_with_a_remedy_and_still_render() {
+    let html = r#"<html><head><style>
+      .fig { float: left; width: 80px; }
+      .foot { clear: both; }
+    </style></head><body>
+      <div class="fig">logo</div>
+      <p>Body text beside the figure.</p>
+      <div class="foot">Footer</div>
+    </body></html>"#;
+    let out = render_html(html, &HtmlOptions::default()).expect("must still render");
+    // Ignored-gracefully: valid PDF, no panic.
+    assert!(out.pdf.len() > 100 && &out.pdf[0..5] == b"%PDF-");
+    // Warned by name, with the workaround (house style).
+    assert!(
+        out.warnings.iter().any(|w| w.contains("float is not supported")
+            && (w.contains("flex") || w.contains("position: absolute"))),
+        "float must warn with a remedy: {:?}",
+        out.warnings
+    );
+    assert!(
+        out.warnings.iter().any(|w| w.starts_with("clear is not supported")),
+        "clear must warn: {:?}",
+        out.warnings
+    );
+}

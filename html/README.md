@@ -72,7 +72,7 @@ noted in the warnings).
 
 | In | Out |
 |---|---|
-| `margin`, `padding` (+ longhands, 1–4 value shorthands), CSS margin collapsing | floats — real layout work for an old-template audience; demand decides |
+| `margin`, `padding` (+ longhands, 1–4 value shorthands), CSS margin collapsing | `float` / `clear` — text-wrap-around-a-float needs per-line available width the single-width line breaker has no representation for; warned by name with a remedy (flex / `position: absolute`) rather than silently dropped |
 | `border`, `border-top/right/bottom/left`, `border-width`, `border-color`, `border-radius` | `position: fixed/sticky`, transforms, animation |
 | `border-collapse` on tables (single-owner-per-edge emulation; `tr` borders redistribute to cells; CSS's widest-border-wins conflict rule is approximated — the earlier edge wins; `border-radius` is ignored under collapse, per spec and Chrome) | |
 | `break-inside: avoid` on `<tr>` — honored: rows are atomic by engine design. A row taller than the page content area is **not** sliced across pages; it is placed whole and overflows (atomicity is the guarantee, not fragmentation). | `break-inside` on `<thead>`/`<tbody>` — pending; use it on the table. Slicing an over-tall row across pages is out of scope. |

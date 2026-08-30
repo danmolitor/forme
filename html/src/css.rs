@@ -401,6 +401,25 @@ pub(crate) fn apply_declaration(
         "bottom" => style.bottom = parse_length(p),
         "left" => style.left = parse_length(p),
 
+        // Floats are deliberately out of subset: text-wrap-around-a-float
+        // needs per-line available width, which this engine's single-width
+        // line breaker has no representation for. Fail loud with the remedy so
+        // migrated templates don't silently drop the property.
+        "float" => {
+            let _ = p.expect_ident();
+            warnings.push(
+                "float is not supported — for pulled images/quotes use flex layouts or position: absolute; see the subset table"
+                    .to_string(),
+            );
+        }
+        "clear" => {
+            let _ = p.expect_ident();
+            warnings.push(
+                "clear is not supported (floats are out of subset) — use flex layouts or explicit page breaks; see the subset table"
+                    .to_string(),
+            );
+        }
+
         "text-transform" => {
             if let Ok(id) = p.expect_ident() {
                 style.text_transform = match id.to_ascii_lowercase().as_str() {
