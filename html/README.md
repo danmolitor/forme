@@ -73,12 +73,11 @@ noted in the warnings).
 | In | Out |
 |---|---|
 | `margin`, `padding` (+ longhands, 1–4 value shorthands), CSS margin collapsing | `float` / `clear` — text-wrap-around-a-float needs per-line available width the single-width line breaker has no representation for; warned by name with a remedy (flex / `position: absolute`) rather than silently dropped |
-| `border`, `border-top/right/bottom/left`, `border-width`, `border-color`, `border-radius` | `position: fixed/sticky`, transforms, animation |
+| `border`, `border-top/right/bottom/left`, `border-width`, `border-color`, `border-radius`, `border-style` (`solid`/`dashed`/`dotted`, per side). Dash metrics match Chrome: dashed = dash 2×width / gap 1×width; dotted = round dots, diameter 1×width, 2×width centre spacing. `double`/`groove`/`ridge`/`inset`/`outset` fall back to solid. Under a dashed/dotted border, `border-radius` is dropped (per-side straight strokes), as Chrome does for dashed corners. | `position: fixed/sticky`, transforms, animation |
 | `border-collapse` on tables (single-owner-per-edge emulation; `tr` borders redistribute to cells; CSS's widest-border-wins conflict rule is approximated — the earlier edge wins; `border-radius` is ignored under collapse, per spec and Chrome) | |
 | `break-inside: avoid` on `<tr>` — honored: rows are atomic by engine design. A row taller than the page content area is **not** sliced across pages; it is placed whole and overflows (atomicity is the guarantee, not fragmentation). | `break-inside` on `<thead>`/`<tbody>` — pending; use it on the table. Slicing an over-tall row across pages is out of scope. |
 | `width`, `height` (`px`, `pt`, `em`, `rem`, `%`, `in`, `cm`, `mm`) | CSS Grid — flex covers document layouts |
 | `max-width`, `min-width`, `min-height` on block-level boxes — the centered column (`max-width` + `margin: 0 auto`) works | `max-height` — pending: down-clamping is clipping semantics; flex-item min/max — pending |
-| | `dashed`/`dotted` border styles — pending: the PDF stroke path has no dash patterns yet (style keywords parse and are ignored) |
 | `font-family` (fallback chains; generics `sans-serif`/`serif`/`monospace` map to Helvetica/Times/Courier), `font-size`, `font-weight`, `font-style`, `line-height` | CSS variables |
 | provided fonts: `options.fonts` / `--font Family=path.ttf` | `@font-face` fetching — remote srcs are never fetched (loud, family-naming warnings); local srcs pending (use `--font`); `@import` never fetched |
 | `color`, `background-color`, `background` (solid colors) | gradients, background images — engine paint work, not a mapping gap |

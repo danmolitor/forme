@@ -60,7 +60,7 @@ jobs:
         # targets and require identical bytes.
         run: |
           set -e
-          for f in letterhead report zebra-invoice; do
+          for f in letterhead report zebra-invoice dashed-borders; do
             ./html/target/release/forme-html "html/tests/fixtures/$f.html" -o "/tmp/$f-native.pdf" -q
             node packages/html/bin/forme-html.js "html/tests/fixtures/$f.html" -o "/tmp/$f-wasm.pdf" -q
             cmp "/tmp/$f-native.pdf" "/tmp/$f-wasm.pdf"

@@ -990,6 +990,12 @@ fn to_engine_style(c: &Computed) -> Style {
             left: c.border_width[3],
         });
         s.border_color = Some(EdgeValues::uniform(c.border_color.unwrap_or(Color::BLACK)));
+        s.border_style = Some(EdgeValues {
+            top: c.border_style[0],
+            right: c.border_style[1],
+            bottom: c.border_style[2],
+            left: c.border_style[3],
+        });
     }
     if let Some(r) = c.border_radius {
         s.border_radius = Some(CornerValues::uniform(r));

@@ -145,6 +145,8 @@ pub struct Style {
     pub border_width: Option<EdgeValues<f64>>,
     /// Border color for all sides.
     pub border_color: Option<EdgeValues<Color>>,
+    /// Border line style per side (solid / dashed / dotted).
+    pub border_style: Option<EdgeValues<BorderStyle>>,
     /// Border radius (uniform or per-corner).
     pub border_radius: Option<CornerValues>,
 
@@ -543,6 +545,19 @@ impl Default for Color {
     }
 }
 
+/// Border line style. Solid is the default; dashed/dotted are stroked with a
+/// PDF dash pattern (see the serializer). Metrics calibrated against Chrome:
+/// dashed = dash 2×width / gap 1×width; dotted = round dots, diameter 1×width,
+/// spaced 2×width centre-to-centre.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum BorderStyle {
+    #[default]
+    Solid,
+    Dashed,
+    Dotted,
+}
+
 /// Values for each edge (top, right, bottom, left).
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct EdgeValues<T: Copy> {
@@ -646,6 +661,7 @@ pub struct ResolvedStyle {
     pub overflow: Overflow,
     pub border_width: Edges,
     pub border_color: EdgeValues<Color>,
+    pub border_style: EdgeValues<BorderStyle>,
     pub border_radius: CornerValues,
     pub box_shadow: Option<BoxShadow>,
     pub background: Option<Background>,
@@ -818,6 +834,9 @@ impl Style {
             border_color: self
                 .border_color
                 .unwrap_or(EdgeValues::uniform(Color::BLACK)),
+            border_style: self
+                .border_style
+                .unwrap_or(EdgeValues::uniform(BorderStyle::Solid)),
             border_radius: self.border_radius.unwrap_or(CornerValues::uniform(0.0)),
 
             position: self.position.unwrap_or_default(),

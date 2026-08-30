@@ -11637,8 +11637,18 @@ fn relative_offset_shifts_paint_but_not_flow() {
     let (o, b) = (&off[0].elements, &base[0].elements);
 
     // The relative element paints shifted by exactly (+5, +10).
-    assert!((o[1].x - (b[1].x + 5.0)).abs() < 0.001, "left:5 → +5pt x: {} vs {}", o[1].x, b[1].x);
-    assert!((o[1].y - (b[1].y + 10.0)).abs() < 0.001, "top:10 → +10pt y: {} vs {}", o[1].y, b[1].y);
+    assert!(
+        (o[1].x - (b[1].x + 5.0)).abs() < 0.001,
+        "left:5 → +5pt x: {} vs {}",
+        o[1].x,
+        b[1].x
+    );
+    assert!(
+        (o[1].y - (b[1].y + 10.0)).abs() < 0.001,
+        "top:10 → +10pt y: {} vs {}",
+        o[1].y,
+        b[1].y
+    );
     // Its following sibling's flow position is byte-identical (flow preserved).
     assert_eq!(o[2].y, b[2].y, "sibling flow must not move");
     assert_eq!(o[2].x, b[2].x, "sibling flow must not move");
@@ -11654,16 +11664,33 @@ fn valign_cell(font: f64, text: &str, va: VerticalAlign, extra_block: Option<f64
     if let Some(h) = extra_block {
         children.push(Node {
             kind: NodeKind::View,
-            style: Style { height: Some(Dimension::Pt(h)), ..Default::default() },
+            style: Style {
+                height: Some(Dimension::Pt(h)),
+                ..Default::default()
+            },
             children: vec![],
-            id: None, source_location: None, bookmark: None, href: None, alt: None,
+            id: None,
+            source_location: None,
+            bookmark: None,
+            href: None,
+            alt: None,
         });
     }
     Node {
-        kind: NodeKind::TableCell { col_span: 1, row_span: 1 },
-        style: Style { vertical_align: Some(va), ..Default::default() },
+        kind: NodeKind::TableCell {
+            col_span: 1,
+            row_span: 1,
+        },
+        style: Style {
+            vertical_align: Some(va),
+            ..Default::default()
+        },
         children,
-        id: None, source_location: None, bookmark: None, href: None, alt: None,
+        id: None,
+        source_location: None,
+        bookmark: None,
+        href: None,
+        alt: None,
     }
 }
 
@@ -11673,7 +11700,11 @@ fn one_row_table(cells: Vec<Node>) -> Document {
         kind: NodeKind::Table { columns: vec![] },
         style: Style::default(),
         children: vec![row],
-        id: None, source_location: None, bookmark: None, href: None, alt: None,
+        id: None,
+        source_location: None,
+        bookmark: None,
+        href: None,
+        alt: None,
     };
     default_doc(vec![table])
 }
@@ -11705,10 +11736,14 @@ fn baseline_aligns_first_baselines_across_cells() {
     assert!(
         ((a_y + 12.0) - (b_y + 24.0)).abs() < 0.001,
         "first baselines must coincide: a {} b {}",
-        a_y, b_y
+        a_y,
+        b_y
     );
     // Concretely, the small-font line is shoved down by exactly 24 - 12 = 12pt.
-    assert!((a_y - (b_y + 12.0)).abs() < 0.001, "shove = 12pt: {a_y} vs {b_y}");
+    assert!(
+        (a_y - (b_y + 12.0)).abs() < 0.001,
+        "shove = 12pt: {a_y} vs {b_y}"
+    );
 }
 
 /// The risk site: a baseline cell shoved down must GROW the row, never clip.
@@ -11735,6 +11770,67 @@ fn baseline_shove_grows_the_row_and_does_not_clip() {
     assert!(
         (baseline_h - top_h - 28.0).abs() < 0.01,
         "baseline row must grow by the 28pt shove: baseline {} vs top {}",
-        baseline_h, top_h
+        baseline_h,
+        top_h
+    );
+}
+
+// ─── dashed / dotted borders (item 4) ───────────────────────────────
+
+fn bordered_box(width_pt: f64, style: forme::style::BorderStyle) -> Document {
+    use forme::style::{BorderStyle as _BS, Color, EdgeValues};
+    let _ = _BS::Solid;
+    let node = Node {
+        kind: NodeKind::View,
+        style: Style {
+            width: Some(Dimension::Pt(120.0)),
+            height: Some(Dimension::Pt(50.0)),
+            border_width: Some(EdgeValues::uniform(width_pt)),
+            border_style: Some(EdgeValues::uniform(style)),
+            border_color: Some(EdgeValues::uniform(Color::BLACK)),
+            ..Default::default()
+        },
+        children: vec![],
+        id: None,
+        source_location: None,
+        bookmark: None,
+        href: None,
+        alt: None,
+    };
+    default_doc(vec![node])
+}
+
+/// Dashed borders emit the calibrated PDF dash pattern (dash 2×width,
+/// gap 1×width) with a butt cap; solid borders emit no dash operator.
+#[test]
+fn dashed_border_emits_calibrated_dash_pattern() {
+    use forme::style::BorderStyle;
+    let pdf = forme::render(&bordered_box(4.0, BorderStyle::Dashed)).expect("render");
+    let content = decompress_pdf_streams(&pdf);
+    assert!(
+        content.contains("[8.00 4.00] 0 d"),
+        "dash 2×/gap 1× for a 4pt border"
+    );
+    assert!(!content.contains("1 J"), "dashed uses butt cap, not round");
+
+    let solid =
+        decompress_pdf_streams(&forme::render(&bordered_box(4.0, BorderStyle::Solid)).unwrap());
+    assert!(
+        !solid.contains("] 0 d"),
+        "solid border emits no dash operator"
+    );
+}
+
+/// Dotted borders emit round-capped dots (diameter 1×width) at 2×width
+/// centre spacing: `1 J` + `[0 2w] 0 d`.
+#[test]
+fn dotted_border_emits_round_dots() {
+    use forme::style::BorderStyle;
+    let pdf = forme::render(&bordered_box(4.0, BorderStyle::Dotted)).expect("render");
+    let content = decompress_pdf_streams(&pdf);
+    assert!(content.contains("1 J"), "dotted uses a round cap");
+    assert!(
+        content.contains("[0 8.00] 0 d"),
+        "dots spaced 2×width centre-to-centre"
     );
 }

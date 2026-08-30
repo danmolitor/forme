@@ -6,8 +6,8 @@
 
 use cssparser::{Delimiter, ParseError, Parser, ParserInput, Token};
 use forme::style::{
-    AlignItems, Color, FlexDirection, JustifyContent, TextAlign, TextDecoration, TextTransform,
-    VerticalAlign,
+    AlignItems, BorderStyle, Color, FlexDirection, JustifyContent, TextAlign, TextDecoration,
+    TextTransform, VerticalAlign,
 };
 
 /// A CSS length as written. Absolute units are normalized to points at parse
@@ -59,6 +59,8 @@ pub struct CssStyle {
     pub padding: [Option<Length>; 4],
     pub border_width: [Option<f64>; 4],
     pub border_color: Option<Color>,
+    /// Per-side border line style (top, right, bottom, left).
+    pub border_style: [Option<BorderStyle>; 4],
     pub border_radius: Option<f64>,
     pub width: Option<Length>,
     pub height: Option<Length>,
@@ -109,6 +111,9 @@ impl CssStyle {
             }
             if over.border_width[i].is_some() {
                 out.border_width[i] = over.border_width[i];
+            }
+            if over.border_style[i].is_some() {
+                out.border_style[i] = over.border_style[i];
             }
         }
         macro_rules! take {
@@ -250,10 +255,13 @@ pub(crate) fn apply_declaration(
         "padding-left" => style.padding[3] = parse_length(p),
 
         "border" => {
-            let (width, color) = parse_border_shorthand(p);
+            let (width, color, bstyle) = parse_border_shorthand(p);
             style.border_width = [width; 4].map(Some);
             if color.is_some() {
                 style.border_color = color;
+            }
+            if let Some(st) = bstyle {
+                style.border_style = [Some(st); 4];
             }
         }
         "border-top" | "border-right" | "border-bottom" | "border-left" => {
@@ -263,10 +271,13 @@ pub(crate) fn apply_declaration(
                 "border-bottom" => 2,
                 _ => 3,
             };
-            let (width, color) = parse_border_shorthand(p);
+            let (width, color, bstyle) = parse_border_shorthand(p);
             style.border_width[idx] = Some(width);
             if color.is_some() {
                 style.border_color = color;
+            }
+            if let Some(st) = bstyle {
+                style.border_style[idx] = Some(st);
             }
         }
         "border-width" => {
@@ -275,6 +286,34 @@ pub(crate) fn apply_declaration(
             }
         }
         "border-color" => style.border_color = parse_color(p),
+        // `border-style: <top> [<right> [<bottom> [<left>]]]` — 1–4 keywords,
+        // CSS edge-shorthand expansion.
+        "border-style" => {
+            let mut vals = Vec::new();
+            while let Ok(id) = p.expect_ident() {
+                vals.push(border_style_keyword(&id.to_string()).unwrap_or(BorderStyle::Solid));
+            }
+            let expanded = match vals.as_slice() {
+                [a] => [*a, *a, *a, *a],
+                [a, b] => [*a, *b, *a, *b],
+                [a, b, c] => [*a, *b, *c, *b],
+                [a, b, c, d] => [*a, *b, *c, *d],
+                _ => [BorderStyle::Solid; 4],
+            };
+            style.border_style = expanded.map(Some);
+        }
+        "border-top-style" | "border-right-style" | "border-bottom-style" | "border-left-style" => {
+            let idx = match name {
+                "border-top-style" => 0,
+                "border-right-style" => 1,
+                "border-bottom-style" => 2,
+                _ => 3,
+            };
+            if let Ok(id) = p.expect_ident() {
+                style.border_style[idx] =
+                    Some(border_style_keyword(&id.to_string()).unwrap_or(BorderStyle::Solid));
+            }
+        }
         "border-radius" => {
             if let Some(Length::Pt(v)) = parse_length(p) {
                 style.border_radius = Some(v);
@@ -597,9 +636,10 @@ fn expand4(vals: &[Length]) -> [Length; 4] {
 
 /// `border: 1px solid #000` — width, style keyword (recognized, ignored),
 /// and color in any order. `none`/`hidden` zero the width.
-fn parse_border_shorthand(p: &mut Parser<'_, '_>) -> (f64, Option<Color>) {
+fn parse_border_shorthand(p: &mut Parser<'_, '_>) -> (f64, Option<Color>, Option<BorderStyle>) {
     let mut width = 3.0 * 0.75; // CSS `medium`
     let mut color = None;
+    let mut style = None;
     while let Ok(tok) = p.next() {
         let tok = tok.clone();
         match &tok {
@@ -614,8 +654,12 @@ fn parse_border_shorthand(p: &mut Parser<'_, '_>) -> (f64, Option<Color>) {
                 "medium" => width = 2.25,
                 "thick" => width = 3.75,
                 "none" | "hidden" => width = 0.0,
-                "solid" | "dashed" | "dotted" | "double" | "groove" | "ridge" | "inset"
-                | "outset" => {}
+                "solid" => style = Some(BorderStyle::Solid),
+                "dashed" => style = Some(BorderStyle::Dashed),
+                "dotted" => style = Some(BorderStyle::Dotted),
+                // double/groove/ridge/inset/outset are out of subset — they
+                // fall back to solid (the default), no warning.
+                "double" | "groove" | "ridge" | "inset" | "outset" => {}
                 name => {
                     if let Some(c) = named_color(name) {
                         color = Some(c);
@@ -631,7 +675,17 @@ fn parse_border_shorthand(p: &mut Parser<'_, '_>) -> (f64, Option<Color>) {
             _ => {}
         }
     }
-    (width, color)
+    (width, color, style)
+}
+
+/// A single `border-style` keyword → engine `BorderStyle` (subset).
+fn border_style_keyword(id: &str) -> Option<BorderStyle> {
+    match id.to_ascii_lowercase().as_str() {
+        "solid" | "none" | "hidden" => Some(BorderStyle::Solid),
+        "dashed" => Some(BorderStyle::Dashed),
+        "dotted" => Some(BorderStyle::Dotted),
+        _ => None, // double/groove/... fall back to solid via absence
+    }
 }
 
 fn parse_border_width_token(p: &mut Parser<'_, '_>) -> Option<f64> {

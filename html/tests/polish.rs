@@ -259,13 +259,17 @@ fn float_and_clear_warn_with_a_remedy_and_still_render() {
     assert!(out.pdf.len() > 100 && &out.pdf[0..5] == b"%PDF-");
     // Warned by name, with the workaround (house style).
     assert!(
-        out.warnings.iter().any(|w| w.contains("float is not supported")
-            && (w.contains("flex") || w.contains("position: absolute"))),
+        out.warnings
+            .iter()
+            .any(|w| w.contains("float is not supported")
+                && (w.contains("flex") || w.contains("position: absolute"))),
         "float must warn with a remedy: {:?}",
         out.warnings
     );
     assert!(
-        out.warnings.iter().any(|w| w.starts_with("clear is not supported")),
+        out.warnings
+            .iter()
+            .any(|w| w.starts_with("clear is not supported")),
         "clear must warn: {:?}",
         out.warnings
     );
@@ -290,7 +294,10 @@ fn position_relative_offset_shifts_paint_through_the_mapper() {
     let find = |els: &[forme::layout::ElementInfo], needle: &str| -> (f64, f64) {
         fn walk(els: &[forme::layout::ElementInfo], needle: &str) -> Option<(f64, f64)> {
             for e in els {
-                if e.text_content.as_deref().is_some_and(|t| t.contains(needle)) {
+                if e.text_content
+                    .as_deref()
+                    .is_some_and(|t| t.contains(needle))
+                {
                     return Some((e.x, e.y));
                 }
                 if let Some(p) = walk(&e.children, needle) {
@@ -302,16 +309,66 @@ fn position_relative_offset_shifts_paint_through_the_mapper() {
         walk(els, needle).expect("element")
     };
 
-    let off = render_html_with_layout(&doc("top: 10px; left: 8px;"), &HtmlOptions::default()).unwrap();
+    let off =
+        render_html_with_layout(&doc("top: 10px; left: 8px;"), &HtmlOptions::default()).unwrap();
     let base = render_html_with_layout(&doc(""), &HtmlOptions::default()).unwrap();
     let (ox, oy) = find(&off.layout.pages[0].elements, "r");
     let (bx, by) = find(&base.layout.pages[0].elements, "r");
     // 8px → 6pt, 10px → 7.5pt.
-    assert!((ox - (bx + 6.0)).abs() < 0.01, "left:8px → +6pt: {ox} vs {bx}");
-    assert!((oy - (by + 7.5)).abs() < 0.01, "top:10px → +7.5pt: {oy} vs {by}");
+    assert!(
+        (ox - (bx + 6.0)).abs() < 0.01,
+        "left:8px → +6pt: {ox} vs {bx}"
+    );
+    assert!(
+        (oy - (by + 7.5)).abs() < 0.01,
+        "top:10px → +7.5pt: {oy} vs {by}"
+    );
     // Following sibling flow unchanged.
     let (_, ob_y) = find(&off.layout.pages[0].elements, "b");
     let (_, bb_y) = find(&base.layout.pages[0].elements, "b");
     assert_eq!(ob_y, bb_y, "sibling flow must not move");
-    assert!(off.warnings.is_empty(), "no offset warning for relative: {:?}", off.warnings);
+    assert!(
+        off.warnings.is_empty(),
+        "no offset warning for relative: {:?}",
+        off.warnings
+    );
+}
+
+// ── border-style: dashed/dotted per side; unsupported → solid (item 4) ──
+
+#[test]
+fn border_style_maps_per_side_and_double_falls_back_to_solid() {
+    use forme::style::BorderStyle;
+    let (doc, _) = html_to_document(
+        r#"<div style="border-top: 3px dashed #000; border-right: 3px dotted #000; border-bottom: 3px solid #000; border-left: 3px double #000">x</div>"#,
+        &HtmlOptions::default(),
+    );
+    fn find(nodes: &[Node]) -> Option<&Node> {
+        for n in nodes {
+            if n.style.border_style.is_some() {
+                return Some(n);
+            }
+            if let Some(f) = find(&n.children) {
+                return Some(f);
+            }
+        }
+        None
+    }
+    let bs = find(&doc.children)
+        .expect("bordered node")
+        .style
+        .border_style
+        .expect("border_style set");
+    assert_eq!(bs.top, BorderStyle::Dashed);
+    assert_eq!(bs.right, BorderStyle::Dotted);
+    assert_eq!(bs.bottom, BorderStyle::Solid);
+    // `double` is out of subset → falls back to solid, no warning, still renders.
+    assert_eq!(bs.left, BorderStyle::Solid, "double → solid");
+
+    let out = render_html(
+        r#"<div style="border: 4px double #333">x</div>"#,
+        &HtmlOptions::default(),
+    )
+    .expect("double still renders");
+    assert!(out.pdf.len() > 100 && &out.pdf[0..5] == b"%PDF-");
 }

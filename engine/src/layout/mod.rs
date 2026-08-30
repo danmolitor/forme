@@ -127,6 +127,7 @@ pub struct ElementStyleInfo {
     pub color: Color,
     pub background_color: Option<Color>,
     pub border_color: EdgeValues<Color>,
+    pub border_style: EdgeValues<crate::style::BorderStyle>,
     pub border_radius: CornerValues,
     pub opacity: f64,
     // Positioning
@@ -207,6 +208,7 @@ impl ElementStyleInfo {
             color: style.color,
             background_color: style.background_color,
             border_color: style.border_color,
+            border_style: style.border_style,
             border_radius: style.border_radius,
             opacity: style.opacity,
             position: style.position,
@@ -259,6 +261,7 @@ impl Default for ElementStyleInfo {
             color: Color::BLACK,
             background_color: None,
             border_color: EdgeValues::uniform(Color::BLACK),
+            border_style: EdgeValues::uniform(crate::style::BorderStyle::Solid),
             border_radius: CornerValues::uniform(0.0),
             opacity: 1.0,
             position: Position::default(),
@@ -708,6 +711,7 @@ pub enum DrawCommand {
         background: Option<Color>,
         border_width: Edges,
         border_color: EdgeValues<Color>,
+        border_style: EdgeValues<crate::style::BorderStyle>,
         border_radius: CornerValues,
         opacity: f64,
         /// Optional drop shadow rendered before the background. Boxed
@@ -1847,6 +1851,7 @@ impl LayoutEngine {
                     background: style.background_color,
                     border_width: style.border_width,
                     border_color: style.border_color,
+                    border_style: style.border_style,
                     border_radius: style.border_radius,
                     opacity: 1.0,
                     box_shadow: style.box_shadow.map(Box::new),
@@ -1965,6 +1970,7 @@ impl LayoutEngine {
             background: style.background_color,
             border_width: style.border_width,
             border_color: style.border_color,
+            border_style: style.border_style,
             border_radius: style.border_radius,
             opacity: 1.0,
             box_shadow: style.box_shadow.map(Box::new),
@@ -3151,6 +3157,7 @@ impl LayoutEngine {
                 background: style.background_color,
                 border_width: style.border_width,
                 border_color: style.border_color,
+                border_style: style.border_style,
                 border_radius: style.border_radius,
                 opacity: 1.0,
                 box_shadow: style.box_shadow.map(Box::new),
@@ -3383,6 +3390,7 @@ impl LayoutEngine {
                         background: cell_style.background_color,
                         border_width: cell_style.border_width,
                         border_color: cell_style.border_color,
+                        border_style: cell_style.border_style,
                         border_radius: cell_style.border_radius,
                         opacity: 1.0,
                         box_shadow: cell_style.box_shadow.map(Box::new),
@@ -3418,6 +3426,7 @@ impl LayoutEngine {
                     background: Some(bg),
                     border_width: Edges::default(),
                     border_color: EdgeValues::uniform(Color::BLACK),
+                    border_style: EdgeValues::uniform(crate::style::BorderStyle::Solid),
                     border_radius: CornerValues::uniform(0.0),
                     opacity: 1.0,
                     box_shadow: row_style.box_shadow.map(Box::new),
@@ -5812,7 +5821,12 @@ impl LayoutEngine {
 
     /// Distance from a cell's border-box top to its first text baseline:
     /// `padding.top + border.top + first-line font_size`.
-    fn cell_baseline_distance(&self, cell: &Node, cell_style: &ResolvedStyle, inner_width: f64) -> f64 {
+    fn cell_baseline_distance(
+        &self,
+        cell: &Node,
+        cell_style: &ResolvedStyle,
+        inner_width: f64,
+    ) -> f64 {
         cell_style.padding.top
             + cell_style.border_width.top
             + self.cell_first_line_font_size(cell, cell_style, inner_width)
@@ -5820,7 +5834,12 @@ impl LayoutEngine {
 
     /// The row baseline: the max first-baseline distance across the row's
     /// `vertical-align: baseline` cells. `None` when no cell asks for baseline.
-    fn row_baseline(&self, row: &Node, row_style: &ResolvedStyle, col_widths: &[f64]) -> Option<f64> {
+    fn row_baseline(
+        &self,
+        row: &Node,
+        row_style: &ResolvedStyle,
+        col_widths: &[f64],
+    ) -> Option<f64> {
         let mut b: Option<f64> = None;
         let mut col_idx = 0usize;
         for cell in row.children.iter() {

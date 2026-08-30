@@ -1267,6 +1267,7 @@ impl PdfWriter {
                 background,
                 border_width,
                 border_color,
+                border_style,
                 border_radius,
                 opacity,
                 box_shadow,
@@ -1370,7 +1371,18 @@ impl PdfWriter {
 
                 let bw = border_width;
                 if bw.top > 0.0 || bw.right > 0.0 || bw.bottom > 0.0 || bw.left > 0.0 {
-                    if (bw.top - bw.right).abs() < 0.001
+                    use crate::style::BorderStyle::Solid;
+                    let all_solid = border_style.top == Solid
+                        && border_style.right == Solid
+                        && border_style.bottom == Solid
+                        && border_style.left == Solid;
+                    // The uniform fast path draws one rounded/plain rect stroke;
+                    // it only applies to a solid, equal-width border. Any
+                    // dashed/dotted or mixed-style border goes per-side (which
+                    // also emits the dash pattern; radius is dropped there, per
+                    // Chrome's own dashed-with-radius handling).
+                    if all_solid
+                        && (bw.top - bw.right).abs() < 0.001
                         && (bw.right - bw.bottom).abs() < 0.001
                         && (bw.bottom - bw.left).abs() < 0.001
                     {
@@ -1389,7 +1401,7 @@ impl PdfWriter {
 
                         let _ = writeln!(stream, "S\nQ");
                     } else {
-                        self.write_border_sides(stream, x, y, w, h, bw, border_color);
+                        self.write_border_sides(stream, x, y, w, h, bw, border_color, border_style);
                     }
                 }
 
@@ -2348,61 +2360,43 @@ impl PdfWriter {
         h: f64,
         bw: &Edges,
         bc: &crate::style::EdgeValues<Color>,
+        bs: &crate::style::EdgeValues<crate::style::BorderStyle>,
     ) {
-        if bw.top > 0.0 {
-            let _ = write!(
-                stream,
-                "q\n{:.3} {:.3} {:.3} RG\n{:.2} w\n{:.2} {:.2} m\n{:.2} {:.2} l\nS\nQ\n",
-                bc.top.r,
-                bc.top.g,
-                bc.top.b,
-                bw.top,
-                x,
-                y + h,
-                x + w,
-                y + h
-            );
+        // PDF dash + line-cap ops for a side, calibrated against Chrome:
+        //   dashed → dash 2×width, gap 1×width (butt cap)
+        //   dotted → round-capped dots, diameter 1×width, 2×width centre spacing
+        // Each side is wrapped in q/Q so the graphics state (cap, dash) resets.
+        fn dash_ops(style: crate::style::BorderStyle, width: f64) -> String {
+            use crate::style::BorderStyle::*;
+            match style {
+                Solid => String::new(),
+                Dashed => format!("[{:.2} {:.2}] 0 d\n", width * 2.0, width),
+                Dotted => format!("1 J\n[0 {:.2}] 0 d\n", width * 2.0),
+            }
         }
-        if bw.bottom > 0.0 {
+        // side: (color, width, style, x0,y0, x1,y1)
+        let sides = [
+            (bc.top, bw.top, bs.top, x, y + h, x + w, y + h),
+            (bc.bottom, bw.bottom, bs.bottom, x, y, x + w, y),
+            (bc.left, bw.left, bs.left, x, y, x, y + h),
+            (bc.right, bw.right, bs.right, x + w, y, x + w, y + h),
+        ];
+        for (color, width, style, x0, y0, x1, y1) in sides {
+            if width <= 0.0 {
+                continue;
+            }
             let _ = write!(
                 stream,
-                "q\n{:.3} {:.3} {:.3} RG\n{:.2} w\n{:.2} {:.2} m\n{:.2} {:.2} l\nS\nQ\n",
-                bc.bottom.r,
-                bc.bottom.g,
-                bc.bottom.b,
-                bw.bottom,
-                x,
-                y,
-                x + w,
-                y
-            );
-        }
-        if bw.left > 0.0 {
-            let _ = write!(
-                stream,
-                "q\n{:.3} {:.3} {:.3} RG\n{:.2} w\n{:.2} {:.2} m\n{:.2} {:.2} l\nS\nQ\n",
-                bc.left.r,
-                bc.left.g,
-                bc.left.b,
-                bw.left,
-                x,
-                y,
-                x,
-                y + h
-            );
-        }
-        if bw.right > 0.0 {
-            let _ = write!(
-                stream,
-                "q\n{:.3} {:.3} {:.3} RG\n{:.2} w\n{:.2} {:.2} m\n{:.2} {:.2} l\nS\nQ\n",
-                bc.right.r,
-                bc.right.g,
-                bc.right.b,
-                bw.right,
-                x + w,
-                y,
-                x + w,
-                y + h
+                "q\n{:.3} {:.3} {:.3} RG\n{:.2} w\n{}{:.2} {:.2} m\n{:.2} {:.2} l\nS\nQ\n",
+                color.r,
+                color.g,
+                color.b,
+                width,
+                dash_ops(style, width),
+                x0,
+                y0,
+                x1,
+                y1
             );
         }
     }
