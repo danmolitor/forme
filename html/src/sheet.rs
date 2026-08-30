@@ -128,6 +128,16 @@ pub enum Pseudo {
         a: i32,
         b: i32,
     },
+    /// `:nth-last-child(an+b)` — counts from the last child.
+    NthLastChild {
+        a: i32,
+        b: i32,
+    },
+    /// `:nth-last-of-type(an+b)` — counts same-tag siblings from the last.
+    NthLastOfType {
+        a: i32,
+        b: i32,
+    },
 }
 
 /// One compound selector: everything between combinators.
@@ -182,6 +192,14 @@ impl Compound {
             Pseudo::FirstOfType => key.type_index == 0,
             Pseudo::LastOfType => key.type_index + 1 == key.type_count,
             Pseudo::NthOfType { a, b } => nth_matches(*a, *b, key.type_index),
+            // Count from the end: the last child's 0-based distance from the
+            // end is 0, so `count - 1 - index` feeds the same 1-based matcher.
+            Pseudo::NthLastChild { a, b } => {
+                nth_matches(*a, *b, key.count - 1 - key.index)
+            }
+            Pseudo::NthLastOfType { a, b } => {
+                nth_matches(*a, *b, key.type_count - 1 - key.type_index)
+            }
         })
     }
 }
@@ -1178,15 +1196,25 @@ impl SelectorPrelude {
         if self.unsupported.is_some() {
             return;
         }
-        if !was_pseudo || !matches!(name, "nth-child" | "nth-of-type") {
+        if !was_pseudo
+            || !matches!(
+                name,
+                "nth-child" | "nth-of-type" | "nth-last-child" | "nth-last-of-type"
+            )
+        {
             self.unsupported = Some(format!("selector function '{name}()'"));
             return;
         }
         match nth {
-            Some((a, b)) if name == "nth-child" => {
-                self.current.pseudos.push(Pseudo::NthChild { a, b })
+            Some((a, b)) => {
+                let pseudo = match name {
+                    "nth-child" => Pseudo::NthChild { a, b },
+                    "nth-of-type" => Pseudo::NthOfType { a, b },
+                    "nth-last-child" => Pseudo::NthLastChild { a, b },
+                    _ => Pseudo::NthLastOfType { a, b }, // nth-last-of-type
+                };
+                self.current.pseudos.push(pseudo);
             }
-            Some((a, b)) => self.current.pseudos.push(Pseudo::NthOfType { a, b }),
             None => {
                 self.unsupported = Some(format!(":{name}() argument (use even, odd, or an+b)"));
             }
@@ -1499,6 +1527,52 @@ mod tests {
     }
 
     #[test]
+    fn nth_last_child_forms_match_from_the_end() {
+        let (s, w) = sheet(
+            "tr:nth-last-child(1) { color: red } tr:nth-last-child(even) { color: red } \
+             tr:nth-last-child(odd) { color: red } tr:nth-last-child(2n+1) { color: red }",
+        );
+        assert!(w.is_empty(), "{w:?}");
+        assert_eq!(s.rules.len(), 4);
+        let key = |i: usize| ElemKey {
+            tag: "tr".into(),
+            id: None,
+            classes: vec![],
+            index: i,
+            count: 6,
+            type_index: i,
+            type_count: 6,
+        };
+        let m = |rule: usize, idx: usize| s.rules[rule].selector.matches(&key(idx), &[]);
+        // nth-last-child(1): the last element (0-based index 5 of 6).
+        assert!(m(0, 5) && !m(0, 4) && !m(0, 0));
+        // even from the end: 2nd,4th,6th from end → 0-based 4,2,0.
+        assert!(m(1, 4) && m(1, 2) && m(1, 0) && !m(1, 5) && !m(1, 3));
+        // odd from the end: 1st,3rd,5th from end → 0-based 5,3,1.
+        assert!(m(2, 5) && m(2, 3) && !m(2, 4));
+        // 2n+1 == odd from the end.
+        assert!(m(3, 5) && m(3, 3) && !m(3, 4));
+    }
+
+    #[test]
+    fn nth_last_of_type_counts_same_tag_from_the_end() {
+        let (s, w) = sheet("p:nth-last-of-type(1) { color: red }");
+        assert!(w.is_empty(), "{w:?}");
+        // The 2nd <p> of two (type_index 1 of type_count 2) but the 4th
+        // element child — last of its type.
+        let key = ElemKey {
+            tag: "p".into(),
+            id: None,
+            classes: vec![],
+            index: 3,
+            count: 4,
+            type_index: 1,
+            type_count: 2,
+        };
+        assert!(s.rules[0].selector.matches(&key, &[]));
+    }
+
+    #[test]
     fn first_and_last_child_match_by_position() {
         let (s, w) = sheet("li:first-child { color: red } li:last-child { color: red }");
         assert!(w.is_empty(), "{w:?}");
@@ -1521,9 +1595,11 @@ mod tests {
 
     #[test]
     fn unsupported_pseudo_forms_warn_by_name() {
-        let (s, w) = sheet("tr:nth-last-child(2) { color: red } td::after { content: \"x\" }");
+        // Sibling combinators are now the named-pending example (nth-last-child
+        // graduated into the subset).
+        let (s, w) = sheet("li ~ li { color: red } td::after { content: \"x\" }");
         assert!(s.rules.is_empty());
-        assert!(w.iter().any(|m| m.contains("nth-last-child")), "{w:?}");
+        assert!(w.iter().any(|m| m.contains("sibling")), "{w:?}");
         assert!(w.iter().any(|m| m.contains("pseudo-element")), "{w:?}");
     }
 
