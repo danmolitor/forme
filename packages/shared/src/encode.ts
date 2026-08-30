@@ -1,7 +1,7 @@
 /**
  * Prop encoding for the emitting components.
  *
- * Each Forme Svelte component renders one placeholder tag whose
+ * Each Forme adapter component (Svelte, Vue) renders one placeholder tag whose
  * `props` attribute carries the component's props as JSON (part of
  * the internal emitter/parser contract - see `parser.ts`). Values
  * that cannot survive the JSON round-trip fail loudly here, naming

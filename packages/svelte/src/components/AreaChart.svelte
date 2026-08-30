@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { AreaChartProps } from '@formepdf/shared';
-  import { encodeProps } from '../encode.js';
+  import { encodeProps } from '@formepdf/shared';
 
   let rest: AreaChartProps = $props();
 </script>

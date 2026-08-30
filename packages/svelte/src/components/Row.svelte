@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
   import type { Style } from '@formepdf/shared';
-  import { encodeProps } from '../encode.js';
+  import { encodeProps } from '@formepdf/shared';
 
   interface Props {
     /** Header rows repeat at the top of every continuation page when

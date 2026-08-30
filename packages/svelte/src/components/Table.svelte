@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
   import type { ColumnDef, Style } from '@formepdf/shared';
-  import { encodeProps } from '../encode.js';
+  import { encodeProps } from '@formepdf/shared';
 
   interface Props {
     /** Column width definitions: `{ fraction }`, `{ fixed }`, or `'auto'`.

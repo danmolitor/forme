@@ -79,3 +79,9 @@ export type {
   FormeListMarkerType,
   FormeTransformOp,
 } from './types.js';
+
+// Adapter SSR markup pipeline (shared by the Svelte and Vue adapters):
+// placeholder markup → Forme document model, plus the prop codec both
+// adapters' placeholder components use.
+export { parseMarkup } from './parser.js';
+export { encodeProps, reviveBytesMarker } from './encode.js';

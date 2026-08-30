@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { CanvasContext, Style } from '@formepdf/shared';
   import { recordCanvasOperations } from '@formepdf/shared';
-  import { encodeProps } from '../encode.js';
+  import { encodeProps } from '@formepdf/shared';
 
   interface Props {
     /** Canvas width in points. */

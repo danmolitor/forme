@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
   import type { Edges, Style } from '@formepdf/shared';
-  import { encodeProps } from '../encode.js';
+  import { encodeProps } from '@formepdf/shared';
 
   interface Props {
     size?: 'A4' | 'A3' | 'A5' | 'Letter' | 'Legal' | 'Tabloid' | { width: number; height: number };
