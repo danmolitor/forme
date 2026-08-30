@@ -83,6 +83,7 @@ pub struct CssStyle {
     pub min_width: Option<Length>,
     pub min_height: Option<Length>,
     pub position_absolute: Option<bool>,
+    pub position_relative: Option<bool>,
     pub top: Option<Length>,
     pub right: Option<Length>,
     pub bottom: Option<Length>,
@@ -141,6 +142,7 @@ impl CssStyle {
             min_width,
             min_height,
             position_absolute,
+            position_relative,
             top,
             right,
             bottom,
@@ -383,10 +385,10 @@ pub(crate) fn apply_declaration(
             if let Ok(id) = p.expect_ident() {
                 match id.to_ascii_lowercase().as_str() {
                     "absolute" => style.position_absolute = Some(true),
-                    // static/relative are the in-flow default; relative's
-                    // offset behavior is separate (warned at resolve time
-                    // if offsets are present without absolute).
-                    "static" | "relative" => style.position_absolute = Some(false),
+                    // `relative` stays in normal flow but its offsets paint;
+                    // `static` is the plain default.
+                    "relative" => style.position_relative = Some(true),
+                    "static" => style.position_absolute = Some(false),
                     other @ ("fixed" | "sticky") => {
                         warnings.push(format!(
                             "position: {other} is unsupported (use a margin box for running content)"

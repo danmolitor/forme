@@ -1028,6 +1028,14 @@ fn to_engine_style(c: &Computed) -> Style {
         s.right = c.offsets[1];
         s.bottom = c.offsets[2];
         s.left = c.offsets[3];
+    } else if c.position_relative {
+        // Relative stays in normal flow (space preserved); the engine paints
+        // it offset by these values.
+        s.position = Some(forme::model::Position::Relative);
+        s.top = c.offsets[0];
+        s.right = c.offsets[1];
+        s.bottom = c.offsets[2];
+        s.left = c.offsets[3];
     }
 
     if matches!(c.break_before, Some(crate::css::BreakVal::Page)) {

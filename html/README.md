@@ -86,7 +86,8 @@ noted in the warnings).
 | `&nbsp;` and friends: entities decode and U+00A0 survives whitespace collapsing (non-breaking, non-collapsing) | |
 | `vertical-align: top/middle/bottom` on table cells + the legacy `valign` attribute — CSS's `baseline` default maps to top (documented divergence; baseline-across-cells is typography work) | |
 | `display: block / flex / none`, `flex-direction`, `justify-content`, `align-items`, `gap` | |
-| `position: absolute` + `top/right/bottom/left` — containing block is the element's PARENT (not the nearest positioned ancestor); offsets without `position: absolute` warn | |
+| `position: relative` + `top/right/bottom/left` — the element keeps its normal-flow space; the painted box is offset by the resolved values (`left`/`top` positive, `right`/`bottom` negative), siblings do not move | percentage offsets (warned, treated as 0); relative on inline runs |
+| `position: absolute` + `top/right/bottom/left` — containing block is the element's PARENT (not the nearest positioned ancestor); offsets without `position: relative`/`absolute` warn | |
 
 ### Paged media — the point of the whole thing
 

@@ -837,7 +837,6 @@ fn offset_element_y(el: &mut LayoutElement, dy: f64) {
 }
 
 /// Shift a layout element and all its nested content horizontally by `dx` points.
-#[allow(dead_code)]
 fn offset_element_x(el: &mut LayoutElement, dx: f64) {
     el.x += dx;
     if let DrawCommand::Text { ref mut lines, .. } = el.draw {
@@ -1239,6 +1238,10 @@ impl LayoutEngine {
             pages.push(cursor.finalize());
             *cursor = cursor.new_page();
         }
+
+        // Remember where this node's elements begin so a `position: relative`
+        // offset can shift its paint after normal-flow layout (below).
+        let elem_start = cursor.elements.len();
 
         match &node.kind {
             NodeKind::PageBreak => {
@@ -1720,6 +1723,31 @@ impl LayoutEngine {
                 self.layout_chart(
                     node, &style, cursor, pages, x, *chart_w, *chart_h, primitives, "DotPlot",
                 );
+            }
+        }
+
+        // position: relative — the element kept its normal-flow space (cursor.y
+        // was advanced as usual above); now paint it and its content offset by
+        // top/left/right/bottom. `left`/`top` shift positive, `right`/`bottom`
+        // negative; siblings are unaffected because flow already advanced.
+        // `position` defaults to Relative, so the presence of offsets is the
+        // real discriminator — the mapper only sets offsets on a positioned
+        // element, and Absolute is handled separately in `layout_children`.
+        if matches!(style.position, Position::Relative)
+            && (style.top.is_some()
+                || style.left.is_some()
+                || style.right.is_some()
+                || style.bottom.is_some())
+        {
+            let dx = style.left.unwrap_or(0.0) - style.right.unwrap_or(0.0);
+            let dy = style.top.unwrap_or(0.0) - style.bottom.unwrap_or(0.0);
+            for el in &mut cursor.elements[elem_start..] {
+                if dx != 0.0 {
+                    offset_element_x(el, dx);
+                }
+                if dy != 0.0 {
+                    offset_element_y(el, dy);
+                }
             }
         }
     }

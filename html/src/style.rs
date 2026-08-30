@@ -69,7 +69,9 @@ pub struct Computed {
     pub min_width: Option<Dimension>,
     pub min_height: Option<Dimension>,
     pub position_absolute: bool,
-    /// Offsets in points, meaningful only with `position_absolute`.
+    pub position_relative: bool,
+    /// Offsets in points, meaningful with `position_absolute` or
+    /// `position_relative`.
     pub offsets: [Option<f64>; 4],
     pub break_before: Option<BreakVal>,
     pub break_after: Option<BreakVal>,
@@ -176,19 +178,23 @@ pub fn resolve(css: &CssStyle, parent_font_size: f64, warnings: &mut Vec<String>
         min_width: dim(css.min_width),
         min_height: dim(css.min_height),
         position_absolute: css.position_absolute == Some(true),
+        position_relative: css.position_relative == Some(true),
         offsets: {
-            let abs = css.position_absolute == Some(true);
+            // Offsets are meaningful for both absolute and relative; on a
+            // static box they're inert (warned).
+            let positioned = css.position_absolute == Some(true)
+                || css.position_relative == Some(true);
             let mut out = [None; 4];
             for (i, l) in [css.top, css.right, css.bottom, css.left]
                 .into_iter()
                 .enumerate()
             {
                 if let Some(l) = l {
-                    if abs {
+                    if positioned {
                         out[i] = Some(to_pt(l, warnings, "offset"));
                     } else {
                         warnings.push(
-                            "top/right/bottom/left without position: absolute are unsupported"
+                            "top/right/bottom/left without position: relative/absolute are unsupported"
                                 .to_string(),
                         );
                         break;

@@ -270,3 +270,48 @@ fn float_and_clear_warn_with_a_remedy_and_still_render() {
         out.warnings
     );
 }
+
+// ── position: relative offsets via the mapper (item 7a) ──
+
+#[test]
+fn position_relative_offset_shifts_paint_through_the_mapper() {
+    let doc = |top_left: &str| {
+        format!(
+            r#"<html><head><style>
+              div {{ height: 20px; width: 60px; }}
+              .rel {{ position: relative; {top_left} }}
+            </style></head><body>
+              <div class="a">a</div>
+              <div class="rel">r</div>
+              <div class="b">b</div>
+            </body></html>"#
+        )
+    };
+    let find = |els: &[forme::layout::ElementInfo], needle: &str| -> (f64, f64) {
+        fn walk(els: &[forme::layout::ElementInfo], needle: &str) -> Option<(f64, f64)> {
+            for e in els {
+                if e.text_content.as_deref().is_some_and(|t| t.contains(needle)) {
+                    return Some((e.x, e.y));
+                }
+                if let Some(p) = walk(&e.children, needle) {
+                    return Some(p);
+                }
+            }
+            None
+        }
+        walk(els, needle).expect("element")
+    };
+
+    let off = render_html_with_layout(&doc("top: 10px; left: 8px;"), &HtmlOptions::default()).unwrap();
+    let base = render_html_with_layout(&doc(""), &HtmlOptions::default()).unwrap();
+    let (ox, oy) = find(&off.layout.pages[0].elements, "r");
+    let (bx, by) = find(&base.layout.pages[0].elements, "r");
+    // 8px → 6pt, 10px → 7.5pt.
+    assert!((ox - (bx + 6.0)).abs() < 0.01, "left:8px → +6pt: {ox} vs {bx}");
+    assert!((oy - (by + 7.5)).abs() < 0.01, "top:10px → +7.5pt: {oy} vs {by}");
+    // Following sibling flow unchanged.
+    let (_, ob_y) = find(&off.layout.pages[0].elements, "b");
+    let (_, bb_y) = find(&base.layout.pages[0].elements, "b");
+    assert_eq!(ob_y, bb_y, "sibling flow must not move");
+    assert!(off.warnings.is_empty(), "no offset warning for relative: {:?}", off.warnings);
+}

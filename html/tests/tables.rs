@@ -217,12 +217,13 @@ fn absolute_stamp_positions_without_disturbing_flow() {
         stamp.x
     );
 
-    // Offsets without position: absolute are named, not silent.
+    // Offsets on a static box (neither relative nor absolute) are named,
+    // not silent.
     let (_, warnings) = html_to_document(FIXTURE, &HtmlOptions::default());
     assert!(
         warnings
             .iter()
-            .any(|w| w.contains("without position: absolute")),
+            .any(|w| w.contains("without position: relative/absolute")),
         "{warnings:?}"
     );
 }

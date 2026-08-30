@@ -11598,3 +11598,51 @@ fn table_cell_css_height_is_minimum_row_height() {
         row.height
     );
 }
+
+// ─── position: relative — paint offset, flow preserved (item 7a) ─────
+
+fn block(rel_offsets: Option<(f64, f64)>) -> Node {
+    let (position, top, left) = match rel_offsets {
+        Some((t, l)) => (Some(Position::Relative), Some(t), Some(l)),
+        None => (None, None, None),
+    };
+    Node {
+        kind: NodeKind::View,
+        style: Style {
+            width: Some(Dimension::Pt(50.0)),
+            height: Some(Dimension::Pt(40.0)),
+            position,
+            top,
+            left,
+            ..Default::default()
+        },
+        children: vec![],
+        id: None,
+        source_location: None,
+        bookmark: None,
+        href: None,
+        alt: None,
+    }
+}
+
+#[test]
+fn relative_offset_shifts_paint_but_not_flow() {
+    // Middle block is position: relative, top: 10, left: 5.
+    let offset_doc = default_doc(vec![block(None), block(Some((10.0, 5.0))), block(None)]);
+    // Baseline: identical, but the middle block has no offsets.
+    let base_doc = default_doc(vec![block(None), block(None), block(None)]);
+
+    let off = layout_doc(&offset_doc);
+    let base = layout_doc(&base_doc);
+    let (o, b) = (&off[0].elements, &base[0].elements);
+
+    // The relative element paints shifted by exactly (+5, +10).
+    assert!((o[1].x - (b[1].x + 5.0)).abs() < 0.001, "left:5 → +5pt x: {} vs {}", o[1].x, b[1].x);
+    assert!((o[1].y - (b[1].y + 10.0)).abs() < 0.001, "top:10 → +10pt y: {} vs {}", o[1].y, b[1].y);
+    // Its following sibling's flow position is byte-identical (flow preserved).
+    assert_eq!(o[2].y, b[2].y, "sibling flow must not move");
+    assert_eq!(o[2].x, b[2].x, "sibling flow must not move");
+    // The offset element itself did not disturb its own reserved slot's start
+    // for the next block: block 3 sits where it would without the offset.
+    assert_eq!(o[0].y, b[0].y, "preceding sibling unchanged");
+}
