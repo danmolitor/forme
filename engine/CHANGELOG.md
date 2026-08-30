@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.15.0]
+
+### Changed (behavior — read the migration note)
+
+- **`position: absolute` now resolves against the nearest positioned ancestor, not the direct parent.** This retires a v0 divergence and matches every browser.
+
+  **The rule.** An absolute element's containing block is its nearest ancestor with `position: relative` or `absolute`. If no ancestor is positioned, it resolves against the page content box. Previously it always resolved against its direct parent, positioned or not.
+
+  **Detection recipe.** If you use `position: 'absolute'` inside a container that has **no** `position` set, add `position: 'relative'` to the intended container. Otherwise the absolute box now resolves against the page (or a higher positioned ancestor) instead of that parent — most visibly with negative offsets, which will push content off the page.
+
+  **Worked example (from this repo).** The `catalog` demo template's "SALE"/"NEW" badge is `position: 'absolute'; top: -18; right: -18` — negative offsets meant to overhang a product card's corner. The card had no `position`, so under the old rule the badge sat on the card; under the new rule it escaped to the page and overflowed the content box by 16pt. Our own structural-regression gate caught it before it shipped. The fix was one line — `position: 'relative'` on the card — which is exactly the migration. (`templates/catalog.tsx`.)
+
+  **How to find affected templates.** Any absolute-positioned element whose parent lacks `position` is a candidate — grep for `position: 'absolute'` and check each ancestor. If you use `@pdf-testkit` structural snapshots, your own baselines will tell you, exactly as ours did here; templates and docs snippets without baselines need the manual grep.
+
 ## [0.14.0] - 2026-08-28
 
 ### Added

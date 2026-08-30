@@ -1005,6 +1005,11 @@ struct PageCursor {
     content_y: f64,
     /// Extra Y offset applied on continuation pages (e.g. parent view's padding+border)
     continuation_top_offset: f64,
+    /// The nearest positioned-ancestor content box `(x, y, width, height)` —
+    /// the containing block for `position: absolute` descendants. Defaults to
+    /// the page content box; updated when layout descends into a `relative`/
+    /// `absolute` element and restored on the way out.
+    containing_block: (f64, f64, f64, f64),
 }
 
 impl PageCursor {
@@ -1027,6 +1032,12 @@ impl PageCursor {
             content_x: config.margin.left,
             content_y: config.margin.top,
             continuation_top_offset: 0.0,
+            containing_block: (
+                config.margin.left,
+                config.margin.top,
+                content_width,
+                content_height,
+            ),
         }
     }
 
@@ -2110,6 +2121,25 @@ impl LayoutEngine {
         let parent_box_y = cursor.content_y + cursor.y;
         let parent_box_x = content_x;
 
+        // If this container is *explicitly* positioned it becomes the
+        // containing block for its absolute descendants. Update the cursor's
+        // containing block for the duration of this subtree; restore after the
+        // second pass. (`position` defaults to Relative, so only the explicit
+        // `positioned` flag counts.)
+        let parent_positioned = parent_style.map(|s| s.positioned).unwrap_or(false);
+        let saved_cb = cursor.containing_block;
+        if parent_positioned {
+            let cb_height = parent_style
+                .and_then(|ps| match ps.height {
+                    SizeConstraint::Fixed(h) => {
+                        Some(h - ps.padding.vertical() - ps.border_width.vertical())
+                    }
+                    SizeConstraint::Auto => None,
+                })
+                .unwrap_or(saved_cb.3);
+            cursor.containing_block = (parent_box_x, parent_box_y, available_width, cb_height);
+        }
+
         // Separate absolute vs flow children
         let (flow_children, abs_children): (Vec<&Node>, Vec<&Node>) = children
             .iter()
@@ -2416,9 +2446,28 @@ impl LayoutEngine {
             }
         }
 
+        // The containing block for these absolutes: the direct parent when it
+        // is positioned (preserving the auto-height lazy computation), else the
+        // nearest positioned ancestor / page carried on the cursor. This is the
+        // v0-divergence retirement — an absolute inside an *unpositioned* parent
+        // now escapes to its nearest positioned ancestor, matching browsers.
+        let (cb_x, cb_y, cb_w, cb_h) = if parent_positioned {
+            let ph = parent_style
+                .and_then(|ps| match ps.height {
+                    SizeConstraint::Fixed(h) => {
+                        Some(h - ps.padding.vertical() - ps.border_width.vertical())
+                    }
+                    SizeConstraint::Auto => None,
+                })
+                .unwrap_or(cursor.content_y + cursor.y - parent_box_y);
+            (parent_box_x, parent_box_y, available_width, ph)
+        } else {
+            cursor.containing_block
+        };
+
         // Second pass: absolute children
         for abs_child in &abs_children {
-            let abs_style = abs_child.style.resolve(parent_style, available_width);
+            let abs_style = abs_child.style.resolve(parent_style, cb_w);
 
             // Measure intrinsic size
             let child_width = match abs_style.width {
@@ -2426,7 +2475,7 @@ impl LayoutEngine {
                 SizeConstraint::Auto => {
                     // If both left and right are set, stretch width
                     if let (Some(l), Some(r)) = (abs_style.left, abs_style.right) {
-                        (available_width - l - r).max(0.0)
+                        (cb_w - l - r).max(0.0)
                     } else {
                         self.measure_intrinsic_width(abs_child, &abs_style, font_context)
                     }
@@ -2440,31 +2489,21 @@ impl LayoutEngine {
                 }
             };
 
-            // Determine position relative to parent content box
+            // Position relative to the containing block.
             let abs_x = if let Some(l) = abs_style.left {
-                parent_box_x + l
+                cb_x + l
             } else if let Some(r) = abs_style.right {
-                parent_box_x + available_width - r - child_width
+                cb_x + cb_w - r - child_width
             } else {
-                parent_box_x
+                cb_x
             };
 
-            // Compute parent inner height for bottom positioning
-            let parent_inner_height = parent_style
-                .and_then(|ps| match ps.height {
-                    SizeConstraint::Fixed(h) => {
-                        Some(h - ps.padding.vertical() - ps.border_width.vertical())
-                    }
-                    SizeConstraint::Auto => None,
-                })
-                .unwrap_or(cursor.content_y + cursor.y - parent_box_y);
-
             let abs_y = if let Some(t) = abs_style.top {
-                parent_box_y + t
+                cb_y + t
             } else if let Some(b) = abs_style.bottom {
-                parent_box_y + parent_inner_height - b - child_height
+                cb_y + cb_h - b - child_height
             } else {
-                parent_box_y
+                cb_y
             };
 
             // Lay out the absolute child into a temporary cursor
@@ -2488,6 +2527,9 @@ impl LayoutEngine {
             // Add absolute elements to the current cursor (renders on top)
             cursor.elements.extend(abs_cursor.elements);
         }
+
+        // Restore the containing block for the caller's remaining siblings.
+        cursor.containing_block = saved_cb;
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -6859,13 +6901,15 @@ mod tests {
 
     #[test]
     fn absolute_child_positioned_relative_to_parent() {
-        // A parent View at some offset with an absolute child using top: 10, left: 10.
-        // The absolute child should be at parent + 10, not page + 10.
+        // A POSITIONED parent (position: relative) with an absolute child using
+        // top: 10, left: 10. The child resolves against the parent — now the
+        // correct CSS behavior, since the parent is a positioned ancestor.
         let engine = LayoutEngine::new();
         let font_context = FontContext::new();
 
         let parent = make_styled_view(
             Style {
+                position: Some(crate::model::Position::Relative),
                 margin: Some(MarginEdges::from_edges(Edges {
                     top: 50.0,
                     left: 50.0,
@@ -6940,6 +6984,87 @@ mod tests {
             "Absolute child y ({}) should be parent.y + 10 ({})",
             abs_child.y,
             expected_y
+        );
+    }
+
+    #[test]
+    fn absolute_escapes_unpositioned_parent_to_page() {
+        // Same shape, but the parent is UNpositioned. Under browser semantics
+        // the absolute child resolves against the nearest positioned ancestor —
+        // here none exists, so the page content box, NOT the parent. This is
+        // the retired v0 divergence.
+        let engine = LayoutEngine::new();
+        let font_context = FontContext::new();
+        let parent = make_styled_view(
+            Style {
+                margin: Some(MarginEdges::from_edges(Edges {
+                    top: 50.0,
+                    left: 50.0,
+                    ..Default::default()
+                })),
+                width: Some(Dimension::Pt(200.0)),
+                height: Some(Dimension::Pt(200.0)),
+                ..Default::default()
+            },
+            vec![make_styled_view(
+                Style {
+                    position: Some(crate::model::Position::Absolute),
+                    top: Some(10.0),
+                    left: Some(10.0),
+                    width: Some(Dimension::Pt(50.0)),
+                    height: Some(Dimension::Pt(50.0)),
+                    ..Default::default()
+                },
+                vec![],
+            )],
+        );
+        let doc = Document {
+            children: vec![Node::page(
+                PageConfig::default(),
+                Style::default(),
+                vec![parent],
+            )],
+            metadata: Default::default(),
+            default_page: PageConfig::default(),
+            first_page: None,
+            fonts: vec![],
+            tagged: false,
+            pdfa: None,
+            default_style: None,
+            embedded_data: None,
+            flatten_forms: false,
+            pdf_ua: false,
+            certification: None,
+        };
+        let pages = engine.layout(&doc, &font_context);
+        let page = &pages[0];
+        let parent_el = page
+            .elements
+            .iter()
+            .find(|e| e.width > 190.0 && e.width < 210.0)
+            .expect("parent");
+        let abs_child = parent_el
+            .children
+            .iter()
+            .find(|e| e.width > 45.0 && e.width < 55.0)
+            .expect("abs child");
+        let page_left = PageConfig::default().margin.left;
+        let page_top = PageConfig::default().margin.top;
+        assert!(
+            (abs_child.x - (page_left + 10.0)).abs() < 1.0,
+            "absolute escapes to the page: x {} should be page_left + 10 ({})",
+            abs_child.x,
+            page_left + 10.0
+        );
+        assert!(
+            (abs_child.y - (page_top + 10.0)).abs() < 1.0,
+            "absolute escapes to the page: y {} should be page_top + 10 ({})",
+            abs_child.y,
+            page_top + 10.0
+        );
+        assert!(
+            abs_child.x < parent_el.x,
+            "child must no longer be parent-relative (parent is 50pt further in)"
         );
     }
 

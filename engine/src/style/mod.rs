@@ -668,6 +668,11 @@ pub struct ResolvedStyle {
 
     // Positioning
     pub position: Position,
+    /// True iff `position` was *explicitly* set (relative or absolute) rather
+    /// than defaulted. `position` itself defaults to `Relative`, so this is the
+    /// only reliable signal that an element establishes a containing block for
+    /// its absolute descendants.
+    pub positioned: bool,
     pub top: Option<f64>,
     pub right: Option<f64>,
     pub bottom: Option<f64>,
@@ -840,6 +845,7 @@ impl Style {
             border_radius: self.border_radius.unwrap_or(CornerValues::uniform(0.0)),
 
             position: self.position.unwrap_or_default(),
+            positioned: self.position.is_some(),
             top: self.top,
             right: self.right,
             bottom: self.bottom,

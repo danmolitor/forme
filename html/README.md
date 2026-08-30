@@ -86,7 +86,7 @@ noted in the warnings).
 | `vertical-align: top/middle/bottom/baseline` on table cells + the legacy `valign` attribute. `baseline` aligns cells' first text baselines across a row (the shorter-font cells shove down; the row grows to fit, never clips). This engine's baseline sits exactly `font_size` below the line-box top — there is no font-ascent metric — so baseline alignment is **exact within the engine's own baseline model**; it diverges from Chrome only to the degree a font's ascent differs from its em-size | |
 | `display: block / flex / none`, `flex-direction`, `justify-content`, `align-items`, `gap` | |
 | `position: relative` + `top/right/bottom/left` — the element keeps its normal-flow space; the painted box is offset by the resolved values (`left`/`top` positive, `right`/`bottom` negative), siblings do not move | percentage offsets (warned, treated as 0); relative on inline runs |
-| `position: absolute` + `top/right/bottom/left` — containing block is the element's PARENT (not the nearest positioned ancestor); offsets without `position: relative`/`absolute` warn | |
+| `position: absolute` + `top/right/bottom/left` — containing block is the **nearest positioned ancestor** (an element with `position: relative`/`absolute`), or the page content box when none exists — matching browser semantics; offsets without `position: relative`/`absolute` warn | `position: fixed`/`sticky`, `z-index` stacking order |
 
 ### Paged media — the point of the whole thing
 

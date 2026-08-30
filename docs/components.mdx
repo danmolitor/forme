@@ -145,7 +145,7 @@ A flex container, analogous to an HTML `<div>`. Defaults to column layout.
 </View>
 
 {/* Absolute positioning */}
-<View style={{ width: 200, height: 80, backgroundColor: '#f1f5f9' }}>
+<View style={{ position: 'relative', width: 200, height: 80, backgroundColor: '#f1f5f9' }}>
   <Text>Card content</Text>
   <View style={{ position: 'absolute', top: 4, right: 4, padding: 4, backgroundColor: '#ef4444', borderRadius: 4 }}>
     <Text style={{ fontSize: 8, color: '#fff', fontWeight: 700 }}>SALE</Text>
@@ -153,7 +153,7 @@ A flex container, analogous to an HTML `<div>`. Defaults to column layout.
 </View>
 ```
 
-Views use flexbox column layout by default. All flex properties (`flexDirection`, `justifyContent`, `alignItems`, `flexWrap`, `gap`, `flexGrow`, `flexShrink`) are supported. Set `position: 'absolute'` in the style to position a View relative to its parent's content box.
+Views use flexbox column layout by default. All flex properties (`flexDirection`, `justifyContent`, `alignItems`, `flexWrap`, `gap`, `flexGrow`, `flexShrink`) are supported. Set `position: 'absolute'` to position a View relative to its **nearest positioned ancestor** — an element with `position: 'relative'` or `'absolute'` — or the page content box if there is none. Give the intended container `position: 'relative'` (as the card above does), or the absolute box will resolve against the page.
 
 ---
 

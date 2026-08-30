@@ -161,17 +161,18 @@ Margins in Forme are always additive (like flexbox gap). There is no CSS margin 
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `position` | `"relative"` \| `"absolute"` | `"relative"` | Positioning mode. Absolute positioning places the element relative to its parent's content box. |
-| `top` | `number` | - | Offset from the top of the parent's padding edge (absolute positioning) |
-| `right` | `number` | - | Offset from the right of the parent's padding edge (absolute positioning) |
-| `bottom` | `number` | - | Offset from the bottom of the parent's padding edge (absolute positioning) |
-| `left` | `number` | - | Offset from the left of the parent's padding edge (absolute positioning) |
+| `position` | `"relative"` \| `"absolute"` | `"relative"` | Positioning mode. `relative` keeps the element in normal flow and paints it offset by `top`/`left`/`right`/`bottom` (siblings don't move). `absolute` takes it out of flow and places it against its **nearest positioned ancestor** — an element with `position: 'relative'`/`'absolute'` — or the page content box if there is none. |
+| `top` | `number` | - | Offset from the top of the containing block (nearest positioned ancestor, or the page) |
+| `right` | `number` | - | Offset from the right of the containing block |
+| `bottom` | `number` | - | Offset from the bottom of the containing block |
+| `left` | `number` | - | Offset from the left of the containing block |
 
 ### Positioning examples
 
 ```tsx
-{/* Badge overlay in the top-right corner */}
-<View style={{ width: 200, height: 100, backgroundColor: '#f8fafc' }}>
+{/* Badge overlay in the top-right corner — the card is position: 'relative'
+    so the badge resolves against it, not the page. */}
+<View style={{ position: 'relative', width: 200, height: 100, backgroundColor: '#f8fafc' }}>
   <Text>Product Card</Text>
   <View style={{ position: 'absolute', top: 4, right: 4, padding: 4, backgroundColor: '#ef4444', borderRadius: 4 }}>
     <Text style={{ fontSize: 8, color: '#ffffff', fontWeight: 700 }}>NEW</Text>
@@ -179,7 +180,7 @@ Margins in Forme are always additive (like flexbox gap). There is no CSS margin 
 </View>
 
 {/* Watermark-style overlay */}
-<View style={{ width: '100%', height: 400 }}>
+<View style={{ position: 'relative', width: '100%', height: 400 }}>
   <Text>Document content here...</Text>
   <View style={{ position: 'absolute', top: 160, left: 100 }}>
     <Text style={{ fontSize: 48, color: '#e2e8f0', fontWeight: 700 }}>DRAFT</Text>
