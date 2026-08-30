@@ -67,6 +67,63 @@ jobs:
             echo "$f: byte-identical"
           done
 
+  coverage:
+    name: Coverage (Rust)
+    runs-on: ubuntu-latest
+    needs: engine
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Add llvm-tools to the pinned toolchain
+        # rust-toolchain.toml pins the toolchain, and cargo-llvm-cov needs
+        # the llvm-tools component on THAT toolchain — installing it on
+        # stable isn't enough. Same trap as the rustfmt component.
+        run: rustup component add llvm-tools-preview
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov
+      - name: Engine coverage
+        working-directory: engine
+        run: |
+          cargo llvm-cov --html
+          {
+            echo "### Engine coverage"
+            echo '```'
+            cargo llvm-cov report --summary-only
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: HTML crate coverage
+        working-directory: html
+        run: |
+          cargo llvm-cov --html
+          {
+            echo "### HTML crate coverage"
+            echo '```'
+            cargo llvm-cov report --summary-only
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      # Reports and summaries are generated above, gates run below — so a
+      # gate failure still leaves the numbers in the job summary and the
+      # HTML drill-down in the artifact, which is exactly when you need them.
+      - name: Upload HTML coverage reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-html
+          path: |
+            engine/target/llvm-cov/html
+            html/target/llvm-cov/html
+      - name: Engine coverage gate (75% lines)
+        # Local baseline 80.7% at the time the gate was set. The margin is
+        # for CI: Linux runners skip the macOS-system-font tests, which
+        # costs a few points. Ratchet upward as coverage grows — never set
+        # the gate above what CI actually reports.
+        working-directory: engine
+        run: cargo llvm-cov report --fail-under-lines 75
+      - name: HTML crate coverage gate (80% lines)
+        # Local baseline 84.9% at the time the gate was set.
+        working-directory: html
+        run: cargo llvm-cov report --fail-under-lines 80
+
   packages:
     name: TypeScript Packages
     runs-on: ubuntu-latest
