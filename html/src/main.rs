@@ -45,7 +45,10 @@ fn inline_stylesheet_links(html: &str, base_dir: &Path) -> Result<String, String
         let href = tag_attr(tag, "href");
         let is_stylesheet = rel
             .as_deref()
-            .map(|r| r.split_ascii_whitespace().any(|t| t.eq_ignore_ascii_case("stylesheet")))
+            .map(|r| {
+                r.split_ascii_whitespace()
+                    .any(|t| t.eq_ignore_ascii_case("stylesheet"))
+            })
             .unwrap_or(false);
         let Some(href) = href else { continue };
         if !is_stylesheet || href.is_empty() {
@@ -295,10 +298,12 @@ mod link_tests {
     fn inlines_local_link_in_source_order() {
         let dir = scratch("order");
         fs::write(dir.join("brand.css"), "h1{color:#ff0000}").unwrap();
-        let html =
-            r#"<head><link rel="stylesheet" href="brand.css"><style>h1{color:#00ff00}</style></head>"#;
+        let html = r#"<head><link rel="stylesheet" href="brand.css"><style>h1{color:#00ff00}</style></head>"#;
         let out = inline_stylesheet_links(html, &dir).unwrap();
-        assert!(out.contains("<style>\nh1{color:#ff0000}\n</style>"), "{out}");
+        assert!(
+            out.contains("<style>\nh1{color:#ff0000}\n</style>"),
+            "{out}"
+        );
         assert!(!out.contains("<link"), "{out}");
         // The linked stylesheet must precede the document's own <style>.
         assert!(out.find("#ff0000").unwrap() < out.find("#00ff00").unwrap());
@@ -331,10 +336,12 @@ mod link_tests {
         let dir = scratch("multi");
         fs::write(dir.join("a.css"), "a{color:red}").unwrap();
         fs::write(dir.join("b.css"), "b{color:blue}").unwrap();
-        let html =
-            r#"<link rel="stylesheet" href="a.css"><link rel="stylesheet" href="b.css">"#;
+        let html = r#"<link rel="stylesheet" href="a.css"><link rel="stylesheet" href="b.css">"#;
         let out = inline_stylesheet_links(html, &dir).unwrap();
-        assert!(out.contains("a{color:red}") && out.contains("b{color:blue}"), "{out}");
+        assert!(
+            out.contains("a{color:red}") && out.contains("b{color:blue}"),
+            "{out}"
+        );
         assert!(!out.contains("<link"), "{out}");
     }
 }

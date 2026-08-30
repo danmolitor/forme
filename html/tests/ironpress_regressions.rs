@@ -27,9 +27,7 @@ fn color_hex(c: Color) -> String {
 }
 
 fn any_node(nodes: &[Node], pred: &impl Fn(&Node) -> bool) -> bool {
-    nodes
-        .iter()
-        .any(|n| pred(n) || any_node(&n.children, pred))
+    nodes.iter().any(|n| pred(n) || any_node(&n.children, pred))
 }
 
 /// Finding C — a forced `break-before: page` on the *first* in-flow block has
@@ -141,7 +139,11 @@ fn table_cell_vertical_align_positions_markers() {
     }
 
     // Cells and their markers, ordered left→right = top/middle/bottom.
-    let mut cells: Vec<&ElementInfo> = all.iter().copied().filter(|e| e.node_type == "TableCell").collect();
+    let mut cells: Vec<&ElementInfo> = all
+        .iter()
+        .copied()
+        .filter(|e| e.node_type == "TableCell")
+        .collect();
     let mut markers: Vec<&ElementInfo> = all
         .iter()
         .copied()
@@ -157,7 +159,9 @@ fn table_cell_vertical_align_positions_markers() {
     assert!(
         top.y < mid.y && mid.y < bot.y,
         "markers must stack top < middle < bottom; got {:.2}, {:.2}, {:.2}",
-        top.y, mid.y, bot.y
+        top.y,
+        mid.y,
+        bot.y
     );
     // Middle marker centred in its cell (±0.01pt).
     let marker_centre = mid.y + mid.height / 2.0;
@@ -165,7 +169,8 @@ fn table_cell_vertical_align_positions_markers() {
     assert!(
         (marker_centre - cell_centre).abs() < 0.01,
         "middle marker must be centred: marker centre {:.4} vs cell centre {:.4}",
-        marker_centre, cell_centre
+        marker_centre,
+        cell_centre
     );
     // Top-aligned top-gap equals bottom-aligned bottom-gap (both == the border),
     // proving symmetric top/bottom placement without hard-coding the border.
@@ -174,6 +179,7 @@ fn table_cell_vertical_align_positions_markers() {
     assert!(
         (top_gap - bottom_gap).abs() < 0.01,
         "top gap {:.4} must equal bottom gap {:.4}",
-        top_gap, bottom_gap
+        top_gap,
+        bottom_gap
     );
 }

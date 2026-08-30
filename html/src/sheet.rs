@@ -194,9 +194,7 @@ impl Compound {
             Pseudo::NthOfType { a, b } => nth_matches(*a, *b, key.type_index),
             // Count from the end: the last child's 0-based distance from the
             // end is 0, so `count - 1 - index` feeds the same 1-based matcher.
-            Pseudo::NthLastChild { a, b } => {
-                nth_matches(*a, *b, key.count - 1 - key.index)
-            }
+            Pseudo::NthLastChild { a, b } => nth_matches(*a, *b, key.count - 1 - key.index),
             Pseudo::NthLastOfType { a, b } => {
                 nth_matches(*a, *b, key.type_count - 1 - key.type_index)
             }
@@ -1551,8 +1549,14 @@ mod tests {
     #[test]
     fn media_feature_queries_evaluate_against_the_page_viewport() {
         // Letter content box ≈ 612 - 2*54 = 504pt wide; a narrow @page ≈ 200pt.
-        let wide = Viewport { width: 504.0, height: 684.0 };
-        let narrow = Viewport { width: 200.0, height: 300.0 };
+        let wide = Viewport {
+            width: 504.0,
+            height: 684.0,
+        };
+        let narrow = Viewport {
+            width: 200.0,
+            height: 300.0,
+        };
         let with = |css: &str, vp: Viewport| {
             let mut w = Vec::new();
             let s = parse_stylesheet_with_viewport(css, vp, &mut w);
@@ -1566,19 +1570,31 @@ mod tests {
 
         // print AND a feature: both must hold.
         let both = "@media print and (max-width: 300px) { p { color: red } }";
-        assert!(with(both, narrow).0.rules.is_empty() == false, "200 <= 300 under print");
+        assert!(
+            with(both, narrow).0.rules.is_empty() == false,
+            "200 <= 300 under print"
+        );
         assert!(with(both, wide).0.rules.is_empty(), "504 > 300 → excluded");
 
         // orientation derives from page dimensions.
         let land = "@media (orientation: landscape) { p { color: red } }";
-        let landscape_vp = Viewport { width: 800.0, height: 400.0 };
+        let landscape_vp = Viewport {
+            width: 800.0,
+            height: 400.0,
+        };
         assert_eq!(with(land, landscape_vp).0.rules.len(), 1);
         assert!(with(land, wide).0.rules.is_empty(), "portrait page");
 
         // An unmodeled feature stays conservative even with a viewport.
-        let (s, w) = with("@media (prefers-color-scheme: dark) { p { color: red } }", wide);
+        let (s, w) = with(
+            "@media (prefers-color-scheme: dark) { p { color: red } }",
+            wide,
+        );
         assert!(s.rules.is_empty());
-        assert!(w.iter().any(|m| m.contains("unevaluable @media condition")), "{w:?}");
+        assert!(
+            w.iter().any(|m| m.contains("unevaluable @media condition")),
+            "{w:?}"
+        );
     }
 
     #[test]

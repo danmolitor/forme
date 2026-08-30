@@ -182,10 +182,18 @@ pub fn html_to_document(html: &str, options: &HtmlOptions) -> (forme::Document, 
     // Pass 2 (real): parse with the viewport bound so feature queries evaluate.
     let mut stylesheet = sheet::Stylesheet::default();
     for text in &style_texts {
-        stylesheet.append(sheet::parse_stylesheet_with_viewport(text, viewport, &mut warnings));
+        stylesheet.append(sheet::parse_stylesheet_with_viewport(
+            text,
+            viewport,
+            &mut warnings,
+        ));
     }
     if let Some(css) = &options.css {
-        stylesheet.append(sheet::parse_stylesheet_with_viewport(css, viewport, &mut warnings));
+        stylesheet.append(sheet::parse_stylesheet_with_viewport(
+            css,
+            viewport,
+            &mut warnings,
+        ));
     }
 
     let mut config = page_config(options, stylesheet.page.as_ref(), &mut warnings);
