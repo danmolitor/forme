@@ -3260,6 +3260,7 @@ impl LayoutEngine {
             .resolve(Some(parent_style), col_widths.iter().sum());
 
         let row_height = self.measure_table_row_height(row, col_widths, parent_style, font_context);
+        let row_bl = self.row_baseline(row, &row_style, col_widths);
         let row_y = cursor.content_y + cursor.y;
         let total_width: f64 = col_widths.iter().sum();
 
@@ -3296,8 +3297,8 @@ impl LayoutEngine {
             let saved_y = cursor.y;
             cursor.y += cell_style.padding.top + cell_style.border_width.top;
 
-            // vertical-align: middle/bottom — the row box height is already
-            // resolved (measured above the loop), so offset this cell's
+            // vertical-align: middle/bottom/baseline — the row box height is
+            // already resolved (measured above the loop), so offset this cell's
             // content within it. Top is the default and costs nothing.
             if !matches!(cell_style.vertical_align, crate::style::VerticalAlign::Top) {
                 let content_h: f64 = cell
@@ -3314,6 +3315,16 @@ impl LayoutEngine {
                 cursor.y += match cell_style.vertical_align {
                     crate::style::VerticalAlign::Middle => slack / 2.0,
                     crate::style::VerticalAlign::Bottom => slack,
+                    // Shove this cell down so its first baseline lands on the
+                    // row baseline (the max first-baseline distance across the
+                    // row's baseline cells). measure_table_row_height grew the
+                    // row to fit this, so it never clips.
+                    crate::style::VerticalAlign::Baseline => row_bl
+                        .map(|b| {
+                            let d = self.cell_baseline_distance(cell, &cell_style, inner_width);
+                            (b - d).max(0.0)
+                        })
+                        .unwrap_or(0.0),
                     crate::style::VerticalAlign::Top => 0.0,
                 };
             }
@@ -5776,6 +5787,61 @@ impl LayoutEngine {
         }
     }
 
+    /// The font size of a cell's first text line. In this engine the baseline
+    /// sits exactly `font_size` below the line-box top (there is no font-ascent
+    /// metric), so this IS the first-baseline offset from the content-box top.
+    /// Walks to the first text-producing descendant; falls back to the cell's
+    /// own font size when there is none.
+    fn cell_first_line_font_size(&self, cell: &Node, cell_style: &ResolvedStyle, w: f64) -> f64 {
+        fn first(node: &Node, parent: &ResolvedStyle, w: f64) -> Option<f64> {
+            for ch in &node.children {
+                let s = ch.style.resolve(Some(parent), w);
+                match &ch.kind {
+                    NodeKind::Text { .. } | NodeKind::Heading { .. } => return Some(s.font_size),
+                    _ => {
+                        if let Some(f) = first(ch, &s, w) {
+                            return Some(f);
+                        }
+                    }
+                }
+            }
+            None
+        }
+        first(cell, cell_style, w).unwrap_or(cell_style.font_size)
+    }
+
+    /// Distance from a cell's border-box top to its first text baseline:
+    /// `padding.top + border.top + first-line font_size`.
+    fn cell_baseline_distance(&self, cell: &Node, cell_style: &ResolvedStyle, inner_width: f64) -> f64 {
+        cell_style.padding.top
+            + cell_style.border_width.top
+            + self.cell_first_line_font_size(cell, cell_style, inner_width)
+    }
+
+    /// The row baseline: the max first-baseline distance across the row's
+    /// `vertical-align: baseline` cells. `None` when no cell asks for baseline.
+    fn row_baseline(&self, row: &Node, row_style: &ResolvedStyle, col_widths: &[f64]) -> Option<f64> {
+        let mut b: Option<f64> = None;
+        let mut col_idx = 0usize;
+        for cell in row.children.iter() {
+            let span = match &cell.kind {
+                NodeKind::TableCell { col_span, .. } => (*col_span).max(1) as usize,
+                _ => 1,
+            };
+            let col_width: f64 = col_widths.iter().skip(col_idx).take(span).copied().sum();
+            col_idx += span;
+            let cell_style = cell.style.resolve(Some(row_style), col_width);
+            if matches!(cell_style.vertical_align, VerticalAlign::Baseline) {
+                let iw = col_width
+                    - cell_style.padding.horizontal()
+                    - cell_style.border_width.horizontal();
+                let d = self.cell_baseline_distance(cell, &cell_style, iw);
+                b = Some(b.map_or(d, |m: f64| m.max(d)));
+            }
+        }
+        b
+    }
+
     fn measure_table_row_height(
         &self,
         row: &Node,
@@ -5787,6 +5853,9 @@ impl LayoutEngine {
             .style
             .resolve(Some(parent_style), col_widths.iter().sum());
         let mut max_height: f64 = 0.0;
+        // Precompute the row baseline so a baseline-shoved cell can grow the row
+        // rather than clip (the risk site).
+        let row_bl = self.row_baseline(row, &row_style, col_widths);
 
         let mut col_idx = 0usize;
         for cell in row.children.iter() {
@@ -5810,6 +5879,15 @@ impl LayoutEngine {
             let mut total = cell_content_height
                 + cell_style.padding.vertical()
                 + cell_style.border_width.vertical();
+            // A baseline cell is shoved down by `row_baseline - its own baseline
+            // distance`; the row must be tall enough to fit that shove, or the
+            // cell content clips.
+            if matches!(cell_style.vertical_align, VerticalAlign::Baseline) {
+                if let Some(b) = row_bl {
+                    let d = self.cell_baseline_distance(cell, &cell_style, inner_width);
+                    total += (b - d).max(0.0);
+                }
+            }
             // CSS 2.1 §17.5.3: `height` on a table cell is a MINIMUM — the cell
             // grows to fit its content but never shrinks below the specified
             // height. This is the slack `vertical-align: middle/bottom` needs to

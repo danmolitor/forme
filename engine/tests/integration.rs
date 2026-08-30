@@ -11646,3 +11646,95 @@ fn relative_offset_shifts_paint_but_not_flow() {
     // for the next block: block 3 sits where it would without the offset.
     assert_eq!(o[0].y, b[0].y, "preceding sibling unchanged");
 }
+
+// ─── vertical-align: baseline in table cells (item 6) ───────────────
+
+fn valign_cell(font: f64, text: &str, va: VerticalAlign, extra_block: Option<f64>) -> Node {
+    let mut children = vec![make_text(text, font)];
+    if let Some(h) = extra_block {
+        children.push(Node {
+            kind: NodeKind::View,
+            style: Style { height: Some(Dimension::Pt(h)), ..Default::default() },
+            children: vec![],
+            id: None, source_location: None, bookmark: None, href: None, alt: None,
+        });
+    }
+    Node {
+        kind: NodeKind::TableCell { col_span: 1, row_span: 1 },
+        style: Style { vertical_align: Some(va), ..Default::default() },
+        children,
+        id: None, source_location: None, bookmark: None, href: None, alt: None,
+    }
+}
+
+fn one_row_table(cells: Vec<Node>) -> Document {
+    let row = make_table_row(false, cells);
+    let table = Node {
+        kind: NodeKind::Table { columns: vec![] },
+        style: Style::default(),
+        children: vec![row],
+        id: None, source_location: None, bookmark: None, href: None, alt: None,
+    };
+    default_doc(vec![table])
+}
+
+fn texts_y(elems: &[forme::layout::LayoutElement], out: &mut Vec<f64>) {
+    for e in elems {
+        if e.node_type.as_deref() == Some("Text") {
+            out.push(e.y);
+        }
+        texts_y(&e.children, out);
+    }
+}
+
+/// Two baseline cells with different first-line font sizes: the smaller-font
+/// cell is shoved down so both first baselines land on the row baseline.
+/// Fails-first: with baseline→Top the two text lines share a y (no shove).
+#[test]
+fn baseline_aligns_first_baselines_across_cells() {
+    let doc = one_row_table(vec![
+        valign_cell(12.0, "a", VerticalAlign::Baseline, None),
+        valign_cell(24.0, "b", VerticalAlign::Baseline, None),
+    ]);
+    let pages = layout_doc(&doc);
+    let mut ys = Vec::new();
+    texts_y(&pages[0].elements, &mut ys);
+    assert_eq!(ys.len(), 2, "two text lines");
+    // Baseline = line-box top + font_size. Align them: a.y + 12 == b.y + 24.
+    let (a_y, b_y) = (ys[0], ys[1]);
+    assert!(
+        ((a_y + 12.0) - (b_y + 24.0)).abs() < 0.001,
+        "first baselines must coincide: a {} b {}",
+        a_y, b_y
+    );
+    // Concretely, the small-font line is shoved down by exactly 24 - 12 = 12pt.
+    assert!((a_y - (b_y + 12.0)).abs() < 0.001, "shove = 12pt: {a_y} vs {b_y}");
+}
+
+/// The risk site: a baseline cell shoved down must GROW the row, never clip.
+/// Cell A has a small first-line font (12) but tall content (80pt block);
+/// cell B's larger font (40) sets the row baseline, shoving A down by 28pt.
+/// Fails-first: without the measure-side growth, the baseline row equals the
+/// top-aligned row (no growth) and A's content clips.
+#[test]
+fn baseline_shove_grows_the_row_and_does_not_clip() {
+    let row_h = |va: VerticalAlign| {
+        let doc = one_row_table(vec![
+            valign_cell(12.0, "a", va, Some(80.0)),
+            valign_cell(40.0, "b", va, None),
+        ]);
+        let pages = layout_doc(&doc);
+        find_first_by_type(&pages[0].elements, "TableRow")
+            .expect("row")
+            .height
+    };
+    let baseline_h = row_h(VerticalAlign::Baseline);
+    let top_h = row_h(VerticalAlign::Top);
+    // The row grew by exactly the shove (40 - 12 = 28pt) — cell A dominates
+    // both rows, so the delta is purely the baseline offset.
+    assert!(
+        (baseline_h - top_h - 28.0).abs() < 0.01,
+        "baseline row must grow by the 28pt shove: baseline {} vs top {}",
+        baseline_h, top_h
+    );
+}

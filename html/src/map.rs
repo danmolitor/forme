@@ -778,7 +778,7 @@ impl Mapper {
                                         Some(forme::style::VerticalAlign::Middle)
                                     }
                                     "bottom" => Some(forme::style::VerticalAlign::Bottom),
-                                    "baseline" => Some(forme::style::VerticalAlign::Top),
+                                    "baseline" => Some(forme::style::VerticalAlign::Baseline),
                                     _ => None,
                                 });
                         cell_computed.vertical_align = attr_valign;

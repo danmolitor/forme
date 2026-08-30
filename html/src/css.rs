@@ -485,10 +485,7 @@ pub(crate) fn apply_declaration(
                     "top" => Some(VerticalAlign::Top),
                     "middle" => Some(VerticalAlign::Middle),
                     "bottom" => Some(VerticalAlign::Bottom),
-                    // CSS defaults to baseline; baseline-across-cells is
-                    // real typography work — it maps to the engine's top
-                    // default WITHOUT a warning (documented divergence).
-                    "baseline" => Some(VerticalAlign::Top),
+                    "baseline" => Some(VerticalAlign::Baseline),
                     other => {
                         warnings.push(format!("unsupported vertical-align value '{other}'"));
                         None

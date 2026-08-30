@@ -355,11 +355,16 @@ pub enum TextTransform {
 #[serde(rename_all = "lowercase")]
 pub enum VerticalAlign {
     /// Content starts at the top of the cell (the engine's historical
-    /// behavior; CSS's `baseline` default maps here).
+    /// behavior).
     #[default]
     Top,
     Middle,
     Bottom,
+    /// First text baselines align across the row's baseline-aligned cells.
+    /// In this engine the baseline sits `font_size` below the line-box top
+    /// (there is no font-ascent metric), so alignment is exact within the
+    /// engine's own baseline model.
+    Baseline,
 }
 
 /// Overflow behavior for container elements.
