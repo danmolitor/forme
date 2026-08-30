@@ -1,0 +1,50 @@
+{
+  "name": "@formepdf/vue",
+  "version": "0.14.0",
+  "description": "Vue-to-JSON serializer for the Forme PDF engine",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "vite build && vue-tsc --declaration --emitDeclarationOnly -p tsconfig.build.json",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@formepdf/shared": "0.14.0"
+  },
+  "peerDependencies": {
+    "@formepdf/core": "^0.14.0",
+    "vue": "^3.4.0"
+  },
+  "peerDependenciesMeta": {
+    "@formepdf/core": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@formepdf/core": "0.14.0",
+    "@formepdf/react": "0.14.0",
+    "@vitejs/plugin-vue": "^5.2.0",
+    "typescript": "^5.7.0",
+    "vite": "^6.0.0",
+    "vitest": "^3.0.0",
+    "vue": "^3.5.0",
+    "vue-tsc": "^2.2.0"
+  },
+  "files": ["dist"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/formepdf/forme",
+    "directory": "packages/vue"
+  }
+}

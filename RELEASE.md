@@ -54,6 +54,11 @@ npm run build    # runs embed-preview + svelte-package
 npm run check    # svelte-check typecheck
 npm test         # requires core built above
 
+# 6a. Vue adapter (Vue SSR-then-parse, reuses shared parser/encode — depends on shared, optional peer on core)
+cd packages/vue
+npm run build    # vite build + vue-tsc declarations
+npm test         # cross-framework equivalence gate; requires @formepdf/react built
+
 # 6b. Preact adapter (fork of react's serializer w/ Preact VNode APIs — depends on shared, peer on preact ^10)
 cd packages/preact
 npm run build
@@ -106,6 +111,7 @@ Files to update when bumping (e.g. 0.8.3 -> 0.9.0):
 - [ ] `packages/core/package.json`
 - [ ] `packages/renderer/package.json`
 - [ ] `packages/svelte/package.json`
+- [ ] `packages/vue/package.json`
 - [ ] `packages/preact/package.json`
 - [ ] `packages/cli/package.json`
 - [ ] `packages/hono/package.json`
@@ -150,6 +156,7 @@ Update peer/runtime dependencies that pin to the formepdf packages:
 - [ ] `packages/core/package.json` — `@formepdf/react`
 - [ ] `packages/renderer/package.json` — `@formepdf/core`, `@formepdf/react`, `@formepdf/html` (all on the shared line since 0.14.0). Hard invariant: renderer's HTML input path (`renderHtmlFromFile`/`renderHtmlFromSource`) calls this exact `@formepdf/html` build, so a version skew ships a renderer against a mismatched engine.
 - [ ] `packages/svelte/package.json` — `@formepdf/shared` (dep), `@formepdf/core` (optional peer, `^` range)
+- [ ] `packages/vue/package.json` — `@formepdf/shared` (dep), `@formepdf/core` (optional peer, `^` range), `@formepdf/react` (devDep for the equivalence gate)
 - [ ] `packages/preact/package.json` — `@formepdf/shared` (dep), `@formepdf/react` (devDep for parity tests)
 - [ ] `packages/cli/package.json` — `@formepdf/renderer`
 - [ ] `packages/vscode/package.json` — `@formepdf/renderer`
@@ -169,6 +176,7 @@ Update peer/runtime dependencies that pin to the formepdf packages:
 - [ ] `packages/core/CHANGELOG.md`
 - [ ] `packages/renderer/CHANGELOG.md`
 - [ ] `packages/svelte/CHANGELOG.md`
+- [ ] `packages/vue/CHANGELOG.md`
 - [ ] `packages/preact/CHANGELOG.md`
 - [ ] `packages/cli/CHANGELOG.md`
 - [ ] `packages/hono/CHANGELOG.md`
@@ -185,6 +193,7 @@ Update peer/runtime dependencies that pin to the formepdf packages:
 - [ ] `README.md` (root) — features list, component table
 - [ ] `packages/react/README.md` — component list, usage examples
 - [ ] `packages/svelte/README.md` — component list, usage examples (Svelte adapter)
+- [ ] `packages/vue/README.md` — component list, usage examples (Vue adapter)
 - [ ] `packages/preact/README.md` — usage + JSX runtime notes (Preact adapter)
 - [ ] `packages/core/README.md` — API surface, render functions
 - [ ] `packages/cli/README.md` — CLI commands, flags
@@ -216,6 +225,7 @@ cd forme/packages/core && npm run build      # rebuilds WASM (pkg/ + pkg-node/)
 cd forme/packages/renderer && npm run build
 cd forme/packages/svelte && npm run build    # embed-preview + svelte-package
 cd forme/packages/svelte && npm run check    # svelte-check typecheck
+cd forme/packages/vue && npm run build       # vite build + vue-tsc declarations
 cd forme/packages/preact && npm run build
 cd forme/packages/cli && npm run build
 cd forme/packages/vscode && npm run build    # copies WASM from core
@@ -241,6 +251,7 @@ cd forme/packages/react && npm test
 cd forme/packages/core && npm test
 cd forme/packages/renderer && npm test
 cd forme/packages/svelte && npm test          # requires core built above
+cd forme/packages/vue && npm test             # cross-framework equivalence gate; requires @formepdf/react built
 cd forme/packages/preact && npm test          # parity tests require @formepdf/react built
 cd forme/packages/cli && npm test
 cd forme/packages/hono && npm test
@@ -289,6 +300,7 @@ cd packages/react && npm publish --access public
 cd packages/core && npm publish --access public
 cd packages/renderer && npm publish --access public
 cd packages/svelte && npm publish --access public
+cd packages/vue && npm publish --access public
 cd packages/preact && npm publish --access public
 cd packages/cli && npm publish --access public
 cd packages/hono && npm publish --access public
