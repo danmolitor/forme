@@ -23,7 +23,7 @@
   ],
   "scripts": {
     "build": "./build.sh",
-    "test": "node test/smoke.js"
+    "test": "node test/smoke.js && node test/links.js"
   },
   "keywords": [
     "pdf",

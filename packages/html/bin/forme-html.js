@@ -5,6 +5,53 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { renderHtml } = require('../index.js');
 
+// Host-layer <link rel="stylesheet"> resolution. The library never fetches;
+// the CLI reads local stylesheets and inlines them IN PLACE as <style> blocks
+// so they cascade at the <link>'s source position (a <link> before a <style>
+// stays earlier in source order — appending to options.css could not preserve
+// that). Absolute http(s):// (and protocol-relative //) hrefs pass through so
+// the library still warns. A missing local file throws a named error.
+function inlineStylesheetLinks(html, baseDir) {
+  const attr = (tag, name) => {
+    const m = tag.match(new RegExp(`${name}\\s*=\\s*("([^"]*)"|'([^']*)')`, 'i'));
+    return m ? (m[2] ?? m[3]) : null;
+  };
+  const linkRe = /<link\b[^>]*>/gi;
+  let result = '';
+  let last = 0;
+  let m;
+  while ((m = linkRe.exec(html)) !== null) {
+    const tag = m[0];
+    const rel = attr(tag, 'rel');
+    const href = attr(tag, 'href');
+    const isStylesheet =
+      rel && rel.split(/\s+/).some((t) => t.toLowerCase() === 'stylesheet');
+    if (!isStylesheet || !href) continue;
+    const lower = href.toLowerCase();
+    if (lower.startsWith('http://') || lower.startsWith('https://') || href.startsWith('//')) {
+      continue; // absolute — leave for the library to warn about
+    }
+    const resolved = path.join(baseDir, href);
+    let css;
+    try {
+      css = fs.readFileSync(resolved, 'utf8');
+    } catch (e) {
+      throw new Error(
+        `cannot read stylesheet '${resolved}' (from <link href="${href}">): ${e.message}`,
+      );
+    }
+    result += html.slice(last, m.index) + '<style>\n' + css + '\n</style>';
+    last = m.index + tag.length;
+  }
+  return result + html.slice(last);
+}
+
+// Requiring this file (tests) exports the helper without running the CLI.
+if (require.main !== module) {
+  module.exports = { inlineStylesheetLinks };
+  return;
+}
+
 const USAGE = `forme-html — HTML + print-CSS to PDF, no browser
 
 USAGE:
@@ -95,6 +142,11 @@ try {
   html = fs.readFileSync(input, 'utf8');
 } catch (e) {
   fail(`cannot read ${input}: ${e.message}`);
+}
+try {
+  html = inlineStylesheetLinks(html, path.dirname(input));
+} catch (e) {
+  fail(e.message);
 }
 if (cssPath !== null) {
   try {
