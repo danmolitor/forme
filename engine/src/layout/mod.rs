@@ -5779,9 +5779,18 @@ impl LayoutEngine {
                     self.measure_node_height(child, inner_width, &child_style, font_context);
             }
 
-            let total = cell_content_height
+            let mut total = cell_content_height
                 + cell_style.padding.vertical()
                 + cell_style.border_width.vertical();
+            // CSS 2.1 §17.5.3: `height` on a table cell is a MINIMUM — the cell
+            // grows to fit its content but never shrinks below the specified
+            // height. This is the slack `vertical-align: middle/bottom` needs to
+            // be visible. Auto-height cells are unaffected; content taller than
+            // the height still wins. No clipping, and rows stay atomic (an
+            // over-tall row overflows whole, it is not sliced).
+            if let SizeConstraint::Fixed(h) = cell_style.height {
+                total = total.max(h);
+            }
             max_height = max_height.max(total);
         }
 

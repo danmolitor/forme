@@ -11537,3 +11537,64 @@ fn max_width_clamps_and_auto_margins_center_the_column() {
         expected_x
     );
 }
+
+// ─── Table cell CSS height as minimum row height (Finding B) ─────
+
+fn find_first_by_type<'a>(
+    elems: &'a [forme::layout::LayoutElement],
+    ty: &str,
+) -> Option<&'a forme::layout::LayoutElement> {
+    for e in elems {
+        if e.node_type.as_deref() == Some(ty) {
+            return Some(e);
+        }
+        if let Some(found) = find_first_by_type(&e.children, ty) {
+            return Some(found);
+        }
+    }
+    None
+}
+
+/// CSS 2.1 §17.5.3: `height` on a table cell is a MINIMUM. A cell taller than
+/// its content grows the row to the specified height (which is what gives
+/// `vertical-align` its slack). Auto-height cells are unaffected; content
+/// taller than the height still wins. Fails-first: before the fix the row
+/// lays out at ~content height, ignoring the 100pt cell height.
+#[test]
+fn table_cell_css_height_is_minimum_row_height() {
+    let cell = Node {
+        kind: NodeKind::TableCell {
+            col_span: 1,
+            row_span: 1,
+        },
+        style: Style {
+            height: Some(Dimension::Pt(100.0)),
+            ..Default::default()
+        },
+        children: vec![make_text("x", 10.0)],
+        id: None,
+        source_location: None,
+        bookmark: None,
+        href: None,
+        alt: None,
+    };
+    let row = make_table_row(false, vec![cell]);
+    let table = Node {
+        kind: NodeKind::Table { columns: vec![] },
+        style: Style::default(),
+        children: vec![row],
+        id: None,
+        source_location: None,
+        bookmark: None,
+        href: None,
+        alt: None,
+    };
+    let doc = default_doc(vec![table]);
+    let pages = layout_doc(&doc);
+    let row = find_first_by_type(&pages[0].elements, "TableRow").expect("TableRow laid out");
+    assert!(
+        (row.height - 100.0).abs() < 0.01,
+        "cell height:100pt must set the row height as a minimum; got {}",
+        row.height
+    );
+}
