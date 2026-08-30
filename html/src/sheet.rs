@@ -338,7 +338,8 @@ impl Stylesheet {
     }
 }
 
-/// How a media-query list relates to our native media type (print).
+/// How a media-query list relates to our native media type (print) and the
+/// page viewport.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum MediaVerdict {
     Match,
@@ -346,27 +347,67 @@ enum MediaVerdict {
     CantEvaluate,
 }
 
-/// Evaluate a media-query list against PRINT. Deliberately tiny: bare
-/// media types (with the legacy `only` prefix) evaluate; anything with
-/// feature queries, `not`, or `and` chains is conservatively excluded —
-/// never apply rules whose condition wasn't understood. The list is OR:
-/// one matching member includes the block regardless of the rest.
-fn evaluate_media_query_list(tokens: &[Token]) -> MediaVerdict {
+/// The page content box, used as the viewport for `@media` feature queries. A
+/// paged renderer has no window; the honest viewport is the page size minus
+/// its margins (see the README note). `width`/`height` are in points.
+#[derive(Debug, Clone, Copy)]
+pub struct Viewport {
+    pub width: f64,
+    pub height: f64,
+}
+
+/// A single `(feature: value)` term. Only the width family and orientation are
+/// evaluable against a page; everything else stays `Unknown` so the query is
+/// conservatively excluded.
+#[derive(Debug, Clone, Copy)]
+enum MediaFeature {
+    MinWidth(f64),
+    MaxWidth(f64),
+    Width(f64),
+    Orientation(bool), // true = landscape
+    Unknown,
+}
+
+impl MediaFeature {
+    /// `None` when unresolvable (unknown feature, or no viewport bound).
+    fn eval(self, vp: Option<Viewport>) -> Option<bool> {
+        let vp = vp?;
+        match self {
+            MediaFeature::MinWidth(w) => Some(vp.width >= w),
+            MediaFeature::MaxWidth(w) => Some(vp.width <= w),
+            MediaFeature::Width(w) => Some((vp.width - w).abs() < 0.5),
+            MediaFeature::Orientation(landscape) => Some((vp.width > vp.height) == landscape),
+            MediaFeature::Unknown => None,
+        }
+    }
+}
+
+/// One comma-separated member of a media-query list.
+#[derive(Default)]
+struct MediaQuery {
+    negated: bool,
+    ty: Option<String>,
+    features: Vec<MediaFeature>,
+    /// A token we don't model (keeps the query conservative).
+    unknown: bool,
+}
+
+impl MediaQuery {
+    fn set_type(&mut self, t: &str) {
+        if self.ty.is_none() {
+            self.ty = Some(t.to_string());
+        } else {
+            self.unknown = true;
+        }
+    }
+}
+
+/// Evaluate a parsed media-query list (OR of members) against print + the
+/// viewport. One matching member includes the block.
+fn evaluate_queries(queries: &[MediaQuery], vp: Option<Viewport>) -> MediaVerdict {
     let mut verdict = MediaVerdict::NoMatch;
-    for query in tokens.split(|t| matches!(t, Token::Comma)) {
-        let parts: Vec<&Token> = query
-            .iter()
-            .filter(|t| !matches!(t, Token::WhiteSpace(_)))
-            .collect();
-        let q = match parts.as_slice() {
-            [Token::Ident(t)] => type_matches(t),
-            [Token::Ident(only), Token::Ident(t)] if only.eq_ignore_ascii_case("only") => {
-                type_matches(t)
-            }
-            [] => continue,
-            _ => MediaVerdict::CantEvaluate,
-        };
-        match q {
+    for q in queries {
+        match evaluate_query(q, vp) {
             MediaVerdict::Match => return MediaVerdict::Match,
             MediaVerdict::CantEvaluate => verdict = MediaVerdict::CantEvaluate,
             MediaVerdict::NoMatch => {}
@@ -375,15 +416,79 @@ fn evaluate_media_query_list(tokens: &[Token]) -> MediaVerdict {
     verdict
 }
 
-fn type_matches(t: &str) -> MediaVerdict {
-    match t.to_ascii_lowercase().as_str() {
-        "print" | "all" => MediaVerdict::Match,
-        // `not` / `and` as a bare first ident means a form we don't
-        // evaluate ("not print", "print and ...") — conservative.
-        "not" | "and" => MediaVerdict::CantEvaluate,
-        // Known-or-unknown other types (screen, speech, tv, ...): a paged
-        // renderer is not them. Unknown types don't match, per spec.
-        _ => MediaVerdict::NoMatch,
+fn evaluate_query(q: &MediaQuery, vp: Option<Viewport>) -> MediaVerdict {
+    // `not`, and anything we didn't model, stays conservative — never apply a
+    // rule under a condition that wasn't fully understood.
+    if q.negated || q.unknown {
+        return MediaVerdict::CantEvaluate;
+    }
+    match q.ty.as_deref().map(|t| t.to_ascii_lowercase()) {
+        None => {} // no type ⇒ `all` ⇒ matches; features decide.
+        Some(t) if t == "print" || t == "all" => {}
+        // screen / speech / tv / unknown: a paged renderer is not them.
+        Some(_) => return MediaVerdict::NoMatch,
+    }
+    let mut all_true = true;
+    for f in &q.features {
+        match f.eval(vp) {
+            Some(true) => {}
+            Some(false) => all_true = false,
+            None => return MediaVerdict::CantEvaluate,
+        }
+    }
+    if all_true {
+        MediaVerdict::Match
+    } else {
+        MediaVerdict::NoMatch
+    }
+}
+
+/// Parse one `(feature: value)` term from inside its parenthesis block.
+fn parse_media_feature(p: &mut Parser<'_, '_>) -> MediaFeature {
+    let name = match p.expect_ident() {
+        Ok(s) => s.to_ascii_lowercase(),
+        Err(_) => return MediaFeature::Unknown,
+    };
+    if p.expect_colon().is_err() {
+        // Boolean feature like `(color)` — unevaluable here.
+        return MediaFeature::Unknown;
+    }
+    match name.as_str() {
+        "min-width" | "max-width" | "width" => match media_length_pt(p) {
+            Some(pt) => match name.as_str() {
+                "min-width" => MediaFeature::MinWidth(pt),
+                "max-width" => MediaFeature::MaxWidth(pt),
+                _ => MediaFeature::Width(pt),
+            },
+            None => MediaFeature::Unknown,
+        },
+        "orientation" => match p.expect_ident() {
+            Ok(v) if v.eq_ignore_ascii_case("landscape") => MediaFeature::Orientation(true),
+            Ok(v) if v.eq_ignore_ascii_case("portrait") => MediaFeature::Orientation(false),
+            _ => MediaFeature::Unknown,
+        },
+        _ => MediaFeature::Unknown,
+    }
+}
+
+/// A length in a media feature, resolved to points (px × 0.75, the CSS 96→72
+/// ratio the rest of the crate uses).
+fn media_length_pt(p: &mut Parser<'_, '_>) -> Option<f64> {
+    match p.next() {
+        Ok(Token::Dimension { value, unit, .. }) => {
+            let v = *value as f64;
+            Some(match unit.to_ascii_lowercase().as_str() {
+                "px" => v * 0.75,
+                "pt" => v,
+                "in" => v * 72.0,
+                "cm" => v * 28.3465,
+                "mm" => v * 2.83465,
+                _ => return None,
+            })
+        }
+        // Unitless is only valid for 0; treat other bare numbers as px.
+        Ok(Token::Number { value, .. }) => Some(*value as f64 * 0.75),
+        _ => None,
     }
 }
 
@@ -492,17 +597,41 @@ fn classify_font_src(url: &str, remote: &mut bool, local: &mut Option<String>) {
 /// Parse a stylesheet string. At-rules (`@media`, `@page`, `@import`, ...)
 /// are skipped with a warning — `@page` is the Phase 2 feature.
 pub fn parse_stylesheet(css: &str, warnings: &mut Vec<String>) -> Stylesheet {
+    parse_stylesheet_inner(css, None, warnings)
+}
+
+/// Like [`parse_stylesheet`], but with a page viewport bound so `@media`
+/// feature queries (`min-width`, `max-width`, `width`, `orientation`) evaluate
+/// against the page content box instead of being conservatively excluded.
+pub fn parse_stylesheet_with_viewport(
+    css: &str,
+    viewport: Viewport,
+    warnings: &mut Vec<String>,
+) -> Stylesheet {
+    parse_stylesheet_inner(css, Some(viewport), warnings)
+}
+
+fn parse_stylesheet_inner(
+    css: &str,
+    viewport: Option<Viewport>,
+    warnings: &mut Vec<String>,
+) -> Stylesheet {
     let mut sheet = Stylesheet::default();
     let mut pin = ParserInput::new(css);
     let mut parser = Parser::new(&mut pin);
-    parse_rules(&mut parser, &mut sheet, warnings);
+    parse_rules(&mut parser, &mut sheet, warnings, viewport);
     sheet
 }
 
 /// The rule loop, recursive so `@media` blocks parse their contents into
 /// the same cascade (which also makes nested `@media` and `@page` inside
 /// `@media print` fall out naturally).
-fn parse_rules(parser: &mut Parser<'_, '_>, sheet: &mut Stylesheet, warnings: &mut Vec<String>) {
+fn parse_rules(
+    parser: &mut Parser<'_, '_>,
+    sheet: &mut Stylesheet,
+    warnings: &mut Vec<String>,
+    viewport: Option<Viewport>,
+) {
     let mut prelude = SelectorPrelude::new();
     loop {
         let tok = match parser.next_including_whitespace() {
@@ -548,7 +677,7 @@ fn parse_rules(parser: &mut Parser<'_, '_>, sheet: &mut Stylesheet, warnings: &m
                 // Collect the media-query prelude, then include or skip
                 // the block. This is a paged PDF renderer: PRINT is the
                 // native media type.
-                let mut cond: Vec<Token> = Vec::new();
+                let mut queries: Vec<MediaQuery> = vec![MediaQuery::default()];
                 let mut found_block = false;
                 loop {
                     match parser.next_including_whitespace() {
@@ -556,16 +685,36 @@ fn parse_rules(parser: &mut Parser<'_, '_>, sheet: &mut Stylesheet, warnings: &m
                             found_block = true;
                             break;
                         }
-                        Ok(t) => cond.push(t.clone()),
+                        Ok(Token::Comma) => queries.push(MediaQuery::default()),
+                        Ok(Token::WhiteSpace(_)) => {}
+                        Ok(Token::Ident(s)) => {
+                            let cur = queries.last_mut().unwrap();
+                            match s.to_ascii_lowercase().as_str() {
+                                "and" | "only" => {}
+                                "not" => cur.negated = true,
+                                other => cur.set_type(other),
+                            }
+                        }
+                        Ok(Token::ParenthesisBlock) => {
+                            let feat = parser
+                                .parse_nested_block(
+                                    |p| -> Result<MediaFeature, cssparser::ParseError<'_, ()>> {
+                                        Ok(parse_media_feature(p))
+                                    },
+                                )
+                                .unwrap_or(MediaFeature::Unknown);
+                            queries.last_mut().unwrap().features.push(feat);
+                        }
+                        Ok(_) => queries.last_mut().unwrap().unknown = true,
                         Err(_) => break,
                     }
                 }
                 if found_block {
-                    match evaluate_media_query_list(&cond) {
+                    match evaluate_queries(&queries, viewport) {
                         MediaVerdict::Match => {
                             let _ = parser.parse_nested_block(
                                 |p| -> Result<(), cssparser::ParseError<'_, ()>> {
-                                    parse_rules(p, sheet, warnings);
+                                    parse_rules(p, sheet, warnings, viewport);
                                     Ok(())
                                 },
                             );
@@ -582,7 +731,7 @@ fn parse_rules(parser: &mut Parser<'_, '_>, sheet: &mut Stylesheet, warnings: &m
                         }
                         MediaVerdict::CantEvaluate => {
                             warnings.push(
-                                "media features are not evaluated (only media types: print/screen/all); block skipped"
+                                "unevaluable @media condition (understood: media types, min-width/max-width/width, orientation; `not` and other features are not); block skipped"
                                     .to_string(),
                             );
                             let _ = parser.parse_nested_block(
@@ -1388,8 +1537,7 @@ mod tests {
             let (s, w) = sheet(css);
             assert!(s.rules.is_empty(), "{css}");
             assert!(
-                w.iter()
-                    .any(|m| m.contains("media features are not evaluated")),
+                w.iter().any(|m| m.contains("unevaluable @media condition")),
                 "{css}: {w:?}"
             );
         }
@@ -1398,6 +1546,39 @@ mod tests {
         let (s, w) = sheet("@media print, (min-width: 600px) { p { color: red } }");
         assert_eq!(s.rules.len(), 1);
         assert!(w.is_empty(), "match wins the OR list: {w:?}");
+    }
+
+    #[test]
+    fn media_feature_queries_evaluate_against_the_page_viewport() {
+        // Letter content box ≈ 612 - 2*54 = 504pt wide; a narrow @page ≈ 200pt.
+        let wide = Viewport { width: 504.0, height: 684.0 };
+        let narrow = Viewport { width: 200.0, height: 300.0 };
+        let with = |css: &str, vp: Viewport| {
+            let mut w = Vec::new();
+            let s = parse_stylesheet_with_viewport(css, vp, &mut w);
+            (s, w)
+        };
+
+        // The SAME query flips inclusion with the viewport — proves the binding.
+        let css = "@media (min-width: 400px) { p { color: red } }";
+        assert_eq!(with(css, wide).0.rules.len(), 1, "504 >= 400 → included");
+        assert!(with(css, narrow).0.rules.is_empty(), "200 < 400 → excluded");
+
+        // print AND a feature: both must hold.
+        let both = "@media print and (max-width: 300px) { p { color: red } }";
+        assert!(with(both, narrow).0.rules.is_empty() == false, "200 <= 300 under print");
+        assert!(with(both, wide).0.rules.is_empty(), "504 > 300 → excluded");
+
+        // orientation derives from page dimensions.
+        let land = "@media (orientation: landscape) { p { color: red } }";
+        let landscape_vp = Viewport { width: 800.0, height: 400.0 };
+        assert_eq!(with(land, landscape_vp).0.rules.len(), 1);
+        assert!(with(land, wide).0.rules.is_empty(), "portrait page");
+
+        // An unmodeled feature stays conservative even with a viewport.
+        let (s, w) = with("@media (prefers-color-scheme: dark) { p { color: red } }", wide);
+        assert!(s.rules.is_empty());
+        assert!(w.iter().any(|m| m.contains("unevaluable @media condition")), "{w:?}");
     }
 
     #[test]

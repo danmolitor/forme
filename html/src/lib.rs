@@ -161,12 +161,31 @@ pub fn html_to_document(html: &str, options: &HtmlOptions) -> (forme::Document, 
         ));
     }
 
-    let mut stylesheet = sheet::Stylesheet::default();
+    // Pass 1 (probe): resolve @page geometry so `@media` feature queries have a
+    // viewport to evaluate against. Warnings from this pass are discarded — the
+    // real pass below re-emits them.
+    let mut probe_warn = Vec::new();
+    let mut probe = sheet::Stylesheet::default();
     for text in &style_texts {
-        stylesheet.append(sheet::parse_stylesheet(text, &mut warnings));
+        probe.append(sheet::parse_stylesheet(text, &mut probe_warn));
     }
     if let Some(css) = &options.css {
-        stylesheet.append(sheet::parse_stylesheet(css, &mut warnings));
+        probe.append(sheet::parse_stylesheet(css, &mut probe_warn));
+    }
+    let probe_config = page_config(options, probe.page.as_ref(), &mut probe_warn);
+    let (pw, ph) = probe_config.size.dimensions();
+    let viewport = sheet::Viewport {
+        width: pw - probe_config.margin.left - probe_config.margin.right,
+        height: ph - probe_config.margin.top - probe_config.margin.bottom,
+    };
+
+    // Pass 2 (real): parse with the viewport bound so feature queries evaluate.
+    let mut stylesheet = sheet::Stylesheet::default();
+    for text in &style_texts {
+        stylesheet.append(sheet::parse_stylesheet_with_viewport(text, viewport, &mut warnings));
+    }
+    if let Some(css) = &options.css {
+        stylesheet.append(sheet::parse_stylesheet_with_viewport(css, viewport, &mut warnings));
     }
 
     let mut config = page_config(options, stylesheet.page.as_ref(), &mut warnings);
