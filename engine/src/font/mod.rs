@@ -161,7 +161,9 @@ impl StandardFont {
     /// Nonsymbolic (32), plus Serif (2) or FixedPitch (1) as appropriate.
     pub fn descriptor_flags(&self) -> u32 {
         match self {
-            Self::TimesRoman | Self::TimesBold | Self::TimesItalic | Self::TimesBoldItalic => 32 | 2,
+            Self::TimesRoman | Self::TimesBold | Self::TimesItalic | Self::TimesBoldItalic => {
+                32 | 2
+            }
             Self::Courier | Self::CourierBold | Self::CourierOblique | Self::CourierBoldOblique => {
                 32 | 1
             }

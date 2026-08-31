@@ -527,8 +527,13 @@ mod tests {
         let role_map = String::from_utf8_lossy(&objects[rm_id].data).into_owned();
 
         // Any "/X /X" self-map is circular. Scan token pairs in the RoleMap.
-        let toks: Vec<&str> = role_map.trim_matches(|c| c == '<' || c == '>' || c == ' ').split_whitespace().collect();
-        let self_map = toks.windows(2).any(|w| w[0] == w[1] && w[0].starts_with('/'));
+        let toks: Vec<&str> = role_map
+            .trim_matches(|c| c == '<' || c == '>' || c == ' ')
+            .split_whitespace()
+            .collect();
+        let self_map = toks
+            .windows(2)
+            .any(|w| w[0] == w[1] && w[0].starts_with('/'));
         assert!(
             !self_map,
             "RoleMap must not self-map standard structure types (veraPDF 7.1-6 circular mapping): {role_map}"

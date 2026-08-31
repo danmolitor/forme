@@ -740,6 +740,7 @@ fn render_with_custom_font(font_data: &[u8], text: &str) -> Vec<u8> {
             doc.flatten_forms,
         )
         .unwrap()
+        .0
 }
 
 #[test]
@@ -882,7 +883,7 @@ fn test_mixed_standard_and_custom_fonts() {
     let engine = LayoutEngine::new();
     let pages = engine.layout(&doc, &font_context);
     let writer = PdfWriter::new();
-    let bytes = writer
+    let (bytes, _) = writer
         .write(
             &pages,
             &doc.metadata,
@@ -4522,10 +4523,16 @@ fn test_tagged_pdf_has_struct_tree_root() {
         pdf_str.contains("/Type /StructTreeRoot"),
         "Tagged PDF must have StructTreeRoot object"
     );
-    // RoleMap must exist
+    // RoleMap must exist but be EMPTY: every role Forme emits is a standard
+    // PDF structure type, so it needs no remapping. Mapping a standard type
+    // to itself is the circular RoleMap veraPDF flags (PDF/UA-1 7.1-6).
     assert!(
-        pdf_str.contains("/Document /Document"),
-        "Tagged PDF must have RoleMap with Document role"
+        pdf_str.contains("/RoleMap "),
+        "Tagged PDF must reference a RoleMap from the StructTreeRoot"
+    );
+    assert!(
+        !pdf_str.contains("/Document /Document"),
+        "RoleMap must not self-map the standard /Document type (7.1-6)"
     );
 }
 
@@ -5091,7 +5098,7 @@ fn test_qrcode_with_explicit_size() {
         certification: None,
     };
 
-    let (pdf, layout) = forme::render_with_layout(&doc).expect("Should render");
+    let (pdf, layout, _) = forme::render_with_layout(&doc).expect("Should render");
     assert!(pdf.starts_with(b"%PDF"));
     assert_eq!(layout.pages.len(), 1);
     // The QR code element should be 50x50
@@ -5137,7 +5144,7 @@ fn test_qrcode_page_break() {
         certification: None,
     };
 
-    let (pdf, layout) = forme::render_with_layout(&doc).expect("Should render");
+    let (pdf, layout, _) = forme::render_with_layout(&doc).expect("Should render");
     assert!(pdf.starts_with(b"%PDF"));
     assert!(layout.pages.len() >= 2, "QR code should cause a page break");
 }
@@ -5275,7 +5282,7 @@ fn test_text_overflow_ellipsis_single_line() {
         certification: None,
     };
 
-    let (_pdf, layout) = forme::render_with_layout(&doc).expect("Should render");
+    let (_pdf, layout, _) = forme::render_with_layout(&doc).expect("Should render");
     // With ellipsis, there should be exactly 1 page with 1 text container
     assert_eq!(layout.pages.len(), 1);
     // The Text container should only have 1 TextLine child (single line)
@@ -5323,7 +5330,7 @@ fn test_flex_row_stretch_enables_justify_content() {
 
     let doc = default_doc(vec![row]);
 
-    let (_pdf, layout) = forme::render_with_layout(&doc).expect("Should render");
+    let (_pdf, layout, _) = forme::render_with_layout(&doc).expect("Should render");
     assert_eq!(layout.pages.len(), 1);
 
     // page.elements[0] is the row View; its children are the two flex items
@@ -5391,7 +5398,7 @@ fn test_flex_row_stretch_enables_flex_grow() {
 
     let doc = default_doc(vec![row]);
 
-    let (_pdf, layout) = forme::render_with_layout(&doc).expect("Should render");
+    let (_pdf, layout, _) = forme::render_with_layout(&doc).expect("Should render");
     assert_eq!(layout.pages.len(), 1);
 
     let page = &layout.pages[0];
@@ -5836,7 +5843,7 @@ fn test_barcode_layout_dimensions() {
         certification: None,
     };
 
-    let (pdf, layout) = forme::render_with_layout(&doc).expect("Should render");
+    let (pdf, layout, _) = forme::render_with_layout(&doc).expect("Should render");
     assert!(pdf.starts_with(b"%PDF"));
     assert_eq!(layout.pages.len(), 1);
     let elem = &layout.pages[0].elements[0];
@@ -5889,7 +5896,7 @@ fn auto_margin_horizontal_centers_child() {
         certification: None,
     };
 
-    let (_pdf, layout) = forme::render_with_layout(&doc).expect("Should render");
+    let (_pdf, layout, _) = forme::render_with_layout(&doc).expect("Should render");
     assert_eq!(layout.pages.len(), 1);
 
     // A4 width = 595.28. Child = 200pt. Expected x = (595.28 - 200) / 2 = 197.64
@@ -5946,7 +5953,7 @@ fn auto_margin_left_pushes_right() {
         certification: None,
     };
 
-    let (_pdf, layout) = forme::render_with_layout(&doc).expect("Should render");
+    let (_pdf, layout, _) = forme::render_with_layout(&doc).expect("Should render");
     let elem = &layout.pages[0].elements[0];
     // Should be pushed to the right: x = 595.28 - 100 = 495.28
     let expected_x = 595.28 - 100.0;
@@ -5979,7 +5986,7 @@ fn auto_margin_deserializes_from_json() {
         "defaultPage": { "size": "A4", "margin": { "top": 0, "right": 0, "bottom": 0, "left": 0 }, "wrap": true }
     }"#;
 
-    let (pdf, layout) = forme::render_json_with_layout(json).expect("Should render from JSON");
+    let (pdf, layout, _) = forme::render_json_with_layout(json).expect("Should render from JSON");
     assert!(pdf.starts_with(b"%PDF"));
     assert_eq!(layout.pages.len(), 1);
 
@@ -6267,7 +6274,7 @@ fn test_bar_chart_layout_dimensions() {
         certification: None,
     };
 
-    let (pdf, layout) = forme::render_with_layout(&doc).expect("Should render");
+    let (pdf, layout, _) = forme::render_with_layout(&doc).expect("Should render");
     assert!(pdf.starts_with(b"%PDF"));
     assert_eq!(layout.pages.len(), 1);
     let elem = &layout.pages[0].elements[0];
@@ -7181,7 +7188,7 @@ fn test_untagged_pdf_no_tab_order() {
 }
 
 #[test]
-fn test_tagged_role_map_complete() {
+fn test_tagged_role_map_omits_standard_self_mappings() {
     let doc = Document {
         children: vec![Node::text("RoleMap test", Style::default())],
         metadata: Metadata::default(),
@@ -7199,13 +7206,25 @@ fn test_tagged_role_map_complete() {
     let bytes = render_to_pdf(&doc);
     assert_valid_pdf(&bytes);
     let text = String::from_utf8_lossy(&bytes);
-    assert!(text.contains("/H1 /H1"), "RoleMap must include H1");
-    assert!(text.contains("/L /L"), "RoleMap must include L (list)");
-    assert!(text.contains("/THead /THead"), "RoleMap must include THead");
-    assert!(text.contains("/Link /Link"), "RoleMap must include Link");
+    // Forme emits only standard PDF structure types (H1, L, THead, Link,
+    // BlockQuote, …). Standard types must NOT appear in the RoleMap — a
+    // self-mapping like `/H1 /H1` is the circular RoleMap veraPDF rejects
+    // (PDF/UA-1 7.1-6). The RoleMap is therefore empty.
+    for identity in [
+        "/H1 /H1",
+        "/L /L",
+        "/THead /THead",
+        "/Link /Link",
+        "/BlockQuote /BlockQuote",
+    ] {
+        assert!(
+            !text.contains(identity),
+            "RoleMap must not self-map standard type ({identity}) — 7.1-6"
+        );
+    }
     assert!(
-        text.contains("/BlockQuote /BlockQuote"),
-        "RoleMap must include BlockQuote"
+        text.contains("/RoleMap "),
+        "StructTreeRoot must still reference a (now empty) RoleMap"
     );
 }
 
@@ -7988,7 +8007,7 @@ fn test_latin_extended_character_widths() {
     // Also render a full document and verify PDF is valid
     let text_node = make_text(test_str, font_size);
     let doc = default_doc(vec![text_node]);
-    let (pdf, layout) = forme::render_with_layout(&doc).unwrap();
+    let (pdf, layout, _) = forme::render_with_layout(&doc).unwrap();
 
     assert!(pdf.starts_with(b"%PDF"), "Output should be a valid PDF");
     assert_eq!(layout.pages.len(), 1);
@@ -8017,7 +8036,7 @@ fn test_page_placeholder_measurement_width() {
     // Layout a document with placeholders and verify it renders
     let text_node = make_text(placeholder_text, font_size);
     let doc = default_doc(vec![text_node]);
-    let (_pdf, layout) = forme::render_with_layout(&doc).unwrap();
+    let (_pdf, layout, _) = forme::render_with_layout(&doc).unwrap();
     assert_eq!(layout.pages.len(), 1);
 }
 
@@ -8062,7 +8081,7 @@ fn test_page_placeholder_survives_line_breaking() {
         certification: None,
     };
 
-    let (pdf, _layout) = forme::render_with_layout(&doc).unwrap();
+    let (pdf, _layout, _) = forme::render_with_layout(&doc).unwrap();
     assert!(pdf.starts_with(b"%PDF"), "Output should be a valid PDF");
 
     // Sentinel characters must not appear in PDF text operators (Tj lines).
@@ -8077,7 +8096,7 @@ fn test_page_placeholder_no_sentinel_in_text_operators() {
     // in the PDF content stream text operators
     let text_node = make_text("{{pageNumber}} / {{totalPages}}", 12.0);
     let doc = default_doc(vec![text_node]);
-    let (pdf, _layout) = forme::render_with_layout(&doc).unwrap();
+    let (pdf, _layout, _) = forme::render_with_layout(&doc).unwrap();
 
     // Search for sentinel chars in PDF text string operators: (...) Tj
     // The sentinels are \x02 and \x03 which in WinAnsi would be \002 and \003
@@ -8099,7 +8118,7 @@ fn test_two_pass_single_page_digit_count() {
     // two-pass re-layout. Verify placeholders are replaced correctly.
     let text_node = make_text("{{pageNumber}}/{{totalPages}}", 12.0);
     let doc = default_doc(vec![text_node]);
-    let (pdf, layout) = forme::render_with_layout(&doc).unwrap();
+    let (pdf, layout, _) = forme::render_with_layout(&doc).unwrap();
     assert_eq!(layout.pages.len(), 1);
     assert_valid_pdf(&pdf);
 }
@@ -8146,7 +8165,7 @@ fn test_two_pass_multi_page_common_case() {
         pdf_ua: false,
         certification: None,
     };
-    let (pdf, layout) = forme::render_with_layout(&doc).unwrap();
+    let (pdf, layout, _) = forme::render_with_layout(&doc).unwrap();
     assert!(layout.pages.len() >= 2, "Should be multi-page");
     assert_valid_pdf(&pdf);
 }
@@ -8200,7 +8219,7 @@ fn test_render_performance() {
     };
 
     let start = Instant::now();
-    let (pdf, layout) = forme::render_with_layout(&doc).unwrap();
+    let (pdf, layout, _) = forme::render_with_layout(&doc).unwrap();
     let elapsed = start.elapsed();
 
     eprintln!(
@@ -10967,7 +10986,7 @@ fn siblings_after_overflowing_flex_row_still_render() {
         certification: None,
     };
 
-    let (_pdf, layout) = forme::render_with_layout(&doc).expect("Should render");
+    let (_pdf, layout, _) = forme::render_with_layout(&doc).expect("Should render");
     let text = all_layout_text(&layout);
     assert!(
         text.contains("CONTENT AFTER THE FLEX ROW"),
@@ -11031,7 +11050,7 @@ fn colspan_cell_spans_columns_and_next_cell_lands_after_them() {
         alt: None,
     };
     let doc = default_doc(vec![table]);
-    let (_pdf, layout) = forme::render_with_layout(&doc).expect("Should render");
+    let (_pdf, layout, _) = forme::render_with_layout(&doc).expect("Should render");
 
     // Find both rows' cells.
     fn cells_of_rows(els: &[forme::layout::ElementInfo], out: &mut Vec<Vec<(f64, f64)>>) {
@@ -11139,7 +11158,7 @@ fn unbreakable_table_moves_to_next_page_whole() {
         alt: None,
     };
     let doc = default_doc(vec![spacer, table]);
-    let (_pdf, layout) = forme::render_with_layout(&doc).expect("Should render");
+    let (_pdf, layout, _) = forme::render_with_layout(&doc).expect("Should render");
 
     let mut row_pages: Vec<usize> = Vec::new();
     fn walk_rows(els: &[forme::layout::ElementInfo], page: usize, out: &mut Vec<usize>) {
@@ -11228,7 +11247,7 @@ fn first_page_config_gives_page_one_its_own_margins() {
         flatten_forms: false,
         certification: None,
     };
-    let (_pdf, layout) = forme::render_with_layout(&doc).expect("Should render");
+    let (_pdf, layout, _) = forme::render_with_layout(&doc).expect("Should render");
     assert!(layout.pages.len() >= 2, "content must flow to page 2");
     assert_eq!(layout.pages[0].content_y, 120.0, ":first margin-top");
     assert_eq!(layout.pages[1].content_y, 54.0, "later pages use default");
@@ -11253,7 +11272,7 @@ fn not_first_header_skips_page_one() {
         flatten_forms: false,
         certification: None,
     };
-    let (_pdf, layout) = forme::render_with_layout(&doc).expect("Should render");
+    let (_pdf, layout, _) = forme::render_with_layout(&doc).expect("Should render");
     assert!(layout.pages.len() >= 2);
 
     let page_has_header = |i: usize| -> bool {
@@ -11349,7 +11368,7 @@ fn first_page_restores_margin_when_its_band_is_suppressed() {
         flatten_forms: false,
         certification: None,
     };
-    let (_pdf, layout) = forme::render_with_layout(&doc).expect("Should render");
+    let (_pdf, layout, _) = forme::render_with_layout(&doc).expect("Should render");
     assert!(layout.pages.len() >= 2);
 
     // Page 1: no band, real margin restored — content must NOT start at
@@ -11449,7 +11468,7 @@ fn middle_aligned_cell_centers_in_the_row_box() {
         alt: None,
     };
     let doc = default_doc(vec![table]);
-    let (_pdf, layout) = forme::render_with_layout(&doc).expect("Should render");
+    let (_pdf, layout, _) = forme::render_with_layout(&doc).expect("Should render");
 
     fn find_cells<'a>(
         els: &'a [forme::layout::ElementInfo],
@@ -11519,7 +11538,7 @@ fn max_width_clamps_and_auto_margins_center_the_column() {
     // View), not to document-root nodes.
     let body = make_view(vec![column]);
     let doc = default_doc(vec![body]);
-    let (_pdf, layout) = forme::render_with_layout(&doc).expect("Should render");
+    let (_pdf, layout, _) = forme::render_with_layout(&doc).expect("Should render");
 
     let page = &layout.pages[0];
     let el = &page.elements[0].children[0];

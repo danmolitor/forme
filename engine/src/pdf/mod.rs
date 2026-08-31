@@ -2498,8 +2498,8 @@ impl PdfWriter {
 
         // 2. FontDescriptor.
         let fd_id = builder.objects.len();
-        let cap_height = (face.capital_height().unwrap_or_else(|| face.ascender()) as f64 * scale)
-            as i32;
+        let cap_height =
+            (face.capital_height().unwrap_or_else(|| face.ascender()) as f64 * scale) as i32;
         let fd = format!(
             "<< /Type /FontDescriptor /FontName /{name} /Flags {flags} \
              /FontBBox [{x0} {y0} {x1} {y1}] /ItalicAngle {ia} \
