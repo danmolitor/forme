@@ -128,6 +128,10 @@ struct PdfBuilder {
     /// gradient instance. Resolves to (object_id, sh_name e.g. "Sh0").
     /// Maps `(page_idx, elem_idx) -> (obj_id, name)`.
     shading_map: HashMap<(usize, usize), (usize, String)>,
+    /// Non-fatal notices collected during the write (e.g. pdfUa without an
+    /// embeddable font). Returned to the caller so every render surface can
+    /// show them, never silently dropped.
+    warnings: Vec<String>,
 }
 
 pub(crate) struct PdfObject {
@@ -159,7 +163,7 @@ impl PdfWriter {
         pdf_ua: bool,
         embedded_data: Option<&str>,
         flatten_forms: bool,
-    ) -> Result<Vec<u8>, FormeError> {
+    ) -> Result<(Vec<u8>, Vec<String>), FormeError> {
         let mut builder = PdfBuilder {
             objects: Vec::new(),
             font_objects: Vec::new(),
@@ -170,6 +174,7 @@ impl PdfWriter {
             page_background_url_cache: HashMap::new(),
             ext_gstate_map: HashMap::new(),
             shading_map: HashMap::new(),
+            warnings: Vec::new(),
         };
 
         // Reserve object IDs:
@@ -1118,7 +1123,8 @@ impl PdfWriter {
             None
         };
 
-        Ok(self.serialize(&builder, info_obj_id))
+        let pdf = self.serialize(&builder, info_obj_id);
+        Ok((pdf, builder.warnings))
     }
 
     /// Build the PDF content stream for a single page.
@@ -2637,15 +2643,15 @@ impl PdfWriter {
                         // non-conforming file. (Symbol/ZapfDingbats have no
                         // substitute, so there is nothing to suggest.)
                         if let Some(lib) = std_font.liberation_family() {
-                            eprintln!(
-                                "[forme] pdfUa: font '{}' is not embedded, so the PDF will not \
-                                 conform to PDF/UA (all fonts must be embedded). Install \
+                            builder.warnings.push(format!(
+                                "pdfUa: font '{}' is not embedded, so the PDF will not conform to \
+                                 PDF/UA (all fonts must be embedded). Install \
                                  @formepdf/fonts-standard and register its fonts \
                                  (`for (const f of standardFonts()) Font.register(f)`) — Forme \
                                  will then embed the metric-compatible {} in its place.",
                                 std_font.pdf_name(),
                                 lib,
-                            );
+                            ));
                         }
                     }
 
@@ -4304,7 +4310,7 @@ mod tests {
             config: PageConfig::default(),
         }];
         let metadata = Metadata::default();
-        let bytes = writer
+        let (bytes, _warnings) = writer
             .write(
                 &pages,
                 &metadata,
@@ -4343,7 +4349,7 @@ mod tests {
             creator: None,
             lang: None,
         };
-        let bytes = writer
+        let (bytes, _warnings) = writer
             .write(
                 &pages,
                 &metadata,
@@ -4469,7 +4475,7 @@ mod tests {
         }];
 
         let metadata = Metadata::default();
-        let bytes = writer
+        let (bytes, _warnings) = writer
             .write(
                 &pages,
                 &metadata,
@@ -4637,7 +4643,7 @@ mod tests {
         }];
 
         let metadata = Metadata::default();
-        let bytes = writer
+        let (bytes, _warnings) = writer
             .write(
                 &pages,
                 &metadata,

@@ -110,7 +110,8 @@ export async function renderPdf(json: string): Promise<Uint8Array> {
 export async function renderPdfWithLayout(json: string): Promise<RenderWithLayoutResult> {
   ensureInit();
   await initPromise;
-  return wasmRenderPdfWithLayout(json) as { pdf: Uint8Array; layout: LayoutInfo };
+  const result = wasmRenderPdfWithLayout(json) as { pdf: Uint8Array; layout: LayoutInfo; warnings?: string[] };
+  return { ...result, warnings: result.warnings ?? [] };
 }
 
 export async function renderDocument(
@@ -189,10 +190,12 @@ export async function renderTemplateWithLayout(
 ): Promise<RenderWithLayoutResult> {
   ensureInit();
   await initPromise;
-  return wasmRenderTemplatePdfWithLayout(templateJson, dataJson) as {
+  const result = wasmRenderTemplatePdfWithLayout(templateJson, dataJson) as {
     pdf: Uint8Array;
     layout: LayoutInfo;
+    warnings?: string[];
   };
+  return { ...result, warnings: result.warnings ?? [] };
 }
 
 // ── PDF certification ────────────────────────────────────────────────

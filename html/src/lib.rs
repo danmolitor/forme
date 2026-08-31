@@ -381,8 +381,9 @@ pub fn html_to_document(html: &str, options: &HtmlOptions) -> (forme::Document, 
 
 /// Render an HTML string to PDF bytes.
 pub fn render_html(html: &str, options: &HtmlOptions) -> Result<HtmlOutput, FormeError> {
-    let (doc, warnings) = html_to_document(html, options);
-    let pdf = forme::render(&doc)?;
+    let (doc, mut warnings) = html_to_document(html, options);
+    let (pdf, engine_warnings) = forme::render_with_warnings(&doc)?;
+    warnings.extend(engine_warnings);
     Ok(HtmlOutput { pdf, warnings })
 }
 
@@ -391,8 +392,9 @@ pub fn render_html_with_layout(
     html: &str,
     options: &HtmlOptions,
 ) -> Result<HtmlLayoutOutput, FormeError> {
-    let (doc, warnings) = html_to_document(html, options);
-    let (pdf, layout) = forme::render_with_layout(&doc)?;
+    let (doc, mut warnings) = html_to_document(html, options);
+    let (pdf, layout, engine_warnings) = forme::render_with_layout(&doc)?;
+    warnings.extend(engine_warnings);
     Ok(HtmlLayoutOutput {
         pdf,
         layout,
