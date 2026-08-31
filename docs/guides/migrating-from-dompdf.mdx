@@ -1,0 +1,29 @@
+---
+title: Migrating from DomPDF
+sidebarTitle: From DomPDF
+description: Move DomPDF templates to Forme's HTML input path — real print CSS support, UTF-8 shaping that works, and no PHP memory-limit fights.
+---
+
+DomPDF renders a useful HTML subset but predates modern print CSS, and its text handling struggles past Latin scripts. Forme's [HTML input path](/html) covers the same document class with a page-native engine: real `@page` rules, margin boxes, OpenType shaping, and BiDi text.
+
+## The short version
+
+```bash
+npx @formepdf/html invoice.html -o invoice.pdf
+```
+
+Or from a PHP-adjacent stack, call the library from a small Node sidecar or use the [Python SDK](/python-sdk) — the engine is the same WASM everywhere.
+
+## What improves
+
+- **Print CSS**: `@page` size/margins, `:first` variants, margin boxes with page counters, `break-*` control, `orphans`/`widows` — the features DomPDF partially implements are the core of Forme's subset.
+- **Text**: OpenType shaping (ligatures, kerning), font fallback chains, automatic hyphenation, justified text with real inter-word distribution, BiDi for RTL scripts.
+- **Tables**: `<thead>` repeats on every page; `border-collapse` is emulated with Chrome-matched edge resolution; cell overflow is preserved across breaks.
+
+## What to check
+
+- **The subset is documented, not guessed** — compare your template against the [subset tables](/html). Everything outside it warns by name at render time; run once and read the warnings.
+- **Remote assets**: never fetched. Inline images as data URIs/local files; pass extra CSS with `--css`.
+- **Fonts**: pass TTFs explicitly with `--font Family=path.ttf` instead of DomPDF's font directory dance.
+
+<Note>This guide is a stub — it covers the load-bearing differences. If your template hits something unlisted, the render-time warnings will name it; issues welcome on [GitHub](https://github.com/formepdf/forme/issues).</Note>

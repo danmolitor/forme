@@ -1,0 +1,31 @@
+---
+title: Migrating from wkhtmltopdf
+sidebarTitle: From wkhtmltopdf
+description: Move wkhtmltopdf templates to Forme's HTML input path — the legacy page-break-* spellings work as-is, with no abandoned WebKit binary.
+---
+
+wkhtmltopdf is unmaintained and pinned to a 2012-era WebKit. Forme's [HTML input path](/html) renders the same class of documents — invoices, reports, statements — through an actively maintained Rust/WASM engine, with no native binary to install.
+
+## The short version
+
+```bash
+# before
+wkhtmltopdf invoice.html invoice.pdf
+
+# after
+npx @formepdf/html invoice.html -o invoice.pdf
+```
+
+Three things make this migration gentler than you'd expect:
+
+1. **The legacy `page-break-*` spellings work.** wkhtmltopdf-era CSS (`page-break-before`, `page-break-after`, `page-break-inside: avoid`) is honored as-is alongside the modern `break-*` forms.
+2. **`<thead>` repetition is automatic** — the header-rows-on-every-page behavior wkhtmltopdf approximated is engine-native here.
+3. **Anything outside the subset warns by name** instead of rendering differently in silence. Run your template once and read the warnings list — that's your migration checklist.
+
+## What to check
+
+- **Headers/footers**: wkhtmltopdf's `--header-html`/`--footer-html` flags become `@page` margin boxes with `counter(page)` / `counter(pages)` — see [HTML Input → Paged media](/html).
+- **Remote assets**: Forme never fetches over the network. Inline images as data URIs or local files; pass stylesheets with `--css`.
+- **Fonts**: system-font dependence becomes explicit — pass TTFs with `--font Family=path.ttf`.
+
+<Note>This guide is a stub — it covers the load-bearing differences. If your template hits something unlisted, the render-time warnings will name it; issues welcome on [GitHub](https://github.com/formepdf/forme/issues).</Note>
