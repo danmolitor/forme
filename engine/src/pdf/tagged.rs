@@ -66,6 +66,10 @@ pub struct TagBuilder {
     annot_parents: Vec<(u32, usize)>,
     /// Next StructParent number to hand out for a link annotation.
     next_annot_struct_parent: u32,
+    /// Indices of synthetic /LBody elements — auto-created to wrap a list
+    /// item's non-label content (PDF/UA 7.2-20) and closed together with their
+    /// /LI, since the caller emits no matching end_element for them.
+    synthetic_lbody: std::collections::HashSet<usize>,
 }
 
 impl TagBuilder {
@@ -88,6 +92,7 @@ impl TagBuilder {
             // Page StructParents occupy 0..num_pages; annotation StructParents
             // start after them so the two never collide in the ParentTree.
             next_annot_struct_parent: num_pages as u32,
+            synthetic_lbody: std::collections::HashSet::new(),
         }
     }
 
@@ -118,7 +123,29 @@ impl TagBuilder {
             self.inside_paragraph = true;
         }
 
-        let parent_idx = *self.parent_stack.last().unwrap_or(&0);
+        let mut parent_idx = *self.parent_stack.last().unwrap_or(&0);
+
+        // PDF/UA 7.2-20: an /LI may contain only /Lbl and /LBody. The label
+        // (marker) tags as /Lbl directly; the item's first non-label child
+        // opens a synthetic /LBody that wraps the rest of the content. Once
+        // open, the /LBody is the parent, so this only fires for the first
+        // content child.
+        if self.elements[parent_idx].role == "LI" && role != "Lbl" {
+            let lbody_idx = self.elements.len();
+            self.elements.push(StructElement {
+                role: "LBody",
+                parent_idx,
+                kids: Vec::new(),
+                alt: None,
+            });
+            self.elements[parent_idx]
+                .kids
+                .push(StructKid::StructRef(lbody_idx));
+            self.synthetic_lbody.insert(lbody_idx);
+            self.parent_stack.push(lbody_idx);
+            parent_idx = lbody_idx;
+        }
+
         let elem_idx = self.elements.len();
 
         // Allocate MCID on this page
@@ -193,6 +220,14 @@ impl TagBuilder {
 
     /// End the current structure element. Must be called after `begin_element`.
     pub fn end_element(&mut self) {
+        // A synthetic /LBody (wrapping a list item's content) has no matching
+        // caller end_element — it sits on top of its /LI when the item closes,
+        // so pop it together with the /LI.
+        if let Some(&top) = self.parent_stack.last() {
+            if self.synthetic_lbody.contains(&top) {
+                self.parent_stack.pop();
+            }
+        }
         if let Some(idx) = self.parent_stack.pop() {
             // If we're leaving a paragraph-like element (P or any heading),
             // reset the flag so the next sibling text gets the P role again.
