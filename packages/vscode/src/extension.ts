@@ -141,10 +141,22 @@ function updateFormeContext(editor: vscode.TextEditor | undefined) {
 function detectFormeFile(doc: vscode.TextDocument): boolean {
   const text = doc.getText();
   if (['typescriptreact', 'javascriptreact'].includes(doc.languageId)) {
+    // Matches @formepdf/react and @formepdf/preact — both ride the JSX branch,
+    // the renderer picks the reconciler from the import signature.
     return text.includes('@formepdf/react') || text.includes('formepdf');
   }
   if (doc.languageId === 'python') {
     return text.includes('import formepdf') || text.includes('from formepdf');
+  }
+  // `.svelte`/`.vue` DO have an import signature (unlike HTML), so they
+  // auto-detect like JSX. Keyed on file extension rather than languageId so
+  // detection works even when the Svelte/Vue language extensions aren't
+  // installed (the signature check is the real gate).
+  if (doc.fileName.endsWith('.svelte')) {
+    return text.includes('@formepdf/svelte');
+  }
+  if (doc.fileName.endsWith('.vue')) {
+    return text.includes('@formepdf/vue');
   }
   // HTML has no import signature to sniff — it's a document, not a script —
   // so it counts as a Forme file only once the user has opted in by

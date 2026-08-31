@@ -11,7 +11,15 @@ Search for "Forme PDF Preview" in the VS Code Extensions view, or install from t
 
 ## Preview
 
-Open any `.tsx` file that imports from `@formepdf/react` and run **Forme: Preview** or **Forme: Preview to Side** from the Command Palette.
+Open a Forme template and run **Forme: Preview** or **Forme: Preview to Side** from the Command Palette. The extension previews every framework Forme supports, identically — same component tree, inspector, and overlays:
+
+- **React / Preact** — a `.tsx`/`.jsx` file importing `@formepdf/react` or `@formepdf/preact`
+- **Svelte** — a `.svelte` file importing `@formepdf/svelte`
+- **Vue** — a `.vue` file importing `@formepdf/vue`
+- **Python** — a `.py` script that writes PDF bytes to stdout
+- **HTML** — any `.html` document (run the command once to opt in)
+
+Framework files are detected automatically by their import signature. The compiler and runtime are resolved from your workspace, so the versions always match your project — install the framework you author in (`npm install svelte`, `vue`, etc.) and previewing just works.
 
 The preview updates automatically when you save. Toggle debug overlays (layout, margins, breaks) from the toolbar.
 

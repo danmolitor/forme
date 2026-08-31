@@ -14,6 +14,13 @@ export {
 } from './html.js';
 
 export {
+  renderSvelteFromFile,
+  renderSvelteFromSource,
+  renderVueFromFile,
+  renderVueFromSource,
+} from './sfc.js';
+
+export {
   resolveElement,
   type ResolveElementOptions,
 } from './element.js';

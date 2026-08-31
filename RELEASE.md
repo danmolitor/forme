@@ -154,7 +154,7 @@ After bumping the engine/server/rasterizer versions, **two Dockerfiles** still r
 Update peer/runtime dependencies that pin to the formepdf packages:
 - [ ] `packages/react/package.json` — `@formepdf/shared`
 - [ ] `packages/core/package.json` — `@formepdf/react`
-- [ ] `packages/renderer/package.json` — `@formepdf/core`, `@formepdf/react`, `@formepdf/html` (all on the shared line since 0.14.0). Hard invariant: renderer's HTML input path (`renderHtmlFromFile`/`renderHtmlFromSource`) calls this exact `@formepdf/html` build, so a version skew ships a renderer against a mismatched engine.
+- [ ] `packages/renderer/package.json` — `@formepdf/core`, `@formepdf/react`, `@formepdf/html` (deps), plus `@formepdf/preact`/`@formepdf/svelte`/`@formepdf/vue` (devDeps, for the 4-way cross-framework gate) — all on the shared line since 0.14.0. Hard invariant: renderer's HTML input path (`renderHtmlFromFile`/`renderHtmlFromSource`) calls this exact `@formepdf/html` build, so a version skew ships a renderer against a mismatched engine. The Svelte/Vue input paths resolve their compiler + runtime from the *user's* workspace, so `svelte`/`vue` are NOT runtime deps here (devDeps only).
 - [ ] `packages/svelte/package.json` — `@formepdf/shared` (dep), `@formepdf/core` (optional peer, `^` range)
 - [ ] `packages/vue/package.json` — `@formepdf/shared` (dep), `@formepdf/core` (optional peer, `^` range), `@formepdf/react` (devDep for the equivalence gate)
 - [ ] `packages/preact/package.json` — `@formepdf/shared` (dep), `@formepdf/react` (devDep for parity tests)

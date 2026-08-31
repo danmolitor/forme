@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.15.0] - Unreleased
+
+### Added
+
+- **Svelte and Vue input paths**: `renderSvelteFromFile`/`renderSvelteFromSource` and `renderVueFromFile`/`renderVueFromSource` compile `.svelte`/`.vue` single-file components, serialize them through their adapter, and return the same `RenderResult` (PDF + `LayoutInfo` + `warnings: []`) as the JSX and HTML paths — so preview surfaces light up unchanged. The SFC compiler (`svelte/compiler`, `@vue/compiler-sfc`) and framework runtime resolve from the *user's* workspace, mirroring how the JSX path externalizes react/@formepdf/\*; nothing framework-specific is bundled.
+- **Preact reconciler support on the JSX path**: `bundleFile`/`bundleSource` gain a `flavor` (`react` | `preact`), detected from the `@formepdf/preact` import signature — `jsxImportSource: 'preact'` at bundle, preact's `serialize`/`isValidElement` at render. A `.tsx` Preact template now renders through the same dispatch instead of failing on react's `isValidElement`.
+- **Named workspace-dependency errors** (`friendlyDependencyError`): a missing framework compiler or runtime surfaces as "\"vue\" is not installed in this workspace. Run `npm install vue`…" rather than a module-resolution stack trace, across all input paths.
+
+### Changed
+
+- Extracted the shared render tail (`renderDocToResult`: page-size override → asset resolution → WASM render) so every input path converges on one `RenderResult` shape. Temp render modules now use a collision-proof name (previously `Date.now()` alone, which collided under concurrent renders).
+
 ## [0.14.0] - 2026-08-28
 
 ### Added

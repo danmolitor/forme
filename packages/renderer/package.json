@@ -26,11 +26,17 @@
     "react": "^18 || ^19"
   },
   "devDependencies": {
+    "@formepdf/preact": "0.14.0",
+    "@formepdf/svelte": "0.14.0",
+    "@formepdf/vue": "0.14.0",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
+    "preact": "^10.0.0",
     "react": "^19.0.0",
+    "svelte": "^5.30.0",
     "typescript": "^5.7.0",
-    "vitest": "^3.0.0"
+    "vitest": "^3.0.0",
+    "vue": "^3.4.0"
   },
   "files": [
     "dist"
