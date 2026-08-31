@@ -319,10 +319,14 @@ impl PdfWriter {
                     // Internal link: find matching bookmark by title
                     if let Some(bm) = all_bookmarks.iter().find(|b| b.title == anchor) {
                         let annot_obj_id = builder.objects.len();
+                        // PDF/UA 7.18.1-2 / 7.18.5-2: a link annotation must
+                        // carry an alternate description in its /Contents key.
+                        let contents = Self::escape_pdf_string(&format!("Link to {anchor}"));
                         let annot_dict = format!(
                             "<< /Type /Annot /Subtype /Link /Rect {} /Border [0 0 0] \
+                             /Contents ({}) \
                              /A << /S /GoTo /D [{} 0 R /XYZ 0 {:.2} null] >> >>",
-                            rect, bm.page_obj_id, bm.y_pdf
+                            rect, contents, bm.page_obj_id, bm.y_pdf
                         );
                         builder.objects.push(PdfObject {
                             id: annot_obj_id,
@@ -334,11 +338,12 @@ impl PdfWriter {
                 } else {
                     // External link
                     let annot_obj_id = builder.objects.len();
+                    let href_esc = Self::escape_pdf_string(&annot.href);
                     let annot_dict = format!(
                         "<< /Type /Annot /Subtype /Link /Rect {} /Border [0 0 0] \
+                         /Contents ({}) \
                          /A << /Type /Action /S /URI /URI ({}) >> >>",
-                        rect,
-                        Self::escape_pdf_string(&annot.href)
+                        rect, href_esc, href_esc
                     );
                     builder.objects.push(PdfObject {
                         id: annot_obj_id,

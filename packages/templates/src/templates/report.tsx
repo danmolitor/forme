@@ -300,7 +300,7 @@ export default function Report(data: ReportData) {
           <View style={{ flexGrow: 1 }}>
             <H3 style={{ ...styles.chartTitle, marginTop: 0 }}>Revenue by Region</H3>
             <View style={{ backgroundColor: '#f8fafc', borderRadius: 4, borderWidth: 1, borderColor: '#e2e8f0', padding: 8 }}>
-              <Svg width={230} height={150} viewBox="0 0 230 150" content={renderBarChart(tableData)} />
+              <Svg width={230} height={150} viewBox="0 0 230 150" alt="Bar chart of revenue by region" content={renderBarChart(tableData)} />
               <View style={{ gap: 3, marginTop: 8 }}>
                 {tableData.map((row, i) => (
                   <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
@@ -315,7 +315,7 @@ export default function Report(data: ReportData) {
             <H3 style={{ ...styles.chartTitle, marginTop: 0 }}>Market Share</H3>
             <View style={{ backgroundColor: '#f8fafc', borderRadius: 4, borderWidth: 1, borderColor: '#e2e8f0', padding: 8 }}>
               <View style={{ alignItems: 'center' }}>
-                <Svg width={110} height={150} viewBox="0 0 110 150" content={renderDonutChart(tableData)} />
+                <Svg width={110} height={150} viewBox="0 0 110 150" alt="Donut chart of market share by region" content={renderDonutChart(tableData)} />
               </View>
               <View style={{ gap: 3, marginTop: 8 }}>
                 {tableData.map((row, i) => {
@@ -339,7 +339,7 @@ export default function Report(data: ReportData) {
 
         <H3 style={{ ...styles.chartTitle, marginTop: 0 }}>Quarterly Growth Trend</H3>
         <View style={{ backgroundColor: '#f8fafc', borderRadius: 4, borderWidth: 1, borderColor: '#e2e8f0', paddingVertical: 12, marginBottom: 24 }}>
-          <Svg width={484} height={140} viewBox="0 0 484 140" content={renderLineChart(tableData)} />
+          <Svg width={484} height={140} viewBox="0 0 484 140" alt="Line chart of quarterly growth trend" content={renderLineChart(tableData)} />
           <View style={{ position: 'relative', height: 14, marginTop: 4 }}>
             {['Q1', 'Q2', 'Q3', 'Q4'].map((q, i) => (
               <Text key={i} style={{ position: 'absolute', left: 16 + (452 / 3) * i - 12, width: 24, fontSize: 8, color: '#64748b', textAlign: 'center' }}>{q}</Text>
