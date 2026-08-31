@@ -1571,7 +1571,7 @@ mod tests {
         // print AND a feature: both must hold.
         let both = "@media print and (max-width: 300px) { p { color: red } }";
         assert!(
-            with(both, narrow).0.rules.is_empty() == false,
+            !with(both, narrow).0.rules.is_empty(),
             "200 <= 300 under print"
         );
         assert!(with(both, wide).0.rules.is_empty(), "504 > 300 → excluded");

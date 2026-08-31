@@ -291,7 +291,7 @@ pub(crate) fn apply_declaration(
         "border-style" => {
             let mut vals = Vec::new();
             while let Ok(id) = p.expect_ident() {
-                vals.push(border_style_keyword(&id.to_string()).unwrap_or(BorderStyle::Solid));
+                vals.push(border_style_keyword(id.as_ref()).unwrap_or(BorderStyle::Solid));
             }
             let expanded = match vals.as_slice() {
                 [a] => [*a, *a, *a, *a],
@@ -311,7 +311,7 @@ pub(crate) fn apply_declaration(
             };
             if let Ok(id) = p.expect_ident() {
                 style.border_style[idx] =
-                    Some(border_style_keyword(&id.to_string()).unwrap_or(BorderStyle::Solid));
+                    Some(border_style_keyword(id.as_ref()).unwrap_or(BorderStyle::Solid));
             }
         }
         "border-radius" => {
