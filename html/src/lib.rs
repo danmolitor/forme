@@ -78,6 +78,16 @@ pub struct HtmlOptions {
     pub css: Option<String>,
     /// Fonts registered with the engine (TTF bytes keyed by family name).
     pub fonts: Vec<FontSpec>,
+    /// Emit a tagged PDF (structure tree). Implied by `pdf_ua`.
+    pub tagged: bool,
+    /// Emit a PDF/UA-1 conforming file: tags, metadata, embedded fonts. Requires
+    /// a metric-compatible font (register `@formepdf/fonts-standard` via `fonts`),
+    /// a document language (`lang`), and alt text on informational images.
+    pub pdf_ua: bool,
+    /// Document language for PDF/UA (`/Lang`). If `pdf_ua` is set and this is
+    /// `None`, the `<html lang>` attribute is used, else it defaults to "en"
+    /// with a warning.
+    pub lang: Option<String>,
 }
 
 /// Rendered output: PDF bytes plus any warnings about unsupported CSS.
@@ -331,6 +341,41 @@ pub fn html_to_document(html: &str, options: &HtmlOptions) -> (forme::Document, 
             }
         }
     }
+
+    // Tagging / PDF-UA: the mapper already emits Heading/Table/List/Lbl/Figure
+    // nodes, so the engine's tag builder produces the structure tree; here we
+    // just flip the flags and settle the PDF/UA prerequisites.
+    doc.tagged = options.tagged || options.pdf_ua;
+    doc.pdf_ua = options.pdf_ua;
+    if options.pdf_ua {
+        if doc.metadata.lang.is_none() {
+            doc.metadata.lang = Some(options.lang.clone().unwrap_or_else(|| {
+                warnings.push(
+                    "pdf_ua: no document language set — defaulting /Lang to \"en\". Set options.lang or an <html lang> attribute."
+                        .to_string(),
+                );
+                "en".to_string()
+            }));
+        }
+        // Informational images must carry alt text; decorative ones should be
+        // marked decorative (not yet expressible in HTML input — see README).
+        fn warn_missing_alt(node: &forme::Node, warnings: &mut Vec<String>) {
+            if let forme::model::NodeKind::Image { src, .. } = &node.kind {
+                if node.alt.as_deref().unwrap_or("").is_empty() {
+                    warnings.push(format!(
+                        "pdf_ua: image without alt text: {src} — add an alt attribute (or mark it decorative)."
+                    ));
+                }
+            }
+            for child in &node.children {
+                warn_missing_alt(child, warnings);
+            }
+        }
+        for child in &doc.children {
+            warn_missing_alt(child, &mut warnings);
+        }
+    }
+
     (doc, warnings)
 }
 

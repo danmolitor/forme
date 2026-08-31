@@ -28,6 +28,11 @@ struct WasmOptions {
     css: Option<String>,
     #[serde(default)]
     fonts: Vec<WasmFont>,
+    #[serde(default)]
+    tagged: bool,
+    #[serde(default)]
+    pdf_ua: bool,
+    lang: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -101,6 +106,9 @@ fn parse_options(options_json: &str) -> Result<HtmlOptions, JsValue> {
     let mut options = HtmlOptions {
         page_margin: raw.page_margin,
         css: raw.css,
+        tagged: raw.tagged,
+        pdf_ua: raw.pdf_ua,
+        lang: raw.lang,
         ..Default::default()
     };
     for f in raw.fonts {

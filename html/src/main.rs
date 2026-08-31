@@ -123,6 +123,10 @@ OPTIONS:
                             (overrides @page margins; default 54)
         --font <spec>       Register a TTF: 'Family=path.ttf'. Repeatable.
                             Variants: 'Family:700=..', 'Family:bold:italic=..
+        --tagged            Emit a tagged PDF (structure tree)
+        --pdf-ua            Emit a PDF/UA-1 conforming file (implies --tagged;
+                            register embeddable fonts via --font and set --lang)
+        --lang <lang>       Document language for PDF/UA (e.g. en, en-US)
     -q, --quiet             Suppress unsupported-CSS warnings
     -h, --help              Show this help
 ";
@@ -203,6 +207,9 @@ fn main() -> ExitCode {
                         italic,
                     });
                 }
+                "--tagged" => options.tagged = true,
+                "--pdf-ua" => options.pdf_ua = true,
+                "--lang" => options.lang = Some(take_value(&mut i)?),
                 "-q" | "--quiet" => quiet = true,
                 other if other.starts_with('-') => {
                     return Err(format!("unknown option '{other}'"));

@@ -638,11 +638,15 @@ impl Mapper {
             Some(Dimension::Pt(v)) => Some(v),
             _ => attr_dim("height"),
         };
-        Some(make_node(
+        let mut node = make_node(
             NodeKind::Image { src, width, height },
             to_engine_style(computed),
             vec![],
-        ))
+        );
+        // <img alt> → Figure /Alt (PDF/UA 7.3-1). Absent alt stays None; a
+        // pdf_ua render warns about it (see html_to_document).
+        node.alt = el.attr("alt").map(|s| s.to_string());
+        Some(node)
     }
 
     fn map_table(&mut self, el: &Element, computed: &Computed) -> Option<Node> {
