@@ -319,14 +319,24 @@ impl PdfWriter {
                     // Internal link: find matching bookmark by title
                     if let Some(bm) = all_bookmarks.iter().find(|b| b.title == anchor) {
                         let annot_obj_id = builder.objects.len();
+                        // Tagged: attach this annotation to its /Link structure
+                        // element (OBJR + /StructParent) so links are tagged
+                        // (PDF/UA 7.18.5-1).
+                        let sp_str = tag_builder
+                            .as_mut()
+                            .and_then(|tb| {
+                                tb.connect_link_annotation(page_idx, &annot.href, annot_obj_id)
+                            })
+                            .map(|sp| format!(" /StructParent {}", sp))
+                            .unwrap_or_default();
                         // PDF/UA 7.18.1-2 / 7.18.5-2: a link annotation must
                         // carry an alternate description in its /Contents key.
                         let contents = Self::escape_pdf_string(&format!("Link to {anchor}"));
                         let annot_dict = format!(
                             "<< /Type /Annot /Subtype /Link /Rect {} /Border [0 0 0] \
-                             /Contents ({}) \
+                             /Contents ({}){} \
                              /A << /S /GoTo /D [{} 0 R /XYZ 0 {:.2} null] >> >>",
-                            rect, contents, bm.page_obj_id, bm.y_pdf
+                            rect, contents, sp_str, bm.page_obj_id, bm.y_pdf
                         );
                         builder.objects.push(PdfObject {
                             id: annot_obj_id,
@@ -338,12 +348,19 @@ impl PdfWriter {
                 } else {
                     // External link
                     let annot_obj_id = builder.objects.len();
+                    let sp_str = tag_builder
+                        .as_mut()
+                        .and_then(|tb| {
+                            tb.connect_link_annotation(page_idx, &annot.href, annot_obj_id)
+                        })
+                        .map(|sp| format!(" /StructParent {}", sp))
+                        .unwrap_or_default();
                     let href_esc = Self::escape_pdf_string(&annot.href);
                     let annot_dict = format!(
                         "<< /Type /Annot /Subtype /Link /Rect {} /Border [0 0 0] \
-                         /Contents ({}) \
+                         /Contents ({}){} \
                          /A << /Type /Action /S /URI /URI ({}) >> >>",
-                        rect, href_esc, href_esc
+                        rect, href_esc, sp_str, href_esc
                     );
                     builder.objects.push(PdfObject {
                         id: annot_obj_id,
@@ -1178,8 +1195,16 @@ impl PdfWriter {
                     None
                 } else {
                     let is_header = element.is_header_row;
-                    let mcid = tb.begin_element(nt, is_header, element.alt.as_deref(), page_idx);
-                    let role = tb.map_role_public(nt, is_header);
+                    let href = element.href.as_deref();
+                    let mcid =
+                        tb.begin_element(nt, is_header, element.alt.as_deref(), page_idx, href);
+                    // An href'd element tags as /Link (see begin_element); the
+                    // BDC role must match the structure role, so key on href too.
+                    let role = if href.is_some() {
+                        "Link"
+                    } else {
+                        tb.map_role_public(nt, is_header)
+                    };
                     let _ = writeln!(stream, "/{} <</MCID {}>> BDC", role, mcid);
                     Some(mcid)
                 }

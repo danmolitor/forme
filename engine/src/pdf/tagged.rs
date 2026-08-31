@@ -33,6 +33,19 @@ enum StructKid {
     StructRef(usize),
     /// Reference to marked content on a page.
     MarkedContent { page_idx: usize, mcid: u32 },
+    /// Reference to a PDF object (OBJR) — used to attach a link annotation to
+    /// its /Link structure element (PDF/UA 7.18.5-1).
+    ObjectRef(usize),
+}
+
+/// A /Link structure element awaiting connection to its annotation, recorded
+/// during the content pass and matched to the annotation (by page + href) in
+/// the annotation pass.
+struct LinkSlot {
+    page_idx: usize,
+    elem_idx: usize,
+    href: String,
+    matched: bool,
 }
 
 /// Builds the tagged PDF structure tree during content stream writing.
@@ -45,6 +58,14 @@ pub struct TagBuilder {
     mcid_to_struct: Vec<(usize, u32, usize)>,
     /// Tracks whether we're inside a "P" element (to map nested Text → Span).
     inside_paragraph: bool,
+    /// /Link structure elements awaiting connection to their annotations.
+    link_slots: Vec<LinkSlot>,
+    /// StructParent number → structure element index, for link annotations.
+    /// Their numbers start above the page StructParents range (page indices),
+    /// so the ParentTree keyspace stays disjoint.
+    annot_parents: Vec<(u32, usize)>,
+    /// Next StructParent number to hand out for a link annotation.
+    next_annot_struct_parent: u32,
 }
 
 impl TagBuilder {
@@ -62,6 +83,11 @@ impl TagBuilder {
             page_mcid_counters: vec![0; num_pages],
             mcid_to_struct: Vec::new(),
             inside_paragraph: false,
+            link_slots: Vec::new(),
+            annot_parents: Vec::new(),
+            // Page StructParents occupy 0..num_pages; annotation StructParents
+            // start after them so the two never collide in the ParentTree.
+            next_annot_struct_parent: num_pages as u32,
         }
     }
 
@@ -73,8 +99,17 @@ impl TagBuilder {
         is_header_row: bool,
         alt: Option<&str>,
         page_idx: usize,
+        href: Option<&str>,
     ) -> u32 {
-        let role = self.map_role(node_type, is_header_row);
+        // An element carrying an href is a link: it tags as a /Link structure
+        // element (overriding its node_type role) so the annotation can attach
+        // to it (PDF/UA 7.18.5-1). The BDC role at the call site uses the same
+        // href check, so content marking and structure agree.
+        let role = if href.is_some() {
+            "Link"
+        } else {
+            self.map_role(node_type, is_header_row)
+        };
         let was_inside_paragraph = self.inside_paragraph;
         // Headings act like paragraphs for the inner-text → Span downgrade
         // rule, so a nested Text inside an H1 maps to a Span rather than
@@ -114,7 +149,46 @@ impl TagBuilder {
             // We just entered a paragraph
         }
 
+        // Record a link slot so the annotation pass can attach the annotation
+        // (OBJR + /StructParent) to this /Link element.
+        if let Some(h) = href {
+            self.link_slots.push(LinkSlot {
+                page_idx,
+                elem_idx,
+                href: h.to_string(),
+                matched: false,
+            });
+        }
+
         mcid
+    }
+
+    /// Attach a link annotation to its /Link structure element: add an OBJR
+    /// kid pointing at the annotation, and allocate a StructParent number that
+    /// the ParentTree maps back to the /Link element. Returns the number to
+    /// write as the annotation's /StructParent, or `None` if no /Link element
+    /// on this page carries this href (e.g. an internal link whose annotation
+    /// was skipped for a missing bookmark). Matches by (page, href) in order,
+    /// which is robust to skips and to how the two passes traverse the tree.
+    pub fn connect_link_annotation(
+        &mut self,
+        page_idx: usize,
+        href: &str,
+        annot_obj_id: usize,
+    ) -> Option<u32> {
+        let slot = self
+            .link_slots
+            .iter_mut()
+            .find(|s| !s.matched && s.page_idx == page_idx && s.href == href)?;
+        slot.matched = true;
+        let elem_idx = slot.elem_idx;
+        self.elements[elem_idx]
+            .kids
+            .push(StructKid::ObjectRef(annot_obj_id));
+        let sp = self.next_annot_struct_parent;
+        self.next_annot_struct_parent += 1;
+        self.annot_parents.push((sp, elem_idx));
+        Some(sp)
     }
 
     /// End the current structure element. Must be called after `begin_element`.
@@ -288,6 +362,13 @@ impl TagBuilder {
             let _ = write!(nums, " {} [{}]", page_idx, ref_strs.join(" "));
         }
 
+        // Link annotations: each StructParent number maps to the single /Link
+        // structure element it belongs to (not an array — an annotation has
+        // exactly one owning element). Numbers are disjoint from page indices.
+        for (sp, elem_idx) in &self.annot_parents {
+            let _ = write!(nums, " {} {} 0 R", sp, elem_obj_ids[*elem_idx]);
+        }
+
         let parent_tree_data = format!("<< /Nums [{}] >>", nums.trim());
         objects[parent_tree_id].data = parent_tree_data.into_bytes();
 
@@ -322,6 +403,9 @@ impl TagBuilder {
                         page_obj_ids[*page_idx], mcid
                     ));
                 }
+                StructKid::ObjectRef(obj_id) => {
+                    parts.push(format!("<< /Type /OBJR /Obj {} 0 R >>", obj_id));
+                }
             }
         }
         parts.join(" ")
@@ -342,10 +426,10 @@ mod tests {
     fn test_tag_builder_basic() {
         let mut tb = TagBuilder::new(1);
 
-        let mcid = tb.begin_element("View", false, None, 0);
+        let mcid = tb.begin_element("View", false, None, 0, None);
         assert_eq!(mcid, 0);
 
-        let mcid2 = tb.begin_element("Text", false, None, 0);
+        let mcid2 = tb.begin_element("Text", false, None, 0, None);
         assert_eq!(mcid2, 1);
         tb.end_element(); // Text
 
@@ -363,8 +447,8 @@ mod tests {
         // the whole structure tree in veraPDF. Forme emits only standard PDF
         // 1.7 roles, so none belong in the RoleMap — it must not self-map any.
         let mut tb = TagBuilder::new(1);
-        tb.begin_element("View", false, None, 0);
-        tb.begin_element("Text", false, None, 0);
+        tb.begin_element("View", false, None, 0, None);
+        tb.begin_element("Text", false, None, 0, None);
         tb.end_element();
         tb.end_element();
 
@@ -401,11 +485,11 @@ mod tests {
         let mut tb = TagBuilder::new(1);
 
         // Outer Text → P
-        let _mcid = tb.begin_element("Text", false, None, 0);
+        let _mcid = tb.begin_element("Text", false, None, 0, None);
         assert_eq!(tb.elements.last().unwrap().role, "P");
 
         // Inner Text → Span (because inside_paragraph)
-        let _mcid = tb.begin_element("Text", false, None, 0);
+        let _mcid = tb.begin_element("Text", false, None, 0, None);
         assert_eq!(tb.elements.last().unwrap().role, "Span");
 
         tb.end_element();
@@ -416,11 +500,11 @@ mod tests {
     fn test_table_header_maps_to_th() {
         let mut tb = TagBuilder::new(1);
 
-        tb.begin_element("Table", false, None, 0);
-        tb.begin_element("TableRow", true, None, 0);
+        tb.begin_element("Table", false, None, 0, None);
+        tb.begin_element("TableRow", true, None, 0, None);
 
         // Cell in header row → TH
-        tb.begin_element("TableCell", true, None, 0);
+        tb.begin_element("TableCell", true, None, 0, None);
         assert_eq!(tb.elements.last().unwrap().role, "TH");
         tb.end_element();
 
@@ -428,8 +512,8 @@ mod tests {
         tb.end_element(); // Table
 
         // Body row
-        tb.begin_element("TableRow", false, None, 0);
-        tb.begin_element("TableCell", false, None, 0);
+        tb.begin_element("TableRow", false, None, 0, None);
+        tb.begin_element("TableCell", false, None, 0, None);
         assert_eq!(tb.elements.last().unwrap().role, "TD");
         tb.end_element();
         tb.end_element();
@@ -439,7 +523,7 @@ mod tests {
     fn test_figure_with_alt_text() {
         let mut tb = TagBuilder::new(1);
 
-        tb.begin_element("Image", false, Some("A photo of a cat"), 0);
+        tb.begin_element("Image", false, Some("A photo of a cat"), 0, None);
         let elem = tb.elements.last().unwrap();
         assert_eq!(elem.role, "Figure");
         assert_eq!(elem.alt.as_deref(), Some("A photo of a cat"));
@@ -451,13 +535,13 @@ mod tests {
         let mut tb = TagBuilder::new(2);
 
         // Page 0: 2 elements
-        tb.begin_element("Text", false, None, 0);
+        tb.begin_element("Text", false, None, 0, None);
         tb.end_element();
-        tb.begin_element("Text", false, None, 0);
+        tb.begin_element("Text", false, None, 0, None);
         tb.end_element();
 
         // Page 1: 1 element
-        tb.begin_element("Text", false, None, 1);
+        tb.begin_element("Text", false, None, 1, None);
         tb.end_element();
 
         assert_eq!(tb.page_mcid_count(0), 2);
