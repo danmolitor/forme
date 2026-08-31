@@ -1,4 +1,4 @@
-import { Document, Page, View, Text, Svg, Table, Row, Cell, Fixed, PageBreak, StyleSheet } from '@formepdf/react';
+import { Document, Page, View, Text, Svg, Table, Row, Cell, Fixed, PageBreak, StyleSheet, H1, H2, H3 } from '@formepdf/react';
 import type { ReportData } from '../types.js';
 
 const DEFAULT_ACCENT = '#0f172a';
@@ -197,7 +197,7 @@ export default function Report(data: ReportData) {
       <Page size="Letter" margin={coverMargins}>
         <View style={{ flexGrow: 1, justifyContent: 'center' }}>
           <View style={{ backgroundColor: accent, padding: 32, borderRadius: 4, marginBottom: 32 }}>
-            <Text style={{ fontSize: 32, fontWeight: 700, color: '#ffffff' }}>{data.title}</Text>
+            <H1 style={{ fontSize: 32, fontWeight: 700, color: '#ffffff', marginTop: 0, marginBottom: 0 }}>{data.title}</H1>
             <Text style={{ fontSize: 14, color: '#94a3b8', marginTop: 12 }}>{data.subtitle}</Text>
           </View>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 24 }}>
@@ -232,7 +232,7 @@ export default function Report(data: ReportData) {
         </Fixed>
 
         {/* Table of Contents */}
-        <Text style={styles.sectionTitle}>Table of Contents</Text>
+        <H2 style={{ ...styles.sectionTitle, marginTop: 0 }}>Table of Contents</H2>
         {data.sections.map((section, i) => (
           <View key={i} href={`#${section.title}`} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 1, borderColor: '#f1f5f9' }}>
             <Text style={{ fontSize: 10, color: '#2563eb', textDecoration: 'underline' }}>{i + 1}. {section.title}</Text>
@@ -242,7 +242,7 @@ export default function Report(data: ReportData) {
         <PageBreak />
 
         {/* Executive Summary */}
-        <Text bookmark={data.sections[0].title} style={styles.sectionTitle}>1. {data.sections[0].title}</Text>
+        <H2 bookmark={data.sections[0].title} style={{ ...styles.sectionTitle, marginTop: 0 }}>1. {data.sections[0].title}</H2>
         {(data.sections[0].paragraphs || []).map((p, i) => (
           <Text key={i} style={styles.bodyText}>{p}</Text>
         ))}
@@ -262,7 +262,7 @@ export default function Report(data: ReportData) {
         <PageBreak />
 
         {/* Data Section */}
-        <Text bookmark={data.sections[1].title} style={styles.sectionTitle}>2. {data.sections[1].title}</Text>
+        <H2 bookmark={data.sections[1].title} style={{ ...styles.sectionTitle, marginTop: 0 }}>2. {data.sections[1].title}</H2>
         <Text style={styles.introText}>{data.sections[1].intro}</Text>
 
         <Table columns={[
@@ -298,7 +298,7 @@ export default function Report(data: ReportData) {
 
         <View style={{ flexDirection: 'row', gap: 16, marginBottom: 24 }}>
           <View style={{ flexGrow: 1 }}>
-            <Text style={styles.chartTitle}>Revenue by Region</Text>
+            <H3 style={{ ...styles.chartTitle, marginTop: 0 }}>Revenue by Region</H3>
             <View style={{ backgroundColor: '#f8fafc', borderRadius: 4, borderWidth: 1, borderColor: '#e2e8f0', padding: 8 }}>
               <Svg width={230} height={150} viewBox="0 0 230 150" content={renderBarChart(tableData)} />
               <View style={{ gap: 3, marginTop: 8 }}>
@@ -312,7 +312,7 @@ export default function Report(data: ReportData) {
             </View>
           </View>
           <View style={{ flexGrow: 1 }}>
-            <Text style={styles.chartTitle}>Market Share</Text>
+            <H3 style={{ ...styles.chartTitle, marginTop: 0 }}>Market Share</H3>
             <View style={{ backgroundColor: '#f8fafc', borderRadius: 4, borderWidth: 1, borderColor: '#e2e8f0', padding: 8 }}>
               <View style={{ alignItems: 'center' }}>
                 <Svg width={110} height={150} viewBox="0 0 110 150" content={renderDonutChart(tableData)} />
@@ -337,7 +337,7 @@ export default function Report(data: ReportData) {
           </View>
         </View>
 
-        <Text style={styles.chartTitle}>Quarterly Growth Trend</Text>
+        <H3 style={{ ...styles.chartTitle, marginTop: 0 }}>Quarterly Growth Trend</H3>
         <View style={{ backgroundColor: '#f8fafc', borderRadius: 4, borderWidth: 1, borderColor: '#e2e8f0', paddingVertical: 12, marginBottom: 24 }}>
           <Svg width={484} height={140} viewBox="0 0 484 140" content={renderLineChart(tableData)} />
           <View style={{ position: 'relative', height: 14, marginTop: 4 }}>
@@ -350,7 +350,7 @@ export default function Report(data: ReportData) {
         <PageBreak />
 
         {/* Recommendations */}
-        <Text bookmark={data.sections[3].title} style={styles.sectionTitle}>4. {data.sections[3].title}</Text>
+        <H2 bookmark={data.sections[3].title} style={{ ...styles.sectionTitle, marginTop: 0 }}>4. {data.sections[3].title}</H2>
         <Text style={styles.introText}>{data.sections[3].intro}</Text>
 
         {(data.sections[3].items || []).map((item, i) => (
@@ -359,7 +359,7 @@ export default function Report(data: ReportData) {
               <Text style={styles.recBadgeText}>{i + 1}</Text>
             </View>
             <View style={{ flexGrow: 1, flexShrink: 1 }}>
-              <Text style={styles.recTitle}>{item.title}</Text>
+              <H3 style={{ ...styles.recTitle, marginTop: 0 }}>{item.title}</H3>
               <Text style={styles.recBody}>{item.description}</Text>
               <View style={{ flexDirection: 'row', gap: 16, marginTop: 8 }}>
                 <View style={{ flexDirection: 'row', gap: 4 }}>

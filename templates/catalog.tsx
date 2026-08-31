@@ -1,4 +1,4 @@
-import { Document, Page, View, Text, Svg, Fixed } from '@formepdf/react';
+import { Document, Page, View, Text, Svg, Fixed, H1, H2 } from '@formepdf/react';
 
 function formatPrice(price: number): string {
   return `$${price.toFixed(2)}`;
@@ -69,7 +69,7 @@ function CategorySection({ category }: { category: any }) {
     <View bookmark={category.name} style={{ marginBottom: 20 }}>
       {/* Category heading */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10, paddingBottom: 6, borderBottomWidth: 2, borderColor: '#1e293b' }}>
-        <Text style={{ fontSize: 14, fontWeight: 700, color: '#1e293b', textTransform: 'uppercase', letterSpacing: 1, flex: 1 }}>{category.name}</Text>
+        <H2 style={{ fontSize: 14, fontWeight: 700, color: '#1e293b', textTransform: 'uppercase', letterSpacing: 1, flex: 1, marginTop: 0, marginBottom: 0 }}>{category.name}</H2>
       </View>
 
       {/* Product grid: 2 columns */}
@@ -111,7 +111,7 @@ export default function Catalog(data: any) {
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 4 }}>
           <LogoMark />
           <View>
-            <Text style={{ fontSize: 22, fontWeight: 700, color: '#1e293b' }}>{data.company.name}</Text>
+            <H1 style={{ fontSize: 22, fontWeight: 700, color: '#1e293b', marginTop: 0, marginBottom: 0 }}>{data.company.name}</H1>
             <Text style={{ fontSize: 10, marginTop: 2 }}>
               <Text style={{ color: '#64748b', fontStyle: 'italic' }}>{data.company.tagline}</Text>
             </Text>

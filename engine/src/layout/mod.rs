@@ -5256,7 +5256,11 @@ impl LayoutEngine {
         font_context: &FontContext,
     ) -> f64 {
         match &node.kind {
-            NodeKind::Text { content, runs, .. } => {
+            // Headings lay out exactly like Text (see the layout arm), so they
+            // must measure the same way — otherwise a heading falls through to
+            // the container `_` arm, measures ~0 (it has no children), and a
+            // parent's auto-height omits it.
+            NodeKind::Text { content, runs, .. } | NodeKind::Heading { content, runs, .. } => {
                 // Mirror layout_text: a fixed width drives line-breaking, so height
                 // measurement must use the same width or it will under-count lines.
                 let measure_width = match style.width {
@@ -6533,6 +6537,55 @@ mod tests {
         let style = heading.style.resolve(None, 0.0);
         let w = engine.measure_intrinsic_width(&heading, &style, &font_context);
         assert!(w > 100.0, "24pt heading text must measure wide, got {w}");
+    }
+
+    #[test]
+    fn measure_node_height_of_wrapping_heading_matches_text() {
+        // A heading that wraps to multiple lines must contribute its full
+        // height to a parent's auto-height, exactly like Text. Previously
+        // Heading had no arm in `measure_node_height` and fell through to the
+        // container `_` arm (children-recursion), measuring ~0 — so an
+        // auto-height View wrapping a multi-line heading collapsed, shifting
+        // every sibling below it.
+        let engine = LayoutEngine::new();
+        let font_context = FontContext::new();
+
+        let content = "Annual Performance Review";
+        let heading = Node {
+            kind: NodeKind::Heading {
+                level: 1,
+                content: content.to_string(),
+                href: None,
+                runs: vec![],
+            },
+            style: Style {
+                font_size: Some(32.0),
+                ..Default::default()
+            },
+            children: vec![],
+            id: None,
+            source_location: None,
+            bookmark: None,
+            href: None,
+            alt: None,
+        };
+        let text = make_text(content, 32.0);
+
+        // A width narrow enough to force the 32pt title onto more than one line.
+        let width = 200.0;
+        let h_style = heading.style.resolve(None, width);
+        let t_style = text.style.resolve(None, width);
+        let h_height = engine.measure_node_height(&heading, width, &h_style, &font_context);
+        let t_height = engine.measure_node_height(&text, width, &t_style, &font_context);
+
+        assert!(
+            h_height > 32.0,
+            "a wrapping 32pt heading must measure more than one line, got {h_height}"
+        );
+        assert!(
+            (h_height - t_height).abs() < 0.01,
+            "heading height ({h_height}) must equal the same text's height ({t_height})"
+        );
     }
 
     #[test]

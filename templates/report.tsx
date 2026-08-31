@@ -1,4 +1,4 @@
-import { Document, Page, View, Text, Image, Svg, Table, Row, Cell, Fixed, PageBreak, StyleSheet } from '@formepdf/react';
+import { Document, Page, View, Text, Image, Svg, Table, Row, Cell, Fixed, PageBreak, StyleSheet, H1, H2, H3 } from '@formepdf/react';
 import { tw } from '@formepdf/tailwind';
 
 // ── Chart SVG generators ─────────────────────────────────────────────
@@ -171,7 +171,7 @@ export default function Report(data: any) {
       <Page size="Letter" margin={72}>
         <View style={{ flexGrow: 1, justifyContent: 'center' }}>
           <View style={tw("p-8 bg-slate-900 rounded mb-8")}>
-            <Text style={tw("text-[32px] font-bold text-white")}>{data.title}</Text>
+            <H1 style={{ ...tw("text-[32px] font-bold text-white"), marginTop: 0, marginBottom: 0 }}>{data.title}</H1>
             <Text style={tw("text-[14px] text-slate-400 mt-3")}>{data.subtitle}</Text>
           </View>
           <View>
@@ -208,7 +208,7 @@ export default function Report(data: any) {
         </Fixed>
 
         {/* Table of Contents */}
-        <Text style={tw("text-xl font-bold text-slate-900 mb-3")}>Table of Contents</Text>
+        <H2 style={{ ...tw("text-xl font-bold text-slate-900 mb-3"), marginTop: 0 }}>Table of Contents</H2>
         {data.sections.map((section: any, i: number) => (
           <View key={i} href={`#${section.title}`} style={{ ...tw("flex-row justify-between py-1.5"), borderBottomWidth: 1, borderColor: '#f1f5f9' }}>
             <Text style={tw("text-[10px] text-blue-600 underline")}>{i + 1}. {section.title}</Text>
@@ -218,7 +218,7 @@ export default function Report(data: any) {
         <PageBreak />
 
         {/* Executive Summary */}
-        <Text bookmark={data.sections[0].title} style={tw("text-xl font-bold text-slate-900 mb-3")}>1. {data.sections[0].title}</Text>
+        <H2 bookmark={data.sections[0].title} style={{ ...tw("text-xl font-bold text-slate-900 mb-3"), marginTop: 0 }}>1. {data.sections[0].title}</H2>
         {data.sections[0].paragraphs.map((p: string, i: number) => (
           <Text key={i} style={tw("text-[10px] text-slate-700 leading-[1.6] mb-3")}>{p}</Text>
         ))}
@@ -238,7 +238,7 @@ export default function Report(data: any) {
         <PageBreak />
 
         {/* Data Section */}
-        <Text bookmark={data.sections[1].title} style={tw("text-xl font-bold text-slate-900 mb-3")}>2. {data.sections[1].title}</Text>
+        <H2 bookmark={data.sections[1].title} style={{ ...tw("text-xl font-bold text-slate-900 mb-3"), marginTop: 0 }}>2. {data.sections[1].title}</H2>
         <Text style={tw("text-[10px] text-slate-700 leading-[1.6] mb-4")}>{data.sections[1].intro}</Text>
 
         <Table columns={[
@@ -269,12 +269,12 @@ export default function Report(data: any) {
         <PageBreak />
 
         {/* Visual Analysis */}
-        <Text bookmark={data.sections[2].title} style={tw("text-xl font-bold text-slate-900 mb-3")}>3. {data.sections[2].title}</Text>
+        <H2 bookmark={data.sections[2].title} style={{ ...tw("text-xl font-bold text-slate-900 mb-3"), marginTop: 0 }}>3. {data.sections[2].title}</H2>
         <Text style={tw("text-[10px] text-slate-700 leading-[1.6] mb-4")}>{data.sections[2].intro}</Text>
 
         <View style={tw("flex-row gap-4 mb-6")}>
           <View style={tw("flex-1")}>
-            <Text style={tw("text-[10px] font-bold text-slate-700 mb-1.5")}>Revenue by Region</Text>
+            <H3 style={{ ...tw("text-[10px] font-bold text-slate-700 mb-1.5"), marginTop: 0 }}>Revenue by Region</H3>
             <View style={tw("bg-slate-50 rounded border border-slate-200 p-2")}>
               <Svg width={230} height={150} viewBox="0 0 230 150" content={renderBarChart(tableData)} />
               <View style={tw("gap-[3] mt-2")}>
@@ -288,7 +288,7 @@ export default function Report(data: any) {
             </View>
           </View>
           <View style={tw("flex-1")}>
-            <Text style={tw("text-[10px] font-bold text-slate-700 mb-1.5")}>Market Share</Text>
+            <H3 style={{ ...tw("text-[10px] font-bold text-slate-700 mb-1.5"), marginTop: 0 }}>Market Share</H3>
             <View style={tw("bg-slate-50 rounded border border-slate-200 p-2")}>
               <View style={tw("items-center")}>
                 <Svg width={110} height={150} viewBox="0 0 110 150" content={renderDonutChart(tableData)} />
@@ -313,7 +313,7 @@ export default function Report(data: any) {
           </View>
         </View>
 
-        <Text style={tw("text-[10px] font-bold text-slate-700 mb-1.5")}>Quarterly Growth Trend</Text>
+        <H3 style={{ ...tw("text-[10px] font-bold text-slate-700 mb-1.5"), marginTop: 0 }}>Quarterly Growth Trend</H3>
         <View style={tw("bg-slate-50 rounded border border-slate-200 py-3 mb-6")}>
           <Svg width={484} height={140} viewBox="0 0 484 140" content={renderLineChart(tableData)} />
           <View style={{ position: 'relative', height: 14, marginTop: 4 }}>
@@ -326,7 +326,7 @@ export default function Report(data: any) {
         <PageBreak />
 
         {/* Recommendations */}
-        <Text bookmark={data.sections[3].title} style={tw("text-xl font-bold text-slate-900 mb-3")}>4. {data.sections[3].title}</Text>
+        <H2 bookmark={data.sections[3].title} style={{ ...tw("text-xl font-bold text-slate-900 mb-3"), marginTop: 0 }}>4. {data.sections[3].title}</H2>
         <Text style={tw("text-[10px] text-slate-700 leading-[1.6] mb-4")}>{data.sections[3].intro}</Text>
 
         {data.sections[3].items.map((item: any, i: number) => (
@@ -335,7 +335,7 @@ export default function Report(data: any) {
               <Text style={tw("text-[10px] font-bold text-white leading-[1.2]")}>{i + 1}</Text>
             </View>
             <View style={tw("flex-1 flex-shrink")}>
-              <Text style={tw("text-[11px] font-bold text-slate-900 mb-1")}>{item.title}</Text>
+              <H3 style={{ ...tw("text-[11px] font-bold text-slate-900 mb-1"), marginTop: 0 }}>{item.title}</H3>
               <Text style={tw("text-[9px] text-slate-600 leading-[1.5]")}>{item.description}</Text>
               <View style={tw("flex-row gap-4 mt-2")}>
                 <View style={tw("flex-row gap-1")}>
