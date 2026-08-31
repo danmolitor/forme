@@ -47,7 +47,7 @@ sed -i '' -E "1,/^version = \"[^\"]+\"/s/^version = \"[^\"]+\"/version = \"$VERS
 # with the checklist in RELEASE.md — a package missing here is silently left on
 # the old version, which is how `shared`, `svelte`, `preact`, and `templates`
 # rode through two releases unbumped.
-NPM_PACKAGES=(shared react core renderer svelte vue preact cli hono next resend mcp sdk tailwind templates html)
+NPM_PACKAGES=(shared fonts-standard react core renderer svelte vue preact cli hono next resend mcp sdk tailwind templates html)
 for pkg in "${NPM_PACKAGES[@]}"; do
   pkgfile="$ROOT/packages/$pkg/package.json"
   [ -f "$pkgfile" ] || continue

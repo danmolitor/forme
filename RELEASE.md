@@ -34,6 +34,11 @@ cargo test
 cd packages/shared
 npm run build
 
+# 2a. Fonts-standard (Liberation TTFs for PDF/UA + PDF/A — no Forme deps)
+cd packages/fonts-standard
+npm run build    # generates base64 font-data + tsc
+npm test
+
 # 3. React (JSX components, serialize, types — depends on shared)
 cd packages/react
 npm run build
@@ -107,6 +112,7 @@ Files to update when bumping (e.g. 0.8.3 -> 0.9.0):
 
 ### npm packages
 - [ ] `packages/shared/package.json`
+- [ ] `packages/fonts-standard/package.json` — no Forme deps; `scripts/bump-version.sh` handles it
 - [ ] `packages/react/package.json`
 - [ ] `packages/core/package.json`
 - [ ] `packages/renderer/package.json`
@@ -172,6 +178,7 @@ Update peer/runtime dependencies that pin to the formepdf packages:
 - [ ] `engine/CHANGELOG.md`
 - [ ] `server/CHANGELOG.md`
 - [ ] `packages/shared/CHANGELOG.md`
+- [ ] `packages/fonts-standard/CHANGELOG.md`
 - [ ] `packages/react/CHANGELOG.md`
 - [ ] `packages/core/CHANGELOG.md`
 - [ ] `packages/renderer/CHANGELOG.md`
@@ -296,6 +303,7 @@ A clean audit is not a guarantee — it only proves the *lockfile* doesn't refer
 
 ```bash
 cd packages/shared && npm publish --access public   # must publish first — react depends on it
+cd packages/fonts-standard && npm publish --access public   # no Forme deps — publishes anywhere before consumers
 cd packages/react && npm publish --access public
 cd packages/core && npm publish --access public
 cd packages/renderer && npm publish --access public

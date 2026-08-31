@@ -220,3 +220,23 @@ The font you're using doesn't cover those characters. Either:
 1. Register a font that covers them (e.g., Noto Sans for broad Unicode support)
 2. Use a [font fallback chain](#font-fallback-chains): `fontFamily: 'Inter, Noto Sans'`
 3. Do nothing — Forme's builtin Noto Sans provides automatic fallback for most scripts
+
+## Standard fonts for PDF/UA and PDF/A
+
+Accessible (PDF/UA) and archival (PDF/A) PDFs require **every font embedded**. The 14 standard PDF fonts (Helvetica, Times, Courier) are *not* embedded — viewers substitute them — so a document that relies on them cannot conform, and it also renders differently across machines.
+
+[`@formepdf/fonts-standard`](https://www.npmjs.com/package/@formepdf/fonts-standard) provides the [Liberation](https://github.com/liberationfonts/liberation-fonts) family (Sans/Serif/Mono), which is **metric-compatible** with Helvetica/Times/Courier. Register it and enable `pdfUa`, and Forme embeds Liberation in place of the standard fonts — with the standard fonts' own metrics, so **layout does not change**:
+
+```tsx
+import { Font } from '@formepdf/react';
+import { standardFonts } from '@formepdf/fonts-standard';
+
+for (const font of standardFonts()) Font.register(font);
+
+// Render with { pdfUa: true } — Helvetica/Times/Courier embed as
+// Liberation Sans/Serif/Mono; the document is byte-for-byte the same layout.
+```
+
+If `pdfUa` is set and a standard font is used but the package isn't registered, Forme still emits the PDF but **warns by name** with the remedy — it never silently ships a non-conforming file.
+
+The fonts are redistributed unmodified under the SIL Open Font License 1.1.
