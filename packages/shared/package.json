@@ -1,6 +1,6 @@
 {
   "name": "@formepdf/shared",
-  "version": "0.14.0",
+  "version": "0.15.0",
   "description": "Framework-agnostic document model and serialization core shared by Forme adapters",
   "type": "module",
   "main": "./dist/index.js",
