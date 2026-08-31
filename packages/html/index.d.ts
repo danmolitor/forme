@@ -48,6 +48,13 @@ export interface RenderHtmlLayoutResult extends RenderHtmlResult {
   layout: LayoutInfo;
 }
 
+/**
+ * No-op on the Node entry (the nodejs WASM target self-initializes). Present
+ * so all three entries share one surface; only `@formepdf/html/worker` needs
+ * a real `init(module)`.
+ */
+export function init(): Promise<void>;
+
 export function renderHtml(html: string, options?: RenderHtmlOptions): RenderHtmlResult;
 
 /**

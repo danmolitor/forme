@@ -1,10 +1,10 @@
 // Tests for host-layer <link rel="stylesheet"> resolution in the CLI.
-const assert = require('node:assert');
-const fs = require('node:fs');
-const os = require('node:os');
-const path = require('node:path');
-const { inlineStylesheetLinks } = require('../bin/forme-html.js');
-const { renderHtml } = require('../index.js');
+import assert from 'node:assert';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { inlineStylesheetLinks } from '../bin/forme-html.js';
+import { renderHtml } from '../index.js';
 
 function scratch(name) {
   const dir = path.join(os.tmpdir(), `forme-link-js-${name}-${process.pid}`);

@@ -66,6 +66,31 @@ jobs:
             cmp "/tmp/$f-native.pdf" "/tmp/$f-wasm.pdf"
             echo "$f: byte-identical"
           done
+      - name: Install dependencies
+        # Needed for the worker (vitest-pool-workers) and browser (playwright)
+        # checks below; the parity loop above uses only the Node target.
+        run: npm install
+      - name: HTML Node tests
+        working-directory: packages/html
+        run: npm test
+      - name: Cross-target byte determinism (Node vs web target)
+        # Every published target must produce bytes identical to the Node
+        # target across the fixture corpus. The three targets embed the same
+        # wasm (asserted by hash here); this proves the JS glue matches too.
+        run: node packages/html/test/targets-determinism.mjs
+      - name: HTML worker entry under workerd
+        # Real Cloudflare WASM-as-ESM semantics via @cloudflare/vitest-pool-workers,
+        # exactly as the core worker entry is gated. Catches the bundler-target
+        # top-level-init crash the web entry is designed to avoid.
+        working-directory: packages/html
+        run: npm run test:workers
+      - name: Real-browser render (headless Chromium)
+        # Loads the web build in a real browser and renders a fixture — the
+        # headline "runs in the browser" claim, verified not declared.
+        run: |
+          npm i --no-save playwright
+          npx playwright install --with-deps chromium
+          node packages/html/test/browser-verify.mjs
 
   packages:
     name: TypeScript Packages

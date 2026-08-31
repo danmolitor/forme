@@ -57,5 +57,8 @@ packages/svelte/src/preview/preview-html.generated.ts
 # Generated font base64 embed (packages/fonts-standard build step)
 packages/fonts-standard/src/generated/font-data.ts
 html/target/
+packages/html/pkg/
+packages/html/pkg-web/
 packages/html/pkg-node/
+packages/html/.wrangler/
 packages/html/*.tgz

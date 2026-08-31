@@ -1,7 +1,7 @@
 // Smoke test over the built WASM: render, check PDF magic, check the
 // warnings contract, check @page + margin-box output exists.
-const assert = require('node:assert');
-const { renderHtml } = require('../index.js');
+import assert from 'node:assert';
+import { renderHtml } from '../index.js';
 
 const html = `<!DOCTYPE html>
 <html><head><style>
