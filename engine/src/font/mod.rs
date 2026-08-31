@@ -10,7 +10,7 @@ pub mod fallback;
 pub mod metrics;
 pub mod subset;
 
-pub use metrics::{unicode_to_winansi, StandardFontMetrics};
+pub use metrics::{unicode_to_winansi, winansi_to_char, StandardFontMetrics};
 use std::collections::HashMap;
 
 /// A font registry that maps font family + weight + style to font data.

@@ -2481,9 +2481,39 @@ impl PdfWriter {
             data: fd.into_bytes(),
         });
 
-        // 3. Simple TrueType font dict — base-14 AFM widths + WinAnsiEncoding.
-        let widths_str: String = metrics
+        // 3. Simple TrueType font dict — base-14 AFM widths + WinAnsiEncoding,
+        //    with the PDF/A width carve-out.
+        //
+        // For most glyphs the substitute's advance equals the base-14 AFM
+        // width (Liberation is metric-compatible), so we declare the AFM value
+        // and positioning stays exact. For the handful of rare accent/symbol
+        // glyphs per proportional family where they diverge (e.g. macron,
+        // grave, middot, ÷, ±, quotesingle, µ), we declare the substitute's
+        // OWN advance instead — so /Widths agrees with the embedded program,
+        // which ISO 19005 (PDF/A) requires and veraPDF's PDF/A profile checks.
+        // The trade is a sub-glyph advance drift on those rare glyphs, which
+        // real documents almost never contain. (Liberation Mono has zero
+        // divergent glyphs; the carve-out is a no-op there.)
+        let declared_widths: Vec<u16> = metrics
             .widths
+            .iter()
+            .enumerate()
+            .map(|(i, &afm)| {
+                let code = 32u8.wrapping_add(i as u8); // index 0 = WinAnsi code 32
+                if let Some(ch) = crate::font::winansi_to_char(code) {
+                    if let Some(gid) = face.glyph_index(ch) {
+                        if let Some(adv) = face.glyph_hor_advance(gid) {
+                            let hmtx = (adv as f64 * scale).round() as u16;
+                            if (hmtx as i32 - afm as i32).abs() > 1 {
+                                return hmtx;
+                            }
+                        }
+                    }
+                }
+                afm
+            })
+            .collect();
+        let widths_str: String = declared_widths
             .iter()
             .map(|w| w.to_string())
             .collect::<Vec<_>>()
@@ -2555,16 +2585,32 @@ impl PdfWriter {
                     // WinAnsiEncoding — the content stream is untouched (same
                     // `(text) Tj` WinAnsi path, same positions), only the font
                     // dictionary gains an embedded program.
-                    if pdf_ua
-                        && Self::emit_pdfua_embedded_standard(
+                    if pdf_ua {
+                        if Self::emit_pdfua_embedded_standard(
                             builder,
                             key,
                             std_font,
                             &metrics,
                             font_context,
-                        )
-                    {
-                        continue;
+                        ) {
+                            continue;
+                        }
+                        // Substitution didn't happen. If a metric-compatible
+                        // substitute exists but wasn't registered, say so by
+                        // name with the remedy — never silently emit a
+                        // non-conforming file. (Symbol/ZapfDingbats have no
+                        // substitute, so there is nothing to suggest.)
+                        if let Some(lib) = std_font.liberation_family() {
+                            eprintln!(
+                                "[forme] pdfUa: font '{}' is not embedded, so the PDF will not \
+                                 conform to PDF/UA (all fonts must be embedded). Install \
+                                 @formepdf/fonts-standard and register its fonts \
+                                 (`for (const f of standardFonts()) Font.register(f)`) — Forme \
+                                 will then embed the metric-compatible {} in its place.",
+                                std_font.pdf_name(),
+                                lib,
+                            );
+                        }
                     }
 
                     let obj_id = builder.objects.len();
