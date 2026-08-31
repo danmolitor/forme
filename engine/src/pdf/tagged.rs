@@ -254,6 +254,13 @@ impl TagBuilder {
                 let _ = write!(dict, " /Alt ({})", escaped);
             }
 
+            // PDF/UA-1 (7.5-1): a header cell whose scope isn't derivable from
+            // Headers/IDs must declare a Scope. Forme header rows label the
+            // columns beneath them, so TH cells are column headers.
+            if elem.role == "TH" {
+                dict.push_str(" /A << /O /Table /Scope /Column >>");
+            }
+
             dict.push_str(" >>");
             objects[obj_id].data = dict.into_bytes();
         }
@@ -284,23 +291,14 @@ impl TagBuilder {
         let parent_tree_data = format!("<< /Nums [{}] >>", nums.trim());
         objects[parent_tree_id].data = parent_tree_data.into_bytes();
 
-        // RoleMap: identity mapping for all PDF 1.7 standard structure roles.
-        // Comprehensive mapping prevents veraPDF from flagging unmapped roles.
-        let role_map_data = "<< \
-             /Document /Document /Part /Part /Art /Art /Sect /Sect /Div /Div \
-             /BlockQuote /BlockQuote /Caption /Caption /TOC /TOC /TOCI /TOCI \
-             /Index /Index /NonStruct /NonStruct /Private /Private \
-             /P /P /H /H /H1 /H1 /H2 /H2 /H3 /H3 /H4 /H4 /H5 /H5 /H6 /H6 \
-             /Span /Span /Quote /Quote /Note /Note /Reference /Reference \
-             /BibEntry /BibEntry /Code /Code /Link /Link /Annot /Annot \
-             /Ruby /Ruby /RB /RB /RT /RT /RP /RP \
-             /Warichu /Warichu /WT /WT /WP /WP \
-             /L /L /LI /LI /Lbl /Lbl /LBody /LBody \
-             /Table /Table /TR /TR /TH /TH /TD /TD \
-             /THead /THead /TBody /TBody /TFoot /TFoot \
-             /Figure /Figure /Formula /Formula /Form /Form >>"
-            .to_string();
-        objects[role_map_id].data = role_map_data.into_bytes();
+        // RoleMap: empty. Every role Forme emits (Document, Div, P, Span,
+        // H1..H6, L, LI, Lbl, Figure, Table, TR, TH, TD, Form) is already a
+        // standard PDF 1.7 structure type, so none needs remapping. The
+        // RoleMap only ever maps *non-standard* roles to standard ones —
+        // mapping a standard type to itself (e.g. /Div /Div) is a circular
+        // mapping that PDF/UA-1 (clause 7.1-6) rejects and that invalidated
+        // the entire structure tree in veraPDF.
+        objects[role_map_id].data = b"<< >>".to_vec();
 
         (root_obj_id, parent_tree_id)
     }
@@ -356,6 +354,46 @@ mod tests {
         assert_eq!(tb.elements.len(), 3); // Document, Div, P
         assert_eq!(tb.elements[1].role, "Div");
         assert_eq!(tb.elements[2].role, "P");
+    }
+
+    #[test]
+    fn role_map_has_no_circular_self_mappings() {
+        // PDF/UA-1 clause 7.1-6: a RoleMap that maps a standard structure type
+        // to itself (e.g. /Div /Div) is a *circular* mapping and invalidates
+        // the whole structure tree in veraPDF. Forme emits only standard PDF
+        // 1.7 roles, so none belong in the RoleMap — it must not self-map any.
+        let mut tb = TagBuilder::new(1);
+        tb.begin_element("View", false, None, 0);
+        tb.begin_element("Text", false, None, 0);
+        tb.end_element();
+        tb.end_element();
+
+        let mut objects: Vec<super::super::PdfObject> = vec![super::super::PdfObject {
+            id: 0,
+            data: Vec::new(),
+        }];
+        let page_obj_ids = vec![0usize];
+        let (root_id, _) = tb.write_objects(&mut objects, &page_obj_ids, Some("en-US"));
+
+        // Resolve the RoleMap object from the StructTreeRoot's /RoleMap ref, so
+        // the check inspects the RoleMap itself — not a StructElem, whose
+        // `/S /P /P {parent}` legitimately contains "/P /P" (type then Parent).
+        let root = String::from_utf8_lossy(&objects[root_id].data).into_owned();
+        let rm_id: usize = root
+            .split("/RoleMap ")
+            .nth(1)
+            .and_then(|s| s.split(' ').next())
+            .and_then(|s| s.parse().ok())
+            .expect("StructTreeRoot must reference a RoleMap");
+        let role_map = String::from_utf8_lossy(&objects[rm_id].data).into_owned();
+
+        // Any "/X /X" self-map is circular. Scan token pairs in the RoleMap.
+        let toks: Vec<&str> = role_map.trim_matches(|c| c == '<' || c == '>' || c == ' ').split_whitespace().collect();
+        let self_map = toks.windows(2).any(|w| w[0] == w[1] && w[0].starts_with('/'));
+        assert!(
+            !self_map,
+            "RoleMap must not self-map standard structure types (veraPDF 7.1-6 circular mapping): {role_map}"
+        );
     }
 
     #[test]
