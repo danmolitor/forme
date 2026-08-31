@@ -137,6 +137,38 @@ impl FontData {
 }
 
 impl StandardFont {
+    /// The Liberation family that is metric-compatible with this base-14 font,
+    /// used for PDF/UA + PDF/A embedding (the base-14 fonts are not embeddable;
+    /// Liberation is, and shares their metrics). Symbol and ZapfDingbats have
+    /// no metric-compatible substitute.
+    pub fn liberation_family(&self) -> Option<&'static str> {
+        match self {
+            Self::Helvetica
+            | Self::HelveticaBold
+            | Self::HelveticaOblique
+            | Self::HelveticaBoldOblique => Some("Liberation Sans"),
+            Self::TimesRoman | Self::TimesBold | Self::TimesItalic | Self::TimesBoldItalic => {
+                Some("Liberation Serif")
+            }
+            Self::Courier | Self::CourierBold | Self::CourierOblique | Self::CourierBoldOblique => {
+                Some("Liberation Mono")
+            }
+            Self::Symbol | Self::ZapfDingbats => None,
+        }
+    }
+
+    /// PDF FontDescriptor `/Flags` for the metric-compatible substitute:
+    /// Nonsymbolic (32), plus Serif (2) or FixedPitch (1) as appropriate.
+    pub fn descriptor_flags(&self) -> u32 {
+        match self {
+            Self::TimesRoman | Self::TimesBold | Self::TimesItalic | Self::TimesBoldItalic => 32 | 2,
+            Self::Courier | Self::CourierBold | Self::CourierOblique | Self::CourierBoldOblique => {
+                32 | 1
+            }
+            _ => 32,
+        }
+    }
+
     /// The PDF name for this font.
     pub fn pdf_name(&self) -> &'static str {
         match self {

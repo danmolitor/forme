@@ -191,7 +191,7 @@ impl PdfWriter {
         });
 
         // Register the fonts actually used across all pages
-        self.register_fonts(&mut builder, pages, font_context)?;
+        self.register_fonts(&mut builder, pages, font_context, pdf_ua)?;
 
         // PDF/A: validate that all fonts are embedded (no standard fonts)
         if pdfa.is_some() {
@@ -2403,11 +2403,115 @@ impl PdfWriter {
 
     /// Register fonts used across all pages — each unique (family, weight, italic)
     /// combination gets its own PDF font object.
+    /// pdfUa: embed a metric-compatible substitute (Liberation, via
+    /// `@formepdf/fonts-standard`) for a base-14 font, as a SIMPLE TrueType
+    /// font carrying the base-14 AFM `/Widths` and WinAnsiEncoding. Because the
+    /// widths, encoding, and font key are unchanged, the content stream is
+    /// byte-identical to the non-embedded base-14 path — only the font
+    /// dictionary gains an embedded program, so text positions are exact by
+    /// construction. Returns `false` (caller emits the non-embedded base-14)
+    /// when there is no metric-compatible substitute (Symbol/ZapfDingbats) or
+    /// `@formepdf/fonts-standard` is not registered.
+    fn emit_pdfua_embedded_standard(
+        builder: &mut PdfBuilder,
+        key: &FontKey,
+        std_font: &crate::font::StandardFont,
+        metrics: &crate::font::StandardFontMetrics,
+        font_context: &FontContext,
+    ) -> bool {
+        let lib_family = match std_font.liberation_family() {
+            Some(f) => f,
+            None => return false, // Symbol / ZapfDingbats — no substitute
+        };
+        // The substitute must have been registered (fonts-standard) — otherwise
+        // it resolves back to a Standard font and there is nothing to embed.
+        let lib_bytes: &[u8] = match font_context.resolve(lib_family, key.weight, key.italic) {
+            FontData::Custom { data, .. } => data,
+            FontData::Standard(_) => return false,
+        };
+        let face = match ttf_parser::Face::parse(lib_bytes, 0) {
+            Ok(f) => f,
+            Err(_) => return false,
+        };
+        let scale = 1000.0 / face.units_per_em() as f64;
+        let bbox = face.global_bounding_box();
+        let pdf_name = Self::sanitize_font_name(lib_family, key.weight, key.italic);
+
+        // 1. FontFile2 — the full Liberation program, zlib-compressed.
+        let compressed = compress_to_vec_zlib(lib_bytes, 6);
+        let fontfile2_id = builder.objects.len();
+        let mut ff2: Vec<u8> = Vec::new();
+        let _ = write!(
+            ff2,
+            "<< /Length {} /Length1 {} /Filter /FlateDecode >>\nstream\n",
+            compressed.len(),
+            lib_bytes.len()
+        );
+        ff2.extend_from_slice(&compressed);
+        ff2.extend_from_slice(b"\nendstream");
+        builder.objects.push(PdfObject {
+            id: fontfile2_id,
+            data: ff2,
+        });
+
+        // 2. FontDescriptor.
+        let fd_id = builder.objects.len();
+        let cap_height = (face.capital_height().unwrap_or_else(|| face.ascender()) as f64 * scale)
+            as i32;
+        let fd = format!(
+            "<< /Type /FontDescriptor /FontName /{name} /Flags {flags} \
+             /FontBBox [{x0} {y0} {x1} {y1}] /ItalicAngle {ia} \
+             /Ascent {asc} /Descent {desc} /CapHeight {cap} /StemV {stem} \
+             /FontFile2 {ff2} 0 R >>",
+            name = pdf_name,
+            flags = std_font.descriptor_flags(),
+            x0 = (bbox.x_min as f64 * scale) as i32,
+            y0 = (bbox.y_min as f64 * scale) as i32,
+            x1 = (bbox.x_max as f64 * scale) as i32,
+            y1 = (bbox.y_max as f64 * scale) as i32,
+            ia = if key.italic { -12 } else { 0 },
+            asc = (face.ascender() as f64 * scale) as i32,
+            desc = (face.descender() as f64 * scale) as i32,
+            cap = cap_height,
+            stem = if key.weight >= 700 { 120 } else { 80 },
+            ff2 = fontfile2_id,
+        );
+        builder.objects.push(PdfObject {
+            id: fd_id,
+            data: fd.into_bytes(),
+        });
+
+        // 3. Simple TrueType font dict — base-14 AFM widths + WinAnsiEncoding.
+        let widths_str: String = metrics
+            .widths
+            .iter()
+            .map(|w| w.to_string())
+            .collect::<Vec<_>>()
+            .join(" ");
+        let obj_id = builder.objects.len();
+        let font_dict = format!(
+            "<< /Type /Font /Subtype /TrueType /BaseFont /{name} \
+             /Encoding /WinAnsiEncoding \
+             /FirstChar 32 /LastChar 255 /Widths [{w}] \
+             /FontDescriptor {fd} 0 R >>",
+            name = pdf_name,
+            w = widths_str,
+            fd = fd_id,
+        );
+        builder.objects.push(PdfObject {
+            id: obj_id,
+            data: font_dict.into_bytes(),
+        });
+        builder.font_objects.push((key.clone(), obj_id));
+        true
+    }
+
     fn register_fonts(
         &self,
         builder: &mut PdfBuilder,
         pages: &[LayoutPage],
         font_context: &FontContext,
+        pdf_ua: bool,
     ) -> Result<(), FormeError> {
         // Collect font usage: glyph IDs, chars, and glyph→char mapping per font
         let mut font_usage_map: HashMap<FontKey, FontUsage> = HashMap::new();
@@ -2441,10 +2545,31 @@ impl PdfWriter {
 
             match font_data {
                 FontData::Standard(std_font) => {
+                    let metrics = std_font.metrics();
+
+                    // PDF/UA + PDF/A require every font embedded, which the
+                    // base-14 fonts are not. In pdfUa mode, if a
+                    // metric-compatible substitute (Liberation, via
+                    // @formepdf/fonts-standard) is registered, embed it as a
+                    // SIMPLE TrueType carrying the base-14 AFM /Widths and
+                    // WinAnsiEncoding — the content stream is untouched (same
+                    // `(text) Tj` WinAnsi path, same positions), only the font
+                    // dictionary gains an embedded program.
+                    if pdf_ua
+                        && Self::emit_pdfua_embedded_standard(
+                            builder,
+                            key,
+                            std_font,
+                            &metrics,
+                            font_context,
+                        )
+                    {
+                        continue;
+                    }
+
                     let obj_id = builder.objects.len();
                     // Include /Widths so PDF viewers use our exact metrics
                     // instead of substituting a system font with different widths
-                    let metrics = std_font.metrics();
                     let widths_str: String = metrics
                         .widths
                         .iter()
