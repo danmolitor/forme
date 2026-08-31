@@ -1196,8 +1196,14 @@ impl PdfWriter {
                 } else {
                     let is_header = element.is_header_row;
                     let href = element.href.as_deref();
-                    let mcid =
-                        tb.begin_element(nt, is_header, element.alt.as_deref(), page_idx, href);
+                    let mcid = tb.begin_element(
+                        nt,
+                        is_header,
+                        element.alt.as_deref(),
+                        page_idx,
+                        href,
+                        element.col_span,
+                    );
                     // An href'd element tags as /Link (see begin_element); the
                     // BDC role must match the structure role, so key on href too.
                     let role = if href.is_some() {
@@ -4406,6 +4412,7 @@ mod tests {
                     bookmark: None,
                     alt: None,
                     is_header_row: false,
+                    col_span: 1,
                     overflow: Overflow::default(),
                     opacity: 1.0,
                 },
@@ -4450,6 +4457,7 @@ mod tests {
                     bookmark: None,
                     alt: None,
                     is_header_row: false,
+                    col_span: 1,
                     overflow: Overflow::default(),
                     opacity: 1.0,
                 },
@@ -4618,6 +4626,7 @@ mod tests {
                 bookmark: None,
                 alt: None,
                 is_header_row: false,
+                col_span: 1,
                 overflow: Overflow::default(),
                 opacity: 1.0,
             }],

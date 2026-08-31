@@ -447,6 +447,9 @@ pub struct LayoutElement {
     pub alt: Option<String>,
     /// Whether this is a table header row (for tagged PDF: TH vs TD).
     pub is_header_row: bool,
+    /// Number of columns this table cell spans (for tagged PDF: /ColSpan).
+    /// 1 for every non-cell element and for unspanned cells.
+    pub col_span: u32,
     /// Overflow behavior (Visible or Hidden). When Hidden, PDF clips children.
     pub overflow: Overflow,
     /// Opacity for the entire element including its children (0.0–1.0). The
@@ -536,6 +539,7 @@ fn bookmark_marker(node: &Node, x: f64, y: f64) -> Option<LayoutElement> {
         bookmark: Some(title.clone()),
         alt: None,
         is_header_row: false,
+        col_span: 1,
         overflow: Overflow::default(),
         opacity: 1.0,
     })
@@ -1878,6 +1882,7 @@ impl LayoutEngine {
                 bookmark: None,
                 alt: None,
                 is_header_row: false,
+                col_span: 1,
                 overflow: style.overflow,
                 opacity: style.opacity,
             };
@@ -2011,6 +2016,7 @@ impl LayoutEngine {
                 bookmark: None,
                 alt: None,
                 is_header_row: false,
+                col_span: 1,
                 overflow: style.overflow,
                 opacity: style.opacity,
             });
@@ -2040,6 +2046,7 @@ impl LayoutEngine {
                     bookmark: None,
                     alt: None,
                     is_header_row: false,
+                    col_span: 1,
                     overflow: Overflow::default(),
                     opacity: 1.0,
                 });
@@ -2069,6 +2076,7 @@ impl LayoutEngine {
                         bookmark: None,
                         alt: None,
                         is_header_row: false,
+                        col_span: 1,
                         overflow: Overflow::default(),
                         opacity: 1.0,
                     });
@@ -2096,6 +2104,7 @@ impl LayoutEngine {
                     bookmark: None,
                     alt: None,
                     is_header_row: false,
+                    col_span: 1,
                     overflow: Overflow::default(),
                     opacity: 1.0,
                 });
@@ -2925,6 +2934,7 @@ impl LayoutEngine {
             bookmark: node.bookmark.clone(),
             alt: None,
             is_header_row: false,
+            col_span: 1,
             overflow: style.overflow,
             opacity: style.opacity,
         });
@@ -3013,6 +3023,7 @@ impl LayoutEngine {
             bookmark: item.bookmark.clone(),
             alt: None,
             is_header_row: false,
+            col_span: 1,
             overflow: item_style.overflow,
             opacity: item_style.opacity,
         });
@@ -3223,6 +3234,7 @@ impl LayoutEngine {
                 bookmark: None,
                 alt: None,
                 is_header_row: false,
+                col_span: 1,
                 overflow: Overflow::default(),
                 opacity: style.opacity,
             };
@@ -3449,6 +3461,7 @@ impl LayoutEngine {
                 bookmark: cell.bookmark.clone(),
                 alt: None,
                 is_header_row: is_header,
+                col_span: span as u32,
                 overflow: Overflow::default(),
                 opacity: 1.0,
             });
@@ -3485,6 +3498,7 @@ impl LayoutEngine {
             bookmark: row.bookmark.clone(),
             alt: None,
             is_header_row: is_header,
+            col_span: 1,
             overflow: row_style.overflow,
             opacity: row_style.opacity,
         });
@@ -3675,6 +3689,7 @@ impl LayoutEngine {
                         },
                         alt: None,
                         is_header_row: false,
+                        col_span: 1,
                         overflow: Overflow::default(),
                         opacity: 1.0,
                     });
@@ -3769,6 +3784,7 @@ impl LayoutEngine {
                 bookmark: None,
                 alt: None,
                 is_header_row: false,
+                col_span: 1,
                 overflow: Overflow::default(),
                 opacity: 1.0,
             });
@@ -3798,6 +3814,7 @@ impl LayoutEngine {
                 },
                 alt: None,
                 is_header_row: false,
+                col_span: 1,
                 overflow: Overflow::default(),
                 opacity: 1.0,
             });
@@ -3947,6 +3964,7 @@ impl LayoutEngine {
                         },
                         alt: None,
                         is_header_row: false,
+                        col_span: 1,
                         overflow: Overflow::default(),
                         opacity: 1.0,
                     });
@@ -4037,6 +4055,7 @@ impl LayoutEngine {
                 bookmark: None,
                 alt: None,
                 is_header_row: false,
+                col_span: 1,
                 overflow: Overflow::default(),
                 opacity: 1.0,
             });
@@ -4065,6 +4084,7 @@ impl LayoutEngine {
                 },
                 alt: None,
                 is_header_row: false,
+                col_span: 1,
                 overflow: Overflow::default(),
                 opacity: 1.0,
             });
@@ -4778,6 +4798,7 @@ impl LayoutEngine {
             bookmark: node.bookmark.clone(),
             alt: node.alt.clone(),
             is_header_row: false,
+            col_span: 1,
             overflow: style.overflow,
             opacity: style.opacity,
         });
@@ -4844,6 +4865,7 @@ impl LayoutEngine {
             bookmark: node.bookmark.clone(),
             alt: node.alt.clone(),
             is_header_row: false,
+            col_span: 1,
             overflow: style.overflow,
             opacity: style.opacity,
         });
@@ -5025,6 +5047,7 @@ impl LayoutEngine {
             bookmark: node.bookmark.clone(),
             alt: node.alt.clone(),
             is_header_row: false,
+            col_span: 1,
             overflow: style.overflow,
             opacity: style.opacity,
         });
@@ -5074,6 +5097,7 @@ impl LayoutEngine {
             bookmark: node.bookmark.clone(),
             alt: node.alt.clone(),
             is_header_row: false,
+            col_span: 1,
             overflow: style.overflow,
             opacity: style.opacity,
         });
@@ -5119,6 +5143,7 @@ impl LayoutEngine {
             bookmark: node.bookmark.clone(),
             alt: node.alt.clone(),
             is_header_row: false,
+            col_span: 1,
             overflow: style.overflow,
             opacity: style.opacity,
         });
@@ -5182,6 +5207,7 @@ impl LayoutEngine {
             bookmark: node.bookmark.clone(),
             alt: node.alt.clone(),
             is_header_row: false,
+            col_span: 1,
             overflow: style.overflow,
             opacity: style.opacity,
         });
@@ -5239,6 +5265,7 @@ impl LayoutEngine {
             bookmark: node.bookmark.clone(),
             alt: node.alt.clone(),
             is_header_row: false,
+            col_span: 1,
             overflow: style.overflow,
             opacity: style.opacity,
         });
@@ -6142,6 +6169,7 @@ impl LayoutEngine {
                             bookmark: None,
                             alt: None,
                             is_header_row: false,
+                            col_span: 1,
                             overflow: Overflow::default(),
                             opacity: 1.0,
                         });

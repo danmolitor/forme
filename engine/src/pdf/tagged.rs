@@ -25,6 +25,8 @@ struct StructElement {
     kids: Vec<StructKid>,
     /// Alt text for figures.
     alt: Option<String>,
+    /// Column span, for table cells (PDF/UA 7.2-43 / `/ColSpan`). 1 otherwise.
+    col_span: u32,
 }
 
 /// A child of a structure element.
@@ -80,6 +82,7 @@ impl TagBuilder {
             parent_idx: 0,
             kids: Vec::new(),
             alt: None,
+            col_span: 1,
         };
         TagBuilder {
             elements: vec![root],
@@ -105,6 +108,7 @@ impl TagBuilder {
         alt: Option<&str>,
         page_idx: usize,
         href: Option<&str>,
+        col_span: u32,
     ) -> u32 {
         // An element carrying an href is a link: it tags as a /Link structure
         // element (overriding its node_type role) so the annotation can attach
@@ -137,6 +141,7 @@ impl TagBuilder {
                 parent_idx,
                 kids: Vec::new(),
                 alt: None,
+                col_span: 1,
             });
             self.elements[parent_idx]
                 .kids
@@ -157,6 +162,7 @@ impl TagBuilder {
             parent_idx,
             kids: vec![StructKid::MarkedContent { page_idx, mcid }],
             alt: alt.map(|s| s.to_string()),
+            col_span,
         };
         self.elements.push(elem);
 
@@ -363,11 +369,25 @@ impl TagBuilder {
                 let _ = write!(dict, " /Alt ({})", escaped);
             }
 
-            // PDF/UA-1 (7.5-1): a header cell whose scope isn't derivable from
-            // Headers/IDs must declare a Scope. Forme header rows label the
-            // columns beneath them, so TH cells are column headers.
-            if elem.role == "TH" {
-                dict.push_str(" /A << /O /Table /Scope /Column >>");
+            // Table cell attributes in a single /A dict with owner /Table:
+            //   - /Scope /Column on every TH (7.5-1) — Forme header rows label
+            //     the columns beneath them, so they are column headers.
+            //   - /ColSpan on any cell spanning more than one column (7.2-43) —
+            //     without it veraPDF counts unequal columns per row.
+            if elem.role == "TH" || elem.role == "TD" {
+                let mut attrs = String::from(" /A << /O /Table");
+                if elem.role == "TH" {
+                    attrs.push_str(" /Scope /Column");
+                }
+                if elem.col_span > 1 {
+                    let _ = write!(attrs, " /ColSpan {}", elem.col_span);
+                }
+                attrs.push_str(" >>");
+                // Only emit /A when it carries an attribute (a plain TD with no
+                // span needs none).
+                if attrs != " /A << /O /Table >>" {
+                    dict.push_str(&attrs);
+                }
             }
 
             dict.push_str(" >>");
@@ -461,10 +481,10 @@ mod tests {
     fn test_tag_builder_basic() {
         let mut tb = TagBuilder::new(1);
 
-        let mcid = tb.begin_element("View", false, None, 0, None);
+        let mcid = tb.begin_element("View", false, None, 0, None, 1);
         assert_eq!(mcid, 0);
 
-        let mcid2 = tb.begin_element("Text", false, None, 0, None);
+        let mcid2 = tb.begin_element("Text", false, None, 0, None, 1);
         assert_eq!(mcid2, 1);
         tb.end_element(); // Text
 
@@ -482,8 +502,8 @@ mod tests {
         // the whole structure tree in veraPDF. Forme emits only standard PDF
         // 1.7 roles, so none belong in the RoleMap — it must not self-map any.
         let mut tb = TagBuilder::new(1);
-        tb.begin_element("View", false, None, 0, None);
-        tb.begin_element("Text", false, None, 0, None);
+        tb.begin_element("View", false, None, 0, None, 1);
+        tb.begin_element("Text", false, None, 0, None, 1);
         tb.end_element();
         tb.end_element();
 
@@ -520,11 +540,11 @@ mod tests {
         let mut tb = TagBuilder::new(1);
 
         // Outer Text → P
-        let _mcid = tb.begin_element("Text", false, None, 0, None);
+        let _mcid = tb.begin_element("Text", false, None, 0, None, 1);
         assert_eq!(tb.elements.last().unwrap().role, "P");
 
         // Inner Text → Span (because inside_paragraph)
-        let _mcid = tb.begin_element("Text", false, None, 0, None);
+        let _mcid = tb.begin_element("Text", false, None, 0, None, 1);
         assert_eq!(tb.elements.last().unwrap().role, "Span");
 
         tb.end_element();
@@ -535,11 +555,11 @@ mod tests {
     fn test_table_header_maps_to_th() {
         let mut tb = TagBuilder::new(1);
 
-        tb.begin_element("Table", false, None, 0, None);
-        tb.begin_element("TableRow", true, None, 0, None);
+        tb.begin_element("Table", false, None, 0, None, 1);
+        tb.begin_element("TableRow", true, None, 0, None, 1);
 
         // Cell in header row → TH
-        tb.begin_element("TableCell", true, None, 0, None);
+        tb.begin_element("TableCell", true, None, 0, None, 1);
         assert_eq!(tb.elements.last().unwrap().role, "TH");
         tb.end_element();
 
@@ -547,8 +567,8 @@ mod tests {
         tb.end_element(); // Table
 
         // Body row
-        tb.begin_element("TableRow", false, None, 0, None);
-        tb.begin_element("TableCell", false, None, 0, None);
+        tb.begin_element("TableRow", false, None, 0, None, 1);
+        tb.begin_element("TableCell", false, None, 0, None, 1);
         assert_eq!(tb.elements.last().unwrap().role, "TD");
         tb.end_element();
         tb.end_element();
@@ -558,7 +578,7 @@ mod tests {
     fn test_figure_with_alt_text() {
         let mut tb = TagBuilder::new(1);
 
-        tb.begin_element("Image", false, Some("A photo of a cat"), 0, None);
+        tb.begin_element("Image", false, Some("A photo of a cat"), 0, None, 1);
         let elem = tb.elements.last().unwrap();
         assert_eq!(elem.role, "Figure");
         assert_eq!(elem.alt.as_deref(), Some("A photo of a cat"));
@@ -570,13 +590,13 @@ mod tests {
         let mut tb = TagBuilder::new(2);
 
         // Page 0: 2 elements
-        tb.begin_element("Text", false, None, 0, None);
+        tb.begin_element("Text", false, None, 0, None, 1);
         tb.end_element();
-        tb.begin_element("Text", false, None, 0, None);
+        tb.begin_element("Text", false, None, 0, None, 1);
         tb.end_element();
 
         // Page 1: 1 element
-        tb.begin_element("Text", false, None, 1, None);
+        tb.begin_element("Text", false, None, 1, None, 1);
         tb.end_element();
 
         assert_eq!(tb.page_mcid_count(0), 2);
