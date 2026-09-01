@@ -126,6 +126,9 @@ OPTIONS:
         --tagged            Emit a tagged PDF (structure tree)
         --pdf-ua            Emit a PDF/UA-1 conforming file (implies --tagged;
                             register embeddable fonts via --font and set --lang)
+        --pdf-a <level>     Emit a PDF/A conforming file: 2b, 2u, or 2a
+                            (register embeddable fonts via --font; composes
+                            with --pdf-ua for archival + accessible)
         --lang <lang>       Document language for PDF/UA (e.g. en, en-US)
     -q, --quiet             Suppress unsupported-CSS warnings
     -h, --help              Show this help
@@ -209,6 +212,7 @@ fn main() -> ExitCode {
                 }
                 "--tagged" => options.tagged = true,
                 "--pdf-ua" => options.pdf_ua = true,
+                "--pdf-a" => options.pdf_a = Some(take_value(&mut i)?),
                 "--lang" => options.lang = Some(take_value(&mut i)?),
                 "-q" | "--quiet" => quiet = true,
                 other if other.starts_with('-') => {

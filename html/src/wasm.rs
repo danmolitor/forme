@@ -33,6 +33,8 @@ struct WasmOptions {
     #[serde(default)]
     pdf_ua: bool,
     lang: Option<String>,
+    #[serde(default, rename = "pdfA")]
+    pdf_a: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -109,6 +111,7 @@ fn parse_options(options_json: &str) -> Result<HtmlOptions, JsValue> {
         tagged: raw.tagged,
         pdf_ua: raw.pdf_ua,
         lang: raw.lang,
+        pdf_a: raw.pdf_a,
         ..Default::default()
     };
     for f in raw.fonts {

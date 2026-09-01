@@ -88,6 +88,11 @@ pub struct HtmlOptions {
     /// `None`, the `<html lang>` attribute is used, else it defaults to "en"
     /// with a warning.
     pub lang: Option<String>,
+    /// PDF/A conformance level: `"2b"`, `"2u"`, or `"2a"`. Like `pdf_ua`, this
+    /// needs an embeddable font registered via `fonts`
+    /// (`@formepdf/fonts-standard`) — the base-14 families are not embeddable.
+    /// Composes with `pdf_ua`: a file can be both PDF/A and PDF/UA-1.
+    pub pdf_a: Option<String>,
 }
 
 /// Rendered output: PDF bytes plus any warnings about unsupported CSS.
@@ -373,6 +378,32 @@ pub fn html_to_document(html: &str, options: &HtmlOptions) -> (forme::Document, 
         }
         for child in &doc.children {
             warn_missing_alt(child, &mut warnings);
+        }
+    }
+
+    // PDF/A conformance level. Composes with pdf_ua; 2a additionally needs the
+    // structure tree, so it implies tagging.
+    if let Some(level) = options.pdf_a.as_deref() {
+        use forme::model::PdfAConformance;
+        match level {
+            "2b" => doc.pdfa = Some(PdfAConformance::A2b),
+            "2u" => doc.pdfa = Some(PdfAConformance::A2u),
+            "2a" => {
+                doc.pdfa = Some(PdfAConformance::A2a);
+                doc.tagged = true;
+            }
+            other => warnings.push(format!(
+                "pdf_a: unknown conformance level {other:?} — expected \"2b\", \"2u\", or \"2a\". Ignoring."
+            )),
+        }
+        // PDF/A needs embedded fonts too; if the doc has a language for pdf_ua
+        // it's set above. Nothing else to settle here — the engine embeds fonts
+        // via the fonts-standard substitution and errors by name if none is
+        // registered.
+        if doc.pdfa.is_some() && doc.metadata.lang.is_none() {
+            if let Some(l) = options.lang.clone() {
+                doc.metadata.lang = Some(l);
+            }
         }
     }
 

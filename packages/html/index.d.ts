@@ -26,6 +26,13 @@ export interface RenderHtmlOptions {
   /** Document language for PDF/UA (`/Lang`), e.g. `"en"` or `"en-US"`. Falls
    *  back to the `<html lang>` attribute, then `"en"` with a warning. */
   lang?: string;
+  /**
+   * PDF/A conformance level: `"2b"` (visual), `"2u"` (+ Unicode mapping), or
+   * `"2a"` (+ full tagging). Needs an embeddable font registered via `fonts`
+   * (`@formepdf/fonts-standard`). Composes with `pdfUa` — a file can be both
+   * PDF/A and PDF/UA-1 at once (archival + accessible).
+   */
+  pdfA?: '2b' | '2u' | '2a';
 }
 
 export interface RenderHtmlResult {
