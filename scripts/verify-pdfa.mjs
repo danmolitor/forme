@@ -11,12 +11,13 @@
 // veraPDF via VERAPDF env or ~/verapdf/verapdf. REQUIRE_VERAPDF makes a missing
 // binary a hard failure (CI); otherwise it renders the corpus and skips.
 
-import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { tmpdir, homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import { emitSection, veraValidate, veraVersion } from './parity/lib.mjs';
 
 import { serialize } from '@formepdf/react';
 import { getTemplate } from '@formepdf/templates';
@@ -67,20 +68,6 @@ function findVeraPdf() {
   const c = process.env.VERAPDF || join(homedir(), 'verapdf', 'verapdf');
   return existsSync(c) ? c : null;
 }
-function validate(vera, flavour, pdfPath) {
-  let xml;
-  try {
-    xml = execFileSync(vera, ['-f', flavour, pdfPath], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
-  } catch (err) {
-    xml = (err.stdout ?? '').toString();
-  }
-  const pass = /isCompliant="true"/.test(xml);
-  const clauses = [...new Set(
-    [...xml.matchAll(/clause="([^"]+)"[^>]*testNumber="([^"]+)"[^>]*status="failed"/g)].map((m) => `${m[1]}/t${m[2]}`),
-  )];
-  return { pass, clauses };
-}
-
 async function main() {
   const vera = findVeraPdf();
   if (!vera) {
@@ -89,10 +76,21 @@ async function main() {
     console.log(`⚠ ${msg} Skipping validation.`); process.exit(0);
   }
   const outDir = mkdtempSync(join(tmpdir(), 'forme-pdfa-gate-'));
-  const failures = [];
 
+  // Build the evidence FIRST (source of truth): every fixture rendered as
+  // pdfA+pdfUa at each level, validated against the PDF/A level AND ua1.
+  const section = {
+    tool: veraVersion(vera),
+    configurations: LEVELS.map((level) => ({
+      id: `a${level}`,
+      level,
+      label: `PDF/A-${level} + PDF/UA-1`,
+      render: `pdfa:${level} + pdfUa + fonts-standard`,
+      profiles: [level, 'ua1'],
+    })),
+    results: [],
+  };
   for (const level of LEVELS) {
-    console.log(`\nPDF/A-${level.toUpperCase()} + PDF/UA-1 (rendered as both):`);
     const corpus = [];
     for (const [name, data] of Object.entries(TEMPLATES)) {
       const pdf = await renderTemplate(name, data, level);
@@ -105,18 +103,29 @@ async function main() {
       corpus.push({ label: `html/${name}`, path: p });
     }
     for (const c of corpus) {
-      const a = validate(vera, level, c.path);
-      const u = validate(vera, 'ua1', c.path);
-      const ok = a.pass && u.pass;
-      console.log(
-        `  ${ok ? '✓' : '✗'}  ${c.label}  ` +
-          `PDF/A-${level}:${a.pass ? '✓' : 'FAIL[' + a.clauses.join(',') + ']'}  ` +
-          `UA-1:${u.pass ? '✓' : 'FAIL[' + u.clauses.join(',') + ']'}`,
-      );
-      if (!ok) failures.push(`${c.label} @ ${level}`);
+      for (const profile of [level, 'ua1']) {
+        const { pass, failedClauses } = veraValidate(vera, profile, c.path);
+        section.results.push({ fixture: c.label, configuration: `a${level}`, profile, pass, failedClauses });
+      }
     }
   }
+  emitSection('conformance-a', section);
 
+  // Render the console FROM the section.
+  const failures = [];
+  for (const cfg of section.configurations) {
+    console.log(`\n${cfg.label} (rendered as both):`);
+    const rows = section.results.filter((r) => r.configuration === cfg.id);
+    const byFixture = [...new Set(rows.map((r) => r.fixture))];
+    for (const fixture of byFixture) {
+      const parts = rows
+        .filter((r) => r.fixture === fixture)
+        .map((r) => `${r.profile === 'ua1' ? 'UA-1' : 'PDF/A-' + r.profile}:${r.pass ? '✓' : 'FAIL[' + r.failedClauses.map((c) => c.clause + '/t' + c.test).join(',') + ']'}`);
+      const ok = rows.filter((r) => r.fixture === fixture).every((r) => r.pass);
+      console.log(`  ${ok ? '✓' : '✗'}  ${fixture}  ${parts.join('  ')}`);
+      if (!ok) failures.push(`${fixture} @ ${cfg.level}`);
+    }
+  }
   if (failures.length) {
     console.error(`\n✗ ${failures.length} corpus/level combination(s) failed: ${failures.join(', ')}`);
     process.exit(1);

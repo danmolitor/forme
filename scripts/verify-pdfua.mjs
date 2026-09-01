@@ -12,12 +12,13 @@
 // exits 0 with a skip notice, so it is safe to run anywhere; CI installs
 // veraPDF and thus runs the full validation.
 
-import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir, homedir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readFile } from 'node:fs/promises';
+
+import { emitSection, veraValidate, veraVersion } from './parity/lib.mjs';
 
 import { serialize } from '@formepdf/react';
 import { getTemplate } from '@formepdf/templates';
@@ -84,22 +85,6 @@ function findVeraPdf() {
   return existsSync(candidate) ? candidate : null;
 }
 
-/** Returns { pass: boolean, detail: string }. */
-function validate(vera, pdfPath) {
-  try {
-    const out = execFileSync(vera, ['-f', 'ua1', '--format', 'text', pdfPath], {
-      encoding: 'utf8',
-    });
-    // veraPDF `--format text` prints "PASS <file>" or "FAIL <file>" per job.
-    const pass = /^PASS\b/m.test(out) && !/^FAIL\b/m.test(out);
-    return { pass, detail: out.trim().split('\n')[0] ?? '' };
-  } catch (err) {
-    // Non-zero exit == validation failure; stdout carries the clause list.
-    const out = (err.stdout ?? '').toString();
-    return { pass: false, detail: out.trim() || String(err.message) };
-  }
-}
-
 async function main() {
   const outDir = mkdtempSync(join(tmpdir(), 'forme-pdfua-'));
   const vera = findVeraPdf();
@@ -144,20 +129,36 @@ async function main() {
     process.exit(0);
   }
 
-  console.log(`\nValidating ${corpus.length} files with veraPDF (${vera})…\n`);
-  const failures = [];
-  for (const c of corpus) {
-    const { pass, detail } = validate(vera, c.path);
-    console.log(`  ${pass ? '✓ PASS' : '✗ FAIL'}  ${c.label}`);
-    if (!pass) failures.push({ ...c, detail });
-  }
+  // Build the evidence object FIRST — it is the source of truth. The console
+  // output below is a render of it, and the gate is derived from it.
+  const section = {
+    tool: veraVersion(vera),
+    configuration: 'ua1',
+    label: 'PDF/UA-1',
+    render: 'pdfUa + tagged + fonts-standard',
+    corpus: corpus.map((c) => c.label),
+    results: corpus.map((c) => {
+      const { pass, failedClauses } = veraValidate(vera, 'ua1', c.path);
+      return { fixture: c.label, profile: 'ua1', pass, failedClauses };
+    }),
+  };
+  emitSection('conformance-ua', section);
 
+  // Render the console FROM the section.
+  console.log(`\nValidating ${corpus.length} files with ${section.tool}…\n`);
+  for (const r of section.results) {
+    console.log(`  ${r.pass ? '✓ PASS' : '✗ FAIL'}  ${r.fixture}`);
+  }
+  const failures = section.results.filter((r) => !r.pass);
   if (failures.length) {
-    console.error(`\n✗ ${failures.length}/${corpus.length} failed PDF/UA-1:`);
-    for (const f of failures) console.error(`\n── ${f.label} ──\n${f.detail}`);
+    console.error(`\n✗ ${failures.length}/${section.results.length} failed PDF/UA-1:`);
+    for (const f of failures) {
+      const clauses = f.failedClauses.map((c) => `${c.clause}/t${c.test}`).join(', ');
+      console.error(`  ${f.fixture}: ${clauses}`);
+    }
     process.exit(1);
   }
-  console.log(`\n✓ ${corpus.length}/${corpus.length} pass PDF/UA-1.`);
+  console.log(`\n✓ ${section.results.length}/${section.results.length} pass PDF/UA-1.`);
 }
 
 main().catch((err) => {
