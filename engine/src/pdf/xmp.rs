@@ -46,6 +46,7 @@ pub fn generate_xmp(
         let (part, level) = match conf {
             PdfAConformance::A2a => ("2", "A"),
             PdfAConformance::A2b => ("2", "B"),
+            PdfAConformance::A2u => ("2", "U"),
         };
         entries.push_str(&format!(
             "      <pdfaid:part>{}</pdfaid:part>\n      <pdfaid:conformance>{}</pdfaid:conformance>\n",
