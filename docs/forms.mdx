@@ -275,18 +275,22 @@ pdf_bytes = formepdf.render({
 
 </CodeGroup>
 
-### Via the hosted API
+## Forms and PDF/A
+
+Form fields are compatible with `pdfa="2b"` and `"2u"`, but **not** with `pdfa="2a"` (or `pdfUa`) — level 2a requires a complete tagged structure that AcroForm widgets don't currently satisfy. If you need both, flatten the form (`flattenForms`) before applying 2a, or archive at 2b.
+
+### Via the self-hosted server
 
 Pass `flattenForms=true` as a query parameter on any render endpoint:
 
 ```bash
-curl https://api.formepdf.com/v1/render/intake-form?flattenForms=true \
+curl "http://localhost:3000/v1/render/intake-form?flattenForms=true" \
   -H "Authorization: Bearer forme_sk_abc123..." \
   -H "Content-Type: application/json" \
   -d '{"clientName": "Jane Smith", "date": "2026-03-15"}'
 ```
 
-See the [Hosted API reference](/api-reference/render#flatten-forms) for details.
+See the [API reference](/api-reference/render#flatten-forms) for details.
 
 ### Edge cases
 

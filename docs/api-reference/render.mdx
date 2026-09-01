@@ -1,18 +1,18 @@
 ---
 title: Render PDF
 sidebarTitle: Render
-description: Render PDFs from templates via the hosted API — sync and async rendering, job polling, S3 uploads, metadata, resource listing, and data extraction.
+description: Render PDFs over HTTP with the self-hosted server — sync rendering, form flattening, and embedded-data extraction.
 ---
 
-Base URL: `https://api.formepdf.com`
+These endpoints are served by the **self-hosted server** — the same engine behind `npm install`, packaged as a Docker image:
 
-All `/v1/*` endpoints require an API key passed as a Bearer token:
-
-```
-Authorization: Bearer forme_sk_...
+```bash
+docker run -p 3000:3000 formepdf/forme
 ```
 
-Create API keys in the [dashboard](https://app.formepdf.com/dashboard/keys).
+Base URL below is `http://localhost:3000` (substitute your deployment). Authentication is optional: set the `FORME_API_KEY` environment variable on the container and pass it as a Bearer token; with no key set, endpoints are open. See [Self-Hosting](/self-hosting) for full setup.
+
+> The hosted API at `api.formepdf.com` has been retired — Forme is open-source only. If you'd rather not run a server at all, every operation here is also a function call in [@formepdf/core](/typescript-sdk).
 
 ---
 
@@ -35,7 +35,7 @@ Renders a PDF from a template and returns the file directly.
 <CodeGroup>
 
 ```bash curl
-curl https://api.formepdf.com/v1/render/invoice \
+curl http://localhost:3000/v1/render/invoice \
   -H "Authorization: Bearer forme_sk_abc123..." \
   -H "Content-Type: application/json" \
   -d '{"clientName": "Jane Smith", "date": "2024-01-15", "dueDate": "2024-02-15", "items": [{"description": "Consulting", "quantity": 10, "unitPrice": 150}]}' \
@@ -43,7 +43,7 @@ curl https://api.formepdf.com/v1/render/invoice \
 ```
 
 ```javascript Node.js
-const res = await fetch("https://api.formepdf.com/v1/render/invoice", {
+const res = await fetch("http://localhost:3000/v1/render/invoice", {
   method: "POST",
   headers: {
     Authorization: "Bearer forme_sk_abc123...",
@@ -65,7 +65,7 @@ fs.writeFileSync("invoice.pdf", pdf);
 import requests
 
 res = requests.post(
-    "https://api.formepdf.com/v1/render/invoice",
+    "http://localhost:3000/v1/render/invoice",
     headers={
         "Authorization": "Bearer forme_sk_abc123...",
         "Content-Type": "application/json",
@@ -103,7 +103,7 @@ func main() {
 		},
 	})
 
-	req, _ := http.NewRequest("POST", "https://api.formepdf.com/v1/render/invoice", bytes.NewReader(body))
+	req, _ := http.NewRequest("POST", "http://localhost:3000/v1/render/invoice", bytes.NewReader(body))
 	req.Header.Set("Authorization", "Bearer forme_sk_abc123...")
 	req.Header.Set("Content-Type", "application/json")
 
@@ -121,299 +121,6 @@ func main() {
 
 ---
 
-## Render PDF (async)
-
-`POST /v1/render/:slug/async`
-
-Queues a render job and returns immediately. Use this for large documents or when you don't need the PDF inline.
-
-**Body:** Same as sync, plus:
-- `webhookUrl` (optional) — URL to POST the result to when rendering completes
-
-<CodeGroup>
-
-```bash curl
-curl -X POST https://api.formepdf.com/v1/render/invoice/async \
-  -H "Authorization: Bearer forme_sk_abc123..." \
-  -H "Content-Type: application/json" \
-  -d '{"clientName": "Jane Smith", "date": "2024-01-15", "dueDate": "2024-02-15", "items": [{"description": "Consulting", "quantity": 10, "unitPrice": 150}], "webhookUrl": "https://example.com/webhook"}'
-```
-
-```javascript Node.js
-const res = await fetch("https://api.formepdf.com/v1/render/invoice/async", {
-  method: "POST",
-  headers: {
-    Authorization: "Bearer forme_sk_abc123...",
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({
-    clientName: "Jane Smith",
-    date: "2024-01-15",
-    dueDate: "2024-02-15",
-    items: [{ description: "Consulting", quantity: 10, unitPrice: 150 }],
-    webhookUrl: "https://example.com/webhook",
-  }),
-});
-
-const { jobId, status } = await res.json();
-console.log(jobId); // "clxyz..."
-```
-
-```python Python
-import requests
-
-res = requests.post(
-    "https://api.formepdf.com/v1/render/invoice/async",
-    headers={
-        "Authorization": "Bearer forme_sk_abc123...",
-        "Content-Type": "application/json",
-    },
-    json={
-        "clientName": "Jane Smith",
-        "date": "2024-01-15",
-        "dueDate": "2024-02-15",
-        "items": [{"description": "Consulting", "quantity": 10, "unitPrice": 150}],
-        "webhookUrl": "https://example.com/webhook",
-    },
-)
-
-data = res.json()
-print(data["jobId"])  # "clxyz..."
-```
-
-```go Go
-body, _ := json.Marshal(map[string]any{
-	"clientName": "Jane Smith",
-	"date":       "2024-01-15",
-	"dueDate":    "2024-02-15",
-	"items": []map[string]any{
-		{"description": "Consulting", "quantity": 10, "unitPrice": 150},
-	},
-	"webhookUrl": "https://example.com/webhook",
-})
-
-req, _ := http.NewRequest("POST", "https://api.formepdf.com/v1/render/invoice/async", bytes.NewReader(body))
-req.Header.Set("Authorization", "Bearer forme_sk_abc123...")
-req.Header.Set("Content-Type", "application/json")
-
-res, _ := http.DefaultClient.Do(req)
-```
-
-</CodeGroup>
-
-**Response:** `202 Accepted`
-```json
-{ "jobId": "clxyz...", "status": "pending" }
-```
-
-### Webhook payload
-
-When the job completes, Forme POSTs to your `webhookUrl`:
-
-```json
-{
-  "jobId": "clxyz...",
-  "status": "complete",
-  "pdfBase64": "JVBERi0xLjQK..."
-}
-```
-
-On failure:
-```json
-{
-  "jobId": "clxyz...",
-  "status": "failed",
-  "error": "Missing required field: \"items\""
-}
-```
-
----
-
-## Poll Job Status
-
-`GET /v1/jobs/:jobId`
-
-Check the status of an async render job.
-
-<CodeGroup>
-
-```bash curl
-curl https://api.formepdf.com/v1/jobs/clxyz... \
-  -H "Authorization: Bearer forme_sk_abc123..."
-```
-
-```javascript Node.js
-// Poll until complete
-let job;
-do {
-  const res = await fetch(`https://api.formepdf.com/v1/jobs/${jobId}`, {
-    headers: { Authorization: "Bearer forme_sk_abc123..." },
-  });
-  job = await res.json();
-
-  if (job.status === "pending" || job.status === "processing") {
-    await new Promise((r) => setTimeout(r, 1000));
-  }
-} while (job.status === "pending" || job.status === "processing");
-
-if (job.status === "complete") {
-  const pdf = Buffer.from(job.pdfBase64, "base64");
-  fs.writeFileSync("invoice.pdf", pdf);
-}
-```
-
-```python Python
-import time
-import base64
-
-while True:
-    res = requests.get(
-        f"https://api.formepdf.com/v1/jobs/{job_id}",
-        headers={"Authorization": "Bearer forme_sk_abc123..."},
-    )
-    job = res.json()
-
-    if job["status"] in ("complete", "failed"):
-        break
-    time.sleep(1)
-
-if job["status"] == "complete":
-    pdf_bytes = base64.b64decode(job["pdfBase64"])
-    with open("invoice.pdf", "wb") as f:
-        f.write(pdf_bytes)
-```
-
-```go Go
-for {
-	req, _ := http.NewRequest("GET", "https://api.formepdf.com/v1/jobs/"+jobId, nil)
-	req.Header.Set("Authorization", "Bearer forme_sk_abc123...")
-	res, _ := http.DefaultClient.Do(req)
-
-	var job map[string]any
-	json.NewDecoder(res.Body).Decode(&job)
-	res.Body.Close()
-
-	if job["status"] == "complete" || job["status"] == "failed" {
-		break
-	}
-	time.Sleep(time.Second)
-}
-```
-
-</CodeGroup>
-
-**Response:**
-```json
-{
-  "id": "clxyz...",
-  "status": "complete",
-  "pdfBase64": "JVBERi0xLjQK...",
-  "completedAt": "2024-01-15T12:00:00.000Z"
-}
-```
-
-Possible `status` values: `pending`, `processing`, `complete`, `failed`.
-
----
-
-## S3 Upload
-
-Pass an `s3` object in the sync render body to upload the PDF directly to your S3-compatible bucket instead of returning the bytes.
-
-<CodeGroup>
-
-```bash curl
-curl -X POST https://api.formepdf.com/v1/render/invoice \
-  -H "Authorization: Bearer forme_sk_abc123..." \
-  -H "Content-Type: application/json" \
-  -d '{
-    "clientName": "Jane Smith",
-    "date": "2024-01-15",
-    "dueDate": "2024-02-15",
-    "items": [{"description": "Consulting", "quantity": 10, "unitPrice": 150}],
-    "s3": {
-      "bucket": "my-pdfs",
-      "key": "invoices/inv-001.pdf",
-      "region": "us-east-1",
-      "accessKeyId": "AKIA...",
-      "secretAccessKey": "secret..."
-    }
-  }'
-```
-
-```javascript Node.js
-const res = await fetch("https://api.formepdf.com/v1/render/invoice", {
-  method: "POST",
-  headers: {
-    Authorization: "Bearer forme_sk_abc123...",
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({
-    clientName: "Jane Smith",
-    date: "2024-01-15",
-    dueDate: "2024-02-15",
-    items: [{ description: "Consulting", quantity: 10, unitPrice: 150 }],
-    s3: {
-      bucket: "my-pdfs",
-      key: "invoices/inv-001.pdf",
-      region: "us-east-1",
-      accessKeyId: "AKIA...",
-      secretAccessKey: "secret...",
-    },
-  }),
-});
-
-const { url } = await res.json();
-console.log(url); // "https://my-pdfs.s3.us-east-1.amazonaws.com/invoices/inv-001.pdf"
-```
-
-```python Python
-res = requests.post(
-    "https://api.formepdf.com/v1/render/invoice",
-    headers={
-        "Authorization": "Bearer forme_sk_abc123...",
-        "Content-Type": "application/json",
-    },
-    json={
-        "clientName": "Jane Smith",
-        "date": "2024-01-15",
-        "dueDate": "2024-02-15",
-        "items": [{"description": "Consulting", "quantity": 10, "unitPrice": 150}],
-        "s3": {
-            "bucket": "my-pdfs",
-            "key": "invoices/inv-001.pdf",
-            "region": "us-east-1",
-            "accessKeyId": "AKIA...",
-            "secretAccessKey": "secret...",
-        },
-    },
-)
-
-print(res.json()["url"])
-```
-
-</CodeGroup>
-
-**Response:** `200 OK`
-```json
-{ "url": "https://my-pdfs.s3.us-east-1.amazonaws.com/invoices/inv-001.pdf" }
-```
-
-**S3 config fields:**
-
-| Field | Required | Description |
-|-------|----------|-------------|
-| `bucket` | Yes | S3 bucket name |
-| `key` | Yes | Object key (path) in the bucket |
-| `accessKeyId` | Yes | AWS access key ID |
-| `secretAccessKey` | Yes | AWS secret access key |
-| `region` | * | AWS region (e.g. `us-east-1`). Required unless `endpoint` is set. |
-| `endpoint` | * | Custom S3-compatible endpoint URL. Required unless `region` is set. |
-
-Works with any S3-compatible service (AWS S3, Cloudflare R2, MinIO, DigitalOcean Spaces).
-
----
-
 ## Extract Embedded Data
 
 `POST /v1/extract`
@@ -425,7 +132,7 @@ Send the raw PDF bytes as the request body with `Content-Type: application/pdf`.
 <CodeGroup>
 
 ```bash curl
-curl -X POST https://api.formepdf.com/v1/extract \
+curl -X POST http://localhost:3000/v1/extract \
   -H "Authorization: Bearer forme_sk_abc123..." \
   -H "Content-Type: application/pdf" \
   --data-binary @invoice.pdf
@@ -433,7 +140,7 @@ curl -X POST https://api.formepdf.com/v1/extract \
 
 ```javascript Node.js
 const pdf = fs.readFileSync("invoice.pdf");
-const res = await fetch("https://api.formepdf.com/v1/extract", {
+const res = await fetch("http://localhost:3000/v1/extract", {
   method: "POST",
   headers: {
     Authorization: "Bearer forme_sk_abc123...",
@@ -451,7 +158,7 @@ with open("invoice.pdf", "rb") as f:
     pdf_bytes = f.read()
 
 res = requests.post(
-    "https://api.formepdf.com/v1/extract",
+    "http://localhost:3000/v1/extract",
     headers={
         "Authorization": "Bearer forme_sk_abc123...",
         "Content-Type": "application/pdf",
@@ -483,259 +190,6 @@ Pass `flattenForms=true` as a query parameter on any render endpoint (sync or as
 
 ---
 
-## Metadata
-
-Tag rendered documents with your own key-value pairs for organization and retrieval.
-
-### Adding metadata
-
-Pass a `metadata` object in the render request body:
-
-```json
-{
-  "clientName": "Jane Smith",
-  "items": [{ "description": "Consulting", "quantity": 10, "unitPrice": 150 }],
-  "metadata": {
-    "customerId": "cust_123",
-    "department": "billing",
-    "environment": "production"
-  }
-}
-```
-
-Metadata is merged into the document record alongside system fields (`renderTimeMs`, `templateSlug`).
-
-### Filtering by metadata
-
-Query saved documents by metadata values:
-
-```bash
-curl "https://api.formepdf.com/v1/documents?metadata.customerId=cust_123" \
-  -H "Authorization: Bearer forme_sk_abc123..."
-```
-
-Multiple filters are ANDed together (maximum 5 per request):
-
-```bash
-curl "https://api.formepdf.com/v1/documents?metadata.department=billing&metadata.environment=production" \
-  -H "Authorization: Bearer forme_sk_abc123..."
-```
-
-### Limits
-
-| Constraint | Limit |
-|-----------|-------|
-| Keys per document | 20 |
-| Key length | 100 characters |
-| Value types | `string` or `number` |
-| String value length | 500 characters |
-| Metadata filters per query | 5 |
-
----
-
-## Resources
-
-List and retrieve your templates, documents, redaction templates, and certificates programmatically.
-
-All resource endpoints return paginated responses:
-
-```json
-{
-  "data": [...],
-  "total": 42,
-  "limit": 20,
-  "offset": 0,
-  "hasMore": true
-}
-```
-
-**Pagination query params** (all endpoints):
-
-| Param | Default | Description |
-|-------|---------|-------------|
-| `limit` | 20 | Results per page (1-100) |
-| `offset` | 0 | Number of results to skip |
-
----
-
-### List Templates
-
-`GET /v1/templates`
-
-Returns your templates (without JSX source or sample data).
-
-**Query params:** `search` — filter by name or slug.
-
-```bash
-curl https://api.formepdf.com/v1/templates \
-  -H "Authorization: Bearer forme_sk_abc123..."
-
-# Search by name
-curl "https://api.formepdf.com/v1/templates?search=invoice" \
-  -H "Authorization: Bearer forme_sk_abc123..."
-```
-
-**Response item:**
-```json
-{
-  "id": "clxyz...",
-  "name": "Invoice",
-  "slug": "invoice",
-  "documentType": "invoice",
-  "createdAt": "2024-01-15T12:00:00.000Z",
-  "updatedAt": "2024-01-20T15:30:00.000Z"
-}
-```
-
-### Get Template
-
-`GET /v1/templates/:slug`
-
-```bash
-curl https://api.formepdf.com/v1/templates/invoice \
-  -H "Authorization: Bearer forme_sk_abc123..."
-```
-
-**Response:** `{ "data": { ... } }` with the same fields as the list item.
-
----
-
-### List Documents
-
-`GET /v1/documents`
-
-Returns your rendered documents with metadata.
-
-**Query params:**
-
-| Param | Description |
-|-------|-------------|
-| `source` | Filter by source: `generated`, `uploaded`, `redacted`, `merged`, `certified` |
-| `from` | ISO date — only documents created on or after |
-| `to` | ISO date — only documents created on or before |
-| `metadata.*` | Filter by metadata values (max 5 filters). Example: `metadata.customerId=cust_123` |
-
-```bash
-# All documents
-curl https://api.formepdf.com/v1/documents \
-  -H "Authorization: Bearer forme_sk_abc123..."
-
-# Filter by source and date range
-curl "https://api.formepdf.com/v1/documents?source=generated&from=2024-01-01&to=2024-01-31" \
-  -H "Authorization: Bearer forme_sk_abc123..."
-
-# Filter by metadata
-curl "https://api.formepdf.com/v1/documents?metadata.customerId=cust_123" \
-  -H "Authorization: Bearer forme_sk_abc123..."
-```
-
-**Response item:**
-```json
-{
-  "id": "clxyz...",
-  "name": "invoice-2024-01-15",
-  "source": "generated",
-  "templateId": "clxyz...",
-  "metadata": { "customerId": "cust_123" },
-  "expiresAt": null,
-  "createdAt": "2024-01-15T12:00:00.000Z",
-  "updatedAt": "2024-01-15T12:00:00.000Z",
-  "template": { "id": "clxyz...", "name": "Invoice", "slug": "invoice" }
-}
-```
-
-### Get Document
-
-`GET /v1/documents/:id`
-
-Returns a single document with a presigned download URL (1-hour expiry).
-
-```bash
-curl https://api.formepdf.com/v1/documents/clxyz... \
-  -H "Authorization: Bearer forme_sk_abc123..."
-```
-
-**Response:** `{ "data": { ...document, "downloadUrl": "https://..." } }`
-
----
-
-### List Redaction Templates
-
-`GET /v1/redaction-templates`
-
-**Query params:** `search` — filter by name or slug.
-
-```bash
-curl https://api.formepdf.com/v1/redaction-templates \
-  -H "Authorization: Bearer forme_sk_abc123..."
-```
-
-**Response item:**
-```json
-{
-  "id": "clxyz...",
-  "name": "HIPAA Patient Record",
-  "slug": "hipaa-patient-record",
-  "description": "Redacts SSN, DOB, and patient names",
-  "patterns": [{ "pattern": "Patient:", "pattern_type": "Literal" }],
-  "presets": ["ssn", "date-of-birth"],
-  "createdAt": "2024-01-15T12:00:00.000Z",
-  "updatedAt": "2024-01-20T15:30:00.000Z"
-}
-```
-
-### Get Redaction Template
-
-`GET /v1/redaction-templates/:slug`
-
-```bash
-curl https://api.formepdf.com/v1/redaction-templates/hipaa-patient-record \
-  -H "Authorization: Bearer forme_sk_abc123..."
-```
-
-**Response:** `{ "data": { ... } }` with the same fields as the list item.
-
----
-
-### List Certificates
-
-`GET /v1/certificates`
-
-Returns your uploaded signing certificates (without PEM data).
-
-```bash
-curl https://api.formepdf.com/v1/certificates \
-  -H "Authorization: Bearer forme_sk_abc123..."
-```
-
-**Response item:**
-```json
-{
-  "id": "clxyz...",
-  "name": "Production Signing Cert",
-  "subject": "Acme Corp",
-  "expiresAt": "2025-12-31T23:59:59.000Z",
-  "createdAt": "2024-01-15T12:00:00.000Z"
-}
-```
-
-<Note>Resource listing endpoints require the hosted API (Team plan or above). Self-hosted users should manage resources through their own database.</Note>
-
----
-
-## Rate Limits
-
-- **100 requests per minute** per API key
-- Monthly render limits depend on your plan:
-
-| Plan | Monthly renders | Templates |
-|------|----------------|-----------|
-| Free | 500 | 3 |
-| Pro | 5,000 | Unlimited |
-| Team | 25,000 | Unlimited |
-| Business | 100,000 | Unlimited |
-
-When you hit a rate limit, the API returns `429 Too Many Requests`. When you exceed your monthly render quota, it returns `429` with a message to upgrade.
 
 ## Error Format
 

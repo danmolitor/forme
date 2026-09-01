@@ -16,7 +16,7 @@ npm install @formepdf/svelte @formepdf/core
 
 The adapter requires Svelte 5 (`^5.30.0`) as a peer dependency.
 `@formepdf/core` is an *optional* peer: it is only needed to render PDF bytes locally (`renderDocument`, the preview helper).
-If you serialize templates and POST the JSON to the hosted API, skip it - `serialize` works with zero WASM.
+If you only serialize templates to JSON (for a queue, a self-hosted server, or another runtime), skip it - `serialize` works with zero WASM.
 
 ## Quickstart
 
@@ -94,7 +94,7 @@ export async function GET() {
 That is the whole route.
 `renderDocument` serializes the template and renders it through the WASM engine in one call.
 
-Using the hosted API instead?
+Serializing to JSON instead of rendering locally?
 Serialize without rendering - no `@formepdf/core` install needed:
 
 ```ts
@@ -102,7 +102,7 @@ import { serialize } from '@formepdf/svelte';
 import Invoice from '$lib/Invoice.svelte';
 
 const doc = await serialize(Invoice, { props: { invoiceNo: '001' } });
-// POST `doc` to the hosted API as JSON
+// send `doc` wherever the rendering happens
 ```
 
 ## Component parity
@@ -137,7 +137,7 @@ Nested `<Text>` spans become styled text runs, so mixed-style lines work exactly
 
 <Note>
 Compiled templates (`forme build --template`, the `$ref`/`$each`/`$if` expression system for [rendering without a JavaScript runtime](/templates)) are **TSX-only today**.
-Svelte templates always serialize by evaluating the component server-side; to use stored templates with the hosted API, author them in TSX.
+Svelte templates always serialize by evaluating the component server-side; for stored compiled templates, author them in TSX.
 </Note>
 
 ## Page numbers

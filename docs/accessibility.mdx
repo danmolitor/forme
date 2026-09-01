@@ -68,7 +68,7 @@ Screen readers read the PDF's structure tree in the order elements appear in you
 
 ## Validating with veraPDF
 
-For formal compliance verification, use [veraPDF](https://verapdf.org/) -- the industry-standard open-source PDF/UA validator. It checks structure tree completeness, role mappings, alt text, and metadata.
+For formal compliance verification, use [veraPDF](https://verapdf.org/) -- the industry-standard open-source PDF/UA validator. It checks structure tree completeness, role mappings, alt text, and metadata. Forme runs this validator itself: every commit renders a nine-document corpus (five shipped templates plus four HTML fixtures) and gates CI on all of them passing PDF/UA-1 — the compliance claim is enforced, not assumed.
 
 ```bash
 verapdf --flavour ua1 report.pdf

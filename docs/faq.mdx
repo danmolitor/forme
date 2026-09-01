@@ -60,21 +60,17 @@ Yes. Search for "Forme PDF Preview" in the VS Code Extensions view. It provides 
 
 Yes. Pass `embedData` when rendering to attach any JSON object as a hidden file attachment. The PDF looks identical — the data is invisible to viewers but extractable with `extractData()`. This makes PDFs self-describing: invoices carry their line items, reports carry their datasets. See the [embedded data guide](/embedded-data).
 
-## How does the hosted API work?
+## Is there a hosted API?
 
-The [hosted service](https://app.formepdf.com) lets you manage JSX templates in a dashboard and render PDFs via API using your API key. You can render synchronously (PDF bytes returned immediately) or asynchronously (a job ID is returned and you poll for the result or receive it via webhook). Templates are edited in a live Monaco editor with instant preview. See the [API reference](/api-reference/render) for endpoint details.
+Not anymore — the hosted service was retired when Forme went open-source only. Everything renders locally via `npm install`, or over HTTP via the [self-hosted server](/self-hosting) (`docker run formepdf/forme`), which serves the same `/v1` endpoints. See the [API reference](/api-reference/render).
 
 ## How do I upload PDFs to S3?
 
 Pass an `s3` object in the render request body with your bucket name, key, credentials, and region. Forme uploads the rendered PDF directly to your S3-compatible bucket and returns the URL. This works with AWS S3, Cloudflare R2, MinIO, and DigitalOcean Spaces. See the [S3 upload docs](/api-reference/render#s3-upload) for examples.
 
-## What are the rate limits on the hosted API?
-
-Each API key is limited to 100 requests per minute. Monthly render limits depend on your plan: Free (500), Pro (5,000), Team (25,000), Business (100,000). The API returns `429` when either limit is exceeded.
-
 ## Is Forme free?
 
-Yes. The core library is open source under the MIT license. You can use it in personal and commercial projects without restrictions. The [hosted service](https://app.formepdf.com) has a free tier with 500 renders/month and 3 templates, with paid plans for higher limits.
+Yes — entirely. Everything is open source under the MIT license: the engine, every adapter, every SDK, and the self-hosted server. There are no plans, no tiers, no render limits, and nothing calls home. Use it in personal and commercial projects without restrictions.
 
 ## Does Forme support fillable PDF forms?
 

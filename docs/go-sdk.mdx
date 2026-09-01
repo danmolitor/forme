@@ -1,7 +1,7 @@
 ---
 title: Go SDK
 sidebarTitle: Go
-description: Generate PDFs from Go with the hosted API or local WASM rendering. Zero-dependency API client, plus a component DSL for building documents in Go code.
+description: Generate PDFs from Go with local WASM rendering — no cgo, no external processes — plus a component DSL for building documents in Go code.
 ---
 
 ## Installation
@@ -14,9 +14,9 @@ go get github.com/formepdf/forme-go
 go get github.com/formepdf/forme-go/templates
 ```
 
-## Hosted API
+## HTTP client (self-hosted server)
 
-The API client uses only the Go standard library. Create templates in the [dashboard](https://app.formepdf.com), then render them with data:
+The HTTP client uses only the Go standard library and targets a [self-hosted server](/self-hosting) (the hosted API has been retired):
 
 ```go
 package main
@@ -153,11 +153,11 @@ go test -tags forme_wasm ./...
 
 ---
 
-## Hosted vs native
+## HTTP client vs native
 
-| | Hosted API | Native templates |
+| | HTTP client | Native templates |
 |---|---|---|
 | **Dependencies** | Zero (stdlib only) | wazero (~10MB WASM) |
-| **Templates** | Pre-uploaded via dashboard | Built in Go code |
+| **Templates** | Stored on the server | Built in Go code |
 | **Network** | Requires API call | Fully offline |
 | **Use case** | Dynamic data + stored templates | Full control, CI/CD, testing |

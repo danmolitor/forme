@@ -23,7 +23,7 @@ npm install @formepdf/vue @formepdf/core
 
 The adapter requires Vue 3 (`^3.4.0`) as a peer dependency.
 `@formepdf/core` is an *optional* peer: it is only needed to render PDF bytes locally (`renderDocument`).
-If you serialize templates and POST the JSON to the hosted API, skip it — `serialize` works with zero WASM.
+If you only serialize templates to JSON (for a queue, a self-hosted server, or another runtime), skip it — `serialize` works with zero WASM.
 
 Enable the custom-element compiler option so Vue leaves Forme's internal placeholder tags alone. In `vite.config.ts`:
 
@@ -124,7 +124,7 @@ export default defineEventHandler(async (event) => {
 That is the whole route.
 `renderDocument` serializes the template and renders it through the WASM engine in one call.
 
-Using the hosted API instead?
+Serializing to JSON instead of rendering locally?
 Serialize without rendering — no `@formepdf/core` install needed:
 
 ```ts
@@ -132,7 +132,7 @@ import { serialize } from '@formepdf/vue';
 import Invoice from '~/components/Invoice.vue';
 
 const doc = await serialize(Invoice, { props: { invoiceNo: '001' } });
-// POST `doc` to the hosted API as JSON
+// send `doc` wherever the rendering happens
 ```
 
 <Note>
@@ -173,7 +173,7 @@ defineProps<{ price?: number }>();
 
 <Note>
 Compiled templates (`forme build --template`, the `$ref`/`$each`/`$if` expression system for [rendering without a JavaScript runtime](/templates)) are **TSX-only today**.
-Vue templates always serialize by rendering the component server-side; to use stored templates with the hosted API, author them in TSX.
+Vue templates always serialize by rendering the component server-side; for stored compiled templates, author them in TSX.
 </Note>
 
 ## Page numbers

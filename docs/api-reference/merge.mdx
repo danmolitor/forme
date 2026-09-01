@@ -27,7 +27,7 @@ Authorization: Bearer forme_sk_...
 <CodeGroup>
 
 ```bash curl
-curl -X POST https://api.formepdf.com/v1/merge \
+curl -X POST http://localhost:3000/v1/merge \
   -H "Authorization: Bearer forme_sk_abc123..." \
   -H "Content-Type: application/json" \
   -d "{
@@ -45,7 +45,7 @@ import fs from 'fs';
 const invoice = fs.readFileSync('invoice.pdf').toString('base64');
 const terms = fs.readFileSync('terms.pdf').toString('base64');
 
-const res = await fetch('https://api.formepdf.com/v1/merge', {
+const res = await fetch('http://localhost:3000/v1/merge', {
   method: 'POST',
   headers: {
     Authorization: 'Bearer forme_sk_abc123...',
@@ -66,7 +66,7 @@ invoice = base64.b64encode(open("invoice.pdf", "rb").read()).decode()
 terms = base64.b64encode(open("terms.pdf", "rb").read()).decode()
 
 res = requests.post(
-    "https://api.formepdf.com/v1/merge",
+    "http://localhost:3000/v1/merge",
     headers={
         "Authorization": "Bearer forme_sk_abc123...",
         "Content-Type": "application/json",
@@ -89,7 +89,7 @@ body, _ := json.Marshal(map[string]any{
 	},
 })
 
-req, _ := http.NewRequest("POST", "https://api.formepdf.com/v1/merge", bytes.NewReader(body))
+req, _ := http.NewRequest("POST", "http://localhost:3000/v1/merge", bytes.NewReader(body))
 req.Header.Set("Authorization", "Bearer forme_sk_abc123...")
 req.Header.Set("Content-Type", "application/json")
 

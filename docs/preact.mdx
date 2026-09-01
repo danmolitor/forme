@@ -14,7 +14,7 @@ If you're using Preact for its bundle size (typically ~3KB vs React's ~40KB), th
 npm install @formepdf/preact @formepdf/core
 ```
 
-The adapter requires Preact 10 (`^10.19.0`) as a peer dependency. `@formepdf/core` is an *optional* peer: it is only needed to render PDF bytes locally (`renderDocument`). If you serialize templates and POST the JSON to the hosted API, skip it — `serialize` works with zero WASM.
+The adapter requires Preact 10 (`^10.19.0`) as a peer dependency. `@formepdf/core` is an *optional* peer: it is only needed to render PDF bytes locally (`renderDocument`). If you only serialize templates to JSON (for a queue, a self-hosted server, or another runtime), skip it — `serialize` works with zero WASM.
 
 ## Quickstart
 
@@ -94,9 +94,9 @@ You *can* use `@formepdf/react` with Preact today via `preact/compat` aliasing. 
 
 If bundle size and peer-dep hygiene don't matter for your app, `preact/compat` aliasing works too — the two paths produce identical PDF output.
 
-## Templates and the hosted API
+## Templates
 
-The compiled-template system (`$ref`, `$each`, `$if`, expression helpers) works identically to `@formepdf/react` because the recording-proxy layer is framework-agnostic. If you're using Forme's hosted API with dynamic data, the workflow is the same regardless of which authoring adapter you use.
+The compiled-template system (`$ref`, `$each`, `$if`, expression helpers) works identically to `@formepdf/react` because the recording-proxy layer is framework-agnostic. The workflow is the same regardless of which authoring adapter you use.
 
 ## What's NOT here yet
 

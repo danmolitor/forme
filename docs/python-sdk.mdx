@@ -1,7 +1,7 @@
 ---
 title: Python SDK
 sidebarTitle: Python
-description: Generate PDFs from Python with the hosted API or local WASM rendering. Zero-dependency API client, plus a component DSL for building documents in Python code.
+description: Generate PDFs from Python with local WASM rendering — no headless Chrome — plus a component DSL for building documents in Python code.
 ---
 
 ## Installation
@@ -14,9 +14,9 @@ pip install formepdf
 pip install formepdf[local]
 ```
 
-## Hosted API
+## HTTP client (self-hosted server)
 
-The API client uses only the Python standard library. Create templates in the [dashboard](https://app.formepdf.com), then render them with data:
+The HTTP client uses only the Python standard library and targets a [self-hosted server](/self-hosting) (the hosted API has been retired):
 
 ```python
 from formepdf import Forme
@@ -66,7 +66,7 @@ certified = client.certify(
 )
 ```
 
-Or use a saved certificate on the hosted API:
+Or certify via the self-hosted server:
 
 ```python
 certified = client.certify(pdf_bytes, certificate_id="cert_abc123")
@@ -178,9 +178,9 @@ certified = certify_pdf(pdf_bytes, config)
 
 ## Hosted vs native
 
-| | Hosted API | Native templates |
+| | HTTP client | Native templates |
 |---|---|---|
 | **Dependencies** | Zero (stdlib only) | wasmtime (~6MB WASM) |
-| **Templates** | Pre-uploaded via dashboard | Built in Python code |
+| **Templates** | Stored on the server | Built in Python code |
 | **Network** | Requires API call | Fully offline |
 | **Use case** | Dynamic data + stored templates | Full control, CI/CD, testing |

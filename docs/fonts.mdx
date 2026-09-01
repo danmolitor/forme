@@ -149,6 +149,10 @@ File paths are resolved relative to the template file in the CLI dev server (`fo
 
 ## Standard fonts
 
+<Note>
+The 14 built-in standard fonts (Helvetica, Times, Courier) are **not embedded** in the output PDF — viewers substitute metrically-identical system fonts. That's fine for everyday documents, but **PDF/UA and PDF/A require every font to be embedded**: to use standard-font styling in compliance modes, register [@formepdf/fonts-standard](https://www.npmjs.com/package/@formepdf/fonts-standard) — metric-compatible TrueType replacements, so layout is identical. See [Standard fonts for PDF/UA and PDF/A](#standard-fonts-for-pdf-ua-and-pdf-a) below.
+</Note>
+
 These fonts are always available without registration:
 
 | Family | Weights | Styles | Notes |

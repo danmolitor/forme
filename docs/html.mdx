@@ -75,6 +75,24 @@ warning: unsupported property: text-transform-origin
 
 Every warning names the thing it skipped: the property, the selector, the stylesheet href, the `@font-face` family. If a render is silent, the document used only the subset — and what you got is what the subset defines.
 
+## Browser, Workers, and edge
+
+The HTML path ships web-target builds alongside Node (since 0.15.0), verified in real headless Chromium and real workerd:
+
+```ts
+// Bundlers / browser
+import { renderHtml } from "@formepdf/html/browser";
+
+// Cloudflare Workers / edge — WASM must be initialized explicitly
+import { init, renderHtml } from "@formepdf/html/worker";
+import wasm from "@formepdf/html/pkg-web/forme_pdf_html_bg.wasm";
+
+await init(wasm); // idempotent — warm isolates skip it
+const { pdf, warnings } = renderHtml(html);
+```
+
+Sizing: the HTML engine WASM is ~7.4MB uncompressed (~3.2MB gzipped) — within Workers paid-plan limits, and lazy-loadable in the browser.
+
 ## Migrating
 
 - [Replacing Puppeteer](/replacing-puppeteer)

@@ -6,6 +6,12 @@ description: Generate PDF/A-compliant documents for long-term preservation, lega
 
 PDF/A is an ISO standard (ISO 19005) for long-term document preservation. It ensures that a PDF is self-contained: all fonts are embedded, colors are device-independent, and no external dependencies exist. PDF/A is required in legal filings, government records, regulatory submissions, medical records, and any context where documents must remain readable decades from now.
 
+Forme produces PDF/A-2 at conformance levels **2b**, **2u**, and **2a**, verified with [veraPDF](https://verapdf.org/) as a CI gate: every corpus document is rendered as PDF/A and PDF/UA-1 together and validated against both profiles on every commit.
+
+<Warning>
+**Files produced before 0.16.0 are not valid PDF/A.** Earlier versions embedded an invalid sRGB ICC profile, so `pdfa` output from 0.15.0 and below fails validation (`verapdf -f 2b file.pdf` reports FAIL). Re-render those documents with 0.16.0 or later — same input, same options — and they pass. PDF/A also requires embeddable fonts: register [@formepdf/fonts-standard](https://www.npmjs.com/package/@formepdf/fonts-standard) (or your own). If a font can't be embedded, the render fails with a named error rather than emitting a file that falsely claims conformance.
+</Warning>
+
 ---
 
 ## Enabling PDF/A

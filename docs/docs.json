@@ -24,7 +24,16 @@
     "groups": [
       {
         "group": "Getting Started",
-        "pages": ["quickstart", "html", "svelte", "vue", "preact", "template-gallery", "vscode", "faq"]
+        "pages": [
+          "quickstart",
+          "html",
+          "svelte",
+          "vue",
+          "preact",
+          "template-gallery",
+          "vscode",
+          "faq"
+        ]
       },
       {
         "group": "Reference",
@@ -53,12 +62,8 @@
       {
         "group": "Concepts",
         "pages": [
-          "concepts/documents",
-          "concepts/credentials",
           "concepts/redaction",
-          "concepts/redaction-templates",
-          "concepts/digital-certification",
-          "concepts/audit-trail"
+          "concepts/digital-certification"
         ]
       },
       {
