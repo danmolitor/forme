@@ -89,6 +89,9 @@ pub enum PdfAConformance {
     /// PDF/A-2b: basic compliance (visual appearance only).
     #[serde(rename = "2b")]
     A2b,
+    /// PDF/A-2u: 2b plus a Unicode mapping for all text.
+    #[serde(rename = "2u")]
+    A2u,
 }
 
 /// A rectangular region to redact in an existing PDF.

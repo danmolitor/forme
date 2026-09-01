@@ -335,7 +335,7 @@ export interface FormeDocument {
   defaultStyle?: FormeStyle;
   fonts?: FormeFont[];
   tagged?: boolean;
-  pdfa?: '2a' | '2b';
+  pdfa?: '2a' | '2b' | '2u';
   pdfUa?: boolean;
   flattenForms?: boolean;
   certification?: CertificationConfig;

@@ -106,6 +106,11 @@ struct PdfBuilder {
     font_objects: Vec<(FontKey, usize)>,
     /// Embedding data for custom fonts, keyed by FontKey.
     custom_font_data: HashMap<FontKey, CustomFontEmbedData>,
+    /// Base-14 fonts that were embedded via the pdfUa metric-compatible
+    /// substitution (Liberation). They aren't in `custom_font_data` — the
+    /// caller registered no custom bytes for them — but they ARE embedded, so
+    /// the PDF/A "all fonts embedded" check must treat them as satisfied.
+    embedded_standard_fonts: std::collections::HashSet<FontKey>,
     /// XObject obj IDs for images, indexed as /Im0, /Im1, ...
     /// Each entry is (main_xobject_id, optional_smask_xobject_id).
     image_objects: Vec<usize>,
@@ -168,6 +173,7 @@ impl PdfWriter {
             objects: Vec::new(),
             font_objects: Vec::new(),
             custom_font_data: HashMap::new(),
+            embedded_standard_fonts: std::collections::HashSet::new(),
             image_objects: Vec::new(),
             image_index_map: HashMap::new(),
             page_background_image_map: HashMap::new(),
@@ -198,13 +204,21 @@ impl PdfWriter {
         // Register the fonts actually used across all pages
         self.register_fonts(&mut builder, pages, font_context, pdf_ua)?;
 
-        // PDF/A: validate that all fonts are embedded (no standard fonts)
+        // PDF/A: validate that all fonts are embedded. A font counts as
+        // embedded if the caller registered custom bytes for it OR it's a
+        // base-14 family embedded via the pdfUa Liberation substitution
+        // (`embedded_standard_fonts`) — so PDF/A composes with PDF/UA when
+        // @formepdf/fonts-standard is registered.
         if pdfa.is_some() {
             for (key, _) in &builder.font_objects {
-                if !builder.custom_font_data.contains_key(key) {
+                if !builder.custom_font_data.contains_key(key)
+                    && !builder.embedded_standard_fonts.contains(key)
+                {
                     return Err(FormeError::RenderError(format!(
-                        "PDF/A requires all fonts to be embedded. Register a custom font for \
-                         family '{}' using Font.register().",
+                        "PDF/A requires all fonts to be embedded, but '{}' is not. Register a \
+                         metric-compatible font — install @formepdf/fonts-standard and register \
+                         its fonts (`for (const f of standardFonts()) Font.register(f)`), or supply \
+                         your own via Font.register().",
                         key.family
                     )));
                 }
@@ -339,7 +353,7 @@ impl PdfWriter {
                         let contents = Self::escape_pdf_string(&format!("Link to {anchor}"));
                         let annot_dict = format!(
                             "<< /Type /Annot /Subtype /Link /Rect {} /Border [0 0 0] \
-                             /Contents ({}){} \
+                             /F 4 /Contents ({}){} \
                              /A << /S /GoTo /D [{} 0 R /XYZ 0 {:.2} null] >> >>",
                             rect, contents, sp_str, bm.page_obj_id, bm.y_pdf
                         );
@@ -363,7 +377,7 @@ impl PdfWriter {
                     let href_esc = Self::escape_pdf_string(&annot.href);
                     let annot_dict = format!(
                         "<< /Type /Annot /Subtype /Link /Rect {} /Border [0 0 0] \
-                         /Contents ({}){} \
+                         /F 4 /Contents ({}){} \
                          /A << /Type /Action /S /URI /URI ({}) >> >>",
                         rect, href_esc, sp_str, href_esc
                     );
@@ -449,7 +463,7 @@ impl PdfWriter {
 
         let output_intent_id = if pdfa.is_some() {
             // Embed sRGB ICC profile
-            static SRGB_ICC: &[u8] = include_bytes!("srgb2014.icc");
+            static SRGB_ICC: &[u8] = include_bytes!("sRGB.icc");
             let compressed_icc = compress_to_vec_zlib(SRGB_ICC, 6);
 
             let icc_obj_id = builder.objects.len();
@@ -2575,6 +2589,10 @@ impl PdfWriter {
             data: font_dict.into_bytes(),
         });
         builder.font_objects.push((key.clone(), obj_id));
+        // Record that this base-14 family is embedded (via substitution) so the
+        // PDF/A all-fonts-embedded check accepts it — this is what lets PDF/A
+        // and PDF/UA compose.
+        builder.embedded_standard_fonts.insert(key.clone());
         true
     }
 
@@ -3984,6 +4002,20 @@ impl PdfWriter {
         if let Some(info_id) = info_obj_id {
             let _ = write!(output, " /Info {} 0 R", info_id);
         }
+        // /ID — required by PDF/A (6.1.3) and generally expected. Derived
+        // deterministically from the file content (SHA-256 of everything written
+        // so far), NOT a timestamp or random bytes, so native and WASM builds
+        // stay byte-identical. The two identifiers are equal for a freshly
+        // created (never incrementally updated) file, per ISO 32000-1 14.4.
+        {
+            use sha2::Digest as _;
+            let digest = sha2::Sha256::digest(&output);
+            let mut id_hex = String::with_capacity(32);
+            for b in &digest[..16] {
+                let _ = write!(id_hex, "{:02X}", b);
+            }
+            let _ = write!(output, " /ID [<{id_hex}> <{id_hex}>]");
+        }
         let _ = writeln!(output, " >>\nstartxref\n{}\n%%EOF", xref_offset);
 
         output
@@ -4286,6 +4318,38 @@ fn pdf_escape_string(s: &str) -> String {
 mod tests {
     use super::*;
     use crate::font::FontContext;
+
+    /// The embedded sRGB profile must be a REAL ICC profile suitable for a
+    /// PDF/A OutputIntent — not, say, an HTML error page a `curl` returned and
+    /// nobody inspected (which is exactly what shipped from ~0.9.0 to 0.15.0,
+    /// silently making every PDF/A OutputIntent invalid). This is the check
+    /// that would have caught it: ICC signature, an OutputIntent-legal device
+    /// class (`mntr`/`prtr`), and an RGB data colour space.
+    #[test]
+    fn test_embedded_srgb_is_a_valid_icc_profile() {
+        let icc: &[u8] = include_bytes!("sRGB.icc");
+        assert!(
+            icc.len() >= 128,
+            "ICC shorter than its 128-byte header: {}",
+            icc.len()
+        );
+        // Not HTML / not a text error page.
+        assert_ne!(
+            icc[0], b'<',
+            "embedded ICC starts with '<' — looks like HTML, not a profile"
+        );
+        // 'acsp' profile-file signature at bytes 36..40 (ISO 15076-1 / ICC.1).
+        assert_eq!(&icc[36..40], b"acsp", "missing ICC 'acsp' signature");
+        // Device class (bytes 12..16) must be monitor or output for an OutputIntent.
+        let device_class = &icc[12..16];
+        assert!(
+            device_class == b"mntr" || device_class == b"prtr",
+            "ICC device class {:?} is not mntr/prtr (PDF/A 6.2.3)",
+            String::from_utf8_lossy(device_class),
+        );
+        // Data colour space (bytes 16..20) must be RGB for an sRGB OutputIntent.
+        assert_eq!(&icc[16..20], b"RGB ", "ICC data colour space is not RGB");
+    }
 
     #[test]
     fn test_escape_pdf_string() {

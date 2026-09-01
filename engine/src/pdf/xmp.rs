@@ -27,6 +27,18 @@ pub fn generate_xmp(
     if pdf_ua {
         namespaces.push(r#"xmlns:pdfuaid="http://www.aiim.org/pdfua/ns/id/""#.to_string());
     }
+    // PDF/A requires every property to belong to a predefined schema OR be
+    // described by an extension schema (ISO 19005-2, 6.6.2.3.1). `pdfuaid` (the
+    // PDF/UA identifier) is NOT a PDF/A-predefined schema, so when a document is
+    // BOTH PDF/A and PDF/UA we must declare the pdfaExtension description for it.
+    let describe_pdfua_extension = conformance.is_some() && pdf_ua;
+    if describe_pdfua_extension {
+        namespaces
+            .push(r#"xmlns:pdfaExtension="http://www.aiim.org/pdfa/ns/extension/""#.to_string());
+        namespaces.push(r#"xmlns:pdfaSchema="http://www.aiim.org/pdfa/ns/schema#""#.to_string());
+        namespaces
+            .push(r#"xmlns:pdfaProperty="http://www.aiim.org/pdfa/ns/property#""#.to_string());
+    }
 
     // Build conformance entries
     let mut entries = String::new();
@@ -34,6 +46,7 @@ pub fn generate_xmp(
         let (part, level) = match conf {
             PdfAConformance::A2a => ("2", "A"),
             PdfAConformance::A2b => ("2", "B"),
+            PdfAConformance::A2u => ("2", "U"),
         };
         entries.push_str(&format!(
             "      <pdfaid:part>{}</pdfaid:part>\n      <pdfaid:conformance>{}</pdfaid:conformance>\n",
@@ -42,6 +55,32 @@ pub fn generate_xmp(
     }
     if pdf_ua {
         entries.push_str("      <pdfuaid:part>1</pdfuaid:part>\n");
+    }
+    // The extension-schema description that makes `pdfuaid:part` legal under
+    // PDF/A. Standard boilerplate from the PDF/UA-in-PDF/A guidance.
+    if describe_pdfua_extension {
+        entries.push_str(
+            r#"      <pdfaExtension:schemas>
+        <rdf:Bag>
+          <rdf:li rdf:parseType="Resource">
+            <pdfaSchema:schema>PDF/UA identification schema</pdfaSchema:schema>
+            <pdfaSchema:namespaceURI>http://www.aiim.org/pdfua/ns/id/</pdfaSchema:namespaceURI>
+            <pdfaSchema:prefix>pdfuaid</pdfaSchema:prefix>
+            <pdfaSchema:property>
+              <rdf:Seq>
+                <rdf:li rdf:parseType="Resource">
+                  <pdfaProperty:name>part</pdfaProperty:name>
+                  <pdfaProperty:valueType>Integer</pdfaProperty:valueType>
+                  <pdfaProperty:category>internal</pdfaProperty:category>
+                  <pdfaProperty:description>Indicates, which part of ISO 14289 standard is followed</pdfaProperty:description>
+                </rdf:li>
+              </rdf:Seq>
+            </pdfaSchema:property>
+          </rdf:li>
+        </rdf:Bag>
+      </pdfaExtension:schemas>
+"#,
+        );
     }
 
     let ns_str = namespaces
@@ -74,7 +113,7 @@ pub fn generate_xmp(
         </rdf:Seq>
       </dc:creator>
       <xmp:CreatorTool>Forme</xmp:CreatorTool>
-      <pdf:Producer>Forme 0.6</pdf:Producer>
+      <pdf:Producer>Forme</pdf:Producer>
 {entries}    </rdf:Description>
   </rdf:RDF>
 </x:xmpmeta>
