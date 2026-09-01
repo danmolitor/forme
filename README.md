@@ -2,12 +2,12 @@
 
 [![CI](https://github.com/formepdf/forme/actions/workflows/ci.yml/badge.svg)](https://github.com/formepdf/forme/actions/workflows/ci.yml)
 [![PDF/UA-1 + PDF/A-2 verified](https://img.shields.io/badge/PDF%2FUA--1%20%2B%20PDF%2FA--2-veraPDF%20verified-10b981)](https://docs.formepdf.com/accessibility)
-[![npm](https://img.shields.io/npm/v/%40formepdf%2Fcore?label=npm&color=10b981)](https://www.npmjs.com/package/@formepdf/core)
-[![downloads](https://img.shields.io/npm/dw/%40formepdf%2Fcore?color=10b981)](https://www.npmjs.com/package/@formepdf/core)
-[![crates.io](https://img.shields.io/crates/v/forme-pdf?color=10b981)](https://crates.io/crates/forme-pdf)
-[![PyPI](https://img.shields.io/pypi/v/formepdf?color=10b981)](https://pypi.org/project/formepdf/)
-[![VS Code Marketplace](https://img.shields.io/badge/VS%20Code-Marketplace-10b981)](https://marketplace.visualstudio.com/items?itemName=formepdf.forme-pdf)
-[![Docker pulls](https://img.shields.io/docker/pulls/formepdf/forme?color=10b981)](https://hub.docker.com/r/formepdf/forme)
+[![npm](https://img.shields.io/npm/v/%40formepdf%2Fcore?label=npm&color=CB3837)](https://www.npmjs.com/package/@formepdf/core)
+[![downloads](https://img.shields.io/npm/dw/%40formepdf%2Fcore?color=CB3837)](https://www.npmjs.com/package/@formepdf/core)
+[![crates.io](https://img.shields.io/crates/v/forme-pdf?color=CE422B)](https://crates.io/crates/forme-pdf)
+[![PyPI](https://img.shields.io/pypi/v/formepdf?color=3776AB)](https://pypi.org/project/formepdf/)
+[![VS Code Marketplace](https://img.shields.io/badge/VS%20Code-Marketplace-007ACC)](https://marketplace.visualstudio.com/items?itemName=formepdf.forme-pdf)
+[![Docker pulls](https://img.shields.io/docker/pulls/formepdf/forme?color=2496ED)](https://hub.docker.com/r/formepdf/forme)
 [![license](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
 
 Forme is a document engine for JavaScript, written in Rust and compiled to WASM. Render the HTML and print CSS you already have, or author React, Svelte, Vue, and Preact components. Paginated PDFs in-process - no headless browser.
