@@ -4002,6 +4002,20 @@ impl PdfWriter {
         if let Some(info_id) = info_obj_id {
             let _ = write!(output, " /Info {} 0 R", info_id);
         }
+        // /ID — required by PDF/A (6.1.3) and generally expected. Derived
+        // deterministically from the file content (SHA-256 of everything written
+        // so far), NOT a timestamp or random bytes, so native and WASM builds
+        // stay byte-identical. The two identifiers are equal for a freshly
+        // created (never incrementally updated) file, per ISO 32000-1 14.4.
+        {
+            use sha2::Digest as _;
+            let digest = sha2::Sha256::digest(&output);
+            let mut id_hex = String::with_capacity(32);
+            for b in &digest[..16] {
+                let _ = write!(id_hex, "{:02X}", b);
+            }
+            let _ = write!(output, " /ID [<{id_hex}> <{id_hex}>]");
+        }
         let _ = writeln!(output, " >>\nstartxref\n{}\n%%EOF", xref_offset);
 
         output
