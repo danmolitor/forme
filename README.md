@@ -10,7 +10,7 @@
 [![Docker pulls](https://img.shields.io/docker/pulls/formepdf/forme?color=10b981)](https://hub.docker.com/r/formepdf/forme)
 [![license](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
 
-PDF generation with JSX. Page breaks that actually work.
+Forme is a document engine for JavaScript, written in Rust and compiled to WASM. Render the HTML and print CSS you already have, or author React, Svelte, Vue, and Preact components. Paginated PDFs in-process - no headless browser.
 
 ![Forme dev server](./assets/dev-server.gif)
 
