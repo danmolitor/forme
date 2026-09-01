@@ -100,7 +100,7 @@ interface DocumentProps {
   lang?: string;
   style?: Style;
   tagged?: boolean;
-  pdfa?: '2a' | '2b';
+  pdfa?: '2a' | '2b' | '2u';
   pdfUa?: boolean;
   certification?: CertificationConfig;
   /** @deprecated Use certification */
