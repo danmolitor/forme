@@ -169,6 +169,12 @@ jobs:
       - name: Build React package
         working-directory: packages/react
         run: npm run build
+      - name: Build fonts-standard package
+        # A devDependency of core, imported by the pdfUa unit tests. No Forme
+        # deps, so it can build any time before "Test Core" — without this,
+        # vite can't resolve @formepdf/fonts-standard on a fresh checkout.
+        working-directory: packages/fonts-standard
+        run: npm run build
       - name: Build Core (WASM + TS)
         # Must build before Svelte's check step: svelte-check typechecks
         # render-document.ts and preview/index.ts, both of which import
