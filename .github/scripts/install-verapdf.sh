@@ -17,7 +17,9 @@ echo "Downloading veraPDF ${VERSION} from ${url}"
 curl -fSL "$url" -o "$WORK/verapdf.zip"
 unzip -q "$WORK/verapdf.zip" -d "$WORK"
 
-installer_jar="$(find "$WORK" -name 'verapdf-*-installer.jar' | head -n1)"
+# The greenfield zip ships verapdf-izpack-installer-<version>.jar (the version
+# trails "installer"), nested under a verapdf-greenfield-<version>/ dir.
+installer_jar="$(find "$WORK" -name 'verapdf-*installer*.jar' | head -n1)"
 if [ -z "$installer_jar" ]; then
   echo "veraPDF installer JAR not found in archive" >&2
   exit 1
