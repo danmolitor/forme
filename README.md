@@ -144,7 +144,7 @@ Install [Forme PDF Preview](https://marketplace.visualstudio.com/items?itemName=
 - **Tailwind CSS**: `tw("p-4 text-lg font-bold bg-blue-500")` converts Tailwind classes to Forme style objects. Full color palette, grid, arbitrary values, negative values, fractions.
 - **Fillable forms**: AcroForm components — `<TextField>`, `<Checkbox>`, `<Dropdown>`, `<RadioButton>`. Fill and flatten for non-editable delivery.
 - **PDF/UA accessibility**: `<Document pdfUa>` generates PDF/UA-1 conforming documents — structure tree with tagged headings, lists (`/LBody`), tables (`/TH` scope, `/ColSpan`), links (`/Link` + `OBJR`), figure `/Alt`, tab order, and artifact tagging. See [Compliance](#compliance).
-- **PDF/A archival**: `<Document pdfa="2b">` for long-term preservation. Supports PDF/A-2b and PDF/A-2a.
+- **PDF/A archival**: `<Document pdfa="2b">` for long-term preservation — PDF/A-2b, 2u, and 2a, veraPDF-verified, and composable with `pdfUa` (archival + accessible at once). See [Compliance](#compliance).
 - **Digital certification**: PKCS#7 certification with X.509 certificates via the `certification` prop or `/v1/certify` API endpoint.
 - **PDF redaction**: True content removal with metadata scrubbing. Text-search, regex, presets, and saved templates.
 - **PDF merging**: Combine 2-20 PDFs into one via `/v1/merge`.
@@ -180,10 +180,26 @@ import { standardFonts } from '@formepdf/fonts-standard';
 </Document>
 ```
 
-**PDF/A (archival).** `<Document pdfa="2b">` and `pdfa="2a"` are supported; the
-font path inherits the same metric-compatible embedding with a per-glyph width
-carve-out for the handful of glyphs where Liberation's advances diverge from the
-base-14 AFM metrics. See [Archival](https://docs.formepdf.com/archival).
+**PDF/A (archival) — verified.** `<Document pdfa="2b">`, `"2u"`, and `"2a"` produce
+PDF/A-2 conforming files, verified by the same veraPDF gate: the nine-document
+corpus passes **PDF/A-2b and PDF/A-2a**. The font path uses the same
+metric-compatible embedding as PDF/UA (with a per-glyph width carve-out for the
+few glyphs where Liberation's advances diverge from the base-14 AFM metrics), an
+embedded sRGB OutputIntent, and PDF/A XMP metadata.
+
+**Archival *and* accessible.** PDF/A composes with PDF/UA — set both and the file
+is conformant to each at once:
+
+```tsx
+<Document pdfa="2a" pdfUa lang="en-US" fonts={standardFonts()}>…</Document>
+```
+
+The CI gate validates every corpus file against PDF/A-2b, PDF/A-2a, **and**
+PDF/UA-1 together (`scripts/verify-pdfa.mjs`). The HTML path takes the same via
+`pdfA` (`renderHtml`) / `--pdf-a` (CLI). Needs an embeddable font
+([`@formepdf/fonts-standard`](./packages/fonts-standard)) — if none is
+registered, the render fails by name rather than emitting a file that falsely
+claims conformance. See [Archival](https://docs.formepdf.com/archival).
 
 ## Browser Usage
 
