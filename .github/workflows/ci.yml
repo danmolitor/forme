@@ -209,6 +209,11 @@ jobs:
       - name: Build Preact package
         working-directory: packages/preact
         run: npm run build
+      - name: Build Vue package
+        # Needed by renderer's cross-framework SFC test (React===Preact===
+        # Svelte===Vue) — its dist must exist before Test Renderer resolves it.
+        working-directory: packages/vue
+        run: npm run build
       - name: Build Templates
         working-directory: packages/templates
         run: npm run build
@@ -256,6 +261,10 @@ jobs:
         # Parity fixtures import from both @formepdf/preact (built above)
         # and @formepdf/react — both must be built before this runs.
         working-directory: packages/preact
+        run: npm test
+      - name: Test Vue
+        # Cross-framework equivalence gate (Vue === React serialized output).
+        working-directory: packages/vue
         run: npm test
       - name: Test Templates (regression)
         # Structural-regression coverage for the templates we ship on npm.
@@ -384,12 +393,15 @@ jobs:
         working-directory: packages/html
         run: ./build.sh
       - name: Install veraPDF
-        run: bash .github/scripts/install-verapdf.sh
+        # Install under $HOME (guaranteed writable; /opt is root-owned on the
+        # runner) and export the binary path for the next step.
+        run: |
+          VERAPDF_HOME="$HOME/verapdf" bash .github/scripts/install-verapdf.sh
+          echo "VERAPDF=$HOME/verapdf/verapdf" >> "$GITHUB_ENV"
       - name: Validate the PDF/UA-1 corpus
         # REQUIRE_VERAPDF turns a missing binary into a hard failure — the
-        # gate must validate, never silently skip. VERAPDF points the script
-        # at the headless install from the previous step.
+        # gate must validate, never silently skip. VERAPDF (exported above)
+        # points the script at the headless install.
         env:
-          VERAPDF: /opt/verapdf/verapdf
           REQUIRE_VERAPDF: '1'
         run: node scripts/verify-pdfua.mjs
