@@ -91,6 +91,17 @@ jobs:
           npm i --no-save playwright
           npx playwright install --with-deps chromium
           node packages/html/test/browser-verify.mjs
+      - name: Emit parity evidence (determinism)
+        # native binary (built above) + wasm targets → byte-identity + hash
+        # evidence for the parity page. Emission only; validates nothing new.
+        env:
+          PARITY_DIR: ${{ github.workspace }}/parity-partials
+        run: node scripts/parity/determinism.mjs
+      - name: Upload parity evidence (determinism)
+        uses: actions/upload-artifact@v4
+        with:
+          name: parity-determinism
+          path: parity-partials/determinism.json
 
   coverage:
     name: Coverage (Rust)
@@ -307,6 +318,62 @@ jobs:
       - name: Test VS Code Extension
         working-directory: packages/vscode
         run: npm test
+      - name: Emit parity evidence (test coverage + regressions)
+        # Re-runs the suites via collect-tests so the published counts are a
+        # render of an actual run (the granular Test steps above are the gates;
+        # this captures their numbers + the ironpress/Chrome-structural results).
+        env:
+          PARITY_DIR: ${{ github.workspace }}/parity-partials
+        run: node scripts/parity/collect-tests.mjs
+      - name: Upload parity evidence (tests)
+        uses: actions/upload-artifact@v4
+        with:
+          name: parity-tests
+          path: parity-partials/tests.json
+
+  parity:
+    name: Parity evidence (assemble + deliver)
+    runs-on: ubuntu-latest
+    needs: [pdfua-conformance, html-parity, packages]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Download evidence partials
+        uses: actions/download-artifact@v4
+        with:
+          path: parity-partials
+          merge-multiple: true
+      - name: Assemble parity.json
+        env:
+          PARITY_DIR: ${{ github.workspace }}/parity-partials
+        run: node scripts/parity/assemble.mjs
+      - name: Upload parity.json
+        uses: actions/upload-artifact@v4
+        with:
+          name: parity
+          path: parity-partials/parity.json
+      - name: Deliver to forme-landing (main only)
+        # PUSHED delivery: commit parity.json into the landing repo, which
+        # triggers its Vercel rebuild. Needs a token with push access to
+        # forme-landing (secret LANDING_PUSH_TOKEN). Skipped on PRs and when the
+        # secret is absent, so forks and PRs never attempt a push.
+        if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+        env:
+          TOKEN: ${{ secrets.LANDING_PUSH_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then echo "LANDING_PUSH_TOKEN not set — skipping delivery."; exit 0; fi
+          git clone --depth 1 "https://x-access-token:${TOKEN}@github.com/danmolitor/forme-landing.git" landing
+          mkdir -p landing/src/data
+          cp parity-partials/parity.json landing/src/data/parity.json
+          cd landing
+          git config user.name "forme-ci"
+          git config user.email "ci@formepdf.com"
+          if git diff --quiet -- src/data/parity.json; then echo "parity.json unchanged — nothing to deliver."; exit 0; fi
+          git add src/data/parity.json
+          git commit -m "parity: update evidence from forme ${GITHUB_SHA:0:7}"
+          git push
 
   document-regression-demo:
     name: Document Regression Demo
@@ -401,9 +468,11 @@ jobs:
       - name: Validate the PDF/UA-1 corpus
         # REQUIRE_VERAPDF turns a missing binary into a hard failure — the
         # gate must validate, never silently skip. VERAPDF (exported above)
-        # points the script at the headless install.
+        # points the script at the headless install. PARITY_DIR makes the
+        # script ALSO emit its structured evidence section for the parity page.
         env:
           REQUIRE_VERAPDF: '1'
+          PARITY_DIR: ${{ github.workspace }}/parity-partials
         run: node scripts/verify-pdfua.mjs
       - name: Validate the PDF/A + PDF/UA-1 corpus
         # The same corpus rendered as BOTH PDF/A and PDF/UA-1, validated against
@@ -411,4 +480,10 @@ jobs:
         # archival+accessible claim, enforced.
         env:
           REQUIRE_VERAPDF: '1'
+          PARITY_DIR: ${{ github.workspace }}/parity-partials
         run: node scripts/verify-pdfa.mjs
+      - name: Upload parity evidence (conformance)
+        uses: actions/upload-artifact@v4
+        with:
+          name: parity-conformance
+          path: parity-partials/conformance-*.json
