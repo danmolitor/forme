@@ -189,6 +189,14 @@ jobs:
         # script that forgets to emit a required entry.
         working-directory: packages/core
         run: bash ./scripts/assert-tarball.sh
+      - name: Build HTML WASM package
+        # @formepdf/renderer's HTML input path (and its sfc tests) import
+        # @formepdf/html, whose ESM entry statically imports ./pkg-node/…;
+        # vite resolves that eagerly at transform time, so the WASM must exist
+        # before Build/Test Renderer on a fresh checkout. (This job only needs
+        # the Node target, but build.sh emits all three, matching core.)
+        working-directory: packages/html
+        run: ./build.sh
       - name: Build Renderer
         working-directory: packages/renderer
         run: npm run build
