@@ -4,7 +4,7 @@ sidebarTitle: Self-Hosting
 description: Run the Forme render engine as a self-hosted Docker container. Same API, no external dependencies, no database, no Chromium.
 ---
 
-A single Docker container that exposes the Forme render engine as an HTTP API. Same endpoints as the [hosted API](/api-reference/render), runs anywhere Docker runs. No Chromium, no LibreOffice, no database, no native dependencies.
+A single Docker container that exposes the Forme render engine as an HTTP API. Same endpoints as the [API reference](/api-reference/render), runs anywhere Docker runs. No Chromium, no LibreOffice, no database, no native dependencies.
 
 ```bash
 docker run --rm -p 3000:3000 formepdf/forme:latest
@@ -55,7 +55,7 @@ curl http://localhost:3000/health
 
 ## API Endpoints
 
-The self-hosted API matches the hosted API, so switching between them is a base URL change — not a code change. All existing SDKs work against self-hosted without modification.
+All SDKs work against the self-hosted server — their HTTP clients take a base URL.
 
 | Endpoint | Description |
 |----------|-------------|
@@ -235,7 +235,7 @@ done
 # Deploy the .json files to your container volume
 ```
 
-The hosted API handles this compilation step for you — that's one of the conveniences of the paid tiers.
+
 
 ---
 
@@ -361,23 +361,9 @@ containers:
 
 ---
 
-## What Self-Hosted Does Not Include
+## Scope
 
-These features are available on the [hosted API](https://api.formepdf.com) only:
-
-- **Template compilation** — upload `.tsx` files directly, Forme compiles them server-side
-- **Dashboard** — template editor, usage graphs, logs, billing
-- **AI template generation** — Claude-powered template creation
-- **Team management** — org-level API keys, seat management
-- **Usage analytics** — per-render logging and analytics
-- **Async rendering** — job queuing, webhooks, S3 upload
-- **Documents archive** — auto-save renders, metadata, download URLs
-- **Certificate storage** — save certificates, reference by `certificateId`
-- **Redaction templates** — saved pattern sets, reference by slug
-- **Resource listing** — `GET /v1/templates`, `/v1/documents`, etc.
-- **Priority support** — SLA-backed response times
-
-Self-hosters who need these features can upgrade to the hosted service at any time — it's a base URL change.
+The container is a pure render server: PDF in/out over HTTP, stateless, nothing persisted. Template *management* (editing, versioning, storage) lives in your codebase and deploy pipeline — compile `.tsx` to JSON in CI and mount the output, the same way you ship any built artifact. There is no queue, no webhook system, and no built-in document store; if you need those, compose them from your own infrastructure around the container.
 
 ---
 

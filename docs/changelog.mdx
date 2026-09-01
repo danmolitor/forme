@@ -1,0 +1,16 @@
+---
+title: Changelog
+sidebarTitle: Changelog
+description: Release history for the Forme engine and every @formepdf package.
+---
+
+Full release notes live on **[GitHub Releases](https://github.com/formepdf/forme/releases)** — one entry per version, covering the engine, every npm package, the Python and Go SDKs, and the VS Code extension. Per-package detail is in each package's `CHANGELOG.md` in the repo.
+
+## Recent highlights
+
+- **0.16.0** — PDF/A-2 conformance (levels 2b, 2u, 2a), veraPDF-verified in CI, composing with PDF/UA-1. Includes a correction: `pdfa` output from earlier versions was not valid PDF/A — [re-render guidance here](/archival).
+- **0.15.0** — Vue 3 adapter, `@formepdf/fonts-standard`, PDF/UA-1 verification as a veraPDF CI gate, and browser/Workers builds of the HTML engine.
+- **0.14.0** — the HTML input path: `@formepdf/html`, print CSS with `@page`, margin boxes, and page counters. [Docs](/html).
+- **0.13.0** — bookmark outline fixes; the VS Code extension joined the shared version line.
+
+All packages share one version number — `@formepdf/react@0.16.0` and `forme-pdf@0.16.0` (crates.io) are the same engine.

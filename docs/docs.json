@@ -97,8 +97,7 @@
       {
         "group": "Changelog",
         "pages": [
-          "changelog/0-9-0",
-          "changelog/0-8-3"
+          "changelog"
         ]
       }
     ]
@@ -111,6 +110,14 @@
     {
       "source": "/digital-signatures",
       "destination": "/concepts/digital-certification"
+    },
+    {
+      "source": "/changelog/0-9-0",
+      "destination": "/changelog"
+    },
+    {
+      "source": "/changelog/0-8-3",
+      "destination": "/changelog"
     }
   ]
 }
