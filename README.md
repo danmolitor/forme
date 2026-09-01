@@ -22,6 +22,18 @@ Every PDF tool makes you choose: fight with CSS page breaks or use an editor tha
 
 ## Quick Start
 
+### Bring your HTML
+
+Have HTML and print CSS already? Render it directly — no browser involved:
+
+```bash
+npx @formepdf/html invoice.html -o invoice.pdf
+```
+
+`@page` rules, margin boxes, `counter(page)`, and `break-before` all work; anything outside the [documented subset](https://docs.formepdf.com/html) warns by name instead of failing silently. Also usable as a library (`renderHtml()` from `@formepdf/html`) in Node, the browser, and Cloudflare Workers.
+
+### Or write components
+
 ```bash
 npm install @formepdf/cli @formepdf/react @formepdf/core
 ```
@@ -97,6 +109,34 @@ const pdf = await renderDocument(
 ```
 
 See the [Preact docs](https://docs.formepdf.com/preact) for setup notes and edge/Workers examples.
+
+### Or use Vue
+
+Same components, same props, authored as ordinary `.vue` single-file components — `v-for`, `v-if`, slots, and `{{ }}` interpolation all work:
+
+```bash
+npm install @formepdf/vue @formepdf/core
+```
+
+```vue
+<script setup lang="ts">
+import { Document, Page, View, Text } from '@formepdf/vue';
+</script>
+
+<template>
+  <Document>
+    <Page size="Letter" :margin="36">
+      <Text :style="{ fontSize: 24, fontWeight: 'bold' }">Invoice #2024-001</Text>
+      <View :style="{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 24 }">
+        <Text>Widget Pro</Text>
+        <Text>$49.00</Text>
+      </View>
+    </Page>
+  </Document>
+</template>
+```
+
+See the [Vue docs](https://docs.formepdf.com/vue) for the compiler option one-liner and Nitro/Nuxt endpoint patterns.
 
 ## Dev Server
 
