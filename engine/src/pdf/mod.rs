@@ -106,6 +106,11 @@ struct PdfBuilder {
     font_objects: Vec<(FontKey, usize)>,
     /// Embedding data for custom fonts, keyed by FontKey.
     custom_font_data: HashMap<FontKey, CustomFontEmbedData>,
+    /// Base-14 fonts that were embedded via the pdfUa metric-compatible
+    /// substitution (Liberation). They aren't in `custom_font_data` — the
+    /// caller registered no custom bytes for them — but they ARE embedded, so
+    /// the PDF/A "all fonts embedded" check must treat them as satisfied.
+    embedded_standard_fonts: std::collections::HashSet<FontKey>,
     /// XObject obj IDs for images, indexed as /Im0, /Im1, ...
     /// Each entry is (main_xobject_id, optional_smask_xobject_id).
     image_objects: Vec<usize>,
@@ -168,6 +173,7 @@ impl PdfWriter {
             objects: Vec::new(),
             font_objects: Vec::new(),
             custom_font_data: HashMap::new(),
+            embedded_standard_fonts: std::collections::HashSet::new(),
             image_objects: Vec::new(),
             image_index_map: HashMap::new(),
             page_background_image_map: HashMap::new(),
@@ -198,13 +204,21 @@ impl PdfWriter {
         // Register the fonts actually used across all pages
         self.register_fonts(&mut builder, pages, font_context, pdf_ua)?;
 
-        // PDF/A: validate that all fonts are embedded (no standard fonts)
+        // PDF/A: validate that all fonts are embedded. A font counts as
+        // embedded if the caller registered custom bytes for it OR it's a
+        // base-14 family embedded via the pdfUa Liberation substitution
+        // (`embedded_standard_fonts`) — so PDF/A composes with PDF/UA when
+        // @formepdf/fonts-standard is registered.
         if pdfa.is_some() {
             for (key, _) in &builder.font_objects {
-                if !builder.custom_font_data.contains_key(key) {
+                if !builder.custom_font_data.contains_key(key)
+                    && !builder.embedded_standard_fonts.contains(key)
+                {
                     return Err(FormeError::RenderError(format!(
-                        "PDF/A requires all fonts to be embedded. Register a custom font for \
-                         family '{}' using Font.register().",
+                        "PDF/A requires all fonts to be embedded, but '{}' is not. Register a \
+                         metric-compatible font — install @formepdf/fonts-standard and register \
+                         its fonts (`for (const f of standardFonts()) Font.register(f)`), or supply \
+                         your own via Font.register().",
                         key.family
                     )));
                 }
@@ -2575,6 +2589,10 @@ impl PdfWriter {
             data: font_dict.into_bytes(),
         });
         builder.font_objects.push((key.clone(), obj_id));
+        // Record that this base-14 family is embedded (via substitution) so the
+        // PDF/A all-fonts-embedded check accepts it — this is what lets PDF/A
+        // and PDF/UA compose.
+        builder.embedded_standard_fonts.insert(key.clone());
         true
     }
 
