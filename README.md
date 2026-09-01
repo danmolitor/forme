@@ -1,5 +1,12 @@
 # forme
 
+[![npm](https://img.shields.io/npm/v/%40formepdf%2Fcore?label=npm&color=10b981)](https://www.npmjs.com/package/@formepdf/core)
+[![crates.io](https://img.shields.io/crates/v/forme-pdf?color=10b981)](https://crates.io/crates/forme-pdf)
+[![CI](https://github.com/formepdf/forme/actions/workflows/ci.yml/badge.svg)](https://github.com/formepdf/forme/actions/workflows/ci.yml)
+[![downloads](https://img.shields.io/npm/dw/%40formepdf%2Fcore?color=10b981)](https://www.npmjs.com/package/@formepdf/core)
+[![PDF/UA-1 + PDF/A-2 verified](https://img.shields.io/badge/PDF%2FUA--1%20%2B%20PDF%2FA--2-veraPDF%20verified-10b981)](https://docs.formepdf.com/accessibility)
+[![license](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
+
 PDF generation with JSX. Page breaks that actually work.
 
 ![Forme dev server](./assets/dev-server.gif)
