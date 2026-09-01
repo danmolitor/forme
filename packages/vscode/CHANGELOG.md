@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.15.0] - Unreleased
+
+### Added
+
+- **Live preview for Svelte, Vue, and Preact templates**, at full parity with the React loop — component tree, inspector, and layout overlays, all driven by the same `LayoutInfo`. A `.svelte`/`.vue` file importing `@formepdf/svelte`/`@formepdf/vue`, or a `.tsx` importing `@formepdf/preact`, is detected by its import signature and previewed automatically. The compiler and framework runtime resolve from the user's workspace, so preview versions match their project and the extension bundle stays lean (no framework compiler is bundled). Activation extends to `onLanguage:svelte`/`onLanguage:vue`.
+
+### Fixed
+
+- Preact previews now render (previously detected but failed at render). A `.tsx` importing `@formepdf/preact` was recognized as a Forme file but errored on preview, because the render path assumed React elements.
+
 ## [0.14.0] - 2026-08-28
 
 ### Added

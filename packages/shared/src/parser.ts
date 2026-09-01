@@ -47,7 +47,7 @@ import {
   mergeFonts,
   parseColor,
   STRONG_DEFAULTS,
-} from '@formepdf/shared';
+} from './index.js';
 import type {
   BarcodeFormat,
   CanvasOp,
@@ -64,7 +64,7 @@ import type {
   FormePageSize,
   Style,
   TextRun,
-} from '@formepdf/shared';
+} from './index.js';
 import { reviveBytesMarker } from './encode.js';
 
 /** The slice of a chart placeholder's props the parser handles itself:

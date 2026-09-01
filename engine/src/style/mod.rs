@@ -145,6 +145,8 @@ pub struct Style {
     pub border_width: Option<EdgeValues<f64>>,
     /// Border color for all sides.
     pub border_color: Option<EdgeValues<Color>>,
+    /// Border line style per side (solid / dashed / dotted).
+    pub border_style: Option<EdgeValues<BorderStyle>>,
     /// Border radius (uniform or per-corner).
     pub border_radius: Option<CornerValues>,
 
@@ -355,11 +357,16 @@ pub enum TextTransform {
 #[serde(rename_all = "lowercase")]
 pub enum VerticalAlign {
     /// Content starts at the top of the cell (the engine's historical
-    /// behavior; CSS's `baseline` default maps here).
+    /// behavior).
     #[default]
     Top,
     Middle,
     Bottom,
+    /// First text baselines align across the row's baseline-aligned cells.
+    /// In this engine the baseline sits `font_size` below the line-box top
+    /// (there is no font-ascent metric), so alignment is exact within the
+    /// engine's own baseline model.
+    Baseline,
 }
 
 /// Overflow behavior for container elements.
@@ -538,6 +545,19 @@ impl Default for Color {
     }
 }
 
+/// Border line style. Solid is the default; dashed/dotted are stroked with a
+/// PDF dash pattern (see the serializer). Metrics calibrated against Chrome:
+/// dashed = dash 2×width / gap 1×width; dotted = round dots, diameter 1×width,
+/// spaced 2×width centre-to-centre.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum BorderStyle {
+    #[default]
+    Solid,
+    Dashed,
+    Dotted,
+}
+
 /// Values for each edge (top, right, bottom, left).
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct EdgeValues<T: Copy> {
@@ -641,12 +661,18 @@ pub struct ResolvedStyle {
     pub overflow: Overflow,
     pub border_width: Edges,
     pub border_color: EdgeValues<Color>,
+    pub border_style: EdgeValues<BorderStyle>,
     pub border_radius: CornerValues,
     pub box_shadow: Option<BoxShadow>,
     pub background: Option<Background>,
 
     // Positioning
     pub position: Position,
+    /// True iff `position` was *explicitly* set (relative or absolute) rather
+    /// than defaulted. `position` itself defaults to `Relative`, so this is the
+    /// only reliable signal that an element establishes a containing block for
+    /// its absolute descendants.
+    pub positioned: bool,
     pub top: Option<f64>,
     pub right: Option<f64>,
     pub bottom: Option<f64>,
@@ -813,9 +839,13 @@ impl Style {
             border_color: self
                 .border_color
                 .unwrap_or(EdgeValues::uniform(Color::BLACK)),
+            border_style: self
+                .border_style
+                .unwrap_or(EdgeValues::uniform(BorderStyle::Solid)),
             border_radius: self.border_radius.unwrap_or(CornerValues::uniform(0.0)),
 
             position: self.position.unwrap_or_default(),
+            positioned: self.position.is_some(),
             top: self.top,
             right: self.right,
             bottom: self.bottom,

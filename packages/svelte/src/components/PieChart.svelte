@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { PieChartProps } from '@formepdf/shared';
-  import { encodeProps } from '../encode.js';
+  import { encodeProps } from '@formepdf/shared';
 
   let rest: PieChartProps = $props();
 </script>

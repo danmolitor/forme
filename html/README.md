@@ -46,7 +46,7 @@ the bar is "what does an invoice, report, statement, or contract need."
 | `ul`, `ol` (+ `start`), `li` | |
 | `img` (block-level) — data URIs and local files only | external `http(s)` image fetching |
 | | inline `<img>` mid-paragraph — the engine's text model has no inline-replaced box (spike verdict); engine design, not a gap |
-| `style` blocks (anywhere in the document) | `<link rel="stylesheet">` — never fetched; warns with the href and the remedy (`--css` / `options.css`) |
+| `style` blocks (anywhere in the document); the `forme-html` CLI additionally resolves **local** `<link rel="stylesheet">` relative to the input file and inlines it at its source position | `<link rel="stylesheet">` in the library (WASM/API) — never fetched; warns with the href and the remedy (`--css` / `options.css`). Absolute `http(s)` links are never fetched even by the CLI. |
 
 ### Selectors
 
@@ -55,9 +55,9 @@ the bar is "what does an invoice, report, statement, or contract need."
 | type (`td`), class (`.total`), id (`#header`), universal (`*`) | pseudo-elements (`::before`, `::after`) |
 | compounds (`td.amount`, `p.note.small`) | attribute selectors (`[type=text]`) |
 | descendant (`table td`) and child (`ul > li`) combinators | sibling combinators (`+`, `~`) |
-| grouping (`h1, h2`) | `:nth-last-child` and remaining tree pseudo-classes (pending) |
+| grouping (`h1, h2`) | `:only-child`, `:only-of-type` and remaining tree pseudo-classes (pending) |
 | `:first-child`, `:last-child`, `:nth-child(even\|odd\|an+b)` — the zebra-stripe family | `:hover` and interaction pseudo-classes — permanent: print has no hover |
-| `:first-of-type`, `:last-of-type`, `:nth-of-type(even\|odd\|an+b)` | |
+| `:first-of-type`, `:last-of-type`, `:nth-of-type(even\|odd\|an+b)`, `:nth-last-child(even\|odd\|an+b)`, `:nth-last-of-type(even\|odd\|an+b)` (count from the end) | |
 | `!important` | |
 
 Cascade order: UA defaults → stylesheet rules by (specificity, source
@@ -72,30 +72,33 @@ noted in the warnings).
 
 | In | Out |
 |---|---|
-| `margin`, `padding` (+ longhands, 1–4 value shorthands), CSS margin collapsing | floats — real layout work for an old-template audience; demand decides |
-| `border`, `border-top/right/bottom/left`, `border-width`, `border-color`, `border-radius` | `position: fixed/sticky`, transforms, animation |
+| `margin`, `padding` (+ longhands, 1–4 value shorthands), CSS margin collapsing | `float` / `clear` — text-wrap-around-a-float needs per-line available width the single-width line breaker has no representation for; warned by name with a remedy (flex / `position: absolute`) rather than silently dropped |
+| `border`, `border-top/right/bottom/left`, `border-width`, `border-color`, `border-radius`, `border-style` (`solid`/`dashed`/`dotted`, per side). Dash metrics match Chrome: dashed = dash 2×width / gap 1×width; dotted = round dots, diameter 1×width, 2×width centre spacing. `double`/`groove`/`ridge`/`inset`/`outset` fall back to solid. Under a dashed/dotted border, `border-radius` is dropped (per-side straight strokes), as Chrome does for dashed corners. | `position: fixed/sticky`, transforms, animation |
 | `border-collapse` on tables (single-owner-per-edge emulation; `tr` borders redistribute to cells; CSS's widest-border-wins conflict rule is approximated — the earlier edge wins; `border-radius` is ignored under collapse, per spec and Chrome) | |
-| `break-inside: avoid` on `<tr>` — honored: rows are atomic by engine design (a row taller than a full page still paginates) | `break-inside` on `<thead>`/`<tbody>` — pending; use it on the table |
+| `break-inside: avoid` on `<tr>` — honored: rows are atomic by engine design. A row taller than the page content area is **not** sliced across pages; it is placed whole and overflows (atomicity is the guarantee, not fragmentation). | `break-inside` on `<thead>`/`<tbody>` — pending; use it on the table. Slicing an over-tall row across pages is out of scope. |
 | `width`, `height` (`px`, `pt`, `em`, `rem`, `%`, `in`, `cm`, `mm`) | CSS Grid — flex covers document layouts |
 | `max-width`, `min-width`, `min-height` on block-level boxes — the centered column (`max-width` + `margin: 0 auto`) works | `max-height` — pending: down-clamping is clipping semantics; flex-item min/max — pending |
-| | `dashed`/`dotted` border styles — pending: the PDF stroke path has no dash patterns yet (style keywords parse and are ignored) |
 | `font-family` (fallback chains; generics `sans-serif`/`serif`/`monospace` map to Helvetica/Times/Courier), `font-size`, `font-weight`, `font-style`, `line-height` | CSS variables |
 | provided fonts: `options.fonts` / `--font Family=path.ttf` | `@font-face` fetching — remote srcs are never fetched (loud, family-naming warnings); local srcs pending (use `--font`); `@import` never fetched |
 | `color`, `background-color`, `background` (solid colors) | gradients, background images — engine paint work, not a mapping gap |
 | `text-align` (incl. `justify` — Knuth-Plass + real inter-word distribution), `text-decoration`, `text-transform` (Unicode-aware), `letter-spacing` | percentage margins/padding (warned, treated as 0) |
 | `&nbsp;` and friends: entities decode and U+00A0 survives whitespace collapsing (non-breaking, non-collapsing) | |
-| `vertical-align: top/middle/bottom` on table cells + the legacy `valign` attribute — CSS's `baseline` default maps to top (documented divergence; baseline-across-cells is typography work) | |
+| `vertical-align: top/middle/bottom/baseline` on table cells + the legacy `valign` attribute. `baseline` aligns cells' first text baselines across a row (the shorter-font cells shove down; the row grows to fit, never clips). This engine's baseline sits exactly `font_size` below the line-box top — there is no font-ascent metric — so baseline alignment is **exact within the engine's own baseline model**; it diverges from Chrome only to the degree a font's ascent differs from its em-size | |
 | `display: block / flex / none`, `flex-direction`, `justify-content`, `align-items`, `gap` | |
-| `position: absolute` + `top/right/bottom/left` — containing block is the element's PARENT (not the nearest positioned ancestor); offsets without `position: absolute` warn | |
+| `position: relative` + `top/right/bottom/left` — the element keeps its normal-flow space; the painted box is offset by the resolved values (`left`/`top` positive, `right`/`bottom` negative), siblings do not move | percentage offsets (warned, treated as 0); relative on inline runs |
+| `position: absolute` + `top/right/bottom/left` — containing block is the **nearest positioned ancestor** (an element with `position: relative`/`absolute`), or the page content box when none exists — matching browser semantics; offsets without `position: relative`/`absolute` warn | `position: fixed`/`sticky`, `z-index` stacking order |
 
 ### Paged media — the point of the whole thing
 
 | In | Pending (warned) |
 |---|---|
-| `@page` `size` (named, dimensions, `landscape`) and `margin` | `@page :first` / `:left` / `:right` variants |
-| `break-before` / `break-after` / `break-inside: avoid` | margin boxes (`@top-center`, ...) for running headers/footers |
-| legacy `page-break-*` aliases (the wkhtmltopdf-era spelling) | page counters (`counter(page)` / `counter(pages)`) |
-| `orphans` / `widows` | `@page` `bleed` / `marks` |
+| `@page` `size` (named, dimensions, `landscape`) and `margin` | `:left` / `:right` page variants |
+| `@page :first` — its own margins/margin boxes for the title page | `@page` `bleed` / `marks` |
+| margin boxes (`@top-center`, ...) for running headers/footers | |
+| page counters (`counter(page)` / `counter(pages)`) in margin boxes | |
+| `break-before` / `break-after` / `break-inside: avoid` | |
+| legacy `page-break-*` aliases (the wkhtmltopdf-era spelling) | |
+| `orphans` / `widows` | |
 | `<thead>` repetition across breaks, table-cell overflow preservation (engine-native) | |
 
 **`@media` media-type evaluation**: this is a paged PDF renderer, so
@@ -103,10 +106,15 @@ noted in the warnings).
 print`, comma lists with a match) join the cascade with normal
 specificity; `@media screen` is excluded silently, exactly like Chrome's
 print path. Templates styled for Puppeteer's print-default render
-correctly. Feature queries (`(min-width: ...)`, `not`, `and` chains) are
-conservatively excluded with a named warning — rules never apply under a
-condition that wasn't understood. Nested `@media` and `@page` inside
-`@media print` both work.
+correctly. **Feature queries** `min-width` / `max-width` / `width` and
+`orientation` are evaluated against the **page content box** (page size
+minus margins) — a paged renderer has no window, so the page is the only
+honest viewport; `orientation` derives from the page's own dimensions.
+`print and (min-width: 600px)` and `and`-chains of evaluable features
+evaluate fully. Anything still unmodeled (`prefers-color-scheme`, `not`,
+etc.) keeps the conservative exclude-with-named-warning — rules never
+apply under a condition that wasn't understood. Nested `@media` and
+`@page` inside `@media print` both work.
 
 Page-geometry precedence: an explicit `HtmlOptions`/CLI value overrides the
 document's `@page` rule, which overrides the defaults — the same way a

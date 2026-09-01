@@ -1,4 +1,4 @@
-import { Document, Page, View, Text, Image, Table, Row, Cell, Fixed } from '@formepdf/react';
+import { Document, Page, View, Text, Image, Table, Row, Cell, Fixed, H1, H2 } from '@formepdf/react';
 import type { InvoiceData } from '../types.js';
 
 const DEFAULT_ACCENT = '#2563eb';
@@ -41,7 +41,7 @@ export default function Invoice(data: InvoiceData) {
             <Text style={{ fontSize: 9, color: '#64748b' }}>{data.company.email}</Text>
           </View>
           <View style={{ alignItems: 'flex-end' }}>
-            <Text style={{ fontSize: 32, fontWeight: 700, color: accent }}>INVOICE</Text>
+            <H1 style={{ fontSize: 32, fontWeight: 700, color: accent, marginTop: 0, marginBottom: 0 }}>INVOICE</H1>
             <Text style={{ fontSize: 10, color: '#64748b', marginTop: 8 }}>Invoice No: {data.invoiceNumber}</Text>
             <Text style={{ fontSize: 10, color: '#64748b', marginTop: 2 }}>Date: {data.date}</Text>
             <Text style={{ fontSize: 10, color: '#64748b', marginTop: 2 }}>Due: {data.dueDate}</Text>
@@ -51,7 +51,7 @@ export default function Invoice(data: InvoiceData) {
         {/* Bill To / Ship To */}
         <View style={{ flexDirection: 'row', gap: 32, marginBottom: 24 }}>
           <View style={{ flexGrow: 1 }}>
-            <Text style={{ fontSize: 9, fontWeight: 700, color: accent, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Bill To</Text>
+            <H2 style={{ fontSize: 9, fontWeight: 700, color: accent, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, marginTop: 0 }}>Bill To</H2>
             <Text style={{ fontSize: 10, fontWeight: 700, color: '#1e293b' }}>{data.billTo.name}</Text>
             <Text style={{ fontSize: 9, color: '#64748b', marginTop: 2 }}>{data.billTo.company}</Text>
             <Text style={{ fontSize: 9, color: '#64748b', marginTop: 2 }}>{data.billTo.address}</Text>
@@ -59,7 +59,7 @@ export default function Invoice(data: InvoiceData) {
             <Text style={{ fontSize: 9, color: '#64748b', marginTop: 2 }}>{data.billTo.email}</Text>
           </View>
           <View style={{ flexGrow: 1 }}>
-            <Text style={{ fontSize: 9, fontWeight: 700, color: accent, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Ship To</Text>
+            <H2 style={{ fontSize: 9, fontWeight: 700, color: accent, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, marginTop: 0 }}>Ship To</H2>
             <Text style={{ fontSize: 10, fontWeight: 700, color: '#1e293b' }}>{data.shipTo.name}</Text>
             <Text style={{ fontSize: 9, color: '#64748b', marginTop: 2 }}>{data.shipTo.address}</Text>
             <Text style={{ fontSize: 9, color: '#64748b', marginTop: 2 }}>{data.shipTo.cityStateZip}</Text>
@@ -126,14 +126,14 @@ export default function Invoice(data: InvoiceData) {
 
         {/* Payment Terms */}
         <View style={{ marginTop: 32, padding: 16, backgroundColor: '#f8fafc', borderRadius: 4 }}>
-          <Text style={{ fontSize: 9, fontWeight: 700, color: '#1e293b', marginBottom: 8 }}>Payment Terms</Text>
+          <H2 style={{ fontSize: 9, fontWeight: 700, color: '#1e293b', marginBottom: 8, marginTop: 0 }}>Payment Terms</H2>
           <Text style={{ fontSize: 9, color: '#64748b' }}>{data.paymentTerms}</Text>
         </View>
 
         {/* Notes */}
         {data.notes && (
           <View style={{ marginTop: 16 }}>
-            <Text style={{ fontSize: 9, fontWeight: 700, color: '#1e293b', marginBottom: 4 }}>Notes</Text>
+            <H2 style={{ fontSize: 9, fontWeight: 700, color: '#1e293b', marginBottom: 4, marginTop: 0 }}>Notes</H2>
             <Text style={{ fontSize: 9, color: '#64748b' }}>{data.notes}</Text>
           </View>
         )}

@@ -143,12 +143,47 @@ Install [Forme PDF Preview](https://marketplace.visualstudio.com/items?itemName=
 - **Browser rendering**: Import `@formepdf/core/browser` to generate PDFs entirely client-side. Same engine, same templates — no server required.
 - **Tailwind CSS**: `tw("p-4 text-lg font-bold bg-blue-500")` converts Tailwind classes to Forme style objects. Full color palette, grid, arbitrary values, negative values, fractions.
 - **Fillable forms**: AcroForm components — `<TextField>`, `<Checkbox>`, `<Dropdown>`, `<RadioButton>`. Fill and flatten for non-editable delivery.
-- **PDF/UA accessibility**: `<Document pdfUa>` generates PDF/UA-1 compliant documents with structure tree, tab order, role map, and artifact tagging.
+- **PDF/UA accessibility**: `<Document pdfUa>` generates PDF/UA-1 conforming documents — structure tree with tagged headings, lists (`/LBody`), tables (`/TH` scope, `/ColSpan`), links (`/Link` + `OBJR`), figure `/Alt`, tab order, and artifact tagging. See [Compliance](#compliance).
 - **PDF/A archival**: `<Document pdfa="2b">` for long-term preservation. Supports PDF/A-2b and PDF/A-2a.
 - **Digital certification**: PKCS#7 certification with X.509 certificates via the `certification` prop or `/v1/certify` API endpoint.
 - **PDF redaction**: True content removal with metadata scrubbing. Text-search, regex, presets, and saved templates.
 - **PDF merging**: Combine 2-20 PDFs into one via `/v1/merge`.
 - **PDF rasterization**: Convert pages to PNG images via `/v1/rasterize`, powered by PDFium.
+
+## Compliance
+
+**PDF/UA-1 (accessibility) — verified.** A nine-document corpus — the five
+shipped [`@formepdf/templates`](#templates) (invoice, receipt, report,
+shipping-label, letter) and four HTML fixtures (letterhead, dashed-borders,
+statement, zebra-invoice) — passes [veraPDF](https://verapdf.org) 1.30.2 against
+the PDF/UA-1 profile: **9/9**. The check runs in CI on every push
+(`scripts/verify-pdfua.mjs`), so the claim can't silently rot.
+
+- **Tagging is on by default.** Every render emits a structure tree; pass
+  `tagged={false}` to opt out. Tagging is layout-neutral — the tag tree is built
+  after layout, so geometry and visual output are byte-for-byte identical.
+- **PDF/UA needs three things from you.** Set `pdfUa`, give the document a
+  `lang`, and register a metric-compatible font so the base-14 families embed —
+  install [`@formepdf/fonts-standard`](./packages/fonts-standard) and pass
+  `standardFonts()` to `fonts`. It's a separate, optional package: core carries
+  no font payload, so users who don't need conformance don't pay for it.
+- **Nothing fails silently.** If `pdfUa` is set but no embeddable font is
+  registered, the render still succeeds and names the gap in `warnings` (surfaced
+  through `renderPdfWithLayout` and the HTML wrapper) rather than emitting a PDF
+  that falsely claims conformance.
+
+```tsx
+import { standardFonts } from '@formepdf/fonts-standard';
+
+<Document pdfUa lang="en-US" fonts={standardFonts()}>
+  {/* … */}
+</Document>
+```
+
+**PDF/A (archival).** `<Document pdfa="2b">` and `pdfa="2a"` are supported; the
+font path inherits the same metric-compatible embedding with a per-glyph width
+carve-out for the handful of glyphs where Liberation's advances diverge from the
+base-14 AFM metrics. See [Archival](https://docs.formepdf.com/archival).
 
 ## Browser Usage
 

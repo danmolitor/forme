@@ -1,0 +1,45 @@
+{
+  "name": "@formepdf/fonts-standard",
+  "version": "0.15.0",
+  "description": "Embeddable, metric-compatible replacements for the standard 14 PDF fonts (Liberation Sans/Serif/Mono, OFL) — for PDF/UA and PDF/A output",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "node scripts/generate-font-data.mjs && tsc",
+    "test": "node scripts/generate-font-data.mjs && vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  },
+  "files": [
+    "dist",
+    "OFL.txt",
+    "AUTHORS"
+  ],
+  "keywords": [
+    "pdf",
+    "font",
+    "liberation",
+    "pdf-ua",
+    "pdf-a",
+    "accessibility",
+    "embed",
+    "forme"
+  ],
+  "license": "OFL-1.1",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/formepdf/forme",
+    "directory": "packages/fonts-standard"
+  }
+}

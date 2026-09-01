@@ -78,6 +78,16 @@ pub struct HtmlOptions {
     pub css: Option<String>,
     /// Fonts registered with the engine (TTF bytes keyed by family name).
     pub fonts: Vec<FontSpec>,
+    /// Emit a tagged PDF (structure tree). Implied by `pdf_ua`.
+    pub tagged: bool,
+    /// Emit a PDF/UA-1 conforming file: tags, metadata, embedded fonts. Requires
+    /// a metric-compatible font (register `@formepdf/fonts-standard` via `fonts`),
+    /// a document language (`lang`), and alt text on informational images.
+    pub pdf_ua: bool,
+    /// Document language for PDF/UA (`/Lang`). If `pdf_ua` is set and this is
+    /// `None`, the `<html lang>` attribute is used, else it defaults to "en"
+    /// with a warning.
+    pub lang: Option<String>,
 }
 
 /// Rendered output: PDF bytes plus any warnings about unsupported CSS.
@@ -161,12 +171,39 @@ pub fn html_to_document(html: &str, options: &HtmlOptions) -> (forme::Document, 
         ));
     }
 
-    let mut stylesheet = sheet::Stylesheet::default();
+    // Pass 1 (probe): resolve @page geometry so `@media` feature queries have a
+    // viewport to evaluate against. Warnings from this pass are discarded — the
+    // real pass below re-emits them.
+    let mut probe_warn = Vec::new();
+    let mut probe = sheet::Stylesheet::default();
     for text in &style_texts {
-        stylesheet.append(sheet::parse_stylesheet(text, &mut warnings));
+        probe.append(sheet::parse_stylesheet(text, &mut probe_warn));
     }
     if let Some(css) = &options.css {
-        stylesheet.append(sheet::parse_stylesheet(css, &mut warnings));
+        probe.append(sheet::parse_stylesheet(css, &mut probe_warn));
+    }
+    let probe_config = page_config(options, probe.page.as_ref(), &mut probe_warn);
+    let (pw, ph) = probe_config.size.dimensions();
+    let viewport = sheet::Viewport {
+        width: pw - probe_config.margin.left - probe_config.margin.right,
+        height: ph - probe_config.margin.top - probe_config.margin.bottom,
+    };
+
+    // Pass 2 (real): parse with the viewport bound so feature queries evaluate.
+    let mut stylesheet = sheet::Stylesheet::default();
+    for text in &style_texts {
+        stylesheet.append(sheet::parse_stylesheet_with_viewport(
+            text,
+            viewport,
+            &mut warnings,
+        ));
+    }
+    if let Some(css) = &options.css {
+        stylesheet.append(sheet::parse_stylesheet_with_viewport(
+            css,
+            viewport,
+            &mut warnings,
+        ));
     }
 
     let mut config = page_config(options, stylesheet.page.as_ref(), &mut warnings);
@@ -304,13 +341,49 @@ pub fn html_to_document(html: &str, options: &HtmlOptions) -> (forme::Document, 
             }
         }
     }
+
+    // Tagging / PDF-UA: the mapper already emits Heading/Table/List/Lbl/Figure
+    // nodes, so the engine's tag builder produces the structure tree; here we
+    // just flip the flags and settle the PDF/UA prerequisites.
+    doc.tagged = options.tagged || options.pdf_ua;
+    doc.pdf_ua = options.pdf_ua;
+    if options.pdf_ua {
+        if doc.metadata.lang.is_none() {
+            doc.metadata.lang = Some(options.lang.clone().unwrap_or_else(|| {
+                warnings.push(
+                    "pdf_ua: no document language set — defaulting /Lang to \"en\". Set options.lang or an <html lang> attribute."
+                        .to_string(),
+                );
+                "en".to_string()
+            }));
+        }
+        // Informational images must carry alt text; decorative ones should be
+        // marked decorative (not yet expressible in HTML input — see README).
+        fn warn_missing_alt(node: &forme::Node, warnings: &mut Vec<String>) {
+            if let forme::model::NodeKind::Image { src, .. } = &node.kind {
+                if node.alt.as_deref().unwrap_or("").is_empty() {
+                    warnings.push(format!(
+                        "pdf_ua: image without alt text: {src} — add an alt attribute (or mark it decorative)."
+                    ));
+                }
+            }
+            for child in &node.children {
+                warn_missing_alt(child, warnings);
+            }
+        }
+        for child in &doc.children {
+            warn_missing_alt(child, &mut warnings);
+        }
+    }
+
     (doc, warnings)
 }
 
 /// Render an HTML string to PDF bytes.
 pub fn render_html(html: &str, options: &HtmlOptions) -> Result<HtmlOutput, FormeError> {
-    let (doc, warnings) = html_to_document(html, options);
-    let pdf = forme::render(&doc)?;
+    let (doc, mut warnings) = html_to_document(html, options);
+    let (pdf, engine_warnings) = forme::render_with_warnings(&doc)?;
+    warnings.extend(engine_warnings);
     Ok(HtmlOutput { pdf, warnings })
 }
 
@@ -319,8 +392,9 @@ pub fn render_html_with_layout(
     html: &str,
     options: &HtmlOptions,
 ) -> Result<HtmlLayoutOutput, FormeError> {
-    let (doc, warnings) = html_to_document(html, options);
-    let (pdf, layout) = forme::render_with_layout(&doc)?;
+    let (doc, mut warnings) = html_to_document(html, options);
+    let (pdf, layout, engine_warnings) = forme::render_with_layout(&doc)?;
+    warnings.extend(engine_warnings);
     Ok(HtmlLayoutOutput {
         pdf,
         layout,

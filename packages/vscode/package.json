@@ -1,8 +1,8 @@
 {
   "name": "forme-pdf",
   "displayName": "Forme PDF Preview",
-  "description": "Live PDF preview for React/TSX templates. Component inspector, layout overlays, and hot reload.",
-  "version": "0.14.0",
+  "description": "Live PDF preview for React, Preact, Svelte, and Vue templates. Component inspector, layout overlays, and hot reload.",
+  "version": "0.15.0",
   "publisher": "formepdf",
   "license": "MIT",
   "repository": {
@@ -14,11 +14,13 @@
     "vscode": "^1.85.0"
   },
   "categories": ["Visualization", "Other"],
-  "keywords": ["pdf", "preview", "tsx", "jsx", "react", "forme", "document", "report", "invoice", "generate", "render", "template"],
+  "keywords": ["pdf", "preview", "tsx", "jsx", "react", "preact", "svelte", "vue", "forme", "document", "report", "invoice", "generate", "render", "template"],
   "activationEvents": [
     "onLanguage:typescriptreact",
     "onLanguage:javascriptreact",
     "onLanguage:python",
+    "onLanguage:svelte",
+    "onLanguage:vue",
     "onView:forme.componentTree",
     "onCommand:forme.openPreview",
     "onCommand:forme.openPreviewToSide"
@@ -93,7 +95,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@formepdf/renderer": "0.14.0",
+    "@formepdf/renderer": "0.15.0",
     "esbuild-wasm": "^0.24.0"
   },
   "devDependencies": {

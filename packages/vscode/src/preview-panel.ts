@@ -7,6 +7,10 @@ import {
   renderFromSource,
   renderHtmlFromFile,
   renderHtmlFromSource,
+  renderSvelteFromFile,
+  renderSvelteFromSource,
+  renderVueFromFile,
+  renderVueFromSource,
   type RenderResult,
 } from '@formepdf/renderer';
 import type { LayoutStore, SelectionEvent } from './layout-store.js';
@@ -302,7 +306,7 @@ export class FormePreviewPanel {
   private async sendDataState() {
     // Auto-detect companion data file
     const filePath = this.fileUri.fsPath;
-    const base = filePath.replace(/\.(tsx|jsx|ts|js|py)$/, '');
+    const base = filePath.replace(/\.(tsx|jsx|ts|js|py|svelte|vue)$/, '');
 
     const dataFiles = [
       `${base}.data.json`,
@@ -407,8 +411,10 @@ export class FormePreviewPanel {
       return;
     }
 
-    // Find companion data file
-    const base = filePath.replace(/\.(tsx|jsx|ts|js|py|html)$/, '');
+    // Find companion data file. For JSX the data is passed to a component
+    // function; for `.svelte`/`.vue` it becomes the template's props. Both
+    // share this resolution and the page-size override below.
+    const base = filePath.replace(/\.(tsx|jsx|ts|js|py|html|svelte|vue)$/, '');
     const dataCandidates = [
       `${base}.data.json`,
       `${base}-data.json`,
@@ -443,14 +449,27 @@ export class FormePreviewPanel {
         data: overrideData,
         pageSize: pageSize ?? undefined,
       };
+      const dir = dirname(filePath);
 
-      // Use editor buffer content when available, otherwise read from disk
-      const result = source
-        ? await renderFromSource(source, dirname(filePath), {
-            ...renderOpts,
-            sourcefile: filePath,
-          })
-        : await renderFromFile(filePath, renderOpts);
+      // Dispatch on input format. `.svelte`/`.vue` are SFC inputs (compiled
+      // then serialized); everything else is JSX — where the renderer detects
+      // react vs preact from the import signature. All branches converge on
+      // the same emitResult tail. Editor-buffer content renders from source
+      // when available, otherwise from disk.
+      let result: RenderResult;
+      if (filePath.endsWith('.svelte')) {
+        result = source
+          ? await renderSvelteFromSource(source, dir, renderOpts)
+          : await renderSvelteFromFile(filePath, renderOpts);
+      } else if (filePath.endsWith('.vue')) {
+        result = source
+          ? await renderVueFromSource(source, dir, renderOpts)
+          : await renderVueFromFile(filePath, renderOpts);
+      } else {
+        result = source
+          ? await renderFromSource(source, dir, { ...renderOpts, sourcefile: filePath })
+          : await renderFromFile(filePath, renderOpts);
+      }
 
       this.emitResult(result);
     } catch (err) {
@@ -615,7 +634,7 @@ export class FormePreviewPanel {
   private async downloadPdf() {
     if (!this.lastPdf) return;
 
-    const templateName = basename(this.fileUri.fsPath).replace(/\.(tsx|jsx|ts|js|py)$/, '');
+    const templateName = basename(this.fileUri.fsPath).replace(/\.(tsx|jsx|ts|js|py|svelte|vue)$/, '');
     const pdfName = `${templateName}.pdf`;
 
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];

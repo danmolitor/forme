@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { DotPlotProps } from '@formepdf/shared';
-  import { encodeProps } from '../encode.js';
+  import { encodeProps } from '@formepdf/shared';
 
   let rest: DotPlotProps = $props();
 </script>

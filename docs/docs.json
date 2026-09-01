@@ -24,11 +24,22 @@
     "groups": [
       {
         "group": "Getting Started",
-        "pages": ["quickstart", "svelte", "preact", "template-gallery", "vscode", "faq"]
+        "pages": ["quickstart", "html", "svelte", "vue", "preact", "template-gallery", "vscode", "faq"]
       },
       {
         "group": "Reference",
-        "pages": ["components", "styles", "tailwind", "fonts", "page-breaks", "charts", "layout", "templates", "embedded-data", "self-hosting"]
+        "pages": [
+          "components",
+          "styles",
+          "tailwind",
+          "fonts",
+          "page-breaks",
+          "charts",
+          "layout",
+          "templates",
+          "embedded-data",
+          "self-hosting"
+        ]
       },
       {
         "group": "API Reference",
@@ -52,11 +63,20 @@
       },
       {
         "group": "Enterprise",
-        "pages": ["forms", "accessibility", "archival"]
+        "pages": [
+          "forms",
+          "accessibility",
+          "archival"
+        ]
       },
       {
         "group": "SDKs",
-        "pages": ["typescript-sdk", "python-sdk", "go-sdk", "rust-sdk"]
+        "pages": [
+          "typescript-sdk",
+          "python-sdk",
+          "go-sdk",
+          "rust-sdk"
+        ]
       },
       {
         "group": "Guides",
@@ -64,17 +84,28 @@
           "guides/migrating-to-0-9",
           "guides/bring-your-own-ui",
           "migrating-from-react-pdf",
-          "replacing-puppeteer"
+          "replacing-puppeteer",
+          "guides/migrating-from-wkhtmltopdf",
+          "guides/migrating-from-dompdf"
         ]
       },
       {
         "group": "Changelog",
-        "pages": ["changelog/0-9-0", "changelog/0-8-3"]
+        "pages": [
+          "changelog/0-9-0",
+          "changelog/0-8-3"
+        ]
       }
     ]
   },
   "redirects": [
-    { "source": "/api-reference", "destination": "/api-reference/render" },
-    { "source": "/digital-signatures", "destination": "/concepts/digital-certification" }
+    {
+      "source": "/api-reference",
+      "destination": "/api-reference/render"
+    },
+    {
+      "source": "/digital-signatures",
+      "destination": "/concepts/digital-certification"
+    }
   ]
 }

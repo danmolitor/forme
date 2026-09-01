@@ -10,8 +10,8 @@
 
 use crate::css::{BreakInsideVal, BreakVal, CssDisplay, CssStyle, Length, LineHeight};
 use forme::style::{
-    AlignItems, Color, Dimension, FlexDirection, JustifyContent, TextAlign, TextDecoration,
-    TextTransform, VerticalAlign,
+    AlignItems, BorderStyle, Color, Dimension, FlexDirection, JustifyContent, TextAlign,
+    TextDecoration, TextTransform, VerticalAlign,
 };
 
 /// CSS default `medium` (16px) in points. Matches the engine's own root
@@ -40,6 +40,7 @@ pub struct Computed {
     pub padding: [f64; 4],
     pub border_width: [f64; 4],
     pub border_color: Option<Color>,
+    pub border_style: [BorderStyle; 4],
     pub border_radius: Option<f64>,
     pub width: Option<Dimension>,
     pub height: Option<Dimension>,
@@ -69,7 +70,9 @@ pub struct Computed {
     pub min_width: Option<Dimension>,
     pub min_height: Option<Dimension>,
     pub position_absolute: bool,
-    /// Offsets in points, meaningful only with `position_absolute`.
+    pub position_relative: bool,
+    /// Offsets in points, meaningful with `position_absolute` or
+    /// `position_relative`.
     pub offsets: [Option<f64>; 4],
     pub break_before: Option<BreakVal>,
     pub break_after: Option<BreakVal>,
@@ -119,6 +122,7 @@ pub fn resolve(css: &CssStyle, parent_font_size: f64, warnings: &mut Vec<String>
         Some(l) => to_pt(l, warnings, "padding"),
     });
     let border_width = [0, 1, 2, 3].map(|i| css.border_width[i].unwrap_or(0.0));
+    let border_style = [0, 1, 2, 3].map(|i| css.border_style[i].unwrap_or(BorderStyle::Solid));
 
     let dim = |l: Option<Length>| -> Option<Dimension> {
         match l? {
@@ -150,6 +154,7 @@ pub fn resolve(css: &CssStyle, parent_font_size: f64, warnings: &mut Vec<String>
         margin,
         padding,
         border_width,
+        border_style,
         border_color: css.border_color,
         border_radius: css.border_radius,
         width: dim(css.width),
@@ -176,19 +181,23 @@ pub fn resolve(css: &CssStyle, parent_font_size: f64, warnings: &mut Vec<String>
         min_width: dim(css.min_width),
         min_height: dim(css.min_height),
         position_absolute: css.position_absolute == Some(true),
+        position_relative: css.position_relative == Some(true),
         offsets: {
-            let abs = css.position_absolute == Some(true);
+            // Offsets are meaningful for both absolute and relative; on a
+            // static box they're inert (warned).
+            let positioned =
+                css.position_absolute == Some(true) || css.position_relative == Some(true);
             let mut out = [None; 4];
             for (i, l) in [css.top, css.right, css.bottom, css.left]
                 .into_iter()
                 .enumerate()
             {
                 if let Some(l) = l {
-                    if abs {
+                    if positioned {
                         out[i] = Some(to_pt(l, warnings, "offset"));
                     } else {
                         warnings.push(
-                            "top/right/bottom/left without position: absolute are unsupported"
+                            "top/right/bottom/left without position: relative/absolute are unsupported"
                                 .to_string(),
                         );
                         break;

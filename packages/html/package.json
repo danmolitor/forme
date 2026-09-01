@@ -1,6 +1,6 @@
 {
   "name": "@formepdf/html",
-  "version": "0.14.0",
+  "version": "0.15.0",
   "description": "HTML + print-CSS to PDF on the Forme engine — pagination, running headers, page counters. No headless browser.",
   "license": "MIT",
   "repository": {
@@ -9,21 +9,78 @@
     "directory": "packages/html"
   },
   "homepage": "https://formepdf.com",
-  "type": "commonjs",
+  "type": "module",
   "main": "./index.js",
   "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "worker": {
+        "types": "./worker.d.ts",
+        "import": "./worker.js"
+      },
+      "edge-light": {
+        "types": "./worker.d.ts",
+        "import": "./worker.js"
+      },
+      "deno": {
+        "types": "./worker.d.ts",
+        "import": "./worker.js"
+      },
+      "react-native": {
+        "types": "./browser.d.ts",
+        "import": "./browser.js"
+      },
+      "browser": {
+        "types": "./browser.d.ts",
+        "import": "./browser.js"
+      },
+      "types": "./index.d.ts",
+      "import": "./index.js",
+      "default": "./index.js"
+    },
+    "./browser": {
+      "types": "./browser.d.ts",
+      "import": "./browser.js"
+    },
+    "./worker": {
+      "types": "./worker.d.ts",
+      "import": "./worker.js"
+    },
+    "./pkg/forme_pdf_html.js": {
+      "types": "./pkg/forme_pdf_html.d.ts",
+      "import": "./pkg/forme_pdf_html.js"
+    },
+    "./pkg/forme_pdf_html_bg.wasm": "./pkg/forme_pdf_html_bg.wasm",
+    "./pkg-web/forme_pdf_html.js": {
+      "types": "./pkg-web/forme_pdf_html.d.ts",
+      "import": "./pkg-web/forme_pdf_html.js"
+    },
+    "./pkg-web/forme_pdf_html_bg.wasm": "./pkg-web/forme_pdf_html_bg.wasm"
+  },
   "bin": {
     "forme-html": "bin/forme-html.js"
   },
   "files": [
     "index.js",
     "index.d.ts",
+    "browser.js",
+    "browser.d.ts",
+    "worker.js",
+    "worker.d.ts",
+    "wire.js",
     "bin/",
+    "pkg/",
+    "pkg-web/",
     "pkg-node/"
   ],
   "scripts": {
     "build": "./build.sh",
-    "test": "node test/smoke.js"
+    "test": "node test/smoke.js && node test/links.js",
+    "test:workers": "vitest run --config vitest.config.workers.ts"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.12.21",
+    "vitest": "^3.0.0"
   },
   "keywords": [
     "pdf",

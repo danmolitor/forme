@@ -60,12 +60,94 @@ jobs:
         # targets and require identical bytes.
         run: |
           set -e
-          for f in letterhead report zebra-invoice; do
+          for f in letterhead report zebra-invoice dashed-borders; do
             ./html/target/release/forme-html "html/tests/fixtures/$f.html" -o "/tmp/$f-native.pdf" -q
             node packages/html/bin/forme-html.js "html/tests/fixtures/$f.html" -o "/tmp/$f-wasm.pdf" -q
             cmp "/tmp/$f-native.pdf" "/tmp/$f-wasm.pdf"
             echo "$f: byte-identical"
           done
+      - name: Install dependencies
+        # Needed for the worker (vitest-pool-workers) and browser (playwright)
+        # checks below; the parity loop above uses only the Node target.
+        run: npm install
+      - name: HTML Node tests
+        working-directory: packages/html
+        run: npm test
+      - name: Cross-target byte determinism (Node vs web target)
+        # Every published target must produce bytes identical to the Node
+        # target across the fixture corpus. The three targets embed the same
+        # wasm (asserted by hash here); this proves the JS glue matches too.
+        run: node packages/html/test/targets-determinism.mjs
+      - name: HTML worker entry under workerd
+        # Real Cloudflare WASM-as-ESM semantics via @cloudflare/vitest-pool-workers,
+        # exactly as the core worker entry is gated. Catches the bundler-target
+        # top-level-init crash the web entry is designed to avoid.
+        working-directory: packages/html
+        run: npm run test:workers
+      - name: Real-browser render (headless Chromium)
+        # Loads the web build in a real browser and renders a fixture — the
+        # headline "runs in the browser" claim, verified not declared.
+        run: |
+          npm i --no-save playwright
+          npx playwright install --with-deps chromium
+          node packages/html/test/browser-verify.mjs
+
+  coverage:
+    name: Coverage (Rust)
+    runs-on: ubuntu-latest
+    needs: engine
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Add llvm-tools to the pinned toolchain
+        # rust-toolchain.toml pins the toolchain, and cargo-llvm-cov needs
+        # the llvm-tools component on THAT toolchain — installing it on
+        # stable isn't enough. Same trap as the rustfmt component.
+        run: rustup component add llvm-tools-preview
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov
+      - name: Engine coverage
+        working-directory: engine
+        run: |
+          cargo llvm-cov --html
+          {
+            echo "### Engine coverage"
+            echo '```'
+            cargo llvm-cov report --summary-only
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: HTML crate coverage
+        working-directory: html
+        run: |
+          cargo llvm-cov --html
+          {
+            echo "### HTML crate coverage"
+            echo '```'
+            cargo llvm-cov report --summary-only
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      # Reports and summaries are generated above, gates run below — so a
+      # gate failure still leaves the numbers in the job summary and the
+      # HTML drill-down in the artifact, which is exactly when you need them.
+      - name: Upload HTML coverage reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-html
+          path: |
+            engine/target/llvm-cov/html
+            html/target/llvm-cov/html
+      - name: Engine coverage gate (75% lines)
+        # Local baseline 80.7% at the time the gate was set. The margin is
+        # for CI: Linux runners skip the macOS-system-font tests, which
+        # costs a few points. Ratchet upward as coverage grows — never set
+        # the gate above what CI actually reports.
+        working-directory: engine
+        run: cargo llvm-cov report --fail-under-lines 75
+      - name: HTML crate coverage gate (80% lines)
+        # Local baseline 84.9% at the time the gate was set.
+        working-directory: html
+        run: cargo llvm-cov report --fail-under-lines 80
 
   packages:
     name: TypeScript Packages
@@ -87,6 +169,12 @@ jobs:
       - name: Build React package
         working-directory: packages/react
         run: npm run build
+      - name: Build fonts-standard package
+        # A devDependency of core, imported by the pdfUa unit tests. No Forme
+        # deps, so it can build any time before "Test Core" — without this,
+        # vite can't resolve @formepdf/fonts-standard on a fresh checkout.
+        working-directory: packages/fonts-standard
+        run: npm run build
       - name: Build Core (WASM + TS)
         # Must build before Svelte's check step: svelte-check typechecks
         # render-document.ts and preview/index.ts, both of which import
@@ -101,6 +189,14 @@ jobs:
         # script that forgets to emit a required entry.
         working-directory: packages/core
         run: bash ./scripts/assert-tarball.sh
+      - name: Build HTML WASM package
+        # @formepdf/renderer's HTML input path (and its sfc tests) import
+        # @formepdf/html, whose ESM entry statically imports ./pkg-node/…;
+        # vite resolves that eagerly at transform time, so the WASM must exist
+        # before Build/Test Renderer on a fresh checkout. (This job only needs
+        # the Node target, but build.sh emits all three, matching core.)
+        working-directory: packages/html
+        run: ./build.sh
       - name: Build Renderer
         working-directory: packages/renderer
         run: npm run build
@@ -112,6 +208,11 @@ jobs:
         run: npm run check
       - name: Build Preact package
         working-directory: packages/preact
+        run: npm run build
+      - name: Build Vue package
+        # Needed by renderer's cross-framework SFC test (React===Preact===
+        # Svelte===Vue) — its dist must exist before Test Renderer resolves it.
+        working-directory: packages/vue
         run: npm run build
       - name: Build Templates
         working-directory: packages/templates
@@ -160,6 +261,10 @@ jobs:
         # Parity fixtures import from both @formepdf/preact (built above)
         # and @formepdf/react — both must be built before this runs.
         working-directory: packages/preact
+        run: npm test
+      - name: Test Vue
+        # Cross-framework equivalence gate (Vue === React serialized output).
+        working-directory: packages/vue
         run: npm test
       - name: Test Templates (regression)
         # Structural-regression coverage for the templates we ship on npm.
@@ -248,3 +353,55 @@ jobs:
           current: invoice-layout.json
           fail-on: error
           comment: true
+
+  pdfua-conformance:
+    name: PDF/UA-1 Conformance (veraPDF)
+    runs-on: ubuntu-latest
+    needs: engine
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '11'
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+      - name: Install dependencies
+        run: npm install
+      # The gate renders through two front doors, so both engine builds and
+      # the packages they sit behind must exist first.
+      - name: Build Shared package
+        working-directory: packages/shared
+        run: npm run build
+      - name: Build React package
+        working-directory: packages/react
+        run: npm run build
+      - name: Build fonts-standard
+        working-directory: packages/fonts-standard
+        run: npm run build
+      - name: Build Core (WASM + TS)
+        working-directory: packages/core
+        run: npm run build
+      - name: Build Templates
+        working-directory: packages/templates
+        run: npm run build
+      - name: Build HTML WASM package
+        working-directory: packages/html
+        run: ./build.sh
+      - name: Install veraPDF
+        # Install under $HOME (guaranteed writable; /opt is root-owned on the
+        # runner) and export the binary path for the next step.
+        run: |
+          VERAPDF_HOME="$HOME/verapdf" bash .github/scripts/install-verapdf.sh
+          echo "VERAPDF=$HOME/verapdf/verapdf" >> "$GITHUB_ENV"
+      - name: Validate the PDF/UA-1 corpus
+        # REQUIRE_VERAPDF turns a missing binary into a hard failure — the
+        # gate must validate, never silently skip. VERAPDF (exported above)
+        # points the script at the headless install.
+        env:
+          REQUIRE_VERAPDF: '1'
+        run: node scripts/verify-pdfua.mjs

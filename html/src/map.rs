@@ -544,15 +544,22 @@ impl Mapper {
             self.flatten_item(child, &base, computed.font_size, &mut flattener);
         }
         let runs = flattener.finish();
-        if runs.is_empty() {
-            // Empty paragraphs are dropped (their collapse-through
-            // behavior is documented as out of spike scope).
-            return None;
-        }
-
         let needs_box_wrapper = computed.background_color.is_some()
             || computed.border_width.iter().any(|w| *w > 0.0)
             || computed.padding.iter().any(|p| *p > 0.0);
+
+        if runs.is_empty() {
+            // An empty <p>/<h#> with no paint contributes nothing and is
+            // dropped (its margin collapse-through is out of scope). But when
+            // it carries a background, border, or padding, a browser still
+            // paints the box — dropping it would silently lose a styled
+            // element, which the render contract forbids. Emit the empty box.
+            if needs_box_wrapper {
+                let (box_style, _text_style) = split_box_and_text_style(&computed);
+                return Some(make_node(NodeKind::View, box_style, vec![]));
+            }
+            return None;
+        }
 
         if needs_box_wrapper {
             let (box_style, text_style) = split_box_and_text_style(&computed);
@@ -631,11 +638,15 @@ impl Mapper {
             Some(Dimension::Pt(v)) => Some(v),
             _ => attr_dim("height"),
         };
-        Some(make_node(
+        let mut node = make_node(
             NodeKind::Image { src, width, height },
             to_engine_style(computed),
             vec![],
-        ))
+        );
+        // <img alt> → Figure /Alt (PDF/UA 7.3-1). Absent alt stays None; a
+        // pdf_ua render warns about it (see html_to_document).
+        node.alt = el.attr("alt").map(|s| s.to_string());
+        Some(node)
     }
 
     fn map_table(&mut self, el: &Element, computed: &Computed) -> Option<Node> {
@@ -771,7 +782,7 @@ impl Mapper {
                                         Some(forme::style::VerticalAlign::Middle)
                                     }
                                     "bottom" => Some(forme::style::VerticalAlign::Bottom),
-                                    "baseline" => Some(forme::style::VerticalAlign::Top),
+                                    "baseline" => Some(forme::style::VerticalAlign::Baseline),
                                     _ => None,
                                 });
                         cell_computed.vertical_align = attr_valign;
@@ -983,6 +994,12 @@ fn to_engine_style(c: &Computed) -> Style {
             left: c.border_width[3],
         });
         s.border_color = Some(EdgeValues::uniform(c.border_color.unwrap_or(Color::BLACK)));
+        s.border_style = Some(EdgeValues {
+            top: c.border_style[0],
+            right: c.border_style[1],
+            bottom: c.border_style[2],
+            left: c.border_style[3],
+        });
     }
     if let Some(r) = c.border_radius {
         s.border_radius = Some(CornerValues::uniform(r));
@@ -1017,6 +1034,14 @@ fn to_engine_style(c: &Computed) -> Style {
 
     if c.position_absolute {
         s.position = Some(forme::model::Position::Absolute);
+        s.top = c.offsets[0];
+        s.right = c.offsets[1];
+        s.bottom = c.offsets[2];
+        s.left = c.offsets[3];
+    } else if c.position_relative {
+        // Relative stays in normal flow (space preserved); the engine paints
+        // it offset by these values.
+        s.position = Some(forme::model::Position::Relative);
         s.top = c.offsets[0];
         s.right = c.offsets[1];
         s.bottom = c.offsets[2];

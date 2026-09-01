@@ -1,0 +1,8 @@
+# Minimal wrangler config the @cloudflare/vitest-pool-workers harness binds to
+# when running tests inside workerd. We don't deploy this; the vitest pool just
+# uses it to spin up an in-process workerd that exercises the
+# @formepdf/html/worker entry the same way a real Cloudflare Worker would.
+name = "forme-html-worker-test"
+main = "index.ts"
+compatibility_date = "2025-09-01"
+compatibility_flags = ["nodejs_compat"]

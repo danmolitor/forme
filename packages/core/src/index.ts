@@ -297,6 +297,12 @@ export interface LayoutInfo {
 export interface RenderWithLayoutResult {
   pdf: Uint8Array;
   layout: LayoutInfo;
+  /**
+   * Non-fatal warnings raised during rendering (e.g. `pdfUa: true` was
+   * requested but no embeddable font was registered, so a standard font
+   * was left unembedded). Empty when nothing went wrong.
+   */
+  warnings: string[];
 }
 
 // ── Font resolution ──────────────────────────────────────────────
@@ -358,8 +364,8 @@ export async function renderPdf(json: string): Promise<Uint8Array> {
 
 export async function renderPdfWithLayout(json: string): Promise<RenderWithLayoutResult> {
   const { render_pdf_with_layout } = await import('../pkg-node/forme.js');
-  const result = render_pdf_with_layout(json) as { pdf: Uint8Array; layout: LayoutInfo };
-  return result;
+  const result = render_pdf_with_layout(json) as { pdf: Uint8Array; layout: LayoutInfo; warnings?: string[] };
+  return { ...result, warnings: result.warnings ?? [] };
 }
 
 export interface CertificationConfig {
@@ -451,8 +457,8 @@ export async function renderTemplate(templateJson: string, dataJson: string): Pr
 
 export async function renderTemplateWithLayout(templateJson: string, dataJson: string): Promise<RenderWithLayoutResult> {
   const { render_template_pdf_with_layout } = await import('../pkg-node/forme.js');
-  const result = render_template_pdf_with_layout(templateJson, dataJson) as { pdf: Uint8Array; layout: LayoutInfo };
-  return result;
+  const result = render_template_pdf_with_layout(templateJson, dataJson) as { pdf: Uint8Array; layout: LayoutInfo; warnings?: string[] };
+  return { ...result, warnings: result.warnings ?? [] };
 }
 
 // ── PDF certification ────────────────────────────────────────────────

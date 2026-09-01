@@ -127,6 +127,7 @@ pub struct ElementStyleInfo {
     pub color: Color,
     pub background_color: Option<Color>,
     pub border_color: EdgeValues<Color>,
+    pub border_style: EdgeValues<crate::style::BorderStyle>,
     pub border_radius: CornerValues,
     pub opacity: f64,
     // Positioning
@@ -207,6 +208,7 @@ impl ElementStyleInfo {
             color: style.color,
             background_color: style.background_color,
             border_color: style.border_color,
+            border_style: style.border_style,
             border_radius: style.border_radius,
             opacity: style.opacity,
             position: style.position,
@@ -259,6 +261,7 @@ impl Default for ElementStyleInfo {
             color: Color::BLACK,
             background_color: None,
             border_color: EdgeValues::uniform(Color::BLACK),
+            border_style: EdgeValues::uniform(crate::style::BorderStyle::Solid),
             border_radius: CornerValues::uniform(0.0),
             opacity: 1.0,
             position: Position::default(),
@@ -444,6 +447,9 @@ pub struct LayoutElement {
     pub alt: Option<String>,
     /// Whether this is a table header row (for tagged PDF: TH vs TD).
     pub is_header_row: bool,
+    /// Number of columns this table cell spans (for tagged PDF: /ColSpan).
+    /// 1 for every non-cell element and for unspanned cells.
+    pub col_span: u32,
     /// Overflow behavior (Visible or Hidden). When Hidden, PDF clips children.
     pub overflow: Overflow,
     /// Opacity for the entire element including its children (0.0–1.0). The
@@ -533,6 +539,7 @@ fn bookmark_marker(node: &Node, x: f64, y: f64) -> Option<LayoutElement> {
         bookmark: Some(title.clone()),
         alt: None,
         is_header_row: false,
+        col_span: 1,
         overflow: Overflow::default(),
         opacity: 1.0,
     })
@@ -708,6 +715,7 @@ pub enum DrawCommand {
         background: Option<Color>,
         border_width: Edges,
         border_color: EdgeValues<Color>,
+        border_style: EdgeValues<crate::style::BorderStyle>,
         border_radius: CornerValues,
         opacity: f64,
         /// Optional drop shadow rendered before the background. Boxed
@@ -837,7 +845,6 @@ fn offset_element_y(el: &mut LayoutElement, dy: f64) {
 }
 
 /// Shift a layout element and all its nested content horizontally by `dx` points.
-#[allow(dead_code)]
 fn offset_element_x(el: &mut LayoutElement, dx: f64) {
     el.x += dx;
     if let DrawCommand::Text { ref mut lines, .. } = el.draw {
@@ -1002,6 +1009,11 @@ struct PageCursor {
     content_y: f64,
     /// Extra Y offset applied on continuation pages (e.g. parent view's padding+border)
     continuation_top_offset: f64,
+    /// The nearest positioned-ancestor content box `(x, y, width, height)` —
+    /// the containing block for `position: absolute` descendants. Defaults to
+    /// the page content box; updated when layout descends into a `relative`/
+    /// `absolute` element and restored on the way out.
+    containing_block: (f64, f64, f64, f64),
 }
 
 impl PageCursor {
@@ -1024,6 +1036,12 @@ impl PageCursor {
             content_x: config.margin.left,
             content_y: config.margin.top,
             continuation_top_offset: 0.0,
+            containing_block: (
+                config.margin.left,
+                config.margin.top,
+                content_width,
+                content_height,
+            ),
         }
     }
 
@@ -1225,10 +1243,24 @@ impl LayoutEngine {
             style.width = SizeConstraint::Fixed(w);
         }
 
-        if style.break_before {
+        // A forced break-before with no in-flow content yet on the page has
+        // nothing to break from, so it is suppressed — the same rule Chrome's
+        // print path applies. This covers both the document start and a
+        // consecutive forced break (which would otherwise emit a blank page).
+        // Migrated wkhtmltopdf-era templates set page-break-before on every
+        // section including the first; without this guard the document opens
+        // with a blank page. Keyed on committed in-flow boxes rather than
+        // `cursor.y` because the body's own margin (and any running header)
+        // advances `y` above zero before the first block is ever laid out —
+        // the content-bearing half of the swallowed-siblings guard above.
+        if style.break_before && !cursor.elements.is_empty() {
             pages.push(cursor.finalize());
             *cursor = cursor.new_page();
         }
+
+        // Remember where this node's elements begin so a `position: relative`
+        // offset can shift its paint after normal-flow layout (below).
+        let elem_start = cursor.elements.len();
 
         match &node.kind {
             NodeKind::PageBreak => {
@@ -1712,6 +1744,31 @@ impl LayoutEngine {
                 );
             }
         }
+
+        // position: relative — the element kept its normal-flow space (cursor.y
+        // was advanced as usual above); now paint it and its content offset by
+        // top/left/right/bottom. `left`/`top` shift positive, `right`/`bottom`
+        // negative; siblings are unaffected because flow already advanced.
+        // `position` defaults to Relative, so the presence of offsets is the
+        // real discriminator — the mapper only sets offsets on a positioned
+        // element, and Absolute is handled separately in `layout_children`.
+        if matches!(style.position, Position::Relative)
+            && (style.top.is_some()
+                || style.left.is_some()
+                || style.right.is_some()
+                || style.bottom.is_some())
+        {
+            let dx = style.left.unwrap_or(0.0) - style.right.unwrap_or(0.0);
+            let dy = style.top.unwrap_or(0.0) - style.bottom.unwrap_or(0.0);
+            for el in &mut cursor.elements[elem_start..] {
+                if dx != 0.0 {
+                    offset_element_x(el, dx);
+                }
+                if dy != 0.0 {
+                    offset_element_y(el, dy);
+                }
+            }
+        }
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -1809,6 +1866,7 @@ impl LayoutEngine {
                     background: style.background_color,
                     border_width: style.border_width,
                     border_color: style.border_color,
+                    border_style: style.border_style,
                     border_radius: style.border_radius,
                     opacity: 1.0,
                     box_shadow: style.box_shadow.map(Box::new),
@@ -1824,6 +1882,7 @@ impl LayoutEngine {
                 bookmark: None,
                 alt: None,
                 is_header_row: false,
+                col_span: 1,
                 overflow: style.overflow,
                 opacity: style.opacity,
             };
@@ -1927,6 +1986,7 @@ impl LayoutEngine {
             background: style.background_color,
             border_width: style.border_width,
             border_color: style.border_color,
+            border_style: style.border_style,
             border_radius: style.border_radius,
             opacity: 1.0,
             box_shadow: style.box_shadow.map(Box::new),
@@ -1956,6 +2016,7 @@ impl LayoutEngine {
                 bookmark: None,
                 alt: None,
                 is_header_row: false,
+                col_span: 1,
                 overflow: style.overflow,
                 opacity: style.opacity,
             });
@@ -1985,6 +2046,7 @@ impl LayoutEngine {
                     bookmark: None,
                     alt: None,
                     is_header_row: false,
+                    col_span: 1,
                     overflow: Overflow::default(),
                     opacity: 1.0,
                 });
@@ -2014,6 +2076,7 @@ impl LayoutEngine {
                         bookmark: None,
                         alt: None,
                         is_header_row: false,
+                        col_span: 1,
                         overflow: Overflow::default(),
                         opacity: 1.0,
                     });
@@ -2041,6 +2104,7 @@ impl LayoutEngine {
                     bookmark: None,
                     alt: None,
                     is_header_row: false,
+                    col_span: 1,
                     overflow: Overflow::default(),
                     opacity: 1.0,
                 });
@@ -2065,6 +2129,25 @@ impl LayoutEngine {
         // Save parent content box position for absolute children
         let parent_box_y = cursor.content_y + cursor.y;
         let parent_box_x = content_x;
+
+        // If this container is *explicitly* positioned it becomes the
+        // containing block for its absolute descendants. Update the cursor's
+        // containing block for the duration of this subtree; restore after the
+        // second pass. (`position` defaults to Relative, so only the explicit
+        // `positioned` flag counts.)
+        let parent_positioned = parent_style.map(|s| s.positioned).unwrap_or(false);
+        let saved_cb = cursor.containing_block;
+        if parent_positioned {
+            let cb_height = parent_style
+                .and_then(|ps| match ps.height {
+                    SizeConstraint::Fixed(h) => {
+                        Some(h - ps.padding.vertical() - ps.border_width.vertical())
+                    }
+                    SizeConstraint::Auto => None,
+                })
+                .unwrap_or(saved_cb.3);
+            cursor.containing_block = (parent_box_x, parent_box_y, available_width, cb_height);
+        }
 
         // Separate absolute vs flow children
         let (flow_children, abs_children): (Vec<&Node>, Vec<&Node>) = children
@@ -2372,9 +2455,28 @@ impl LayoutEngine {
             }
         }
 
+        // The containing block for these absolutes: the direct parent when it
+        // is positioned (preserving the auto-height lazy computation), else the
+        // nearest positioned ancestor / page carried on the cursor. This is the
+        // v0-divergence retirement — an absolute inside an *unpositioned* parent
+        // now escapes to its nearest positioned ancestor, matching browsers.
+        let (cb_x, cb_y, cb_w, cb_h) = if parent_positioned {
+            let ph = parent_style
+                .and_then(|ps| match ps.height {
+                    SizeConstraint::Fixed(h) => {
+                        Some(h - ps.padding.vertical() - ps.border_width.vertical())
+                    }
+                    SizeConstraint::Auto => None,
+                })
+                .unwrap_or(cursor.content_y + cursor.y - parent_box_y);
+            (parent_box_x, parent_box_y, available_width, ph)
+        } else {
+            cursor.containing_block
+        };
+
         // Second pass: absolute children
         for abs_child in &abs_children {
-            let abs_style = abs_child.style.resolve(parent_style, available_width);
+            let abs_style = abs_child.style.resolve(parent_style, cb_w);
 
             // Measure intrinsic size
             let child_width = match abs_style.width {
@@ -2382,7 +2484,7 @@ impl LayoutEngine {
                 SizeConstraint::Auto => {
                     // If both left and right are set, stretch width
                     if let (Some(l), Some(r)) = (abs_style.left, abs_style.right) {
-                        (available_width - l - r).max(0.0)
+                        (cb_w - l - r).max(0.0)
                     } else {
                         self.measure_intrinsic_width(abs_child, &abs_style, font_context)
                     }
@@ -2396,31 +2498,21 @@ impl LayoutEngine {
                 }
             };
 
-            // Determine position relative to parent content box
+            // Position relative to the containing block.
             let abs_x = if let Some(l) = abs_style.left {
-                parent_box_x + l
+                cb_x + l
             } else if let Some(r) = abs_style.right {
-                parent_box_x + available_width - r - child_width
+                cb_x + cb_w - r - child_width
             } else {
-                parent_box_x
+                cb_x
             };
 
-            // Compute parent inner height for bottom positioning
-            let parent_inner_height = parent_style
-                .and_then(|ps| match ps.height {
-                    SizeConstraint::Fixed(h) => {
-                        Some(h - ps.padding.vertical() - ps.border_width.vertical())
-                    }
-                    SizeConstraint::Auto => None,
-                })
-                .unwrap_or(cursor.content_y + cursor.y - parent_box_y);
-
             let abs_y = if let Some(t) = abs_style.top {
-                parent_box_y + t
+                cb_y + t
             } else if let Some(b) = abs_style.bottom {
-                parent_box_y + parent_inner_height - b - child_height
+                cb_y + cb_h - b - child_height
             } else {
-                parent_box_y
+                cb_y
             };
 
             // Lay out the absolute child into a temporary cursor
@@ -2444,6 +2536,9 @@ impl LayoutEngine {
             // Add absolute elements to the current cursor (renders on top)
             cursor.elements.extend(abs_cursor.elements);
         }
+
+        // Restore the containing block for the caller's remaining siblings.
+        cursor.containing_block = saved_cb;
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -2839,6 +2934,7 @@ impl LayoutEngine {
             bookmark: node.bookmark.clone(),
             alt: None,
             is_header_row: false,
+            col_span: 1,
             overflow: style.overflow,
             opacity: style.opacity,
         });
@@ -2927,6 +3023,7 @@ impl LayoutEngine {
             bookmark: item.bookmark.clone(),
             alt: None,
             is_header_row: false,
+            col_span: 1,
             overflow: item_style.overflow,
             opacity: item_style.opacity,
         });
@@ -3113,6 +3210,7 @@ impl LayoutEngine {
                 background: style.background_color,
                 border_width: style.border_width,
                 border_color: style.border_color,
+                border_style: style.border_style,
                 border_radius: style.border_radius,
                 opacity: 1.0,
                 box_shadow: style.box_shadow.map(Box::new),
@@ -3136,6 +3234,7 @@ impl LayoutEngine {
                 bookmark: None,
                 alt: None,
                 is_header_row: false,
+                col_span: 1,
                 overflow: Overflow::default(),
                 opacity: style.opacity,
             };
@@ -3222,6 +3321,7 @@ impl LayoutEngine {
             .resolve(Some(parent_style), col_widths.iter().sum());
 
         let row_height = self.measure_table_row_height(row, col_widths, parent_style, font_context);
+        let row_bl = self.row_baseline(row, &row_style, col_widths);
         let row_y = cursor.content_y + cursor.y;
         let total_width: f64 = col_widths.iter().sum();
 
@@ -3258,8 +3358,8 @@ impl LayoutEngine {
             let saved_y = cursor.y;
             cursor.y += cell_style.padding.top + cell_style.border_width.top;
 
-            // vertical-align: middle/bottom — the row box height is already
-            // resolved (measured above the loop), so offset this cell's
+            // vertical-align: middle/bottom/baseline — the row box height is
+            // already resolved (measured above the loop), so offset this cell's
             // content within it. Top is the default and costs nothing.
             if !matches!(cell_style.vertical_align, crate::style::VerticalAlign::Top) {
                 let content_h: f64 = cell
@@ -3276,6 +3376,16 @@ impl LayoutEngine {
                 cursor.y += match cell_style.vertical_align {
                     crate::style::VerticalAlign::Middle => slack / 2.0,
                     crate::style::VerticalAlign::Bottom => slack,
+                    // Shove this cell down so its first baseline lands on the
+                    // row baseline (the max first-baseline distance across the
+                    // row's baseline cells). measure_table_row_height grew the
+                    // row to fit this, so it never clips.
+                    crate::style::VerticalAlign::Baseline => row_bl
+                        .map(|b| {
+                            let d = self.cell_baseline_distance(cell, &cell_style, inner_width);
+                            (b - d).max(0.0)
+                        })
+                        .unwrap_or(0.0),
                     crate::style::VerticalAlign::Top => 0.0,
                 };
             }
@@ -3334,6 +3444,7 @@ impl LayoutEngine {
                         background: cell_style.background_color,
                         border_width: cell_style.border_width,
                         border_color: cell_style.border_color,
+                        border_style: cell_style.border_style,
                         border_radius: cell_style.border_radius,
                         opacity: 1.0,
                         box_shadow: cell_style.box_shadow.map(Box::new),
@@ -3350,6 +3461,7 @@ impl LayoutEngine {
                 bookmark: cell.bookmark.clone(),
                 alt: None,
                 is_header_row: is_header,
+                col_span: span as u32,
                 overflow: Overflow::default(),
                 opacity: 1.0,
             });
@@ -3369,6 +3481,7 @@ impl LayoutEngine {
                     background: Some(bg),
                     border_width: Edges::default(),
                     border_color: EdgeValues::uniform(Color::BLACK),
+                    border_style: EdgeValues::uniform(crate::style::BorderStyle::Solid),
                     border_radius: CornerValues::uniform(0.0),
                     opacity: 1.0,
                     box_shadow: row_style.box_shadow.map(Box::new),
@@ -3385,6 +3498,7 @@ impl LayoutEngine {
             bookmark: row.bookmark.clone(),
             alt: None,
             is_header_row: is_header,
+            col_span: 1,
             overflow: row_style.overflow,
             opacity: row_style.opacity,
         });
@@ -3575,6 +3689,7 @@ impl LayoutEngine {
                         },
                         alt: None,
                         is_header_row: false,
+                        col_span: 1,
                         overflow: Overflow::default(),
                         opacity: 1.0,
                     });
@@ -3669,6 +3784,7 @@ impl LayoutEngine {
                 bookmark: None,
                 alt: None,
                 is_header_row: false,
+                col_span: 1,
                 overflow: Overflow::default(),
                 opacity: 1.0,
             });
@@ -3698,6 +3814,7 @@ impl LayoutEngine {
                 },
                 alt: None,
                 is_header_row: false,
+                col_span: 1,
                 overflow: Overflow::default(),
                 opacity: 1.0,
             });
@@ -3847,6 +3964,7 @@ impl LayoutEngine {
                         },
                         alt: None,
                         is_header_row: false,
+                        col_span: 1,
                         overflow: Overflow::default(),
                         opacity: 1.0,
                     });
@@ -3937,6 +4055,7 @@ impl LayoutEngine {
                 bookmark: None,
                 alt: None,
                 is_header_row: false,
+                col_span: 1,
                 overflow: Overflow::default(),
                 opacity: 1.0,
             });
@@ -3965,6 +4084,7 @@ impl LayoutEngine {
                 },
                 alt: None,
                 is_header_row: false,
+                col_span: 1,
                 overflow: Overflow::default(),
                 opacity: 1.0,
             });
@@ -4678,6 +4798,7 @@ impl LayoutEngine {
             bookmark: node.bookmark.clone(),
             alt: node.alt.clone(),
             is_header_row: false,
+            col_span: 1,
             overflow: style.overflow,
             opacity: style.opacity,
         });
@@ -4744,6 +4865,7 @@ impl LayoutEngine {
             bookmark: node.bookmark.clone(),
             alt: node.alt.clone(),
             is_header_row: false,
+            col_span: 1,
             overflow: style.overflow,
             opacity: style.opacity,
         });
@@ -4925,6 +5047,7 @@ impl LayoutEngine {
             bookmark: node.bookmark.clone(),
             alt: node.alt.clone(),
             is_header_row: false,
+            col_span: 1,
             overflow: style.overflow,
             opacity: style.opacity,
         });
@@ -4974,6 +5097,7 @@ impl LayoutEngine {
             bookmark: node.bookmark.clone(),
             alt: node.alt.clone(),
             is_header_row: false,
+            col_span: 1,
             overflow: style.overflow,
             opacity: style.opacity,
         });
@@ -5019,6 +5143,7 @@ impl LayoutEngine {
             bookmark: node.bookmark.clone(),
             alt: node.alt.clone(),
             is_header_row: false,
+            col_span: 1,
             overflow: style.overflow,
             opacity: style.opacity,
         });
@@ -5082,6 +5207,7 @@ impl LayoutEngine {
             bookmark: node.bookmark.clone(),
             alt: node.alt.clone(),
             is_header_row: false,
+            col_span: 1,
             overflow: style.overflow,
             opacity: style.opacity,
         });
@@ -5139,6 +5265,7 @@ impl LayoutEngine {
             bookmark: node.bookmark.clone(),
             alt: node.alt.clone(),
             is_header_row: false,
+            col_span: 1,
             overflow: style.overflow,
             opacity: style.opacity,
         });
@@ -5156,7 +5283,11 @@ impl LayoutEngine {
         font_context: &FontContext,
     ) -> f64 {
         match &node.kind {
-            NodeKind::Text { content, runs, .. } => {
+            // Headings lay out exactly like Text (see the layout arm), so they
+            // must measure the same way — otherwise a heading falls through to
+            // the container `_` arm, measures ~0 (it has no children), and a
+            // parent's auto-height omits it.
+            NodeKind::Text { content, runs, .. } | NodeKind::Heading { content, runs, .. } => {
                 // Mirror layout_text: a fixed width drives line-breaking, so height
                 // measurement must use the same width or it will under-count lines.
                 let measure_width = match style.width {
@@ -5738,6 +5869,71 @@ impl LayoutEngine {
         }
     }
 
+    /// The font size of a cell's first text line. In this engine the baseline
+    /// sits exactly `font_size` below the line-box top (there is no font-ascent
+    /// metric), so this IS the first-baseline offset from the content-box top.
+    /// Walks to the first text-producing descendant; falls back to the cell's
+    /// own font size when there is none.
+    fn cell_first_line_font_size(&self, cell: &Node, cell_style: &ResolvedStyle, w: f64) -> f64 {
+        fn first(node: &Node, parent: &ResolvedStyle, w: f64) -> Option<f64> {
+            for ch in &node.children {
+                let s = ch.style.resolve(Some(parent), w);
+                match &ch.kind {
+                    NodeKind::Text { .. } | NodeKind::Heading { .. } => return Some(s.font_size),
+                    _ => {
+                        if let Some(f) = first(ch, &s, w) {
+                            return Some(f);
+                        }
+                    }
+                }
+            }
+            None
+        }
+        first(cell, cell_style, w).unwrap_or(cell_style.font_size)
+    }
+
+    /// Distance from a cell's border-box top to its first text baseline:
+    /// `padding.top + border.top + first-line font_size`.
+    fn cell_baseline_distance(
+        &self,
+        cell: &Node,
+        cell_style: &ResolvedStyle,
+        inner_width: f64,
+    ) -> f64 {
+        cell_style.padding.top
+            + cell_style.border_width.top
+            + self.cell_first_line_font_size(cell, cell_style, inner_width)
+    }
+
+    /// The row baseline: the max first-baseline distance across the row's
+    /// `vertical-align: baseline` cells. `None` when no cell asks for baseline.
+    fn row_baseline(
+        &self,
+        row: &Node,
+        row_style: &ResolvedStyle,
+        col_widths: &[f64],
+    ) -> Option<f64> {
+        let mut b: Option<f64> = None;
+        let mut col_idx = 0usize;
+        for cell in row.children.iter() {
+            let span = match &cell.kind {
+                NodeKind::TableCell { col_span, .. } => (*col_span).max(1) as usize,
+                _ => 1,
+            };
+            let col_width: f64 = col_widths.iter().skip(col_idx).take(span).copied().sum();
+            col_idx += span;
+            let cell_style = cell.style.resolve(Some(row_style), col_width);
+            if matches!(cell_style.vertical_align, VerticalAlign::Baseline) {
+                let iw = col_width
+                    - cell_style.padding.horizontal()
+                    - cell_style.border_width.horizontal();
+                let d = self.cell_baseline_distance(cell, &cell_style, iw);
+                b = Some(b.map_or(d, |m: f64| m.max(d)));
+            }
+        }
+        b
+    }
+
     fn measure_table_row_height(
         &self,
         row: &Node,
@@ -5749,6 +5945,9 @@ impl LayoutEngine {
             .style
             .resolve(Some(parent_style), col_widths.iter().sum());
         let mut max_height: f64 = 0.0;
+        // Precompute the row baseline so a baseline-shoved cell can grow the row
+        // rather than clip (the risk site).
+        let row_bl = self.row_baseline(row, &row_style, col_widths);
 
         let mut col_idx = 0usize;
         for cell in row.children.iter() {
@@ -5769,9 +5968,27 @@ impl LayoutEngine {
                     self.measure_node_height(child, inner_width, &child_style, font_context);
             }
 
-            let total = cell_content_height
+            let mut total = cell_content_height
                 + cell_style.padding.vertical()
                 + cell_style.border_width.vertical();
+            // A baseline cell is shoved down by `row_baseline - its own baseline
+            // distance`; the row must be tall enough to fit that shove, or the
+            // cell content clips.
+            if matches!(cell_style.vertical_align, VerticalAlign::Baseline) {
+                if let Some(b) = row_bl {
+                    let d = self.cell_baseline_distance(cell, &cell_style, inner_width);
+                    total += (b - d).max(0.0);
+                }
+            }
+            // CSS 2.1 §17.5.3: `height` on a table cell is a MINIMUM — the cell
+            // grows to fit its content but never shrinks below the specified
+            // height. This is the slack `vertical-align: middle/bottom` needs to
+            // be visible. Auto-height cells are unaffected; content taller than
+            // the height still wins. No clipping, and rows stay atomic (an
+            // over-tall row overflows whole, it is not sliced).
+            if let SizeConstraint::Fixed(h) = cell_style.height {
+                total = total.max(h);
+            }
             max_height = max_height.max(total);
         }
 
@@ -5952,6 +6169,7 @@ impl LayoutEngine {
                             bookmark: None,
                             alt: None,
                             is_header_row: false,
+                            col_span: 1,
                             overflow: Overflow::default(),
                             opacity: 1.0,
                         });
@@ -6350,6 +6568,55 @@ mod tests {
     }
 
     #[test]
+    fn measure_node_height_of_wrapping_heading_matches_text() {
+        // A heading that wraps to multiple lines must contribute its full
+        // height to a parent's auto-height, exactly like Text. Previously
+        // Heading had no arm in `measure_node_height` and fell through to the
+        // container `_` arm (children-recursion), measuring ~0 — so an
+        // auto-height View wrapping a multi-line heading collapsed, shifting
+        // every sibling below it.
+        let engine = LayoutEngine::new();
+        let font_context = FontContext::new();
+
+        let content = "Annual Performance Review";
+        let heading = Node {
+            kind: NodeKind::Heading {
+                level: 1,
+                content: content.to_string(),
+                href: None,
+                runs: vec![],
+            },
+            style: Style {
+                font_size: Some(32.0),
+                ..Default::default()
+            },
+            children: vec![],
+            id: None,
+            source_location: None,
+            bookmark: None,
+            href: None,
+            alt: None,
+        };
+        let text = make_text(content, 32.0);
+
+        // A width narrow enough to force the 32pt title onto more than one line.
+        let width = 200.0;
+        let h_style = heading.style.resolve(None, width);
+        let t_style = text.style.resolve(None, width);
+        let h_height = engine.measure_node_height(&heading, width, &h_style, &font_context);
+        let t_height = engine.measure_node_height(&text, width, &t_style, &font_context);
+
+        assert!(
+            h_height > 32.0,
+            "a wrapping 32pt heading must measure more than one line, got {h_height}"
+        );
+        assert!(
+            (h_height - t_height).abs() < 0.01,
+            "heading height ({h_height}) must equal the same text's height ({t_height})"
+        );
+    }
+
+    #[test]
     fn intrinsic_width_flex_row_sums_children() {
         let engine = LayoutEngine::new();
         let font_context = FontContext::new();
@@ -6715,13 +6982,15 @@ mod tests {
 
     #[test]
     fn absolute_child_positioned_relative_to_parent() {
-        // A parent View at some offset with an absolute child using top: 10, left: 10.
-        // The absolute child should be at parent + 10, not page + 10.
+        // A POSITIONED parent (position: relative) with an absolute child using
+        // top: 10, left: 10. The child resolves against the parent — now the
+        // correct CSS behavior, since the parent is a positioned ancestor.
         let engine = LayoutEngine::new();
         let font_context = FontContext::new();
 
         let parent = make_styled_view(
             Style {
+                position: Some(crate::model::Position::Relative),
                 margin: Some(MarginEdges::from_edges(Edges {
                     top: 50.0,
                     left: 50.0,
@@ -6796,6 +7065,87 @@ mod tests {
             "Absolute child y ({}) should be parent.y + 10 ({})",
             abs_child.y,
             expected_y
+        );
+    }
+
+    #[test]
+    fn absolute_escapes_unpositioned_parent_to_page() {
+        // Same shape, but the parent is UNpositioned. Under browser semantics
+        // the absolute child resolves against the nearest positioned ancestor —
+        // here none exists, so the page content box, NOT the parent. This is
+        // the retired v0 divergence.
+        let engine = LayoutEngine::new();
+        let font_context = FontContext::new();
+        let parent = make_styled_view(
+            Style {
+                margin: Some(MarginEdges::from_edges(Edges {
+                    top: 50.0,
+                    left: 50.0,
+                    ..Default::default()
+                })),
+                width: Some(Dimension::Pt(200.0)),
+                height: Some(Dimension::Pt(200.0)),
+                ..Default::default()
+            },
+            vec![make_styled_view(
+                Style {
+                    position: Some(crate::model::Position::Absolute),
+                    top: Some(10.0),
+                    left: Some(10.0),
+                    width: Some(Dimension::Pt(50.0)),
+                    height: Some(Dimension::Pt(50.0)),
+                    ..Default::default()
+                },
+                vec![],
+            )],
+        );
+        let doc = Document {
+            children: vec![Node::page(
+                PageConfig::default(),
+                Style::default(),
+                vec![parent],
+            )],
+            metadata: Default::default(),
+            default_page: PageConfig::default(),
+            first_page: None,
+            fonts: vec![],
+            tagged: false,
+            pdfa: None,
+            default_style: None,
+            embedded_data: None,
+            flatten_forms: false,
+            pdf_ua: false,
+            certification: None,
+        };
+        let pages = engine.layout(&doc, &font_context);
+        let page = &pages[0];
+        let parent_el = page
+            .elements
+            .iter()
+            .find(|e| e.width > 190.0 && e.width < 210.0)
+            .expect("parent");
+        let abs_child = parent_el
+            .children
+            .iter()
+            .find(|e| e.width > 45.0 && e.width < 55.0)
+            .expect("abs child");
+        let page_left = PageConfig::default().margin.left;
+        let page_top = PageConfig::default().margin.top;
+        assert!(
+            (abs_child.x - (page_left + 10.0)).abs() < 1.0,
+            "absolute escapes to the page: x {} should be page_left + 10 ({})",
+            abs_child.x,
+            page_left + 10.0
+        );
+        assert!(
+            (abs_child.y - (page_top + 10.0)).abs() < 1.0,
+            "absolute escapes to the page: y {} should be page_top + 10 ({})",
+            abs_child.y,
+            page_top + 10.0
+        );
+        assert!(
+            abs_child.x < parent_el.x,
+            "child must no longer be parent-relative (parent is 50pt further in)"
         );
     }
 

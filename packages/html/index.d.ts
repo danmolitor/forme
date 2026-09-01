@@ -14,6 +14,18 @@ export interface RenderHtmlOptions {
     weight?: number;
     italic?: boolean;
   }>;
+  /** Emit a tagged PDF (structure tree). Implied by `pdfUa`. */
+  tagged?: boolean;
+  /**
+   * Emit a PDF/UA-1 conforming file: structure tree, metadata, embedded fonts.
+   * Register a metric-compatible font (`@formepdf/fonts-standard`) via `fonts`,
+   * set `lang`, and give informational `<img>`s `alt` text. Missing pieces are
+   * reported in `warnings`, never silently dropped.
+   */
+  pdfUa?: boolean;
+  /** Document language for PDF/UA (`/Lang`), e.g. `"en"` or `"en-US"`. Falls
+   *  back to the `<html lang>` attribute, then `"en"` with a warning. */
+  lang?: string;
 }
 
 export interface RenderHtmlResult {
@@ -35,6 +47,13 @@ export interface RenderHtmlLayoutResult extends RenderHtmlResult {
   /** The laid-out node tree — drives tree/inspector/overlay tooling. */
   layout: LayoutInfo;
 }
+
+/**
+ * No-op on the Node entry (the nodejs WASM target self-initializes). Present
+ * so all three entries share one surface; only `@formepdf/html/worker` needs
+ * a real `init(module)`.
+ */
+export function init(): Promise<void>;
 
 export function renderHtml(html: string, options?: RenderHtmlOptions): RenderHtmlResult;
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseColor } from '@formepdf/shared';
+import { parseColor } from '../src/index.js';
 import { parseMarkup } from '../src/parser.js';
 
 /** Wrap markup in a document root and parse. */

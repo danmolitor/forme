@@ -1,0 +1,317 @@
+---
+title: Vue
+sidebarTitle: Vue
+description: Author Forme PDFs as Vue single-file components. The full component set in .vue files, one-call rendering in Nitro/Nuxt endpoints, and a second door for rendering existing HTML.
+---
+
+`@formepdf/vue` is the Vue adapter for Forme.
+It ships the same components with the same props as `@formepdf/react`, authored as ordinary `.vue` single-file components, and serializes to the identical document model.
+`v-for`, `v-if`, slots, and `{{ }}` interpolation just work — templates are plain Vue 3 components rendered on the server, with no special template language.
+
+There are two doors into Forme from a Vue app:
+
+1. **Author documents as components** — `.vue` files using the Forme component set. This page. Full layout control, typed props, structural parity with the React and Svelte adapters.
+2. **Render existing HTML** — you already have an HTML/CSS template (from a CMS, an email system, a designer) and just want PDF bytes. Reach for [`@formepdf/html`](/replacing-puppeteer) instead; it takes an HTML string and returns a PDF, naming anything outside the supported subset in a `warnings[]` array rather than dropping it silently.
+
+Pick door 1 when you control the template and want the engine's full component vocabulary; pick door 2 when you're replacing a Puppeteer pipeline over HTML you don't want to rewrite.
+
+## Install
+
+```bash
+npm install @formepdf/vue @formepdf/core
+```
+
+The adapter requires Vue 3 (`^3.4.0`) as a peer dependency.
+`@formepdf/core` is an *optional* peer: it is only needed to render PDF bytes locally (`renderDocument`).
+If you serialize templates and POST the JSON to the hosted API, skip it — `serialize` works with zero WASM.
+
+Enable the custom-element compiler option so Vue leaves Forme's internal placeholder tags alone. In `vite.config.ts`:
+
+```ts
+import vue from '@vitejs/plugin-vue';
+
+export default {
+  plugins: [
+    vue({
+      template: {
+        compilerOptions: {
+          // Forme emits `<forme-*>` placeholder tags during serialization;
+          // they are not Vue components.
+          isCustomElement: (tag) => tag.startsWith('forme-'),
+        },
+      },
+    }),
+  ],
+};
+```
+
+## Quickstart
+
+Create a template as a normal single-file component, `src/components/Invoice.vue`:
+
+```vue
+<script setup lang="ts">
+import { computed } from 'vue';
+import { Document, Page, View, Text } from '@formepdf/vue';
+
+interface Item {
+  name: string;
+  price: number;
+}
+
+const props = withDefaults(
+  defineProps<{ invoiceNo?: string; customer?: string; items?: Item[] }>(),
+  {
+    invoiceNo: '001',
+    customer: 'Jane Smith',
+    items: () => [
+      { name: 'Website Redesign', price: 3500 },
+      { name: 'Hosting (12 months)', price: 600 },
+    ],
+  },
+);
+
+const total = computed(() => props.items.reduce((sum, item) => sum + item.price, 0));
+</script>
+
+<template>
+  <Document :title="`Invoice #${invoiceNo}`">
+    <Page size="Letter" :margin="54">
+      <Text :style="{ fontSize: 28, fontWeight: 700, color: '#1e293b' }">Invoice</Text>
+
+      <View :style="{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 24 }">
+        <View>
+          <Text :style="{ fontSize: 10, color: '#64748b' }">Bill To</Text>
+          <Text :style="{ fontSize: 12, fontWeight: 700, marginTop: 4 }">{{ customer }}</Text>
+        </View>
+        <Text :style="{ fontSize: 10, color: '#64748b' }">Invoice #{{ invoiceNo }}</Text>
+      </View>
+
+      <View :style="{ marginTop: 32, padding: 12, backgroundColor: '#f8fafc', borderRadius: 4 }">
+        <View
+          v-for="item in items"
+          :key="item.name"
+          :style="{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }"
+        >
+          <Text :style="{ fontSize: 10 }">{{ item.name }}</Text>
+          <Text :style="{ fontSize: 10, fontWeight: 700 }">${{ item.price.toFixed(2) }}</Text>
+        </View>
+      </View>
+
+      <View :style="{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 16 }">
+        <Text :style="{ fontSize: 14, fontWeight: 700 }">Total: ${{ total.toFixed(2) }}</Text>
+      </View>
+    </Page>
+  </Document>
+</template>
+```
+
+Serve it as a PDF from a Nitro (Nuxt) endpoint, `server/routes/invoice.get.ts`:
+
+```ts
+import { renderDocument } from '@formepdf/vue';
+import Invoice from '~/components/Invoice.vue';
+
+export default defineEventHandler(async (event) => {
+  const pdf = await renderDocument(Invoice, {
+    props: { invoiceNo: '001', customer: 'Jane Smith' },
+  });
+  setHeader(event, 'Content-Type', 'application/pdf');
+  return pdf;
+});
+```
+
+That is the whole route.
+`renderDocument` serializes the template and renders it through the WASM engine in one call.
+
+Using the hosted API instead?
+Serialize without rendering — no `@formepdf/core` install needed:
+
+```ts
+import { serialize } from '@formepdf/vue';
+import Invoice from '~/components/Invoice.vue';
+
+const doc = await serialize(Invoice, { props: { invoiceNo: '001' } });
+// POST `doc` to the hosted API as JSON
+```
+
+<Note>
+Vue components cannot be pre-bound to props, so the adapter's `serialize`, `render`, and `renderDocument` take the component plus a `props` option (`renderDocument(Invoice, { props })`) — the same shape as the Svelte adapter. All three are `async`: `renderToString` from `vue/server-renderer` returns a promise.
+</Note>
+
+## Component parity
+
+The adapter is 1:1 with `@formepdf/react`: the same components with the same props.
+
+- **Layout**: `Document`, `Page`, `View`, `Text`, `Image`, `Fixed`, `PageBreak`
+- **Semantics**: `H1`-`H6`, `OrderedList`, `UnorderedList`, `ListItem`, `Strong`, `Em`, `Code`, `Link`
+- **Tables**: `Table`, `Row`, `Cell`
+- **Graphics**: `Svg`, `QrCode`, `Barcode`, `Canvas`, `Watermark`
+- **Charts**: `BarChart`, `LineChart`, `PieChart`, `AreaChart`, `DotPlot`
+- **Form fields**: `TextField`, `Checkbox`, `Dropdown`, `RadioButton`
+
+Everything in the [components reference](/components) and [styles reference](/styles) applies verbatim — document-level props (`metadata`, `lang`, `pdfUa`, `pdfa`, `certification`, `fonts`), CSS string shorthands (`border: "1px solid #000"`, `padding: "8 16"`), `StyleSheet.create()`, and the `Style` type are identical.
+Only the syntax around the components changes.
+The equivalence is enforced in CI: a catalog document authored in Vue and in React must serialize to the same document model.
+
+Nested `<Text>` spans become styled text runs, so mixed-style lines work exactly as in react:
+
+```vue
+<script setup lang="ts">
+import { Document, Page, Text } from '@formepdf/vue';
+defineProps<{ price?: number }>();
+</script>
+
+<template>
+  <Document>
+    <Page>
+      <Text :style="{ fontSize: 12 }">Was <Text :style="{ textDecoration: 'line-through', color: '#999999' }">$56.00</Text> <Text :style="{ fontWeight: 700 }">${{ price ?? 42 }}.00</Text> due now</Text>
+    </Page>
+  </Document>
+</template>
+```
+
+<Note>
+Compiled templates (`forme build --template`, the `$ref`/`$each`/`$if` expression system for [rendering without a JavaScript runtime](/templates)) are **TSX-only today**.
+Vue templates always serialize by rendering the component server-side; to use stored templates with the hosted API, author them in TSX.
+</Note>
+
+## Page numbers
+
+The engine substitutes the placeholders `{{pageNumber}}` and `{{totalPages}}` in text at render time.
+In a Vue template you cannot type `{{pageNumber}}` directly — Vue parses double braces as an interpolation expression and would look for a `pageNumber` variable.
+Interpolate the exported `PAGE_NUMBER` and `TOTAL_PAGES` constants instead (their values *are* the placeholder strings):
+
+```vue
+<script setup lang="ts">
+import { Document, Page, Text, Fixed, PAGE_NUMBER, TOTAL_PAGES } from '@formepdf/vue';
+</script>
+
+<template>
+  <Document>
+    <Page>
+      <Fixed position="footer" :style="{ paddingTop: 8 }">
+        <Text :style="{ fontSize: 9, textAlign: 'center' }">Page {{ PAGE_NUMBER }} of {{ TOTAL_PAGES }}</Text>
+      </Fixed>
+      <Text>Body content</Text>
+    </Page>
+  </Document>
+</template>
+```
+
+## Fonts
+
+`Font.register()` has the same API as react and feeds the same process-wide store.
+Register in a plain `<script>` block (not `<script setup>`) so registration runs once at module evaluation, not on every render:
+
+```vue
+<script lang="ts">
+import { Font } from '@formepdf/vue';
+
+Font.register({ family: 'Inter', src: './fonts/Inter-Regular.ttf' });
+Font.register({ family: 'Inter', src: './fonts/Inter-Bold.ttf', fontWeight: 700 });
+</script>
+
+<script setup lang="ts">
+import { Document, Page, Text } from '@formepdf/vue';
+</script>
+
+<template>
+  <Document :style="{ fontFamily: 'Inter' }">
+    <Page size="A4" :margin="40">
+      <Text :style="{ fontSize: 20, fontWeight: 700 }">Custom fonts</Text>
+      <Text>Registered once, used anywhere.</Text>
+    </Page>
+  </Document>
+</template>
+```
+
+Per-document registration via `<Document :fonts="[...]">` works too.
+See the [fonts guide](/fonts) for sources, weights, and fallback chains.
+
+## Tailwind
+
+`@formepdf/tailwind`'s `tw()` works unchanged — it returns a plain style object:
+
+```vue
+<script setup lang="ts">
+import { Document, Page, View, Text } from '@formepdf/vue';
+import { tw } from '@formepdf/tailwind';
+</script>
+
+<template>
+  <Document>
+    <Page size="A4" :margin="40">
+      <View :style="tw('flex-row items-center justify-between p-6 bg-slate-100 rounded-lg')">
+        <Text :style="tw('text-2xl font-bold text-slate-900')">Invoice #001</Text>
+        <Text :style="tw('text-sm text-slate-500')">March 2026</Text>
+      </View>
+    </Page>
+  </Document>
+</template>
+```
+
+## Custom graphics
+
+`<Canvas>` takes a `draw` callback that records vector operations:
+
+```vue
+<script setup lang="ts">
+import { Document, Page, Canvas } from '@formepdf/vue';
+import type { CanvasContext } from '@formepdf/vue';
+
+function draw(ctx: CanvasContext) {
+  ctx.setFillColor(59, 130, 246);
+  ctx.circle(50, 50, 40);
+  ctx.fill();
+}
+</script>
+
+<template>
+  <Document>
+    <Page size="A4" :margin="40">
+      <Canvas :width="100" :height="100" :draw="draw" />
+    </Page>
+  </Document>
+</template>
+```
+
+<Note>
+The `draw` callback runs during **server-side serialization**, not at PDF render time.
+It must be synchronous and pure: no `await`, no side effects, no browser or runtime APIs.
+</Note>
+
+## Render options
+
+`renderDocument` and `renderDocumentWithLayout` forward all `@formepdf/core` render options unchanged, so features like [embedded data](/embedded-data) and form flattening work exactly as documented for react:
+
+```ts
+import { renderDocument } from '@formepdf/vue';
+import Invoice from '~/components/Invoice.vue';
+
+const pdf = await renderDocument(Invoice, {
+  props: { invoiceNo: '001' },
+  embedData: { invoiceNo: '001', total: 4100 },
+  flattenForms: true,
+});
+```
+
+## Migrating from TSX
+
+Migration is mechanical: component names, props, and style objects are identical, so most of a template moves over as-is.
+The react [quickstart](/quickstart) maps to Vue like this:
+
+| TSX | Vue |
+|-----|-----|
+| `export default (<Document>...)` | A `.vue` file whose `<template>` is `<Document>...` |
+| `function Invoice(data) { ... }` | `defineProps<{ ... }>()` in `<script setup>` |
+| `{items.map(item => (<View>...</View>))}` | `<View v-for="item in items" :key="item.id">...</View>` |
+| `{showFooter && <Text>...</Text>}` | `<Text v-if="showFooter">...</Text>` |
+| `style={{ padding: 24 }}` | `:style="{ padding: 24 }"` (bind, so it stays an object) |
+| `{'{{pageNumber}}'}` | `{{ PAGE_NUMBER }}` |
+| `renderDocument(doc)` from `@formepdf/core` | `renderDocument(Invoice, { props })` from `@formepdf/vue` |
+
+Three differences to note.
+First, react's `renderDocument` takes an *element* (`<Document>...`), while Vue components cannot be pre-bound to props — so the Vue adapter's `renderDocument`, `serialize`, and `render` take the component plus a `props` option, and are `async`.
+Second, always bind object props (`:style="{...}"`, not `style="{...}"`) so Vue passes the object through instead of coercing it to a string attribute.
+Third, whitespace in `.vue` templates is normalized to the same rules JSX uses, so indentation never leaks stray spaces into rendered text.

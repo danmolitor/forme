@@ -17,7 +17,7 @@
 import { render as renderSvelteMarkup } from 'svelte/server';
 import type { Component } from 'svelte';
 import type { FormeDocument } from '@formepdf/shared';
-import { parseMarkup } from './parser.js';
+import { parseMarkup } from '@formepdf/shared';
 
 export interface SerializeOptions<Props extends Record<string, any>> {
   /** Props passed to the template component. */

@@ -46,8 +46,19 @@ test-*.json
 /tmp/
 *.pdf
 
+# Renderer temp modules (written next to a user's template during a render,
+# unlinked after; an interrupted render can leave one behind)
+.forme-render-*.mjs
+.forme-input-*
+
 # Generated preview HTML embed (packages/svelte build step)
 packages/svelte/src/preview/preview-html.generated.ts
+
+# Generated font base64 embed (packages/fonts-standard build step)
+packages/fonts-standard/src/generated/font-data.ts
 html/target/
+packages/html/pkg/
+packages/html/pkg-web/
 packages/html/pkg-node/
+packages/html/.wrangler/
 packages/html/*.tgz

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  /* Dashed/dotted border coverage — also a native-vs-WASM byte-determinism
+     corpus fixture (see .github/workflows/ci.yml). Dash metrics calibrated
+     against ironpress's border-style-dashed/dotted oracles (MIT); a canonical
+     Chrome-printed reference for THIS fixture is a TODO — see README below. */
+  @page { size: 320px 300px; margin: 12px; }
+  * { margin: 0; }
+  .box { width: 260px; height: 44px; margin-bottom: 12px; }
+  .dashed { border: 4px dashed #283593; }
+  .dotted { border: 4px dotted #00695c; }
+  /* Per-side styles from the shorthand tokens. */
+  .mixed {
+    border-top: 6px dashed #b71c1c;
+    border-right: 4px dotted #1b5e20;
+    border-bottom: 2px solid #333333;
+    border-left: 4px dashed #4a148c;
+  }
+  table { border-collapse: collapse; }
+  td { border: 2px dashed #555555; padding: 6px; width: 70px; }
+</style>
+</head>
+<body>
+  <div class="box dashed"></div>
+  <div class="box dotted"></div>
+  <div class="box mixed"></div>
+  <table><tr><td>A</td><td>B</td></tr></table>
+</body>
+</html>

@@ -76,16 +76,18 @@ fn type_rule_from_stylesheet_applies() {
 }
 
 #[test]
-fn media_feature_queries_warn_and_media_adds_no_specificity() {
+fn media_feature_queries_evaluate_and_media_adds_no_specificity() {
     let (doc, warnings) = mapped();
-    // Feature query: conservatively excluded, named warning.
+    // Feature query now evaluates against the page content box. The statement
+    // renders on default A4 (~487pt ≈ 650px content width), which exceeds the
+    // `(min-width: 600px)` threshold, so the block applies (.muted → #ff0000).
     let muted = find_by_text(&doc.children, "Statement period").expect("muted");
-    assert_color(muted, "#666666", "(min-width) block must not apply");
+    assert_color(muted, "#ff0000", "(min-width: 600px) applies on A4");
     assert!(
-        warnings
+        !warnings
             .iter()
-            .any(|w| w.contains("media features are not evaluated")),
-        "{warnings:?}"
+            .any(|w| w.contains("unevaluable @media condition")),
+        "the width query is evaluated, not warned: {warnings:?}"
     );
     // Equal specificity, later in source, OUTSIDE the block → wins:
     // @media adds no specificity.

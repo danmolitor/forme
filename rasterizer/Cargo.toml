@@ -1,6 +1,6 @@
 [package]
 name = "forme-rasterizer"
-version = "0.10.5"
+version = "0.14.0"
 edition = "2021"
 description = "PDFium-based PDF rasterizer sidecar for the Forme dashboard"
 

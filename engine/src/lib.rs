@@ -120,6 +120,13 @@ pub fn merge_pdfs(pdfs: &[&[u8]]) -> Result<Vec<u8>, FormeError> {
 /// the raw bytes of a valid PDF file. If the document has a `certification`
 /// configuration, the output PDF is digitally signed.
 pub fn render(document: &Document) -> Result<Vec<u8>, FormeError> {
+    render_with_warnings(document).map(|(pdf, _warnings)| pdf)
+}
+
+/// Render a document to PDF bytes plus any non-fatal warnings (e.g. pdfUa
+/// requested without an embeddable font registered). Same output as `render`;
+/// the warnings surface through the WASM bindings and the HTML wrapper.
+pub fn render_with_warnings(document: &Document) -> Result<(Vec<u8>, Vec<String>), FormeError> {
     let mut font_context = FontContext::new();
     register_document_fonts(&mut font_context, &document.fonts);
     let engine = LayoutEngine::new();
@@ -139,7 +146,7 @@ pub fn render(document: &Document) -> Result<Vec<u8>, FormeError> {
     let tagged = document.tagged
         || document.pdf_ua
         || matches!(document.pdfa, Some(model::PdfAConformance::A2a));
-    let pdf = writer.write(
+    let (pdf, warnings) = writer.write(
         &pages,
         &document.metadata,
         &font_context,
@@ -154,7 +161,7 @@ pub fn render(document: &Document) -> Result<Vec<u8>, FormeError> {
     } else {
         pdf
     };
-    Ok(pdf)
+    Ok((pdf, warnings))
 }
 
 /// Render a document to PDF bytes along with layout metadata.
@@ -163,7 +170,9 @@ pub fn render(document: &Document) -> Result<Vec<u8>, FormeError> {
 /// position and dimensions of every element on every page.
 /// If the document has a `certification` configuration, the output PDF
 /// is digitally signed.
-pub fn render_with_layout(document: &Document) -> Result<(Vec<u8>, LayoutInfo), FormeError> {
+pub fn render_with_layout(
+    document: &Document,
+) -> Result<(Vec<u8>, LayoutInfo, Vec<String>), FormeError> {
     let mut font_context = FontContext::new();
     register_document_fonts(&mut font_context, &document.fonts);
     let engine = LayoutEngine::new();
@@ -184,7 +193,7 @@ pub fn render_with_layout(document: &Document) -> Result<(Vec<u8>, LayoutInfo), 
     let tagged = document.tagged
         || document.pdf_ua
         || matches!(document.pdfa, Some(model::PdfAConformance::A2a));
-    let pdf = writer.write(
+    let (pdf, warnings) = writer.write(
         &pages,
         &document.metadata,
         &font_context,
@@ -199,7 +208,7 @@ pub fn render_with_layout(document: &Document) -> Result<(Vec<u8>, LayoutInfo), 
     } else {
         pdf
     };
-    Ok((pdf, layout_info))
+    Ok((pdf, layout_info, warnings))
 }
 
 /// Return the number of digits needed to display `n` as a decimal string.
@@ -244,7 +253,9 @@ pub fn render_json(json: &str) -> Result<Vec<u8>, FormeError> {
 }
 
 /// Render a document described as JSON to PDF bytes along with layout metadata.
-pub fn render_json_with_layout(json: &str) -> Result<(Vec<u8>, LayoutInfo), FormeError> {
+pub fn render_json_with_layout(
+    json: &str,
+) -> Result<(Vec<u8>, LayoutInfo, Vec<String>), FormeError> {
     let document: Document = serde_json::from_str(json)?;
     render_with_layout(&document)
 }
@@ -271,7 +282,7 @@ pub fn render_template_with_layout(
     let data: serde_json::Value = serde_json::from_str(data_json)?;
     let resolved = template::evaluate_template(&template, &data)?;
     let document: Document = serde_json::from_value(resolved)?;
-    render_with_layout(&document)
+    render_with_layout(&document).map(|(pdf, layout, _warnings)| (pdf, layout))
 }
 
 #[cfg(test)]

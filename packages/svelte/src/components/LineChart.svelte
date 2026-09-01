@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { LineChartProps } from '@formepdf/shared';
-  import { encodeProps } from '../encode.js';
+  import { encodeProps } from '@formepdf/shared';
 
   let rest: LineChartProps = $props();
 </script>

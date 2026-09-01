@@ -128,6 +128,10 @@ struct PdfBuilder {
     /// gradient instance. Resolves to (object_id, sh_name e.g. "Sh0").
     /// Maps `(page_idx, elem_idx) -> (obj_id, name)`.
     shading_map: HashMap<(usize, usize), (usize, String)>,
+    /// Non-fatal notices collected during the write (e.g. pdfUa without an
+    /// embeddable font). Returned to the caller so every render surface can
+    /// show them, never silently dropped.
+    warnings: Vec<String>,
 }
 
 pub(crate) struct PdfObject {
@@ -159,7 +163,7 @@ impl PdfWriter {
         pdf_ua: bool,
         embedded_data: Option<&str>,
         flatten_forms: bool,
-    ) -> Result<Vec<u8>, FormeError> {
+    ) -> Result<(Vec<u8>, Vec<String>), FormeError> {
         let mut builder = PdfBuilder {
             objects: Vec::new(),
             font_objects: Vec::new(),
@@ -170,6 +174,7 @@ impl PdfWriter {
             page_background_url_cache: HashMap::new(),
             ext_gstate_map: HashMap::new(),
             shading_map: HashMap::new(),
+            warnings: Vec::new(),
         };
 
         // Reserve object IDs:
@@ -191,7 +196,7 @@ impl PdfWriter {
         });
 
         // Register the fonts actually used across all pages
-        self.register_fonts(&mut builder, pages, font_context)?;
+        self.register_fonts(&mut builder, pages, font_context, pdf_ua)?;
 
         // PDF/A: validate that all fonts are embedded (no standard fonts)
         if pdfa.is_some() {
@@ -319,10 +324,24 @@ impl PdfWriter {
                     // Internal link: find matching bookmark by title
                     if let Some(bm) = all_bookmarks.iter().find(|b| b.title == anchor) {
                         let annot_obj_id = builder.objects.len();
+                        // Tagged: attach this annotation to its /Link structure
+                        // element (OBJR + /StructParent) so links are tagged
+                        // (PDF/UA 7.18.5-1).
+                        let sp_str = tag_builder
+                            .as_mut()
+                            .and_then(|tb| {
+                                tb.connect_link_annotation(page_idx, &annot.href, annot_obj_id)
+                            })
+                            .map(|sp| format!(" /StructParent {}", sp))
+                            .unwrap_or_default();
+                        // PDF/UA 7.18.1-2 / 7.18.5-2: a link annotation must
+                        // carry an alternate description in its /Contents key.
+                        let contents = Self::escape_pdf_string(&format!("Link to {anchor}"));
                         let annot_dict = format!(
                             "<< /Type /Annot /Subtype /Link /Rect {} /Border [0 0 0] \
+                             /Contents ({}){} \
                              /A << /S /GoTo /D [{} 0 R /XYZ 0 {:.2} null] >> >>",
-                            rect, bm.page_obj_id, bm.y_pdf
+                            rect, contents, sp_str, bm.page_obj_id, bm.y_pdf
                         );
                         builder.objects.push(PdfObject {
                             id: annot_obj_id,
@@ -334,11 +353,19 @@ impl PdfWriter {
                 } else {
                     // External link
                     let annot_obj_id = builder.objects.len();
+                    let sp_str = tag_builder
+                        .as_mut()
+                        .and_then(|tb| {
+                            tb.connect_link_annotation(page_idx, &annot.href, annot_obj_id)
+                        })
+                        .map(|sp| format!(" /StructParent {}", sp))
+                        .unwrap_or_default();
+                    let href_esc = Self::escape_pdf_string(&annot.href);
                     let annot_dict = format!(
                         "<< /Type /Annot /Subtype /Link /Rect {} /Border [0 0 0] \
+                         /Contents ({}){} \
                          /A << /Type /Action /S /URI /URI ({}) >> >>",
-                        rect,
-                        Self::escape_pdf_string(&annot.href)
+                        rect, href_esc, sp_str, href_esc
                     );
                     builder.objects.push(PdfObject {
                         id: annot_obj_id,
@@ -1096,7 +1123,8 @@ impl PdfWriter {
             None
         };
 
-        Ok(self.serialize(&builder, info_obj_id))
+        let pdf = self.serialize(&builder, info_obj_id);
+        Ok((pdf, builder.warnings))
     }
 
     /// Build the PDF content stream for a single page.
@@ -1173,8 +1201,22 @@ impl PdfWriter {
                     None
                 } else {
                     let is_header = element.is_header_row;
-                    let mcid = tb.begin_element(nt, is_header, element.alt.as_deref(), page_idx);
-                    let role = tb.map_role_public(nt, is_header);
+                    let href = element.href.as_deref();
+                    let mcid = tb.begin_element(
+                        nt,
+                        is_header,
+                        element.alt.as_deref(),
+                        page_idx,
+                        href,
+                        element.col_span,
+                    );
+                    // An href'd element tags as /Link (see begin_element); the
+                    // BDC role must match the structure role, so key on href too.
+                    let role = if href.is_some() {
+                        "Link"
+                    } else {
+                        tb.map_role_public(nt, is_header)
+                    };
                     let _ = writeln!(stream, "/{} <</MCID {}>> BDC", role, mcid);
                     Some(mcid)
                 }
@@ -1267,6 +1309,7 @@ impl PdfWriter {
                 background,
                 border_width,
                 border_color,
+                border_style,
                 border_radius,
                 opacity,
                 box_shadow,
@@ -1370,7 +1413,18 @@ impl PdfWriter {
 
                 let bw = border_width;
                 if bw.top > 0.0 || bw.right > 0.0 || bw.bottom > 0.0 || bw.left > 0.0 {
-                    if (bw.top - bw.right).abs() < 0.001
+                    use crate::style::BorderStyle::Solid;
+                    let all_solid = border_style.top == Solid
+                        && border_style.right == Solid
+                        && border_style.bottom == Solid
+                        && border_style.left == Solid;
+                    // The uniform fast path draws one rounded/plain rect stroke;
+                    // it only applies to a solid, equal-width border. Any
+                    // dashed/dotted or mixed-style border goes per-side (which
+                    // also emits the dash pattern; radius is dropped there, per
+                    // Chrome's own dashed-with-radius handling).
+                    if all_solid
+                        && (bw.top - bw.right).abs() < 0.001
                         && (bw.right - bw.bottom).abs() < 0.001
                         && (bw.bottom - bw.left).abs() < 0.001
                     {
@@ -1389,7 +1443,7 @@ impl PdfWriter {
 
                         let _ = writeln!(stream, "S\nQ");
                     } else {
-                        self.write_border_sides(stream, x, y, w, h, bw, border_color);
+                        self.write_border_sides(stream, x, y, w, h, bw, border_color, border_style);
                     }
                 }
 
@@ -2348,72 +2402,188 @@ impl PdfWriter {
         h: f64,
         bw: &Edges,
         bc: &crate::style::EdgeValues<Color>,
+        bs: &crate::style::EdgeValues<crate::style::BorderStyle>,
     ) {
-        if bw.top > 0.0 {
-            let _ = write!(
-                stream,
-                "q\n{:.3} {:.3} {:.3} RG\n{:.2} w\n{:.2} {:.2} m\n{:.2} {:.2} l\nS\nQ\n",
-                bc.top.r,
-                bc.top.g,
-                bc.top.b,
-                bw.top,
-                x,
-                y + h,
-                x + w,
-                y + h
-            );
+        // PDF dash + line-cap ops for a side, calibrated against Chrome:
+        //   dashed → dash 2×width, gap 1×width (butt cap)
+        //   dotted → round-capped dots, diameter 1×width, 2×width centre spacing
+        // Each side is wrapped in q/Q so the graphics state (cap, dash) resets.
+        fn dash_ops(style: crate::style::BorderStyle, width: f64) -> String {
+            use crate::style::BorderStyle::*;
+            match style {
+                Solid => String::new(),
+                Dashed => format!("[{:.2} {:.2}] 0 d\n", width * 2.0, width),
+                Dotted => format!("1 J\n[0 {:.2}] 0 d\n", width * 2.0),
+            }
         }
-        if bw.bottom > 0.0 {
+        // side: (color, width, style, x0,y0, x1,y1)
+        let sides = [
+            (bc.top, bw.top, bs.top, x, y + h, x + w, y + h),
+            (bc.bottom, bw.bottom, bs.bottom, x, y, x + w, y),
+            (bc.left, bw.left, bs.left, x, y, x, y + h),
+            (bc.right, bw.right, bs.right, x + w, y, x + w, y + h),
+        ];
+        for (color, width, style, x0, y0, x1, y1) in sides {
+            if width <= 0.0 {
+                continue;
+            }
             let _ = write!(
                 stream,
-                "q\n{:.3} {:.3} {:.3} RG\n{:.2} w\n{:.2} {:.2} m\n{:.2} {:.2} l\nS\nQ\n",
-                bc.bottom.r,
-                bc.bottom.g,
-                bc.bottom.b,
-                bw.bottom,
-                x,
-                y,
-                x + w,
-                y
-            );
-        }
-        if bw.left > 0.0 {
-            let _ = write!(
-                stream,
-                "q\n{:.3} {:.3} {:.3} RG\n{:.2} w\n{:.2} {:.2} m\n{:.2} {:.2} l\nS\nQ\n",
-                bc.left.r,
-                bc.left.g,
-                bc.left.b,
-                bw.left,
-                x,
-                y,
-                x,
-                y + h
-            );
-        }
-        if bw.right > 0.0 {
-            let _ = write!(
-                stream,
-                "q\n{:.3} {:.3} {:.3} RG\n{:.2} w\n{:.2} {:.2} m\n{:.2} {:.2} l\nS\nQ\n",
-                bc.right.r,
-                bc.right.g,
-                bc.right.b,
-                bw.right,
-                x + w,
-                y,
-                x + w,
-                y + h
+                "q\n{:.3} {:.3} {:.3} RG\n{:.2} w\n{}{:.2} {:.2} m\n{:.2} {:.2} l\nS\nQ\n",
+                color.r,
+                color.g,
+                color.b,
+                width,
+                dash_ops(style, width),
+                x0,
+                y0,
+                x1,
+                y1
             );
         }
     }
 
     /// Register fonts used across all pages — each unique (family, weight, italic)
     /// combination gets its own PDF font object.
+    /// pdfUa: embed a metric-compatible substitute (Liberation, via
+    /// `@formepdf/fonts-standard`) for a base-14 font, as a SIMPLE TrueType
+    /// font carrying the base-14 AFM `/Widths` and WinAnsiEncoding. Because the
+    /// widths, encoding, and font key are unchanged, the content stream is
+    /// byte-identical to the non-embedded base-14 path — only the font
+    /// dictionary gains an embedded program, so text positions are exact by
+    /// construction. Returns `false` (caller emits the non-embedded base-14)
+    /// when there is no metric-compatible substitute (Symbol/ZapfDingbats) or
+    /// `@formepdf/fonts-standard` is not registered.
+    fn emit_pdfua_embedded_standard(
+        builder: &mut PdfBuilder,
+        key: &FontKey,
+        std_font: &crate::font::StandardFont,
+        metrics: &crate::font::StandardFontMetrics,
+        font_context: &FontContext,
+    ) -> bool {
+        let lib_family = match std_font.liberation_family() {
+            Some(f) => f,
+            None => return false, // Symbol / ZapfDingbats — no substitute
+        };
+        // The substitute must have been registered (fonts-standard) — otherwise
+        // it resolves back to a Standard font and there is nothing to embed.
+        let lib_bytes: &[u8] = match font_context.resolve(lib_family, key.weight, key.italic) {
+            FontData::Custom { data, .. } => data,
+            FontData::Standard(_) => return false,
+        };
+        let face = match ttf_parser::Face::parse(lib_bytes, 0) {
+            Ok(f) => f,
+            Err(_) => return false,
+        };
+        let scale = 1000.0 / face.units_per_em() as f64;
+        let bbox = face.global_bounding_box();
+        let pdf_name = Self::sanitize_font_name(lib_family, key.weight, key.italic);
+
+        // 1. FontFile2 — the full Liberation program, zlib-compressed.
+        let compressed = compress_to_vec_zlib(lib_bytes, 6);
+        let fontfile2_id = builder.objects.len();
+        let mut ff2: Vec<u8> = Vec::new();
+        let _ = write!(
+            ff2,
+            "<< /Length {} /Length1 {} /Filter /FlateDecode >>\nstream\n",
+            compressed.len(),
+            lib_bytes.len()
+        );
+        ff2.extend_from_slice(&compressed);
+        ff2.extend_from_slice(b"\nendstream");
+        builder.objects.push(PdfObject {
+            id: fontfile2_id,
+            data: ff2,
+        });
+
+        // 2. FontDescriptor.
+        let fd_id = builder.objects.len();
+        let cap_height =
+            (face.capital_height().unwrap_or_else(|| face.ascender()) as f64 * scale) as i32;
+        let fd = format!(
+            "<< /Type /FontDescriptor /FontName /{name} /Flags {flags} \
+             /FontBBox [{x0} {y0} {x1} {y1}] /ItalicAngle {ia} \
+             /Ascent {asc} /Descent {desc} /CapHeight {cap} /StemV {stem} \
+             /FontFile2 {ff2} 0 R >>",
+            name = pdf_name,
+            flags = std_font.descriptor_flags(),
+            x0 = (bbox.x_min as f64 * scale) as i32,
+            y0 = (bbox.y_min as f64 * scale) as i32,
+            x1 = (bbox.x_max as f64 * scale) as i32,
+            y1 = (bbox.y_max as f64 * scale) as i32,
+            ia = if key.italic { -12 } else { 0 },
+            asc = (face.ascender() as f64 * scale) as i32,
+            desc = (face.descender() as f64 * scale) as i32,
+            cap = cap_height,
+            stem = if key.weight >= 700 { 120 } else { 80 },
+            ff2 = fontfile2_id,
+        );
+        builder.objects.push(PdfObject {
+            id: fd_id,
+            data: fd.into_bytes(),
+        });
+
+        // 3. Simple TrueType font dict — base-14 AFM widths + WinAnsiEncoding,
+        //    with the PDF/A width carve-out.
+        //
+        // For most glyphs the substitute's advance equals the base-14 AFM
+        // width (Liberation is metric-compatible), so we declare the AFM value
+        // and positioning stays exact. For the handful of rare accent/symbol
+        // glyphs per proportional family where they diverge (e.g. macron,
+        // grave, middot, ÷, ±, quotesingle, µ), we declare the substitute's
+        // OWN advance instead — so /Widths agrees with the embedded program,
+        // which ISO 19005 (PDF/A) requires and veraPDF's PDF/A profile checks.
+        // The trade is a sub-glyph advance drift on those rare glyphs, which
+        // real documents almost never contain. (Liberation Mono has zero
+        // divergent glyphs; the carve-out is a no-op there.)
+        let declared_widths: Vec<u16> = metrics
+            .widths
+            .iter()
+            .enumerate()
+            .map(|(i, &afm)| {
+                let code = 32u8.wrapping_add(i as u8); // index 0 = WinAnsi code 32
+                if let Some(ch) = crate::font::winansi_to_char(code) {
+                    if let Some(gid) = face.glyph_index(ch) {
+                        if let Some(adv) = face.glyph_hor_advance(gid) {
+                            let hmtx = (adv as f64 * scale).round() as u16;
+                            if (hmtx as i32 - afm as i32).abs() > 1 {
+                                return hmtx;
+                            }
+                        }
+                    }
+                }
+                afm
+            })
+            .collect();
+        let widths_str: String = declared_widths
+            .iter()
+            .map(|w| w.to_string())
+            .collect::<Vec<_>>()
+            .join(" ");
+        let obj_id = builder.objects.len();
+        let font_dict = format!(
+            "<< /Type /Font /Subtype /TrueType /BaseFont /{name} \
+             /Encoding /WinAnsiEncoding \
+             /FirstChar 32 /LastChar 255 /Widths [{w}] \
+             /FontDescriptor {fd} 0 R >>",
+            name = pdf_name,
+            w = widths_str,
+            fd = fd_id,
+        );
+        builder.objects.push(PdfObject {
+            id: obj_id,
+            data: font_dict.into_bytes(),
+        });
+        builder.font_objects.push((key.clone(), obj_id));
+        true
+    }
+
     fn register_fonts(
         &self,
         builder: &mut PdfBuilder,
         pages: &[LayoutPage],
         font_context: &FontContext,
+        pdf_ua: bool,
     ) -> Result<(), FormeError> {
         // Collect font usage: glyph IDs, chars, and glyph→char mapping per font
         let mut font_usage_map: HashMap<FontKey, FontUsage> = HashMap::new();
@@ -2447,10 +2617,47 @@ impl PdfWriter {
 
             match font_data {
                 FontData::Standard(std_font) => {
+                    let metrics = std_font.metrics();
+
+                    // PDF/UA + PDF/A require every font embedded, which the
+                    // base-14 fonts are not. In pdfUa mode, if a
+                    // metric-compatible substitute (Liberation, via
+                    // @formepdf/fonts-standard) is registered, embed it as a
+                    // SIMPLE TrueType carrying the base-14 AFM /Widths and
+                    // WinAnsiEncoding — the content stream is untouched (same
+                    // `(text) Tj` WinAnsi path, same positions), only the font
+                    // dictionary gains an embedded program.
+                    if pdf_ua {
+                        if Self::emit_pdfua_embedded_standard(
+                            builder,
+                            key,
+                            std_font,
+                            &metrics,
+                            font_context,
+                        ) {
+                            continue;
+                        }
+                        // Substitution didn't happen. If a metric-compatible
+                        // substitute exists but wasn't registered, say so by
+                        // name with the remedy — never silently emit a
+                        // non-conforming file. (Symbol/ZapfDingbats have no
+                        // substitute, so there is nothing to suggest.)
+                        if let Some(lib) = std_font.liberation_family() {
+                            builder.warnings.push(format!(
+                                "pdfUa: font '{}' is not embedded, so the PDF will not conform to \
+                                 PDF/UA (all fonts must be embedded). Install \
+                                 @formepdf/fonts-standard and register its fonts \
+                                 (`for (const f of standardFonts()) Font.register(f)`) — Forme \
+                                 will then embed the metric-compatible {} in its place.",
+                                std_font.pdf_name(),
+                                lib,
+                            ));
+                        }
+                    }
+
                     let obj_id = builder.objects.len();
                     // Include /Widths so PDF viewers use our exact metrics
                     // instead of substituting a system font with different widths
-                    let metrics = std_font.metrics();
                     let widths_str: String = metrics
                         .widths
                         .iter()
@@ -4103,7 +4310,7 @@ mod tests {
             config: PageConfig::default(),
         }];
         let metadata = Metadata::default();
-        let bytes = writer
+        let (bytes, _warnings) = writer
             .write(
                 &pages,
                 &metadata,
@@ -4142,7 +4349,7 @@ mod tests {
             creator: None,
             lang: None,
         };
-        let bytes = writer
+        let (bytes, _warnings) = writer
             .write(
                 &pages,
                 &metadata,
@@ -4211,6 +4418,7 @@ mod tests {
                     bookmark: None,
                     alt: None,
                     is_header_row: false,
+                    col_span: 1,
                     overflow: Overflow::default(),
                     opacity: 1.0,
                 },
@@ -4255,6 +4463,7 @@ mod tests {
                     bookmark: None,
                     alt: None,
                     is_header_row: false,
+                    col_span: 1,
                     overflow: Overflow::default(),
                     opacity: 1.0,
                 },
@@ -4266,7 +4475,7 @@ mod tests {
         }];
 
         let metadata = Metadata::default();
-        let bytes = writer
+        let (bytes, _warnings) = writer
             .write(
                 &pages,
                 &metadata,
@@ -4423,6 +4632,7 @@ mod tests {
                 bookmark: None,
                 alt: None,
                 is_header_row: false,
+                col_span: 1,
                 overflow: Overflow::default(),
                 opacity: 1.0,
             }],
@@ -4433,7 +4643,7 @@ mod tests {
         }];
 
         let metadata = Metadata::default();
-        let bytes = writer
+        let (bytes, _warnings) = writer
             .write(
                 &pages,
                 &metadata,

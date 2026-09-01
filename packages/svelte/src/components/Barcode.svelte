@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { BarcodeFormat, Style } from '@formepdf/shared';
-  import { encodeProps } from '../encode.js';
+  import { encodeProps } from '@formepdf/shared';
 
   interface Props {
     /** The data to encode. */

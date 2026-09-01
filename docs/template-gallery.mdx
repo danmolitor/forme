@@ -397,7 +397,7 @@ function Badge({ label }) {
 function ProductCard({ product }) {
   const hasSale = product.originalPrice && product.originalPrice > product.price;
   return (
-    <View style={{ flexBasis: '48%', padding: 12, borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 6, marginBottom: 10 }} wrap={false}>
+    <View style={{ position: 'relative', flexBasis: '48%', padding: 12, borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 6, marginBottom: 10 }} wrap={false}>
       {product.badge && (
         <View style={{ position: 'absolute', top: -18, right: -18 }}>
           <Badge label={product.badge} />

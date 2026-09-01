@@ -47,7 +47,12 @@ pub struct Document {
     pub default_style: Option<crate::style::Style>,
 
     /// Whether to produce a tagged (accessible) PDF with structure tree.
-    #[serde(default)]
+    ///
+    /// Defaults to `true`: every render emits a structure tree unless the
+    /// caller explicitly sets `tagged: false`. Tagging is layout-neutral —
+    /// the tag tree is built after layout, so geometry and visual output are
+    /// byte-for-byte unchanged; only the structural PDF objects differ.
+    #[serde(default = "default_true")]
     pub tagged: bool,
 
     /// PDF/A conformance level. When set, forces `tagged = true` for "2a".

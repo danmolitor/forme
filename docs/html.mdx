@@ -1,0 +1,82 @@
+---
+title: HTML Input
+sidebarTitle: HTML Input
+description: Render the HTML and print CSS you already have to paginated PDF — no headless browser. A documented subset with named warnings for everything outside it.
+---
+
+Forme 0.14 adds a second front door to the engine: **`@formepdf/html`** renders HTML + print CSS to PDF through the same Rust/WASM engine that renders JSX components. No headless browser, no Chromium cold start.
+
+```bash
+# CLI — zero config
+npx @formepdf/html invoice.html -o invoice.pdf
+
+# with a separate stylesheet, page setup, and fonts
+npx @formepdf/html report.html --css print.css --page-size Letter --margin 36 --font "Inter=Inter.ttf"
+```
+
+```ts
+// Library
+import { renderHtml } from "@formepdf/html";
+
+const { pdf, warnings } = await renderHtml(html, { css, fonts });
+```
+
+## The subset — the constitution
+
+This is a deliberately **documented subset** of HTML/CSS, in the spirit of Satori — but page-native. Everything supported is listed below and tested. Everything outside the subset lands in the `warnings` list at render time, named, with a remedy where one exists. Nothing fails silently.
+
+### Paged media — the point of the whole thing
+
+| Supported | Not supported (warned) |
+|---|---|
+| `@page` `size` (named, dimensions, `landscape`) and `margin` | `@page` `bleed` / `marks` |
+| `@page :first` — different margins, headers off the title page | `:left` / `:right` page variants |
+| Margin boxes (`@top-center`, `@bottom-right`, …) for running headers/footers | |
+| Page counters — `counter(page)` and `counter(pages)` | |
+| `break-before` / `break-after` / `break-inside: avoid` (+ legacy `page-break-*` aliases) | |
+| `orphans` / `widows` | |
+| `@media` media-type evaluation — `print` is the native media type; feature queries evaluate against the page content box | `prefers-color-scheme`, `not` conditions (excluded with a named warning) |
+| `<thead>` repetition across page breaks; table-cell overflow preservation | |
+
+### Elements
+
+| Supported | Not supported |
+|---|---|
+| Block containers: `div`, `section`, `article`, `header`, `footer`, `main`, `aside`, `nav`, `address`, `figure`, `blockquote`, `hr` | JavaScript of any kind (`<script>` skipped) |
+| `h1`–`h6`, `p`, `br` | `<canvas>`, `<video>`, `<audio>`, `<iframe>`, forms |
+| Inline: `span`, `b`/`strong`, `i`/`em`, `u`, `s`/`del`, `a`, `small`, `code`, `mark`, `sub`, `sup` | Inline `<img>` mid-paragraph |
+| Tables: `table`, `thead`, `tbody`, `tfoot`, `tr`, `td`, `th` + `colspan`/`rowspan` | |
+| Lists: `ul`, `ol` (+ `start`), `li` | |
+| `img` (block-level) — data URIs and local files | External `http(s)` image fetching |
+| `<style>` blocks; the CLI inlines **local** `<link rel="stylesheet">` | Remote stylesheets — never fetched, warned with the href and remedy |
+
+### Selectors
+
+| Supported | Not supported (selector skipped, warned) |
+|---|---|
+| Type, class, id, universal; compounds | Pseudo-elements (`::before`, `::after`) |
+| Descendant and child combinators; grouping | Attribute selectors, sibling combinators |
+| `:first-child`, `:last-child`, `:nth-child(even\|odd\|an+b)` | `:only-child` and remaining tree pseudo-classes |
+| `:first-of-type`, `:last-of-type`, `:nth-of-type`, `:nth-last-child`, `:nth-last-of-type` | Interaction pseudo-classes (`:hover`) — permanent: print has no hover |
+| Full cascade with `!important` | |
+
+### Properties
+
+The full property table lives in the [package README](https://github.com/formepdf/forme/blob/main/html/README.md) — margins with CSS margin collapsing, borders (solid/dashed/dotted with Chrome-matched dash metrics), `border-collapse` emulation, min/max width constraints (the centered-column idiom works), font fallback chains, `text-align: justify` with real Knuth-Plass distribution, `text-transform`, `letter-spacing`, `vertical-align` on cells, flexbox, and relative/absolute positioning.
+
+Notable exclusions, all warned by name: `float`, CSS Grid, CSS variables, `position: fixed/sticky`, transforms, gradients, `@font-face` fetching (use `options.fonts` / `--font` — see the [web-fonts migration recipe](https://github.com/formepdf/forme/blob/main/html/README.md)).
+
+## The warnings contract
+
+```
+$ npx @formepdf/html letterhead.html -o letterhead.pdf
+warning: unsupported property: text-transform-origin
+```
+
+Every warning names the thing it skipped: the property, the selector, the stylesheet href, the `@font-face` family. If a render is silent, the document used only the subset — and what you got is what the subset defines.
+
+## Migrating
+
+- [Replacing Puppeteer](/replacing-puppeteer)
+- [Migrating from wkhtmltopdf](/guides/migrating-from-wkhtmltopdf)
+- [Migrating from DomPDF](/guides/migrating-from-dompdf)

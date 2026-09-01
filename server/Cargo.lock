@@ -517,7 +517,7 @@ dependencies = [
 
 [[package]]
 name = "forme-pdf"
-version = "0.10.5"
+version = "0.14.0"
 dependencies = [
  "barcoders",
  "base64",
@@ -547,7 +547,7 @@ dependencies = [
 
 [[package]]
 name = "forme-server"
-version = "0.10.5"
+version = "0.14.0"
 dependencies = [
  "axum",
  "axum-test",
