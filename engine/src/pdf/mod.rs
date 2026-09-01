@@ -353,7 +353,7 @@ impl PdfWriter {
                         let contents = Self::escape_pdf_string(&format!("Link to {anchor}"));
                         let annot_dict = format!(
                             "<< /Type /Annot /Subtype /Link /Rect {} /Border [0 0 0] \
-                             /Contents ({}){} \
+                             /F 4 /Contents ({}){} \
                              /A << /S /GoTo /D [{} 0 R /XYZ 0 {:.2} null] >> >>",
                             rect, contents, sp_str, bm.page_obj_id, bm.y_pdf
                         );
@@ -377,7 +377,7 @@ impl PdfWriter {
                     let href_esc = Self::escape_pdf_string(&annot.href);
                     let annot_dict = format!(
                         "<< /Type /Annot /Subtype /Link /Rect {} /Border [0 0 0] \
-                         /Contents ({}){} \
+                         /F 4 /Contents ({}){} \
                          /A << /Type /Action /S /URI /URI ({}) >> >>",
                         rect, href_esc, sp_str, href_esc
                     );
