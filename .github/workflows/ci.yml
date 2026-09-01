@@ -405,3 +405,10 @@ jobs:
         env:
           REQUIRE_VERAPDF: '1'
         run: node scripts/verify-pdfua.mjs
+      - name: Validate the PDF/A + PDF/UA-1 corpus
+        # The same corpus rendered as BOTH PDF/A and PDF/UA-1, validated against
+        # veraPDF's PDF/A-2b and PDF/A-2a profiles AND its PDF/UA-1 profile — the
+        # archival+accessible claim, enforced.
+        env:
+          REQUIRE_VERAPDF: '1'
+        run: node scripts/verify-pdfa.mjs
