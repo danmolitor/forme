@@ -4328,9 +4328,16 @@ mod tests {
     #[test]
     fn test_embedded_srgb_is_a_valid_icc_profile() {
         let icc: &[u8] = include_bytes!("sRGB.icc");
-        assert!(icc.len() >= 128, "ICC shorter than its 128-byte header: {}", icc.len());
+        assert!(
+            icc.len() >= 128,
+            "ICC shorter than its 128-byte header: {}",
+            icc.len()
+        );
         // Not HTML / not a text error page.
-        assert_ne!(icc[0], b'<', "embedded ICC starts with '<' — looks like HTML, not a profile");
+        assert_ne!(
+            icc[0], b'<',
+            "embedded ICC starts with '<' — looks like HTML, not a profile"
+        );
         // 'acsp' profile-file signature at bytes 36..40 (ISO 15076-1 / ICC.1).
         assert_eq!(&icc[36..40], b"acsp", "missing ICC 'acsp' signature");
         // Device class (bytes 12..16) must be monitor or output for an OutputIntent.
