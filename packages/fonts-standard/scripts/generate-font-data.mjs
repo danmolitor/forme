@@ -2,7 +2,7 @@
 // base64 so the library returns Uint8Array buffers with no file IO (works in
 // Node, WASM, and the browser). Run by `npm run build` before tsc; the output
 // is gitignored (regenerated from fonts/*.ttf, the tracked source of truth).
-import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, readdirSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -30,5 +30,8 @@ for (const [key, file] of keys) {
 }
 out += '};\n';
 
+// The output dir is gitignored, so it's absent on a fresh checkout (CI) — create
+// it before writing rather than assuming a prior run left it behind.
+mkdirSync(dirname(outFile), { recursive: true });
 writeFileSync(outFile, out);
 console.log(`generated ${outFile} from ${files.length} fonts`);
