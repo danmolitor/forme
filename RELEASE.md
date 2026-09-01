@@ -301,15 +301,24 @@ A clean audit is not a guarantee — it only proves the *lockfile* doesn't refer
 
 ### npm packages
 
+# Order is dependency-driven: every package's @formepdf/* deps must already be
+# on the registry when it publishes, so `npm install <pkg>` works the instant it
+# lands. shared roots the graph (it now owns the hoisted parser/encode);
+# react → core (core depends on react); html early because renderer depends on
+# it (this used to publish last, after renderer — an install-window bug);
+# fonts-standard sits with shared as a dependency-free package (convention),
+# not at the tail. Consumers (renderer, templates, cli, framework glue) last.
 ```bash
-cd packages/shared && npm publish --access public   # must publish first — react depends on it
-cd packages/fonts-standard && npm publish --access public   # no Forme deps — publishes anywhere before consumers
-cd packages/react && npm publish --access public
-cd packages/core && npm publish --access public
-cd packages/renderer && npm publish --access public
-cd packages/svelte && npm publish --access public
-cd packages/vue && npm publish --access public
-cd packages/preact && npm publish --access public
+cd packages/shared && npm publish --access public   # root — react/svelte/vue/preact depend on it
+cd packages/fonts-standard && npm publish --access public   # no Forme deps — publishes early with shared
+cd packages/react && npm publish --access public   # depends on shared
+cd packages/core && npm publish --access public   # depends on react
+cd packages/html && npm publish --access public   # no Forme deps; MUST precede renderer, which depends on it
+cd packages/svelte && npm publish --access public   # shared + optional peer core
+cd packages/vue && npm publish --access public   # shared + optional peer core
+cd packages/preact && npm publish --access public   # shared
+cd packages/renderer && npm publish --access public   # depends on core + react + html
+cd packages/templates && npm publish --access public   # depends on react
 cd packages/cli && npm publish --access public
 cd packages/hono && npm publish --access public
 cd packages/next && npm publish --access public
@@ -317,8 +326,6 @@ cd packages/resend && npm publish --access public
 cd packages/mcp && npm publish --access public
 cd packages/sdk && npm publish --access public
 cd packages/tailwind && npm publish --access public
-cd packages/templates && npm publish --access public
-cd packages/html && npm publish --access public
 ```
 
 ### VS Code extension
