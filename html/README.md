@@ -92,10 +92,13 @@ noted in the warnings).
 
 | In | Pending (warned) |
 |---|---|
-| `@page` `size` (named, dimensions, `landscape`) and `margin` | `@page :first` / `:left` / `:right` variants |
-| `break-before` / `break-after` / `break-inside: avoid` | margin boxes (`@top-center`, ...) for running headers/footers |
-| legacy `page-break-*` aliases (the wkhtmltopdf-era spelling) | page counters (`counter(page)` / `counter(pages)`) |
-| `orphans` / `widows` | `@page` `bleed` / `marks` |
+| `@page` `size` (named, dimensions, `landscape`) and `margin` | `:left` / `:right` page variants |
+| `@page :first` — its own margins/margin boxes for the title page | `@page` `bleed` / `marks` |
+| margin boxes (`@top-center`, ...) for running headers/footers | |
+| page counters (`counter(page)` / `counter(pages)`) in margin boxes | |
+| `break-before` / `break-after` / `break-inside: avoid` | |
+| legacy `page-break-*` aliases (the wkhtmltopdf-era spelling) | |
+| `orphans` / `widows` | |
 | `<thead>` repetition across breaks, table-cell overflow preservation (engine-native) | |
 
 **`@media` media-type evaluation**: this is a paged PDF renderer, so
