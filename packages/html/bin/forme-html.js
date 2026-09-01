@@ -3,7 +3,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import { renderHtml } from '../index.js';
 
 // Host-layer <link rel="stylesheet"> resolution. The library never fetches;
@@ -170,7 +170,18 @@ function main() {
 }
 
 // Run the CLI only when invoked directly; importing this file (tests) gets the
-// helper export without executing the command.
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+// helper export without executing the command. Compare *real* paths:
+// npm/npx invoke bins through a `.bin` symlink, so `process.argv[1]` is the
+// symlink while `import.meta.url` is the resolved file — a raw URL compare
+// would never match, silently no-op'ing `npx forme-html`.
+function isMain() {
+  if (!process.argv[1]) return false;
+  try {
+    return fs.realpathSync(process.argv[1]) === fileURLToPath(import.meta.url);
+  } catch {
+    return false;
+  }
+}
+if (isMain()) {
   main();
 }
