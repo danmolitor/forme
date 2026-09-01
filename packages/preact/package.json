@@ -1,6 +1,6 @@
 {
   "name": "@formepdf/preact",
-  "version": "0.15.0",
+  "version": "0.16.0",
   "description": "Preact-native adapter for Forme PDF engine. Same components, same props as @formepdf/react, without the React runtime.",
   "type": "module",
   "main": "./dist/index.js",
@@ -18,13 +18,13 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@formepdf/shared": "0.15.0"
+    "@formepdf/shared": "0.16.0"
   },
   "peerDependencies": {
     "preact": "^10.19.0"
   },
   "devDependencies": {
-    "@formepdf/react": "0.15.0",
+    "@formepdf/react": "0.16.0",
     "@types/react": "^19.0.0",
     "preact": "^10.19.0",
     "react": "^19.0.0",
