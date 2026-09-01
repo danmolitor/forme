@@ -463,7 +463,7 @@ impl PdfWriter {
 
         let output_intent_id = if pdfa.is_some() {
             // Embed sRGB ICC profile
-            static SRGB_ICC: &[u8] = include_bytes!("srgb2014.icc");
+            static SRGB_ICC: &[u8] = include_bytes!("sRGB.icc");
             let compressed_icc = compress_to_vec_zlib(SRGB_ICC, 6);
 
             let icc_obj_id = builder.objects.len();
@@ -4304,6 +4304,31 @@ fn pdf_escape_string(s: &str) -> String {
 mod tests {
     use super::*;
     use crate::font::FontContext;
+
+    /// The embedded sRGB profile must be a REAL ICC profile suitable for a
+    /// PDF/A OutputIntent — not, say, an HTML error page a `curl` returned and
+    /// nobody inspected (which is exactly what shipped from ~0.9.0 to 0.15.0,
+    /// silently making every PDF/A OutputIntent invalid). This is the check
+    /// that would have caught it: ICC signature, an OutputIntent-legal device
+    /// class (`mntr`/`prtr`), and an RGB data colour space.
+    #[test]
+    fn test_embedded_srgb_is_a_valid_icc_profile() {
+        let icc: &[u8] = include_bytes!("sRGB.icc");
+        assert!(icc.len() >= 128, "ICC shorter than its 128-byte header: {}", icc.len());
+        // Not HTML / not a text error page.
+        assert_ne!(icc[0], b'<', "embedded ICC starts with '<' — looks like HTML, not a profile");
+        // 'acsp' profile-file signature at bytes 36..40 (ISO 15076-1 / ICC.1).
+        assert_eq!(&icc[36..40], b"acsp", "missing ICC 'acsp' signature");
+        // Device class (bytes 12..16) must be monitor or output for an OutputIntent.
+        let device_class = &icc[12..16];
+        assert!(
+            device_class == b"mntr" || device_class == b"prtr",
+            "ICC device class {:?} is not mntr/prtr (PDF/A 6.2.3)",
+            String::from_utf8_lossy(device_class),
+        );
+        // Data colour space (bytes 16..20) must be RGB for an sRGB OutputIntent.
+        assert_eq!(&icc[16..20], b"RGB ", "ICC data colour space is not RGB");
+    }
 
     #[test]
     fn test_escape_pdf_string() {
