@@ -6,7 +6,7 @@
 [![downloads](https://img.shields.io/npm/dw/%40formepdf%2Fcore?color=10b981)](https://www.npmjs.com/package/@formepdf/core)
 [![crates.io](https://img.shields.io/crates/v/forme-pdf?color=10b981)](https://crates.io/crates/forme-pdf)
 [![PyPI](https://img.shields.io/pypi/v/formepdf?color=10b981)](https://pypi.org/project/formepdf/)
-[![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/formepdf.forme-pdf?label=VS%20Code&color=10b981)](https://marketplace.visualstudio.com/items?itemName=formepdf.forme-pdf)
+[![VS Code Marketplace](https://img.shields.io/badge/VS%20Code-Marketplace-10b981)](https://marketplace.visualstudio.com/items?itemName=formepdf.forme-pdf)
 [![Docker pulls](https://img.shields.io/docker/pulls/formepdf/forme?color=10b981)](https://hub.docker.com/r/formepdf/forme)
 [![license](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
 
