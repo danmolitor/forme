@@ -621,10 +621,10 @@ pub fn html_to_document(html: &str, options: &HtmlOptions) -> (forme::Document, 
                 (l, r)
             };
             let build_display = |l_len: Option<css::Length>,
-                                     r_len: Option<css::Length>,
-                                     label: &str,
-                                     base_real: &forme::model::PageConfig,
-                                     warnings: &mut Vec<String>|
+                                 r_len: Option<css::Length>,
+                                 label: &str,
+                                 base_real: &forme::model::PageConfig,
+                                 warnings: &mut Vec<String>|
              -> Option<forme::model::PageConfig> {
                 if l_len.is_none() && r_len.is_none() {
                     return None;
