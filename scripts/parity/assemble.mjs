@@ -51,11 +51,20 @@ if (ua || a) {
 
 const determinism = readJson('determinism');
 const tests = readJson('tests');
+// Benchmarks: prefer the freshly-emitted partial (carries dev + ci runs). If the
+// CI benchmark job was skipped or failed, fall back to the committed dev
+// baseline so the page still renders the clean-hardware column — never blank.
+let benchmarks = readJson('benchmarks');
+if (!benchmarks) {
+  const devBaseline = join(REPO, 'benchmarks', 'results', 'dev.json');
+  benchmarks = existsSync(devBaseline) ? JSON.parse(readFileSync(devBaseline, 'utf8')) : null;
+}
 
 const missing = [];
 if (!conformance) missing.push('conformance');
 if (!determinism) missing.push('determinism');
 if (!tests) missing.push('tests');
+if (!benchmarks) missing.push('benchmarks');
 
 const artifact = {
   schemaVersion: 1,
@@ -73,7 +82,7 @@ const artifact = {
     templates: ['invoice', 'receipt', 'report', 'shipping-label', 'letter'],
     htmlFixtures: ['letterhead', 'dashed-borders', 'statement', 'zebra-invoice'],
   },
-  sections: { conformance, determinism, tests },
+  sections: { conformance, determinism, tests, benchmarks },
   missingSections: missing,
 };
 

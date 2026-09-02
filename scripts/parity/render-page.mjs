@@ -78,7 +78,7 @@ if (!parity) {
 }
 
 const { provenance: prov, corpus, sections } = parity;
-const conf = sections.conformance, det = sections.determinism, tests = sections.tests;
+const conf = sections.conformance, det = sections.determinism, tests = sections.tests, bench = sections.benchmarks;
 const fmtDate = (iso) => { try { return new Date(iso).toISOString().replace('T', ' ').replace(/\.\d+Z$/, ' UTC'); } catch { return iso; } };
 const unavailable = (eyebrow, name) => `<section><div class="wrap"><h3 class="eyebrow">${eyebrow}</h3>
 <p class="muted" style="margin-top:.75rem">${name} evidence is unavailable for this run — the job that produces it did not report. This is shown rather than hidden so the page never implies coverage it doesn't have.</p></div></section>`;
@@ -145,6 +145,105 @@ ${tests.suites.map((s) => `<tr><td class="doc">${esc(s.suite)}</td><td style="te
 <tr style="color:#fff"><td style="font-weight:600">total</td><td style="text-align:right;font-weight:600">${tests.totals.passed.toLocaleString()} passed</td><td>${tests.totals.failed ? '<span style="color:#f87171">' + tests.totals.failed + ' failed</span>' : mark(true)}</td></tr>
 </tbody></table></div></section>`;
 } else { html += unavailable('Regression evidence', 'Regression'); html += unavailable('Test coverage', 'Test-coverage'); }
+
+// Benchmarks
+if (bench && bench.runs && bench.runs.length) {
+  const runs = bench.runs;
+  const ORDER = ['receipt', 'report-6p', 'letterhead-paged', 'compliance', 'invoice-50p', 'ledger-500p'];
+  const kb = (b) => b == null ? '—' : Math.round(b / 1024) + ' KB';
+  const ms = (v) => v == null ? '—' : (v >= 1000 ? (v / 1000).toFixed(v >= 10000 ? 1 : 2) + ' s' : Math.round(v) + ' ms');
+  const short = (r) => r.environment.runner === 'ci' ? 'CI' : 'dev';
+  const label = (r) => r.environment.runner === 'ci' ? 'CI (shared)' : 'dev (clean)';
+  const dev = runs.find((r) => r.environment.runner === 'dev') || runs[0];
+  const nWarm = (r, f) => r.node && r.node.docs && r.node.docs[f] && r.node.docs[f].warm;
+  const pWarm = (r, f) => r.puppeteer && r.puppeteer.docs && r.puppeteer.docs[f] && r.puppeteer.docs[f].warm;
+  const webDoc = (r, f) => r.web && r.web.docs && r.web.docs[f];
+  const pagesOfDoc = (f) => (dev.node && dev.node.docs && dev.node.docs[f] && dev.node.docs[f].pages) || (webDoc(dev, f) && webDoc(dev, f).pages) || '';
+  const fmt = (o, val) => !o ? '—' : o.status === 'ok' ? val(o) : o.status === 'timeout' ? `<span class="muted">&gt;${Math.round((o.limitMs || 0) / 1000)}s</span>` : o.status === 'killed' ? '<span style="color:#f87171">OOM</span>' : `<span class="muted">${esc(o.status)}</span>`;
+
+  html += `<section id="benchmarks"><div class="wrap">
+<h3 class="eyebrow">Benchmarks</h3>
+<h2>Measured performance — including where we lose</h2>
+<p style="margin-top:1rem">${esc(bench.method.coldStart)} ${esc(bench.method.warmRender)} ${esc(bench.method.comparisonSurface)} Corpus is fixed, committed, and hash-checked (<span class="tag">${bench.corpus.documents.length} documents</span>).</p>
+<p class="muted" style="margin-top:.75rem">${esc(bench.method.twoRuns)}</p>
+<div class="list" style="margin-top:1rem">${runs.map((r) => {
+  const env = r.environment;
+  const lag = env.measuredAtCommit && prov.commit && env.measuredAtCommit !== prov.commit;
+  const stamp = env.measuredAtCommitShort ? ` · <span class="muted">measured at ${esc(env.measuredAtCommitShort)}${env.measuredAt ? ' (' + esc(fmtDate(env.measuredAt).split(' ')[0]) + ')' : ''}${lag ? ', may lag current commit' : ''}</span>` : '';
+  return `<span>${mark(true)} <strong>${esc(label(r))}</strong> — ${esc(env.machine)}, ${env.cpus} cpu · ${esc(env.os)} · node ${esc(env.node)}${stamp}</span>`;
+}).join('')}</div>
+
+<h2 style="margin-top:2.5rem">Cold start — start to first PDF byte</h2>
+<table><thead><tr><th>Target</th>${runs.map((r) => `<th style="text-align:right">${esc(label(r))}</th>`).join('')}</tr></thead><tbody>
+<tr><td class="doc">native binary</td>${runs.map((r) => `<td style="text-align:right">${ms(r.native && r.native.docs && r.native.docs.receipt && r.native.docs.receipt.coldMs)}</td>`).join('')}</tr>
+<tr><td class="doc">workerd isolate (edge est.)</td>${runs.map((r) => `<td style="text-align:right">~${ms(r.workerd && r.workerd.coldStart && r.workerd.coldStart.edgeEstimateMs)}</td>`).join('')}</tr>
+<tr><td class="doc">web (browser)</td>${runs.map((r) => { const w = webDoc(r, 'receipt'); const t = w && w.cold ? (w.cold.fetchMs + w.cold.compileInstantiateMs + w.cold.firstRenderMs) : null; return `<td style="text-align:right">${ms(t)}</td>`; }).join('')}</tr>
+<tr><td class="doc">node WASM</td>${runs.map((r) => `<td style="text-align:right">${ms(r.node && r.node.docs && r.node.docs.receipt && r.node.docs.receipt.cold && r.node.docs.receipt.cold.totalWallMs)}</td>`).join('')}</tr>
+<tr><td class="doc">Puppeteer</td>${runs.map((r) => `<td style="text-align:right">${ms(r.puppeteer && r.puppeteer.coldStart && r.puppeteer.coldStart.totalMs)}</td>`).join('')}</tr>
+</tbody></table>
+<p class="muted" style="margin-top:1rem">The ~7.1MB WASM module compiles and instantiates in 1-10ms — cold start is dominated by first-render JIT warmup, not module size: the module is large on disk and cheap to instantiate. Puppeteer here is on a warm machine; cold serverless is 3-10s, and on many consumption tiers Chrome cannot boot at all.</p>
+${dev.workerd && dev.workerd.coldStart && dev.workerd.coldStart.caveat ? `<p class="muted" style="margin-top:.5rem"><span class="tag">workerd caveat</span> ${esc(dev.workerd.coldStart.caveat)}</p>` : ''}
+</div></section>`;
+
+  html += `<section><div class="wrap">
+<h3 class="eyebrow">Serverless memory</h3>
+<h2>What fits under the Cloudflare Workers 128MB ceiling</h2>
+<p style="margin-top:1rem">Peak WASM linear memory per document (engine allocation — the same on any machine). This decides whether a document is renderable on Workers at all.</p>
+<table style="max-width:40rem"><thead><tr><th>Document</th><th style="text-align:right">Pages</th><th style="text-align:right">Peak WASM memory</th><th>Fits 128MB</th></tr></thead><tbody>
+${ORDER.map((f) => { const w = webDoc(dev, f); const m = w && w.status === 'ok' ? w.wasmLinearMemMB : null; return `<tr><td class="doc">${esc(f)}</td><td style="text-align:right;color:#94a3b8">${(w && w.pages) || '—'}</td><td style="text-align:right">${m != null ? m + ' MB' : (w && w.status && w.status !== 'ok' ? esc(w.status) : '—')}</td><td>${m == null ? '—' : m < 128 ? mark(true) : '<span style="color:#f87171">✗ no</span>'}</td></tr>`; }).join('\n')}
+</tbody></table>
+<p class="muted" style="margin-top:1rem"><strong>Practical guidance:</strong> comfortable under ~50 pages, approaching the ceiling near ~100 pages, use node or native beyond that. A margin, not a threshold — a slightly wider table shifts the number.</p>
+<p class="muted" style="margin-top:.5rem">Local miniflare has generous memory and will run documents the real edge would OOM: the 500-page ledger completes locally but its ${(webDoc(dev, 'ledger-500p') && webDoc(dev, 'ledger-500p').wasmLinearMemMB) || '~900'}MB peak would exceed the 128MB edge limit.</p>
+</div></section>`;
+
+  html += `<section><div class="wrap">
+<h3 class="eyebrow">Warm render</h3>
+<h2>Forme vs Puppeteer, identical HTML</h2>
+<p style="margin-top:1rem">Median warm render (node target for Forme; Puppeteer reuses one browser). Both environments shown; the rows where Forme loses are here, in order, not reordered.</p>
+<table><thead><tr><th>Document</th><th style="text-align:right">Pages</th>${runs.map((r) => `<th style="text-align:right">Forme ${esc(short(r))}</th><th style="text-align:right">Pptr ${esc(short(r))}</th>`).join('')}<th style="text-align:right">Forme PDF</th><th style="text-align:right">Pptr PDF</th></tr></thead><tbody>
+${ORDER.map((f) => {
+    const cells = runs.map((r) => {
+      const n = nWarm(r, f), p = pWarm(r, f);
+      const win = (n && n.status === 'ok' && p && p.status === 'ok') ? (n.medianMs < p.medianMs ? 'color:#34d399' : 'color:#f87171') : '';
+      return `<td style="text-align:right;${win}">${fmt(n, (o) => ms(o.medianMs))}</td><td style="text-align:right">${fmt(p, (o) => ms(o.medianMs))}</td>`;
+    }).join('');
+    const fp = nWarm(dev, f), pp = pWarm(dev, f);
+    return `<tr><td class="doc">${esc(f)}</td><td style="text-align:right;color:#94a3b8">${pagesOfDoc(f)}</td>${cells}<td style="text-align:right">${fp && fp.status === 'ok' ? kb(fp.pdfBytes) : '—'}</td><td style="text-align:right">${pp && pp.status === 'ok' ? kb(pp.pdfBytes) : '—'}</td></tr>`;
+  }).join('\n')}
+</tbody></table>
+<p class="muted" style="margin-top:1rem">Forme is ~2× faster on small documents and ~15× smaller output, but a warm pooled Chrome wins on very large table-heavy documents (50p/500p). Iteration counts per cell are in the <a href="./parity.json">raw artifact</a>.</p>
+</div></section>`;
+
+  const wl = bench.whereWeLose;
+  html += `<section><div class="wrap">
+<h3 class="eyebrow">Where we lose &amp; why</h3>
+<h2>The large-document gap, profiled</h2>
+<p style="margin-top:1rem">${esc(wl.decomposition)}</p>
+<p style="margin-top:.75rem">${esc(wl.memoryShape)}</p>
+<div class="grid two" style="margin-top:1.5rem">
+<div><table><thead><tr><th>Phase (native)</th><th style="text-align:right">invoice-50p</th><th style="text-align:right">ledger-500p</th></tr></thead><tbody>
+${['parseMs', 'layoutMs', 'serializeMs'].map((k) => `<tr><td class="doc">${k.replace('Ms', '')}</td><td style="text-align:right">${ms(wl.phaseBreakdown[0][k])}</td><td style="text-align:right">${ms(wl.phaseBreakdown[1][k])}</td></tr>`).join('\n')}
+<tr style="color:#94a3b8"><td>layout ms/page/pass</td><td style="text-align:right">${wl.phaseBreakdown[0].layoutMsPerPagePerPass}</td><td style="text-align:right">${wl.phaseBreakdown[1].layoutMsPerPagePerPass}</td></tr>
+</tbody></table><p class="muted" style="margin-top:.5rem">Per-pass layout is flat at ~7.3 ms/page from 50 to 500 pages — linear, no super-linear scaling.</p></div>
+<div><div class="card"><div class="muted">Allocation churn (counting allocator)</div>
+<div style="margin-top:.5rem">ledger-500p: <span class="tag">${(wl.allocations[1].totalAllocs / 1e6).toFixed(0)}M allocations</span> · ~${wl.allocations[1].allocsPerRowPerPass.toLocaleString()}/row/pass</div>
+<div style="margin-top:.5rem">peak live <span class="tag">${wl.allocations[1].peakLiveMB} MB</span>, freed to ${wl.allocations[1].finalLiveMB}MB at exit (retained tree, not a leak)</div></div></div>
+</div>
+<p style="margin-top:1.5rem">Tracked fixes (no dates promised):</p>
+<ul class="gaps">${wl.trackedFixes.map((x) => `<li><span class="tag">${esc(x.name)}</span> ${esc(x.note)}</li>`).join('')}</ul>
+</div></section>`;
+
+  const sf = bench.sentinelFix;
+  html += `<section><div class="wrap">
+<h3 class="eyebrow">Self-audit</h3>
+<h2>A number we found wrong on our own homepage</h2>
+<p style="margin-top:1rem">${esc(sf.finding)} Benchmarking our own engine surfaced an unconditional second layout pass — a document with no page-number placeholder was re-laying out the whole tree for nothing. We fixed it; here is the before and after on identical documents.</p>
+<table style="max-width:40rem"><thead><tr><th>Document</th><th style="text-align:right">Pages</th><th style="text-align:right">Before</th><th style="text-align:right">After</th><th style="text-align:right">Passes</th></tr></thead><tbody>
+${sf.rows.map((r) => `<tr><td class="doc">${esc(r.file)}</td><td style="text-align:right;color:#94a3b8">${r.pages}</td><td style="text-align:right">${ms(r.beforeMs)}</td><td style="text-align:right;color:#34d399">${ms(r.afterMs)}</td><td style="text-align:right;color:#94a3b8">${r.beforePasses}→${r.afterPasses}</td></tr>`).join('\n')}
+</tbody></table>
+<p class="muted" style="margin-top:1rem">${esc(sf.method)}</p>
+</div></section>`;
+} else html += unavailable('Benchmarks', 'Benchmark');
 
 // Known gaps (static, documented — not numbers)
 html += `<section><div class="wrap">

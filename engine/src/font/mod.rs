@@ -12,6 +12,7 @@ pub mod subset;
 
 pub use metrics::{unicode_to_winansi, winansi_to_char, StandardFontMetrics};
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 /// A font registry that maps font family + weight + style to font data.
 pub struct FontRegistry {
@@ -415,6 +416,12 @@ pub struct FontContext {
     /// Default 2 ("00"). Updated by the two-pass render loop after the
     /// first layout reveals the actual page count.
     sentinel_digit_count: u32,
+    /// Set the first time a page-number sentinel is measured in a layout pass.
+    /// The sentinel re-layout loop only needs to run for documents that
+    /// actually place a `{{pageNumber}}`/`{{totalPages}}` sentinel — this is
+    /// the exhaustive detection point (every sentinel glyph is measured here,
+    /// from any source: HTML `counter()`, margin boxes, JSX literals).
+    saw_page_sentinel: AtomicBool,
 }
 
 impl Default for FontContext {
@@ -428,6 +435,7 @@ impl FontContext {
         Self {
             registry: FontRegistry::new(),
             sentinel_digit_count: 2,
+            saw_page_sentinel: AtomicBool::new(false),
         }
     }
 
@@ -439,6 +447,17 @@ impl FontContext {
     /// Set the number of digits used to measure page number sentinel width.
     pub fn set_sentinel_digit_count(&mut self, count: u32) {
         self.sentinel_digit_count = count;
+    }
+
+    /// Whether a page-number sentinel was measured since the last reset.
+    /// Used to decide if the sentinel re-layout loop is needed at all.
+    pub fn saw_page_sentinel(&self) -> bool {
+        self.saw_page_sentinel.load(Ordering::Relaxed)
+    }
+
+    /// Clear the sentinel-seen flag before a layout pass.
+    pub fn reset_page_sentinel(&self) {
+        self.saw_page_sentinel.store(false, Ordering::Relaxed);
     }
 
     /// Get the advance width of a single character in points.
@@ -456,6 +475,7 @@ impl FontContext {
         // Page placeholder sentinels: measure as the width of N zeros
         // where N = sentinel_digit_count (set by the two-pass render loop)
         if ch == crate::layout::PAGE_NUMBER_SENTINEL || ch == crate::layout::TOTAL_PAGES_SENTINEL {
+            self.saw_page_sentinel.store(true, Ordering::Relaxed);
             return self.char_width('0', family, weight, italic, font_size)
                 * self.sentinel_digit_count as f64;
         }

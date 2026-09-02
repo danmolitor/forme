@@ -150,7 +150,7 @@ Same with a custom render function.
 
 ## No Puppeteer
 
-This runs in a standard Vercel function. The PDF engine is a 3MB WASM binary, not a 200MB headless browser. A 4-page invoice renders in about 28ms.
+This runs in a standard Vercel function. The PDF engine is a ~6.4MB WASM binary (2.9MB gzipped), not a 200MB headless browser, and it cold-starts in roughly 100ms. A short invoice or report renders in about 15-25ms warm. See the measured [benchmarks](https://parity.formepdf.com/#benchmarks).
 
 ## Links
 

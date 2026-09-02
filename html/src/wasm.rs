@@ -52,6 +52,7 @@ struct WasmFont {
 pub struct HtmlRenderResult {
     pdf: Vec<u8>,
     warnings: Vec<String>,
+    passes: u32,
 }
 
 #[wasm_bindgen]
@@ -64,6 +65,14 @@ impl HtmlRenderResult {
     #[wasm_bindgen(getter)]
     pub fn warnings(&self) -> Vec<String> {
         self.warnings.clone()
+    }
+
+    /// Number of layout passes the render took (benchmark evidence — see
+    /// `benchmarks/`). 1 for the common case; 2–3 only when a page-number
+    /// sentinel's reserved width needed correction.
+    #[wasm_bindgen(getter)]
+    pub fn passes(&self) -> u32 {
+        self.passes
     }
 }
 
@@ -153,6 +162,7 @@ pub fn render_html_wasm(html: &str, options_json: &str) -> Result<HtmlRenderResu
     Ok(HtmlRenderResult {
         pdf: out.pdf,
         warnings: out.warnings,
+        passes: out.passes,
     })
 }
 

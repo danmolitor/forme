@@ -10,11 +10,11 @@ Both use React components to define PDF layouts. The key difference is the layou
 
 ## How does Forme compare to Puppeteer for PDF generation?
 
-Puppeteer launches a headless Chrome browser to render HTML to PDF. This gives you full CSS support but costs 1-3 seconds per render, 50-200MB of memory per Chrome process, and a 400MB+ Docker image. Forme renders directly to PDF via a WASM module in 5-15ms with no browser dependency. The tradeoff is that Forme requires you to write JSX templates instead of HTML/CSS. See the [Puppeteer replacement guide](/replacing-puppeteer) for a step-by-step comparison.
+Puppeteer launches a headless Chrome browser to render HTML to PDF. This gives you full CSS support, but a cold browser costs seconds to start (and can't boot at all on many serverless tiers), each process holds 50-200MB, and the Docker image is 400MB+. Forme renders directly to PDF via a WASM module — a typical document in roughly 15-25ms with no browser dependency. On identical HTML, Forme is dramatically faster to cold-start and about 2x faster on typical documents; on very large table-heavy documents Puppeteer is faster (see the measured numbers below). The tradeoff is that Forme renders the [documented HTML/CSS subset](/html) or JSX templates rather than arbitrary browser CSS. See the [Puppeteer replacement guide](/replacing-puppeteer) and the measured [benchmarks](https://parity.formepdf.com/#benchmarks) for details.
 
 ## Can I use Forme in serverless (AWS Lambda, Vercel, Cloudflare Workers)?
 
-Yes. Forme's WASM module loads in under 100ms, making it a good fit for serverless environments. There is no Chromium binary to bundle, no native dependencies to compile, and no subprocess to manage. Cold starts are fast because the entire engine is a single WASM file.
+Yes. Measured cold start — process/isolate start through the first PDF byte — is roughly **60ms on a Cloudflare Workers isolate** and **~110ms on Node**; the ~7.1MB WASM module itself compiles and instantiates in only 1-10ms, so cold start is dominated by first-render warmup, not module size. There is no Chromium binary to bundle, no native dependencies to compile, and no subprocess to manage — and Forme runs on consumption tiers where a headless browser cannot boot at all. See the per-runtime [cold-start numbers](https://parity.formepdf.com/#benchmarks). Note the Workers 128MB memory ceiling: table-heavy documents render comfortably up to ~50 pages and approach the limit near ~100; beyond that, use Node.
 
 ## Does Forme support custom fonts?
 
@@ -34,7 +34,7 @@ Yes. This is one of Forme's core features. Add the `header` prop to a `<Row>` in
 
 ## How fast is Forme?
 
-A typical invoice renders in 5-15ms. Complex documents with tables, images, and multiple pages render in 20-80ms. This is 10-100x faster than Puppeteer and 5-10x faster than react-pdf for most documents. The engine is written in Rust and compiled to WebAssembly, so performance is consistent across environments.
+It depends on the document, and we publish the full measured numbers rather than a single figure. A typical invoice, receipt, or short report renders in roughly **15-25ms** (warm, dev machine). Cost scales with the document: a 50-page statement is about **0.5s** and a 500-page ledger several seconds. Against Puppeteer on byte-identical HTML, Forme is **dramatically faster to cold-start** (tens of ms vs seconds) and **~2x faster on typical documents**, but **slower on very large table-heavy documents** — a 500-page ledger is ~3.8x slower than Chrome, which we report honestly. Per-document, per-runtime figures (native, Node, browser, Workers, and the Puppeteer baseline) are at [parity.formepdf.com/#benchmarks](https://parity.formepdf.com/#benchmarks).
 
 ## Can I generate PDFs in the browser?
 

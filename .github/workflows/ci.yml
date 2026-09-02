@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Manual trigger — lets the benchmarks job run on any branch to observe a real
+  # runner (e.g. ledger-500p) before it's on main. Does not deploy Pages (that
+  # stays main+push only).
+  workflow_dispatch:
 
 jobs:
   engine:
@@ -331,27 +335,70 @@ jobs:
           name: parity-tests
           path: parity-partials/tests.json
 
-  parity:
-    name: Parity evidence (assemble + publish)
+  benchmarks:
+    name: Benchmarks (ci evidence column)
     runs-on: ubuntu-latest
-    needs: [pdfua-conformance, html-parity, packages]
-    # Main only: the github-pages environment rejects deploys from other
-    # refs, so on PRs this job used to fail at job level in seconds and
-    # paint every otherwise-green PR "unstable".
-    if: github.ref == 'refs/heads/main'
-    # Deploy the evidence page to this repo's GitHub Pages — no cross-repo push,
-    # no token: the page ships from the same repo/CI that generates it.
+    needs: engine
+    # Push to main, or manual dispatch on any branch (to observe a real runner
+    # before merging). Minutes of runtime, PRs don't need it. NEVER a gate: the
+    # emitter records gaps/timeouts as data and the step is continue-on-error, so
+    # a failure here can't break the parity page (it falls back to the committed
+    # dev baseline). See scripts/parity/benchmarks.mjs.
+    if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch' }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+      - name: Install dependencies
+        run: npm ci
+      - name: Build native CLI
+        run: cd html && cargo build --release --bin forme-html
+      - name: Build HTML WASM (node + web targets)
+        run: |
+          cd html
+          wasm-pack build --target nodejs --out-dir ../packages/html/pkg-node -- --features wasm
+          wasm-pack build --target web    --out-dir ../packages/html/pkg-web  -- --features wasm
+          rm -f ../packages/html/pkg-node/.gitignore ../packages/html/pkg-web/.gitignore
+      - name: Install browser + edge runtimes for the baseline
+        # Full puppeteer (bundled Chromium) + miniflare (real workerd). The emitter
+        # prefers puppeteer, falling back to puppeteer-core + system Chrome locally.
+        run: npm i --no-save puppeteer miniflare
+      - name: Run benchmark emitter
+        # Merges the committed dev baseline with a freshly-measured ci run. A slow
+        # or too-large document on this shared runner is recorded as a timeout/OOM
+        # value, not a crash — heavy renders run in isolated child processes.
+        continue-on-error: true
+        env:
+          PARITY_DIR: ${{ github.workspace }}/parity-partials
+        run: node scripts/parity/benchmarks.mjs
+      - name: Upload benchmarks partial
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: parity-benchmarks
+          path: parity-partials/benchmarks.json
+          if-no-files-found: warn
+
+  parity:
+    name: Parity evidence (assemble + render)
+    runs-on: ubuntu-latest
+    # benchmarks is a SOFT dependency: parity waits for it (ordering) but does not
+    # require it. If benchmarks is skipped (PRs/dispatch) or fails, parity still
+    # runs and the page renders the committed dev column — additive, never blocking.
+    needs: [pdfua-conformance, html-parity, packages, benchmarks]
+    if: ${{ !cancelled() && needs.pdfua-conformance.result == 'success' && needs.html-parity.result == 'success' && needs.packages.result == 'success' }}
+    # No `environment:` here on purpose: this job assembles + renders on ANY
+    # trigger (push, PR, workflow_dispatch on a feature branch). The github-pages
+    # environment's branch protection would otherwise reject the whole job on a
+    # non-main branch even though it isn't deploying. Deploy is a separate,
+    # main-only job below.
     permissions:
       contents: read
-      pages: write
-      id-token: write
-    # Serialize Pages deployments; never cancel one mid-flight.
-    concurrency:
-      group: parity-pages
-      cancel-in-progress: false
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -378,16 +425,34 @@ jobs:
         with:
           name: parity
           path: parity-partials/parity.json
-      # Publish to Pages only on push to main — PRs/forks assemble + render but
-      # never deploy.
+      # Upload the rendered site as the Pages artifact so the deploy job can
+      # publish it. Uploading on every trigger is harmless (it's just an
+      # artifact) and gives dispatch/PR runs a downloadable page preview.
       - name: Upload Pages artifact
-        if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
         uses: actions/upload-pages-artifact@v3
         with:
           path: parity-partials/site
+
+  # Separate deploy job so the github-pages environment (and its branch
+  # protection) only gates the main-only publish. The assemble/render job above
+  # then runs on any trigger without tripping the environment on non-main.
+  deploy-parity:
+    name: Deploy parity page to Pages
+    runs-on: ubuntu-latest
+    needs: parity
+    if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+    permissions:
+      pages: write
+      id-token: write
+    concurrency:
+      group: parity-pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
       - name: Deploy to GitHub Pages
         id: deploy
-        if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
         uses: actions/deploy-pages@v4
 
   document-regression-demo:

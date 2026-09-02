@@ -93,7 +93,7 @@ await init(wasm); // idempotent — warm isolates skip it
 const { pdf, warnings } = renderHtml(html);
 ```
 
-Sizing: the HTML engine WASM is ~7.4MB uncompressed (~3.2MB gzipped) — within Workers paid-plan limits, and lazy-loadable in the browser.
+Sizing: the HTML engine WASM is ~7.1MB uncompressed (~3.2MB gzipped) — within Workers paid-plan limits, and lazy-loadable in the browser. It compiles and instantiates in 1-10ms, so the module size is a disk/transfer cost, not a cold-start cost. Mind the Workers 128MB memory ceiling, though: table-heavy documents render comfortably up to ~50 pages and approach the limit near ~100 pages ([details](https://parity.formepdf.com/#benchmarks)).
 
 ## Migrating
 

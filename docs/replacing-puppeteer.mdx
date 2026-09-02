@@ -1,16 +1,16 @@
 ---
 title: Replacing Puppeteer
 sidebarTitle: Replacing Puppeteer
-description: Replace Puppeteer and headless Chrome PDF generation with Forme. 100x faster, no browser dependency, reliable page breaks.
+description: Replace Puppeteer and headless Chrome PDF generation with Forme. Far faster cold start, no browser dependency, reliable page breaks.
 ---
 
 If you are using Puppeteer (or Playwright) to generate PDFs from HTML, you have probably hit at least one of these: slow renders, high memory usage, Chrome crashes in production, or unreliable CSS page breaks. Forme replaces the entire headless browser pipeline with a WASM module that runs in-process and produces PDF bytes in milliseconds.
 
 ## Common problems Forme solves
 
-**Puppeteer PDF generation is slow.** Launching Chrome, creating a page, setting HTML content, and rendering to PDF typically takes 1-3 seconds. Forme renders the same document in 5-15ms because there is no browser to start.
+**Puppeteer's cold start is slow.** Launching Chrome costs seconds (3-10s cold on serverless, ~400ms even on a warm machine). Forme has no browser to start: a typical document renders in roughly 15-25ms from a warm engine, and cold-starts in tens of milliseconds. On very large table-heavy documents a warm, pooled Chrome is actually faster than Forme — we [publish that honestly](https://parity.formepdf.com/#benchmarks).
 
-**Chrome uses too much memory.** Each Chrome process consumes 50-200MB of RAM. Under concurrent load, memory pressure leads to crashes and OOM kills. Forme uses 2-5MB per render.
+**Chrome uses too much memory.** Each Chrome process consumes 50-200MB of RAM. Forme's footprint scales with the document: about 7MB for a one-page render, ~60MB for a 50-page statement, and over 1GB for a 500-page ledger (the full layout tree is held until serialize). For most documents that is far below a browser process; for very large ones, mind your memory ceiling.
 
 **CSS page breaks are unreliable.** `page-break-inside: avoid` and `break-before: always` are hints that Chrome frequently ignores. Forme uses page-native layout where every break is deterministic.
 
@@ -18,7 +18,7 @@ If you are using Puppeteer (or Playwright) to generate PDFs from HTML, you have 
 
 **Docker images are huge.** Chromium adds 400MB+ to your container. Forme has no native dependencies, so your image stays the size of your Node.js base.
 
-**Serverless cold starts are painful.** Chrome takes 3-10 seconds to start in Lambda or similar environments. Forme's WASM module loads in under 100ms.
+**Serverless cold starts are painful.** Chrome takes 3-10 seconds to start in Lambda or similar environments — and on many consumption tiers it cannot boot at all. Forme cold-starts in roughly 60ms on a Cloudflare Workers isolate and ~110ms on Node (the ~7.1MB WASM module instantiates in 1-10ms; the rest is first-render warmup).
 
 ## The Puppeteer pipeline
 
@@ -129,16 +129,21 @@ No browser. No subprocess. No cleanup. The `renderDocument()` call runs a WASM m
 
 ## Performance comparison
 
+All figures below are measured on identical HTML and published per-document at [parity.formepdf.com/#benchmarks](https://parity.formepdf.com/#benchmarks) (dev machine, warm; Puppeteer reuses one browser across renders).
+
 | Metric | Puppeteer | Forme |
 |--------|-----------|-------|
-| Simple invoice | ~1-3 seconds | ~5-15 milliseconds |
-| Memory per render | 50-200MB (Chrome process) | ~2-5MB (WASM) |
+| Simple invoice / receipt (warm) | ~45ms | **~15-20ms** |
+| 6-page report (warm) | ~47ms | **~20ms** |
+| 50-page statement (warm) | **~220ms** | ~490ms |
+| 500-page ledger (warm) | **~2.5s** | ~9.7s |
+| Output size (500-page) | ~19.6MB | **~1.3MB** |
+| Cold start (→ first PDF byte) | ~430ms warm machine; **3-10s cold serverless; cannot boot on many tiers** | **~60ms (Workers) / ~110ms (Node)** |
+| Memory per render | 50-200MB (Chrome process) | ~7MB (1 page) → ~60MB (50 pages) → >1GB (500 pages) |
 | Docker image size | 400MB+ (with Chromium) | Same as your Node.js base image |
-| Concurrent renders | Limited by Chrome processes | Limited by CPU cores |
-| Cold start (serverless) | 3-10 seconds | Under 100 milliseconds |
 | Dependencies | Chromium binary | None (WASM) |
 
-For serverless environments (AWS Lambda, Vercel, Cloudflare Workers), the difference is dramatic. Puppeteer's cold start is measured in seconds. Forme's cold start is the time it takes to load a WASM module.
+The honest shape: Forme wins cold start decisively (and runs where Chrome can't), is ~2x faster on the small documents most apps generate, and produces far smaller files — but a warm, pooled Chrome is faster on very large table-heavy documents. For serverless specifically, that cold-start gap is the whole story: Puppeteer is measured in seconds, Forme in tens of milliseconds.
 
 ## Step-by-step migration
 

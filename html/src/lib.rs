@@ -104,6 +104,10 @@ pub struct HtmlOptions {
 pub struct HtmlOutput {
     pub pdf: Vec<u8>,
     pub warnings: Vec<String>,
+    /// Number of layout passes the render took — 1 for the common case; 2–3
+    /// only when a page-number sentinel's reserved width needed correction.
+    /// Surfaced as benchmark evidence (see `benchmarks/`).
+    pub passes: u32,
 }
 
 /// Rendered output with layout metadata for every element on every page.
@@ -168,6 +172,14 @@ fn page_config(
 /// Convert HTML to the engine's document tree without rendering. Exposed
 /// for tests and tooling that want to inspect the mapping itself.
 pub fn html_to_document(html: &str, options: &HtmlOptions) -> (forme::Document, Vec<String>) {
+    // Parse-phase timing behind FORME_PROFILE (parse + CSS cascade + map to the
+    // engine model). Native only in practice; wasm has no env, so the timer is
+    // never constructed. Pairs with the engine's layout/serialize timing.
+    let _prof_t0 = if std::env::var("FORME_PROFILE").is_ok() {
+        Some(std::time::Instant::now())
+    } else {
+        None
+    };
     let mut warnings = Vec::new();
     let (body, style_texts, stylesheet_links) = dom::parse_html_with_styles(html);
     for href in &stylesheet_links {
@@ -837,15 +849,25 @@ pub fn html_to_document(html: &str, options: &HtmlOptions) -> (forme::Document, 
         }
     }
 
+    if let Some(t) = _prof_t0 {
+        eprintln!(
+            "FORME_PROFILE parse_ms={:.1}",
+            t.elapsed().as_secs_f64() * 1000.0
+        );
+    }
     (doc, warnings)
 }
 
 /// Render an HTML string to PDF bytes.
 pub fn render_html(html: &str, options: &HtmlOptions) -> Result<HtmlOutput, FormeError> {
     let (doc, mut warnings) = html_to_document(html, options);
-    let (pdf, engine_warnings) = forme::render_with_warnings(&doc)?;
+    let (pdf, engine_warnings, passes) = forme::render_with_warnings_and_passes(&doc)?;
     warnings.extend(engine_warnings);
-    Ok(HtmlOutput { pdf, warnings })
+    Ok(HtmlOutput {
+        pdf,
+        warnings,
+        passes,
+    })
 }
 
 /// Render an HTML string to PDF bytes plus layout metadata.
@@ -861,4 +883,57 @@ pub fn render_html_with_layout(
         layout,
         warnings,
     })
+}
+
+#[cfg(test)]
+mod sentinel_pass_tests {
+    //! Guard for the sentinel re-layout optimization: a document lays out once
+    //! unless it actually places a page-number placeholder whose reserved width
+    //! must be corrected. The `passes` count is published as benchmark evidence,
+    //! so these assertions are what keep the class of regression from silently
+    //! returning (a full wasted re-layout above 100 pages, or below 10).
+    use super::*;
+
+    /// A short multi-page document (`breaks + 1` pages, so 1-digit — which
+    /// differs from the default 2-digit sentinel reservation), optionally with
+    /// a `counter(page)`/`counter(pages)` footer in a margin box.
+    fn doc(with_page_counter: bool, breaks: usize) -> String {
+        let footer = if with_page_counter {
+            "@bottom-center { content: \"Page \" counter(page) \" of \" counter(pages); }"
+        } else {
+            ""
+        };
+        let mut body = String::from("<div>first page</div>");
+        for i in 0..breaks {
+            body.push_str(&format!(
+                "<div style=\"break-before: page\">page {}</div>",
+                i + 2
+            ));
+        }
+        format!(
+            "<!DOCTYPE html><html lang=\"en\"><head><style>@page {{ size: Letter; margin: 48pt; {footer} }}</style></head><body>{body}</body></html>"
+        )
+    }
+
+    #[test]
+    fn no_placeholder_is_single_pass() {
+        // No page-number reference anywhere → the sentinel width is never used,
+        // so re-layout would only reproduce identical pages. Must stay 1 pass.
+        let out = render_html(&doc(false, 3), &HtmlOptions::default()).unwrap();
+        assert_eq!(out.passes, 1, "no-placeholder doc must be single-pass");
+    }
+
+    #[test]
+    fn page_counter_in_margin_box_still_multipass() {
+        // Fails-first correctness guard: a margin-box `counter(page)` on a doc
+        // whose page count needs a different sentinel width than the 2-digit
+        // default (here 4 pages = 1 digit) MUST re-layout — skipping it would
+        // render page numbers at the wrong reserved width.
+        let out = render_html(&doc(true, 3), &HtmlOptions::default()).unwrap();
+        assert!(
+            out.passes >= 2,
+            "page-numbered doc needing a width correction must re-layout, got {} pass(es)",
+            out.passes
+        );
+    }
 }
