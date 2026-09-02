@@ -34,7 +34,9 @@ unsafe impl GlobalAlloc for Counting {
 static A: Counting = Counting;
 
 fn main() {
-    let path = std::env::args().nth(1).expect("usage: allocprofile <doc.html>");
+    let path = std::env::args()
+        .nth(1)
+        .expect("usage: allocprofile <doc.html>");
     let html = std::fs::read_to_string(&path).expect("read");
     let opts = forme_pdf_html::HtmlOptions::default();
     let out = forme_pdf_html::render_html(&html, &opts).expect("render");

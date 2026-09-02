@@ -180,7 +180,11 @@ pub fn render_with_warnings_and_passes(
     // `env::var` is Err under wasm, so the timer is never constructed there and
     // `Instant::now` is never called). Prints layout vs serialize to stderr.
     let profile = std::env::var("FORME_PROFILE").is_ok();
-    let t_layout = if profile { Some(std::time::Instant::now()) } else { None };
+    let t_layout = if profile {
+        Some(std::time::Instant::now())
+    } else {
+        None
+    };
     let (pages, font_context, passes) = layout_with_sentinel_passes(document);
     let layout_ms = t_layout.map(|t| t.elapsed().as_secs_f64() * 1000.0);
 
@@ -188,7 +192,11 @@ pub fn render_with_warnings_and_passes(
     let tagged = document.tagged
         || document.pdf_ua
         || matches!(document.pdfa, Some(model::PdfAConformance::A2a));
-    let t_ser = if profile { Some(std::time::Instant::now()) } else { None };
+    let t_ser = if profile {
+        Some(std::time::Instant::now())
+    } else {
+        None
+    };
     let (pdf, warnings) = writer.write(
         &pages,
         &document.metadata,

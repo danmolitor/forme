@@ -850,7 +850,10 @@ pub fn html_to_document(html: &str, options: &HtmlOptions) -> (forme::Document, 
     }
 
     if let Some(t) = _prof_t0 {
-        eprintln!("FORME_PROFILE parse_ms={:.1}", t.elapsed().as_secs_f64() * 1000.0);
+        eprintln!(
+            "FORME_PROFILE parse_ms={:.1}",
+            t.elapsed().as_secs_f64() * 1000.0
+        );
     }
     (doc, warnings)
 }
@@ -860,7 +863,11 @@ pub fn render_html(html: &str, options: &HtmlOptions) -> Result<HtmlOutput, Form
     let (doc, mut warnings) = html_to_document(html, options);
     let (pdf, engine_warnings, passes) = forme::render_with_warnings_and_passes(&doc)?;
     warnings.extend(engine_warnings);
-    Ok(HtmlOutput { pdf, warnings, passes })
+    Ok(HtmlOutput {
+        pdf,
+        warnings,
+        passes,
+    })
 }
 
 /// Render an HTML string to PDF bytes plus layout metadata.
