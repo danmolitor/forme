@@ -19,6 +19,12 @@ Thanks for your interest in contributing to Forme!
 - **Core package:** `cd packages/core && npm run build`
 - **CLI:** `cd packages/cli && npm run build`
 
+## Contributor License Agreement
+
+Forme is MIT-licensed and stays MIT-licensed. First-time contributors are asked to sign a short [Contributor License Agreement](./CLA.md) — it exists so that the option to license the project differently in the future isn't closed off by accident, and it costs you nothing: you keep full rights to your own work.
+
+Signing is automatic: when you open your first pull request, a bot comments with instructions — you reply with a single comment and you're done, once, for all future contributions.
+
 ## How to Contribute
 
 **Bug reports:** Open an issue with a minimal reproduction. Include the TSX template, the expected output, and the actual output (screenshot or PDF).
