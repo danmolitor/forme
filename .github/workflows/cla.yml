@@ -37,4 +37,4 @@ jobs:
           branch: 'main'
           remote-organization-name: 'danmolitor'
           remote-repository-name: 'forme-cla-signatures'
-          allowlist: danmolitor,dependabot[bot],bot*
+          allowlist: danmolitor,dependabot[bot],*[bot]
