@@ -20,7 +20,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -35,7 +35,7 @@ const DESCRIPTIONS = [
 const STATUSES = ['Paid', 'Pending', 'Overdue', 'Shipped', 'Cancelled'];
 
 // A fixed reference date advanced by index — never the wall clock.
-function isoDate(i) {
+export function isoDate(i) {
   const day = 1 + (i % 28);
   const month = 1 + (Math.floor(i / 28) % 12);
   return `2025-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -44,7 +44,7 @@ function money(i) {
   const cents = ((i * 3773) % 900000) + 1099; // 10.99 .. ~9010.99, deterministic
   return (cents / 100).toFixed(2);
 }
-function row(i) {
+export function row(i) {
   const desc = DESCRIPTIONS[i % DESCRIPTIONS.length];
   const status = STATUSES[i % STATUSES.length];
   const qty = 1 + (i % 9);
@@ -168,7 +168,7 @@ function report6p() {
 
 // ── 3 & 4. table-heavy statement (parameterized rows) ────────────────────────
 
-function statement(title, heading, rowCount) {
+export function statement(title, heading, rowCount) {
   const rows = Array.from({ length: rowCount }, (_, i) => {
     const r = row(i);
     return `    <tr><td class="n">${r.n}</td><td>${r.date}</td><td>${r.desc}</td><td class="c">${r.qty}</td><td class="r">$${r.unit}</td><td class="r">$${r.amount}</td><td>${r.status}</td></tr>`;
@@ -273,7 +273,7 @@ ${tableRows}
 // ── emit / check ─────────────────────────────────────────────────────────────
 
 // rowCounts calibrated to page targets after rendering (see manifest.pages).
-const DOCS = {
+export const DOCS = {
   'receipt.html': { build: receipt, target: '1 page', desc: 'Point-of-sale receipt — the simple single-page shape.' },
   'report-6p.html': { build: report6p, target: '6 pages', desc: 'Quarterly report — prose + one table. Continuity with the legacy ~26ms figure.' },
   'invoice-50p.html': { build: () => statement('Account Statement', 'Account Statement', 800), target: '~50 pages', desc: 'Table-heavy statement: repeating <thead>, zebra rows, many page breaks.' },
@@ -282,6 +282,10 @@ const DOCS = {
   'compliance.html': { build: compliance, target: '2 pages', desc: 'Rendered plain AND as PDF/UA-1 + PDF/A-2b — the delta is the cost of conformance.' },
 };
 
+// Only run the emit/check when invoked directly — importing this module for
+// its builders (the harness, scaling probes) must have no side effects.
+const isMain = import.meta.url === pathToFileURL(process.argv[1] || '').href;
+if (isMain) {
 const sha = (s) => createHash('sha256').update(s).digest('hex');
 const check = process.argv.includes('--check');
 
@@ -313,4 +317,5 @@ if (check) {
 } else {
   writeFileSync(manifestPath, manifestJson);
   console.log('wrote manifest.json');
+}
 }
