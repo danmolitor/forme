@@ -27,6 +27,26 @@ pub struct PageRule {
     pub margin_boxes: Vec<MarginBox>,
     /// The `@page :first` variant, when present.
     pub first: Option<FirstPageRule>,
+    /// The `@page :left` variant (verso pages), when present.
+    pub left: Option<SidePageRule>,
+    /// The `@page :right` variant (recto pages), when present.
+    pub right: Option<SidePageRule>,
+    /// Named page rules (`@page <name>` and its `:first`/`:left`/`:right`
+    /// compositions), keyed by the (case-sensitive) page name.
+    pub named: std::collections::HashMap<String, NamedPageBuckets>,
+}
+
+/// The four slots a named page rule family can fill: `@page cover`,
+/// `@page cover:first`, `@page cover:left`, `@page cover:right`. Each
+/// slot reuses [`SidePageRule`] (margins + margin boxes + suppression);
+/// which margins are honored is decided at assembly (the base slot may
+/// vary vertically — a named run starts at a forced break).
+#[derive(Debug, Clone, Default)]
+pub struct NamedPageBuckets {
+    pub base: Option<SidePageRule>,
+    pub first: Option<SidePageRule>,
+    pub left: Option<SidePageRule>,
+    pub right: Option<SidePageRule>,
 }
 
 /// The `@page :first` subset: margin overrides plus suppression of the
@@ -35,6 +55,19 @@ pub struct PageRule {
 pub struct FirstPageRule {
     pub margin: [Option<Length>; 4],
     /// Box positions suppressed on the first page via `content: none`.
+    pub suppress: Vec<MarginBoxPos>,
+}
+
+/// A `@page :left` / `:right` variant: horizontal margin overrides
+/// (mirrored margins — the sums must match the base; the assembler warns
+/// and normalizes otherwise), its own margin boxes, and suppression of
+/// base boxes on that side.
+#[derive(Debug, Clone, Default)]
+pub struct SidePageRule {
+    pub margin: [Option<Length>; 4],
+    /// Margin boxes defined for this side (replace base boxes per slot).
+    pub margin_boxes: Vec<MarginBox>,
+    /// Base box positions suppressed on this side via `content: none`.
     pub suppress: Vec<MarginBoxPos>,
 }
 
@@ -106,6 +139,42 @@ impl PageRule {
                     slot.suppress.push(s);
                 }
             }
+        }
+        for (other_side, slot) in [(other.left, &mut self.left), (other.right, &mut self.right)] {
+            let Some(side) = other_side else { continue };
+            merge_side_slot(slot, side);
+        }
+        for (name, buckets) in other.named {
+            let mine = self.named.entry(name).or_default();
+            for (other_slot, slot) in [
+                (buckets.base, &mut mine.base),
+                (buckets.first, &mut mine.first),
+                (buckets.left, &mut mine.left),
+                (buckets.right, &mut mine.right),
+            ] {
+                let Some(side) = other_slot else { continue };
+                merge_side_slot(slot, side);
+            }
+        }
+    }
+}
+
+/// Merge one [`SidePageRule`] into an optional slot (later rule wins per
+/// property; margin boxes replace per position).
+fn merge_side_slot(slot: &mut Option<SidePageRule>, side: SidePageRule) {
+    let slot = slot.get_or_insert_with(SidePageRule::default);
+    for i in 0..4 {
+        if side.margin[i].is_some() {
+            slot.margin[i] = side.margin[i];
+        }
+    }
+    for mb in side.margin_boxes {
+        slot.margin_boxes.retain(|b| b.position != mb.position);
+        slot.margin_boxes.push(mb);
+    }
+    for s in side.suppress {
+        if !slot.suppress.contains(&s) {
+            slot.suppress.push(s);
         }
     }
 }
@@ -812,36 +881,47 @@ fn parse_page_rule(
     sheet: &mut Stylesheet,
     warnings: &mut Vec<String>,
 ) {
-    // Prelude: collect any pseudo-page selector before the block.
+    // Prelude: collect the optional page NAME (`@page cover`) and any
+    // pseudo-page selector (`:first`/`:left`/`:right`) before the block.
+    let mut page_name: Option<String> = None;
     let mut pseudo: Option<String> = None;
     loop {
         match parser.next_including_whitespace() {
             Ok(Token::CurlyBracketBlock) => break,
-            Ok(Token::Colon) => {
-                if let Ok(Token::Ident(id)) = parser.next_including_whitespace() {
-                    pseudo = Some(id.to_ascii_lowercase());
+            Ok(Token::Ident(id)) => page_name = Some(id.as_ref().to_string()),
+            Ok(Token::Colon) => match parser.next_including_whitespace() {
+                Ok(Token::Ident(id)) => pseudo = Some(id.to_ascii_lowercase()),
+                // `:nth(...)` page groups arrive as a Function token.
+                Ok(Token::Function(f)) => {
+                    pseudo = Some(format!("{}(", f.to_ascii_lowercase()));
                 }
-            }
+                _ => {}
+            },
             Ok(_) => continue,
             Err(_) => return, // EOF before a block: nothing to do
         }
     }
     let is_first = pseudo.as_deref() == Some("first");
+    let is_side = matches!(pseudo.as_deref(), Some("left") | Some("right"));
+    let is_named = page_name.is_some();
+    let pseudo_supported = pseudo.is_none() || is_first || is_side;
     if let Some(p) = &pseudo {
-        if !is_first {
-            warnings.push(format!(
-                "@page :{p} variants are not supported (rule skipped){}",
-                if matches!(p.as_str(), "left" | "right") {
-                    " — mirrored margins wait for re-layout-per-page"
-                } else {
-                    ""
-                }
-            ));
+        if !pseudo_supported {
+            if p.ends_with('(') {
+                warnings.push(format!(
+                    "@page :{p}) page groups are not supported (rule skipped)"
+                ));
+            } else {
+                warnings.push(format!(
+                    "@page :{p} variants are not supported (rule skipped)"
+                ));
+            }
         }
     }
 
     let mut rule = PageRule::default();
     let mut first = FirstPageRule::default();
+    let mut side = SidePageRule::default();
     let mut local_warnings: Vec<String> = Vec::new();
     let _ = parser.parse_nested_block(|p| -> Result<(), cssparser::ParseError<'_, ()>> {
         loop {
@@ -880,14 +960,23 @@ fn parse_page_rule(
                         match content {
                             // `content: none`
                             None => {
-                                if is_first {
+                                if is_named || is_side {
+                                    side.suppress.push(pos);
+                                } else if is_first {
                                     first.suppress.push(pos);
                                 } else {
                                     rule.margin_boxes.retain(|b| b.position != pos);
                                 }
                             }
                             Some(content) => {
-                                if is_first {
+                                if is_named || is_side {
+                                    side.margin_boxes.retain(|b| b.position != pos);
+                                    side.margin_boxes.push(MarginBox {
+                                        position: pos,
+                                        content,
+                                        style,
+                                    });
+                                } else if is_first {
                                     local_warnings.push(format!(
                                         "@page :first with its own @{box_name} content is unsupported (only `content: none` suppression; skipped)"
                                     ));
@@ -911,7 +1000,9 @@ fn parse_page_rule(
                     let _ = p.parse_until_after(
                         cssparser::Delimiter::Semicolon,
                         |v| -> Result<(), cssparser::ParseError<'_, ()>> {
-                            if is_first {
+                            if is_named || is_side {
+                                apply_side_page_descriptor(&name, v, &mut side, &mut local_warnings);
+                            } else if is_first {
                                 apply_first_page_descriptor(&name, v, &mut first, &mut local_warnings);
                             } else {
                                 apply_page_descriptor(&name, v, &mut rule, &mut local_warnings);
@@ -927,14 +1018,35 @@ fn parse_page_rule(
     });
     warnings.append(&mut local_warnings);
 
-    match pseudo {
+    if let Some(name) = page_name {
+        if !pseudo_supported {
+            return; // e.g. `@page cover:blank` — already warned
+        }
+        let mut buckets = NamedPageBuckets::default();
+        match pseudo.as_deref() {
+            None => buckets.base = Some(side),
+            Some("first") => buckets.first = Some(side),
+            Some("left") => buckets.left = Some(side),
+            Some("right") => buckets.right = Some(side),
+            Some(_) => unreachable!("pseudo_supported checked above"),
+        }
+        let mut delta = PageRule::default();
+        delta.named.insert(name, buckets);
+        sheet
+            .page
+            .get_or_insert_with(PageRule::default)
+            .merge_from(delta);
+        return;
+    }
+
+    match pseudo.as_deref() {
         None => {
             sheet
                 .page
                 .get_or_insert_with(PageRule::default)
                 .merge_from(rule);
         }
-        Some(_) if is_first => {
+        Some("first") => {
             let delta = PageRule {
                 first: Some(first),
                 ..Default::default()
@@ -944,8 +1056,72 @@ fn parse_page_rule(
                 .get_or_insert_with(PageRule::default)
                 .merge_from(delta);
         }
+        Some("left") => {
+            let delta = PageRule {
+                left: Some(side),
+                ..Default::default()
+            };
+            sheet
+                .page
+                .get_or_insert_with(PageRule::default)
+                .merge_from(delta);
+        }
+        Some("right") => {
+            let delta = PageRule {
+                right: Some(side),
+                ..Default::default()
+            };
+            sheet
+                .page
+                .get_or_insert_with(PageRule::default)
+                .merge_from(delta);
+        }
         Some(_) => {} // unsupported variant, already warned
     }
+}
+
+/// Apply a `@page :left` / `:right` body descriptor. Horizontal margins are
+/// the supported subset; vertical margins and size warn at assembly time
+/// (they are recorded here so the assembler can name them).
+fn apply_side_page_descriptor(
+    name: &str,
+    p: &mut Parser<'_, '_>,
+    side: &mut SidePageRule,
+    warnings: &mut Vec<String>,
+) {
+    match name {
+        "margin" => {
+            // 1-4 value shorthand, same expansion as the base rule.
+            let mut vals = Vec::new();
+            while let Ok(tok) = p.next() {
+                if let Some(l) = crate::css::token_to_length(tok) {
+                    vals.push(l);
+                }
+            }
+            let m: [Length; 4] = match vals.as_slice() {
+                [a] => [*a, *a, *a, *a],
+                [v, h] => [*v, *h, *v, *h],
+                [t, h, b] => [*t, *h, *b, *h],
+                [t, r, b, l] => [*t, *r, *b, *l],
+                _ => return,
+            };
+            side.margin = [Some(m[0]), Some(m[1]), Some(m[2]), Some(m[3])];
+        }
+        "margin-top" => side.margin[0] = parse_one_len(p),
+        "margin-right" => side.margin[1] = parse_one_len(p),
+        "margin-bottom" => side.margin[2] = parse_one_len(p),
+        "margin-left" => side.margin[3] = parse_one_len(p),
+        other => {
+            warnings.push(format!(
+                "@page :left/:right descriptor '{other}' is not supported (margins and margin boxes only)"
+            ));
+        }
+    }
+}
+
+fn parse_one_len(p: &mut Parser<'_, '_>) -> Option<Length> {
+    let tok = p.next().ok()?.clone();
+    crate::css::token_to_length(&tok)
 }
 
 /// A margin-box body: a `content` descriptor plus optional styling.
@@ -1023,6 +1199,12 @@ fn parse_content_value(p: &mut Parser<'_, '_>, warnings: &mut Vec<String>) -> (S
                     }
                     Err(_) => {}
                 }
+            }
+            Token::Function(f) if f.eq_ignore_ascii_case("string") => {
+                warnings.push(
+                    "content: string() (string-set running headers) is not supported in margin boxes"
+                        .to_string(),
+                );
             }
             other => {
                 warnings.push(format!("unsupported content() component: {other:?}"));
@@ -1670,11 +1852,15 @@ mod tests {
     }
 
     #[test]
-    fn corner_boxes_and_left_right_variants_warn() {
+    fn corner_boxes_warn_and_side_pages_parse() {
         let (_, w) = sheet("@page { @top-left-corner { content: \"x\" } }");
         assert!(w.iter().any(|m| m.contains("@top-left-corner")));
-        let (_, w2) = sheet("@page :left { margin-right: 1in }");
-        assert!(w2.iter().any(|m| m.contains(":left")));
+        // :left/:right are in-subset now: parsed into side slots with no
+        // parse-time warning (the equal-sum check happens at assembly).
+        let (s, w2) = sheet("@page :left { margin-right: 1in }");
+        assert!(w2.is_empty(), "{w2:?}");
+        let left = s.page.unwrap().left.expect(":left captured");
+        assert_eq!(left.margin[1], Some(Length::Pt(72.0)));
     }
 
     #[test]

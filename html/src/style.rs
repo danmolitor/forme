@@ -94,6 +94,9 @@ pub struct Computed {
     pub break_inside: Option<BreakInsideVal>,
     pub orphans: Option<u32>,
     pub widows: Option<u32>,
+    /// CSS Paged Media `page: <name>` (non-inherited; from the element's
+    /// own declarations only).
+    pub page: Option<String>,
 }
 
 /// Resolve a parsed CSS track to an engine track size. `em` resolves
@@ -324,6 +327,7 @@ pub fn resolve(css: &CssStyle, parent_font_size: f64, warnings: &mut Vec<String>
         break_inside: css.break_inside,
         orphans: css.orphans,
         widows: css.widows,
+        page: css.page.clone(),
     }
 }
 

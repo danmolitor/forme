@@ -4372,6 +4372,7 @@ mod tests {
             fixed_footer: vec![],
             watermarks: vec![],
             config: PageConfig::default(),
+            page_name: None,
         }];
         let metadata = Metadata::default();
         let (bytes, _warnings) = writer
@@ -4405,6 +4406,7 @@ mod tests {
             fixed_footer: vec![],
             watermarks: vec![],
             config: PageConfig::default(),
+            page_name: None,
         }];
         let metadata = Metadata {
             title: Some("Test Document".to_string()),
@@ -4536,6 +4538,7 @@ mod tests {
             fixed_footer: vec![],
             watermarks: vec![],
             config: PageConfig::default(),
+            page_name: None,
         }];
 
         let metadata = Metadata::default();
@@ -4704,6 +4707,7 @@ mod tests {
             fixed_footer: vec![],
             watermarks: vec![],
             config: PageConfig::default(),
+            page_name: None,
         }];
 
         let metadata = Metadata::default();

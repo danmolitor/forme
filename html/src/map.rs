@@ -48,6 +48,13 @@ pub struct Mapper {
     /// to the container's own next sibling — that matches CSS break
     /// propagation from last children to the parent's after-edge.
     pending_break_after: bool,
+    /// The page name currently in force (CSS `page` property), so nested
+    /// blocks repeating an ancestor's name emit no redundant markers and
+    /// closing markers restore the OUTER name.
+    current_page_name: Option<String>,
+    /// Whether ANY rule sets `page` — when false, the per-block peek
+    /// (a second cascade pass) is skipped entirely.
+    uses_page_names: bool,
 }
 
 /// Map a parsed `<body>` element to a complete engine document.
@@ -58,7 +65,14 @@ pub fn map_html(body: &Element, sheet: Stylesheet, page: PageConfig) -> (Documen
         stack: Vec::new(),
         warned_fonts: Vec::new(),
         pending_break_after: false,
+        current_page_name: None,
+        uses_page_names: false,
     };
+    mapper.uses_page_names = mapper
+        .sheet
+        .rules
+        .iter()
+        .any(|r| r.block.normal.page.is_some() || r.block.important.page.is_some());
     let children = match mapper.map_block_element(body, ROOT_FONT_SIZE) {
         Some(node) => vec![node],
         None => vec![],
@@ -68,6 +82,9 @@ pub fn map_html(body: &Element, sheet: Stylesheet, page: PageConfig) -> (Documen
         metadata: Metadata::default(),
         default_page: page,
         first_page: None,
+        left_page: None,
+        named_pages: Default::default(),
+        right_page: None,
         fonts: vec![],
         default_style: None,
         tagged: false,
@@ -434,6 +451,34 @@ impl Mapper {
                     // primitive). If this element maps to nothing
                     // (display:none), the pending break carries forward.
                     let pending = std::mem::take(&mut self.pending_break_after);
+                    // CSS Paged Media `page: <name>`: a block whose name
+                    // differs from the one in force gets PageName markers
+                    // around it — the engine breaks between differently
+                    // named boxes and selects the named config. The
+                    // closing marker restores the OUTER name (stack
+                    // discipline handles nesting).
+                    let peek = self.uses_page_names
+                        || e.attr("style").is_some_and(|st| st.contains("page"));
+                    let block_page = if peek {
+                        self.computed_for(e, parent.font_size)
+                            .page
+                            .or_else(|| self.current_page_name.clone())
+                    } else {
+                        self.current_page_name.clone()
+                    };
+                    let switches = block_page != self.current_page_name;
+                    let saved = if switches {
+                        out.push(make_node(
+                            NodeKind::PageName {
+                                name: block_page.clone(),
+                            },
+                            Style::default(),
+                            vec![],
+                        ));
+                        std::mem::replace(&mut self.current_page_name, block_page)
+                    } else {
+                        self.current_page_name.clone()
+                    };
                     match self.map_block_element(e, parent.font_size) {
                         Some(mut node) => {
                             if pending {
@@ -444,6 +489,16 @@ impl Mapper {
                         None => {
                             self.pending_break_after = self.pending_break_after || pending;
                         }
+                    }
+                    if switches {
+                        out.push(make_node(
+                            NodeKind::PageName {
+                                name: saved.clone(),
+                            },
+                            Style::default(),
+                            vec![],
+                        ));
+                        self.current_page_name = saved;
                     }
                 }
             }
@@ -1229,6 +1284,8 @@ pub(crate) fn build_margin_band(
     band_height: f64,
     top: bool,
     pages: forme::model::FixedPageFilter,
+    page_name: Option<String>,
+    exclude_page_names: Vec<String>,
     warnings: &mut Vec<String>,
 ) -> Node {
     let mut cells: Vec<Node> = Vec::new();
@@ -1302,6 +1359,8 @@ pub(crate) fn build_margin_band(
                 FixedPosition::Footer
             },
             pages,
+            page_name,
+            exclude_page_names,
         },
         Style::default(),
         vec![band],

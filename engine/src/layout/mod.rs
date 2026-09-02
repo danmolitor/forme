@@ -418,6 +418,8 @@ pub struct LayoutPage {
     pub(crate) watermarks: Vec<Node>,
     /// Page config needed for fixed element layout (internal use).
     pub(crate) config: PageConfig,
+    /// The page's NAME (CSS `page` property), for fixed-element scoping.
+    pub(crate) page_name: Option<String>,
 }
 
 /// A positioned element on a page.
@@ -459,6 +461,29 @@ pub struct LayoutElement {
     pub opacity: f64,
 }
 
+/// Does a fixed node appear on a page, considering the parity/first
+/// filter and page-name scoping (`@page <name>` margin boxes)?
+fn fixed_applies_on(node: &Node, page_index: usize, page_name: Option<&str>) -> bool {
+    match &node.kind {
+        NodeKind::Fixed {
+            pages,
+            page_name: only,
+            exclude_page_names,
+            ..
+        } => {
+            pages.applies(page_index)
+                && match only {
+                    Some(n) => page_name == Some(n.as_str()),
+                    None => true,
+                }
+                && !exclude_page_names
+                    .iter()
+                    .any(|n| page_name == Some(n.as_str()))
+        }
+        _ => true,
+    }
+}
+
 /// Return a human-readable name for a NodeKind variant.
 fn node_kind_name(kind: &NodeKind) -> &'static str {
     match kind {
@@ -489,6 +514,7 @@ fn node_kind_name(kind: &NodeKind) -> &'static str {
         } => "FixedFooter",
         NodeKind::Page { .. } => "Page",
         NodeKind::PageBreak => "PageBreak",
+        NodeKind::PageName { .. } => "PageName",
         NodeKind::Svg { .. } => "Svg",
         NodeKind::Canvas { .. } => "Canvas",
         NodeKind::Barcode { .. } => "Barcode",
@@ -1014,6 +1040,42 @@ struct PageCursor {
     /// the page content box; updated when layout descends into a `relative`/
     /// `absolute` element and restored on the way out.
     containing_block: (f64, f64, f64, f64),
+    /// `@page :left` / `:right` configs, when the document declares them.
+    /// Flow layout ALWAYS uses `config`'s geometry; the parity config is
+    /// applied as the finalized page's config plus a constant x translation
+    /// of flow content (mirrored margins preserve content width by
+    /// construction, so a translation is exact — never a re-layout). Docs
+    /// without parity configs keep these `None` and run the exact same
+    /// instructions as before.
+    left_config: Option<PageConfig>,
+    right_config: Option<PageConfig>,
+    /// The config this page presents as (margin boxes, PDF margins,
+    /// LayoutInfo). Equals `config` unless a parity config selected.
+    display_config: Option<PageConfig>,
+    /// The margin-left flow content was ACTUALLY anchored at. Flowing
+    /// containers capture the first page's content_x and carry it across
+    /// page breaks (the bake), so the parity translation must be relative
+    /// to this anchor, not to the current cursor's nominal config.
+    flow_anchor_left: f64,
+    /// The active page NAME (CSS `page` property / `@page <name>`). Set
+    /// by `PageName` marker nodes; carried across breaks so every page of
+    /// a named run is named.
+    page_name: Option<String>,
+    /// Display for non-parity pages of the active (named) family — the
+    /// merged `@page <name>` horizontal geometry. `None` at document
+    /// level (unnamed non-parity pages have no translation).
+    base_display: Option<PageConfig>,
+    /// Display when the current page is the DOCUMENT first page
+    /// (`@page <name>:first`). Document-level `:first` uses the real
+    /// `new_first` config instead and keeps this `None`.
+    first_display: Option<PageConfig>,
+    /// Document-level flow family, kept for restoring after a named run:
+    /// the base real config and the doc `:left`/`:right` displays.
+    doc_base: PageConfig,
+    doc_left: Option<PageConfig>,
+    doc_right: Option<PageConfig>,
+    /// Named page families (from `Document::named_pages`).
+    named_sets: std::collections::HashMap<String, crate::model::NamedPageSet>,
 }
 
 impl PageCursor {
@@ -1042,7 +1104,102 @@ impl PageCursor {
                 content_width,
                 content_height,
             ),
+            left_config: None,
+            right_config: None,
+            display_config: None,
+            flow_anchor_left: config.margin.left,
+            page_name: None,
+            base_display: None,
+            first_display: None,
+            doc_base: config.clone(),
+            doc_left: None,
+            doc_right: None,
+            named_sets: std::collections::HashMap::new(),
         }
+    }
+
+    /// Select the display config for a 1-based page number from the
+    /// active family. Precedence per CSS Paged Media specificity:
+    /// `:first` (document page 1) over parity over the family base. Page
+    /// 1 is a RIGHT page (left-to-right page progression); document-level
+    /// `:first` uses a real config (`new_first`) and is handled at cursor
+    /// creation instead.
+    fn display_for(&self, page_number: usize) -> Option<PageConfig> {
+        if page_number == 1 {
+            if let Some(first) = &self.first_display {
+                return Some(first.clone());
+            }
+        }
+        let parity = if page_number % 2 == 1 {
+            self.right_config.clone()
+        } else {
+            self.left_config.clone()
+        };
+        parity.or_else(|| self.base_display.clone())
+    }
+
+    /// Does this fixed node appear on the current page, considering both
+    /// the parity/first filter and page-name scoping?
+    fn fixed_applies(&self, node: &Node) -> bool {
+        fixed_applies_on(node, self.page_index, self.page_name.as_deref())
+    }
+
+    /// Successor cursor for a page-NAME switch (CSS `page` property). The
+    /// new name's family supplies the REAL config (a named run starts at
+    /// a forced break, so vertical margins may genuinely differ) and the
+    /// display candidates; `None` restores the document-level family.
+    /// `in_place` renames the current (still empty) page instead of
+    /// starting the next one.
+    fn renamed_page(&self, name: Option<String>, in_place: bool) -> Self {
+        let set = name
+            .as_deref()
+            .and_then(|n| self.named_sets.get(n))
+            .cloned();
+        let real = set
+            .as_ref()
+            .map(|s| s.base.clone())
+            .unwrap_or_else(|| self.doc_base.clone());
+        let mut cursor = PageCursor::new(&real);
+        cursor.page_index = if in_place {
+            self.page_index
+        } else {
+            self.page_index + 1
+        };
+        cursor.page_name = name;
+        cursor.doc_base = self.doc_base.clone();
+        cursor.doc_left = self.doc_left.clone();
+        cursor.doc_right = self.doc_right.clone();
+        cursor.named_sets = self.named_sets.clone();
+        match &set {
+            Some(s) => {
+                cursor.left_config = s.display_left.clone();
+                cursor.right_config = s.display_right.clone();
+                cursor.base_display = s.display.clone();
+                cursor.first_display = s.display_first.clone();
+            }
+            None => {
+                // Unknown or absent name: the document family still
+                // applies (CSS: `:left`/`:right`/base match named pages
+                // too when no named rule overrides them).
+                cursor.left_config = self.doc_left.clone();
+                cursor.right_config = self.doc_right.clone();
+            }
+        }
+        cursor.display_config = cursor.display_for(cursor.page_index + 1);
+        cursor.flow_anchor_left = self.flow_anchor_left;
+        cursor.fixed_header = self.fixed_header.clone();
+        cursor.fixed_footer = self.fixed_footer.clone();
+        cursor.watermarks = self.watermarks.clone();
+        cursor.continuation_top_offset = self.continuation_top_offset;
+
+        let header_height: f64 = cursor
+            .fixed_header
+            .iter()
+            .filter(|(n, _)| cursor.fixed_applies(n))
+            .map(|(_, h)| *h)
+            .sum();
+        cursor.y = header_height + cursor.continuation_top_offset;
+        cursor
     }
 
     /// First-page cursor: lays out with `first`'s geometry while
@@ -1053,18 +1210,11 @@ impl PageCursor {
         cursor
     }
 
-    fn fixed_page_filter(node: &Node) -> crate::model::FixedPageFilter {
-        match &node.kind {
-            NodeKind::Fixed { pages, .. } => *pages,
-            _ => crate::model::FixedPageFilter::All,
-        }
-    }
-
     fn remaining_height(&self) -> f64 {
         let footer_height: f64 = self
             .fixed_footer
             .iter()
-            .filter(|(n, _)| Self::fixed_page_filter(n).applies(self.page_index))
+            .filter(|(n, _)| self.fixed_applies(n))
             .map(|(_, h)| *h)
             .sum();
         (self.content_height - self.y - footer_height).max(0.0)
@@ -1072,14 +1222,39 @@ impl PageCursor {
 
     fn finalize(&self) -> LayoutPage {
         let (page_w, page_h) = self.config.size.dimensions();
+
+        // Parity translation: flow content was laid out at the base
+        // horizontal geometry; a selected :left/:right config shifts it by
+        // the constant margin-left delta. Only flow elements exist at this
+        // point — fixed elements, margin boxes, and watermarks are injected
+        // later from the page's own (parity) config and must NOT translate.
+        let (elements, config) = match &self.display_config {
+            Some(display) => {
+                let dx = display.margin.left - self.flow_anchor_left;
+                let mut elements = self.elements.clone();
+                if dx != 0.0 {
+                    fn shift(els: &mut [LayoutElement], dx: f64) {
+                        for el in els {
+                            el.x += dx;
+                            shift(&mut el.children, dx);
+                        }
+                    }
+                    shift(&mut elements, dx);
+                }
+                (elements, display.clone())
+            }
+            None => (self.elements.clone(), self.config.clone()),
+        };
+
         LayoutPage {
             width: page_w,
             height: page_h,
-            elements: self.elements.clone(),
+            elements,
             fixed_header: self.fixed_header.clone(),
             fixed_footer: self.fixed_footer.clone(),
             watermarks: self.watermarks.clone(),
-            config: self.config.clone(),
+            config,
+            page_name: self.page_name.clone(),
         }
     }
 
@@ -1088,6 +1263,17 @@ impl PageCursor {
         // except when this cursor was a first page with its own geometry.
         let mut cursor = PageCursor::new(&self.base_config);
         cursor.page_index = self.page_index + 1;
+        cursor.page_name = self.page_name.clone();
+        cursor.left_config = self.left_config.clone();
+        cursor.right_config = self.right_config.clone();
+        cursor.base_display = self.base_display.clone();
+        cursor.first_display = self.first_display.clone();
+        cursor.doc_base = self.doc_base.clone();
+        cursor.doc_left = self.doc_left.clone();
+        cursor.doc_right = self.doc_right.clone();
+        cursor.named_sets = self.named_sets.clone();
+        cursor.display_config = cursor.display_for(cursor.page_index + 1);
+        cursor.flow_anchor_left = self.flow_anchor_left;
         cursor.fixed_header = self.fixed_header.clone();
         cursor.fixed_footer = self.fixed_footer.clone();
         cursor.watermarks = self.watermarks.clone();
@@ -1096,7 +1282,7 @@ impl PageCursor {
         let header_height: f64 = cursor
             .fixed_header
             .iter()
-            .filter(|(n, _)| Self::fixed_page_filter(n).applies(cursor.page_index))
+            .filter(|(n, _)| cursor.fixed_applies(n))
             .map(|(_, h)| *h)
             .sum();
         cursor.y = header_height + cursor.continuation_top_offset;
@@ -1141,6 +1327,21 @@ impl LayoutEngine {
             Some(first) => PageCursor::new_first(first, &document.default_page),
             None => PageCursor::new(&document.default_page),
         };
+        // @page :left / :right parity configs. Page 1 is a RIGHT page (CSS
+        // Paged Media, LTR page progression); :first outranks :right on
+        // page 1, so the parity display only applies when :first is absent.
+        // Explicit <Page> nodes carry their own configs and do not
+        // participate in parity selection.
+        cursor.left_config = document.left_page.clone();
+        cursor.right_config = document.right_page.clone();
+        // The document-level family + named sets, for PageName switches.
+        cursor.doc_base = document.default_page.clone();
+        cursor.doc_left = document.left_page.clone();
+        cursor.doc_right = document.right_page.clone();
+        cursor.named_sets = document.named_pages.clone();
+        if document.first_page.is_none() {
+            cursor.display_config = cursor.display_for(1);
+        }
 
         // Build a root resolved style from document default_style + lang
         let base = document.default_style.clone().unwrap_or_default();
@@ -1268,14 +1469,42 @@ impl LayoutEngine {
                 *cursor = cursor.new_page();
             }
 
-            NodeKind::Fixed { position, pages } => {
+            NodeKind::PageName { name } => {
+                // A page-name switch forces a break between differently
+                // named boxes (CSS Paged Media). An empty current page is
+                // renamed in place instead — this is how a named run
+                // claims page 1 (and why a named rule outranks a bare
+                // `:first`: the marker replaces the first-page cursor).
+                if cursor.page_name.as_deref() != name.as_deref() {
+                    // "Empty" accounts for header bands: a fresh page's y
+                    // already includes applicable fixed-header heights.
+                    let fresh_y: f64 = cursor
+                        .fixed_header
+                        .iter()
+                        .filter(|(n, _)| cursor.fixed_applies(n))
+                        .map(|(_, h)| *h)
+                        .sum::<f64>()
+                        + cursor.continuation_top_offset;
+                    let has_content = !cursor.elements.is_empty() || cursor.y > fresh_y + 0.01;
+                    if has_content {
+                        pages.push(cursor.finalize());
+                    }
+                    *cursor = cursor.renamed_page(name.clone(), !has_content);
+                }
+            }
+
+            NodeKind::Fixed {
+                position, pages, ..
+            } => {
                 let height = self.measure_node_height(node, available_width, &style, font_context);
                 match position {
                     FixedPosition::Header => {
                         cursor.fixed_header.push((node.clone(), height));
                         // Space is only consumed on pages the element
-                        // actually appears on (CSS :first suppression).
-                        if pages.applies(cursor.page_index) {
+                        // actually appears on (CSS :first suppression,
+                        // parity, page-name scoping).
+                        let _ = pages;
+                        if cursor.fixed_applies(node) {
                             cursor.y += height;
                         }
                     }
@@ -6192,7 +6421,7 @@ impl LayoutEngine {
                 for (node, _h) in &page.fixed_header {
                     // The enumerate index is the authoritative page number
                     // for First/NotFirst filtering.
-                    if !PageCursor::fixed_page_filter(node).applies(page_index) {
+                    if !fixed_applies_on(node, page_index, page.page_name.as_deref()) {
                         continue;
                     }
                     let cw = hdr_cursor.content_width;
@@ -6223,13 +6452,13 @@ impl LayoutEngine {
                 let total_ftr: f64 = page
                     .fixed_footer
                     .iter()
-                    .filter(|(n, _)| PageCursor::fixed_page_filter(n).applies(page_index))
+                    .filter(|(n, _)| fixed_applies_on(n, page_index, page.page_name.as_deref()))
                     .map(|(_, h)| *h)
                     .sum();
                 let target_y = ftr_cursor.content_height - total_ftr;
                 // Layout from y=0
                 for (node, _h) in &page.fixed_footer {
-                    if !PageCursor::fixed_page_filter(node).applies(page_index) {
+                    if !fixed_applies_on(node, page_index, page.page_name.as_deref()) {
                         continue;
                     }
                     let cw = ftr_cursor.content_width;
@@ -6830,6 +7059,9 @@ mod tests {
             metadata: Default::default(),
             default_page: PageConfig::default(),
             first_page: None,
+            left_page: None,
+            right_page: None,
+            named_pages: Default::default(),
             fonts: vec![],
             tagged: false,
             pdfa: None,
@@ -6889,6 +7121,9 @@ mod tests {
             metadata: Default::default(),
             default_page: PageConfig::default(),
             first_page: None,
+            left_page: None,
+            right_page: None,
+            named_pages: Default::default(),
             fonts: vec![],
             tagged: false,
             pdfa: None,
@@ -6949,6 +7184,9 @@ mod tests {
             metadata: Default::default(),
             default_page: PageConfig::default(),
             first_page: None,
+            left_page: None,
+            right_page: None,
+            named_pages: Default::default(),
             fonts: vec![],
             tagged: false,
             pdfa: None,
@@ -7022,6 +7260,9 @@ mod tests {
             metadata: Default::default(),
             default_page: PageConfig::default(),
             first_page: None,
+            left_page: None,
+            right_page: None,
+            named_pages: Default::default(),
             fonts: vec![],
             tagged: false,
             pdfa: None,
@@ -7108,6 +7349,9 @@ mod tests {
             metadata: Default::default(),
             default_page: PageConfig::default(),
             first_page: None,
+            left_page: None,
+            right_page: None,
+            named_pages: Default::default(),
             fonts: vec![],
             tagged: false,
             pdfa: None,
@@ -7253,6 +7497,9 @@ mod tests {
             metadata: Default::default(),
             default_page: PageConfig::default(),
             first_page: None,
+            left_page: None,
+            right_page: None,
+            named_pages: Default::default(),
             fonts: vec![],
             tagged: false,
             pdfa: None,
@@ -7323,6 +7570,9 @@ mod tests {
             metadata: Default::default(),
             default_page: PageConfig::default(),
             first_page: None,
+            left_page: None,
+            right_page: None,
+            named_pages: Default::default(),
             fonts: vec![],
             tagged: false,
             pdfa: None,
@@ -7405,6 +7655,9 @@ mod tests {
             metadata: Default::default(),
             default_page: PageConfig::default(),
             first_page: None,
+            left_page: None,
+            right_page: None,
+            named_pages: Default::default(),
             fonts: vec![],
             tagged: false,
             pdfa: None,
@@ -7465,6 +7718,9 @@ mod tests {
             metadata: Default::default(),
             default_page: PageConfig::default(),
             first_page: None,
+            left_page: None,
+            right_page: None,
+            named_pages: Default::default(),
             fonts: vec![],
             tagged: false,
             pdfa: None,
@@ -7536,6 +7792,9 @@ mod tests {
             metadata: Default::default(),
             default_page: PageConfig::default(),
             first_page: None,
+            left_page: None,
+            right_page: None,
+            named_pages: Default::default(),
             fonts: vec![],
             tagged: false,
             pdfa: None,
@@ -7618,6 +7877,9 @@ mod tests {
             metadata: Default::default(),
             default_page: PageConfig::default(),
             first_page: None,
+            left_page: None,
+            right_page: None,
+            named_pages: Default::default(),
             fonts: vec![],
             tagged: false,
             pdfa: None,
@@ -7699,6 +7961,9 @@ mod tests {
             metadata: Default::default(),
             default_page: PageConfig::default(),
             first_page: None,
+            left_page: None,
+            right_page: None,
+            named_pages: Default::default(),
             fonts: vec![],
             tagged: false,
             pdfa: None,
@@ -7774,6 +8039,9 @@ mod tests {
             metadata: Default::default(),
             default_page: PageConfig::default(),
             first_page: None,
+            left_page: None,
+            right_page: None,
+            named_pages: Default::default(),
             fonts: vec![],
             tagged: false,
             pdfa: None,
@@ -7841,6 +8109,9 @@ mod tests {
             metadata: Default::default(),
             default_page: PageConfig::default(),
             first_page: None,
+            left_page: None,
+            right_page: None,
+            named_pages: Default::default(),
             fonts: vec![],
             tagged: false,
             pdfa: None,

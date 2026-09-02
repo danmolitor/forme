@@ -30,7 +30,9 @@ This is a deliberately **documented subset** of HTML/CSS, in the spirit of Sator
 | Supported | Not supported (warned) |
 |---|---|
 | `@page` `size` (named, dimensions, `landscape`) and `margin` | `@page` `bleed` / `marks` |
-| `@page :first` — different margins, headers off the title page | `:left` / `:right` page variants |
+| `@page :first` — different margins, headers off the title page | |
+| `@page :left` / `:right` — mirrored margins (left + right must sum equally with the base `@page`; unequal sums warn and normalize to the base), per-side margin boxes on edges the base `@page` also defines. Page 1 is a `:right` page (LTR page progression; `dir="rtl"` parity is not modeled — warned). `:first` outranks parity on page 1 | Per-side top/bottom margins (warned, normalized) |
+| Named pages — `@page <name>` + `page: <name>`. The named run starts at a forced break, so top/bottom margins are real (a zero-margin cover works); left/right follow the mirrored-sum rule. Named margin boxes override/suppress the base running headers per name. Composes with `:first`/`:left`/`:right` (`@page cover:first`); named outranks `:first` outranks parity, per spec specificity | `:blank`, `:nth()` page groups, `string-set`/`content: string()`, `position: running()`, footnotes — warned by name |
 | Margin boxes (`@top-center`, `@bottom-right`, …) for running headers/footers | |
 | Page counters — `counter(page)` and `counter(pages)` | |
 | `break-before` / `break-after` / `break-inside: avoid` (+ legacy `page-break-*` aliases) | |

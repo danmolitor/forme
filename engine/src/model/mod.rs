@@ -36,6 +36,29 @@ pub struct Document {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub first_page: Option<PageConfig>,
 
+    /// Page config for LEFT (verso, even 1-based) pages — CSS `@page :left`.
+    /// Flow layout always uses the base horizontal geometry; mirrored
+    /// margins (equal left+right sum) are applied as a constant x
+    /// translation at finalize, never a re-layout — so unequal sums are
+    /// unsupported (the HTML mapper normalizes and warns). `:first`
+    /// outranks parity on page 1.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub left_page: Option<PageConfig>,
+
+    /// Page config for RIGHT (recto, odd 1-based) pages — CSS `@page
+    /// :right`. Page 1 is a right page (left-to-right page progression per
+    /// CSS Paged Media; RTL page progression is not modeled).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub right_page: Option<PageConfig>,
+
+    /// Named page configs (CSS `@page <name>` + the `page` property).
+    /// A `PageName` marker node switches the active name; a named run
+    /// starts at a forced page break, so its REAL config (`base`) may
+    /// genuinely differ vertically. Horizontal geometry follows the same
+    /// translation rule as `:left`/`:right` (mirrored margins only).
+    #[serde(default, skip_serializing_if = "std::collections::HashMap::is_empty")]
+    pub named_pages: std::collections::HashMap<String, NamedPageSet>,
+
     /// Custom fonts to register before layout. Each entry contains
     /// the font family name, base64-encoded font data, weight, and style.
     #[serde(default)]
@@ -600,10 +623,27 @@ pub enum NodeKind {
         /// suppression maps to `NotFirst`). Defaults to all pages.
         #[serde(default)]
         pages: FixedPageFilter,
+        /// Restrict to pages carrying this page name (CSS `@page <name>`
+        /// margin boxes). `None` = no name restriction.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        page_name: Option<String>,
+        /// Skip pages carrying any of these names (a named `@page` rule
+        /// that overrides or suppresses this edge's boxes).
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        exclude_page_names: Vec<String>,
     },
 
     /// An explicit page break.
     PageBreak,
+
+    /// A marker switching the active page NAME (CSS `page` property).
+    /// When the name changes, the current page is finalized (if it has
+    /// content) and subsequent content flows onto pages using the named
+    /// config from `Document::named_pages`. `None` restores unnamed flow.
+    PageName {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        name: Option<String>,
+    },
 
     /// An SVG element rendered as vector graphics.
     Svg {
@@ -1091,18 +1131,60 @@ pub enum FixedPageFilter {
     First,
     /// Every page except the first.
     NotFirst,
+    /// LEFT (verso) pages only — even 1-based page numbers.
+    Left,
+    /// RIGHT (recto) pages only — odd 1-based page numbers, including 1.
+    Right,
+    /// RIGHT pages except the first (used when `:first` overrides or
+    /// suppresses a margin-box slot that `:right`/base would otherwise
+    /// fill — `:first` outranks parity per CSS Paged Media specificity).
+    RightNotFirst,
 }
 
 impl FixedPageFilter {
     /// Does a fixed element with this filter appear on `page_index`
     /// (0-based)?
     pub fn applies(self, page_index: usize) -> bool {
+        // Parity is 1-based per CSS Paged Media: page 1 (index 0) is a
+        // right page in left-to-right page progression.
+        let right = (page_index + 1) % 2 == 1;
         match self {
             FixedPageFilter::All => true,
             FixedPageFilter::First => page_index == 0,
             FixedPageFilter::NotFirst => page_index > 0,
+            FixedPageFilter::Left => !right,
+            FixedPageFilter::Right => right,
+            FixedPageFilter::RightNotFirst => right && page_index > 0,
         }
     }
+}
+
+/// The page-config family for one named page (CSS `@page <name>`).
+///
+/// `base` is the REAL layout config for pages in the named run — the run
+/// starts at a forced break, so vertical margins may genuinely differ
+/// from the document base. Horizontal margins in `base` must equal the
+/// document base's (flow width is baked); horizontal variation is
+/// expressed by the `display*` configs, applied as a constant x
+/// translation at finalize exactly like `:left`/`:right`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NamedPageSet {
+    /// Real config for the run's pages (vertical real, horizontal base).
+    pub base: PageConfig,
+    /// Display config for every page of the run (mirrored horizontal).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display: Option<PageConfig>,
+    /// Display when the run's page is the DOCUMENT first page
+    /// (`@page <name>:first` — `:first` means page 1, per spec).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_first: Option<PageConfig>,
+    /// Display for LEFT (even 1-based) pages of the run.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_left: Option<PageConfig>,
+    /// Display for RIGHT (odd 1-based) pages of the run.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_right: Option<PageConfig>,
 }
 
 /// Source code location for click-to-source in the dev server inspector.
@@ -1186,7 +1268,7 @@ impl Node {
             NodeKind::Checkbox { .. } => false,
             NodeKind::Dropdown { .. } => false,
             NodeKind::RadioButton { .. } => false,
-            NodeKind::PageBreak => false,
+            NodeKind::PageBreak | NodeKind::PageName { .. } => false,
             NodeKind::Fixed { .. } => false,
             NodeKind::Page { .. } => true,
             NodeKind::TableCell { .. } => true,
