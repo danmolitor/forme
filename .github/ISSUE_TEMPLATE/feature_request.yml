@@ -1,0 +1,36 @@
+name: Feature request
+description: Support for a CSS property, a component, or an API capability
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Forme keeps its surface small and deliberate, so it helps to frame this
+        around the document you're trying to produce rather than the feature in
+        the abstract.
+
+  - type: textarea
+    id: document
+    attributes:
+      label: What are you trying to produce?
+      description: The document or layout you can't build today, and why it matters.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would it look like?
+      description: >
+        The CSS property, component, prop, or API you have in mind. Example
+        markup or a link to how another tool spells it helps.
+    validations:
+      required: true
+
+  - type: textarea
+    id: workaround
+    attributes:
+      label: What do you do today?
+      description: The workaround you're using now, if any — including "nothing, I'm blocked".
+    validations:
+      required: false
