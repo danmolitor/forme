@@ -207,7 +207,9 @@ shipped [`@formepdf/templates`](#templates) (invoice, receipt, report,
 shipping-label, letter) and four HTML fixtures (letterhead, dashed-borders,
 statement, zebra-invoice) — passes [veraPDF](https://verapdf.org) 1.30.2 against
 the PDF/UA-1 profile: **9/9**. The check runs in CI on every push
-(`scripts/verify-pdfua.mjs`), so the claim can't silently rot.
+(`scripts/verify-pdfua.mjs`), so the claim can't silently rot. The live results
+— every file, both standards, regenerated from CI on each commit — are at
+[parity.formepdf.com](https://parity.formepdf.com).
 
 - **Tagging is on by default.** Every render emits a structure tree; pass
   `tagged={false}` to opt out. Tagging is layout-neutral — the tag tree is built
@@ -429,7 +431,10 @@ Full docs at [docs.formepdf.com](https://docs.formepdf.com):
 
 ## Contributing
 
-Issues and PRs welcome.
+Issues and PRs welcome — see [CONTRIBUTING.md](./CONTRIBUTING.md) for setup, the
+per-area test commands, and the house rules (fail-loud on unsupported CSS, keep
+the subset docs in sync, propose engine changes first). Security reports go
+through [SECURITY.md](./SECURITY.md).
 
 ## License
 

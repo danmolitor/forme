@@ -1,0 +1,95 @@
+name: Bug report
+description: A render is wrong, a document fails, or output doesn't match the input
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. The more of a minimal reproduction you can give,
+        the faster this gets fixed. If Forme printed a warning, paste it — that
+        field is often the whole answer.
+
+  - type: dropdown
+    id: package
+    attributes:
+      label: Which package?
+      description: The one you call directly.
+      options:
+        - "@formepdf/html (HTML/CSS input or CLI)"
+        - "@formepdf/react"
+        - "@formepdf/svelte"
+        - "@formepdf/vue"
+        - "@formepdf/preact"
+        - "@formepdf/core"
+        - "@formepdf/cli"
+        - "@formepdf/tailwind"
+        - forme-pdf (Rust crate)
+        - Other / not sure
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The version of the package above (e.g. 0.16.0).
+      placeholder: "0.16.0"
+    validations:
+      required: true
+
+  - type: textarea
+    id: warnings
+    attributes:
+      label: Warnings
+      description: >
+        Forme names anything it can't handle instead of dropping it silently.
+        Paste any lines it printed (CLI: `warning: …`; library: the `warnings`
+        array on the result). If there were none, say "none".
+      placeholder: |
+        warning: float is not supported — use flex layouts or position: absolute
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: >
+        The smallest input that shows the problem. For the HTML path, the HTML +
+        CSS. For a framework package, the component. Trim it to just what's
+        needed to reproduce.
+      render: html
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs actual
+      description: What you expected the PDF to look like, and what you got. Attach the PDF or a screenshot if you can.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: runtime
+    attributes:
+      label: Runtime
+      description: Where you ran it.
+      options:
+        - Node
+        - Browser
+        - Cloudflare Workers / edge
+        - Rust (native)
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      description: Node version / browser / OS, whatever is relevant.
+      placeholder: "Node 20.11, macOS 14"
+    validations:
+      required: false

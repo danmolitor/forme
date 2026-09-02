@@ -1,0 +1,14 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Question or help
+    url: https://github.com/danmolitor/forme/discussions
+    about: For "how do I…" and usage questions, start a discussion — it's more searchable than an issue.
+  - name: Documentation
+    url: https://docs.formepdf.com
+    about: Guides and API reference.
+  - name: Supported HTML/CSS subset
+    url: https://docs.formepdf.com/html
+    about: Before filing an HTML bug, check whether the property is in the documented subset — anything outside it is reported in warnings by design.
+  - name: Conformance results (parity)
+    url: https://parity.formepdf.com
+    about: The live PDF/UA-1 and PDF/A-2 verification results, generated from CI on every commit.
