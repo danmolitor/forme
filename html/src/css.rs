@@ -135,6 +135,9 @@ pub struct CssStyle {
     pub break_inside: Option<BreakInsideVal>,
     pub orphans: Option<u32>,
     pub widows: Option<u32>,
+    /// CSS Paged Media `page: <name>` — assigns the element to a named
+    /// page (forces breaks between differently named boxes).
+    pub page: Option<String>,
 }
 
 impl CssStyle {
@@ -204,7 +207,8 @@ impl CssStyle {
             break_after,
             break_inside,
             orphans,
-            widows
+            widows,
+            page
         );
         out
     }
@@ -524,7 +528,22 @@ pub(crate) fn apply_declaration(
         }
 
         "position" => {
-            if let Ok(id) = p.expect_ident() {
+            // `running(<ident>)` is Paged-Media running elements — out of
+            // subset, and worth naming (the generic ident path would
+            // silently swallow the function token).
+            let tok = p.next().cloned();
+            if let Ok(cssparser::Token::Function(f)) = &tok {
+                if f.eq_ignore_ascii_case("running") {
+                    warnings.push(
+                        "position: running() (running elements) is not supported — use @page margin boxes for running headers/footers"
+                            .to_string(),
+                    );
+                } else {
+                    warnings.push(format!("unsupported position value '{f}('"));
+                }
+                return;
+            }
+            if let Ok(cssparser::Token::Ident(id)) = tok {
                 match id.to_ascii_lowercase().as_str() {
                     "absolute" => style.position_absolute = Some(true),
                     // `relative` stays in normal flow but its offsets paint;
@@ -620,6 +639,17 @@ pub(crate) fn apply_declaration(
         }
         "orphans" => style.orphans = parse_count(p),
         "widows" => style.widows = parse_count(p),
+
+        // CSS Paged Media: assign the element to a named page. `auto` is
+        // the initial value (no name).
+        "page" => {
+            if let Ok(id) = p.expect_ident() {
+                let id = id.as_ref().to_string();
+                if !id.eq_ignore_ascii_case("auto") {
+                    style.page = Some(id);
+                }
+            }
+        }
 
         "vertical-align" => {
             if let Ok(id) = p.expect_ident() {

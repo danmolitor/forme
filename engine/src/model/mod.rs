@@ -51,6 +51,14 @@ pub struct Document {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub right_page: Option<PageConfig>,
 
+    /// Named page configs (CSS `@page <name>` + the `page` property).
+    /// A `PageName` marker node switches the active name; a named run
+    /// starts at a forced page break, so its REAL config (`base`) may
+    /// genuinely differ vertically. Horizontal geometry follows the same
+    /// translation rule as `:left`/`:right` (mirrored margins only).
+    #[serde(default, skip_serializing_if = "std::collections::HashMap::is_empty")]
+    pub named_pages: std::collections::HashMap<String, NamedPageSet>,
+
     /// Custom fonts to register before layout. Each entry contains
     /// the font family name, base64-encoded font data, weight, and style.
     #[serde(default)]
@@ -615,10 +623,27 @@ pub enum NodeKind {
         /// suppression maps to `NotFirst`). Defaults to all pages.
         #[serde(default)]
         pages: FixedPageFilter,
+        /// Restrict to pages carrying this page name (CSS `@page <name>`
+        /// margin boxes). `None` = no name restriction.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        page_name: Option<String>,
+        /// Skip pages carrying any of these names (a named `@page` rule
+        /// that overrides or suppresses this edge's boxes).
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        exclude_page_names: Vec<String>,
     },
 
     /// An explicit page break.
     PageBreak,
+
+    /// A marker switching the active page NAME (CSS `page` property).
+    /// When the name changes, the current page is finalized (if it has
+    /// content) and subsequent content flows onto pages using the named
+    /// config from `Document::named_pages`. `None` restores unnamed flow.
+    PageName {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        name: Option<String>,
+    },
 
     /// An SVG element rendered as vector graphics.
     Svg {
@@ -1134,6 +1159,34 @@ impl FixedPageFilter {
     }
 }
 
+/// The page-config family for one named page (CSS `@page <name>`).
+///
+/// `base` is the REAL layout config for pages in the named run — the run
+/// starts at a forced break, so vertical margins may genuinely differ
+/// from the document base. Horizontal margins in `base` must equal the
+/// document base's (flow width is baked); horizontal variation is
+/// expressed by the `display*` configs, applied as a constant x
+/// translation at finalize exactly like `:left`/`:right`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NamedPageSet {
+    /// Real config for the run's pages (vertical real, horizontal base).
+    pub base: PageConfig,
+    /// Display config for every page of the run (mirrored horizontal).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display: Option<PageConfig>,
+    /// Display when the run's page is the DOCUMENT first page
+    /// (`@page <name>:first` — `:first` means page 1, per spec).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_first: Option<PageConfig>,
+    /// Display for LEFT (even 1-based) pages of the run.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_left: Option<PageConfig>,
+    /// Display for RIGHT (odd 1-based) pages of the run.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_right: Option<PageConfig>,
+}
+
 /// Source code location for click-to-source in the dev server inspector.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -1215,7 +1268,7 @@ impl Node {
             NodeKind::Checkbox { .. } => false,
             NodeKind::Dropdown { .. } => false,
             NodeKind::RadioButton { .. } => false,
-            NodeKind::PageBreak => false,
+            NodeKind::PageBreak | NodeKind::PageName { .. } => false,
             NodeKind::Fixed { .. } => false,
             NodeKind::Page { .. } => true,
             NodeKind::TableCell { .. } => true,
