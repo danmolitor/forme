@@ -159,4 +159,7 @@ html += `<section><div class="wrap">
 
 writeFileSync(join(SITE, 'index.html'), page(html));
 if (existsSync(join(DIR, 'parity.json'))) copyFileSync(join(DIR, 'parity.json'), join(SITE, 'parity.json'));
-console.log(`Rendered ${join(SITE, 'index.html')} (+ parity.json copy).`);
+// Custom domain: GitHub Pages needs a CNAME in the published artifact for
+// Actions-based deploys to keep the custom domain across runs.
+writeFileSync(join(SITE, 'CNAME'), (process.env.PARITY_DOMAIN || 'parity.formepdf.com') + '\n');
+console.log(`Rendered ${join(SITE, 'index.html')} (+ parity.json, CNAME).`);
