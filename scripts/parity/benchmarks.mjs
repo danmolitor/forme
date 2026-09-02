@@ -318,7 +318,7 @@ const WHERE_WE_LOSE = {
   trackedFixes: [
     { name: 'Streaming (per-page/chunked) serialize-and-release', target: 'memory ceiling', note: 'Would cap peak at ~O(one page) and let large docs render on Workers. Structural; not yet built.' },
     { name: 'Reduce per-node allocation (arena / SmallVec / drop style clones)', target: 'throughput', note: 'Addresses the ~1.9× constant-factor gap. Hot-path; needs site-level allocation profiling first.' },
-    { name: 'Sentinel re-pass re-measures only the running element', target: 'page-numbered large docs', note: 'Removes the 2× for docs that print page numbers. Bounded.' },
+    { name: 'Sentinel re-pass re-measures only the running element', target: 'page-numbered large docs', note: 'Investigated 2026-09 and set aside: not scopable as written. The sentinel width is consumed during injection (footer/margin-box layout), not the flow pass, and HTML @page margin boxes are Fixed nodes — so a "reuse flow + re-inject" split has no guard signal to read and silently skips the correction (byte-identity caught it). Would need injection-time or model-scan detection.' },
   ],
 };
 

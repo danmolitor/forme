@@ -133,6 +133,20 @@ pub fn render(document: &Document) -> Result<Vec<u8>, FormeError> {
 /// `FontContext::char_width`, from any source (HTML `counter()`, margin boxes,
 /// JSX literals). Returns the laid-out pages, the populated font context, and
 /// the number of full layout passes (1, or 2–3 when the width needed fixing).
+///
+/// SCOPING NOTE (investigated 2026-09, abandoned — see benchmarks/): re-laying
+/// out ONLY the running element on a digit-width change, instead of the whole
+/// document, looks like a clean ~2x win but is NOT scopable as written. The
+/// sentinel width is consumed during INJECTION — `inject_fixed_elements` lays
+/// out the footer/margin content — NOT during the flow pass; the flow-time
+/// `measure_node_height` height reservation doesn't touch it. And HTML `@page`
+/// margin boxes are mapped to Fixed nodes (see the `html` crate), so there is no
+/// purely out-of-flow page-number case. Consequently the guard signals (is there
+/// a sentinel? in flow or in a running element? does its height change?) don't
+/// exist yet after a flow-only pass, and a naive "reuse flow + re-inject" split
+/// silently SKIPS the digit-width correction entirely — a correctness regression
+/// that byte-identity caught. Any future attempt must derive those signals from
+/// injection or a document-model scan, not from the flow pass.
 fn layout_with_sentinel_passes(
     document: &Document,
 ) -> (Vec<crate::layout::LayoutPage>, FontContext, u32) {
