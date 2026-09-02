@@ -178,11 +178,10 @@ export default function FeatureShowcase() {
               <LineChart
                 width={152}
                 height={120}
-                data={trendData}
-                color="#0f172a"
+                labels={trendData.map((d) => d.label)}
+                series={[{ name: 'Trend', data: trendData.map((d) => d.value), color: '#0f172a' }]}
                 showGrid
-                showDots
-                showArea
+                showPoints
               />
             </View>
 
@@ -193,8 +192,8 @@ export default function FeatureShowcase() {
                 width={152}
                 height={120}
                 data={categoryData}
-                innerRadius={25}
-                showLabels
+                donut
+                showLegend
               />
             </View>
           </View>

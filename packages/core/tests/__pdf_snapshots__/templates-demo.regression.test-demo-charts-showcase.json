@@ -1,0 +1,950 @@
+{
+  "version": 1,
+  "producer": "formepdf",
+  "createdAt": "2026-09-02T01:51:56.693Z",
+  "pageCount": 3,
+  "pages": [
+    {
+      "index": 0,
+      "width": 595.3,
+      "height": 841.9,
+      "contentBox": {
+        "x": 54,
+        "y": 54,
+        "width": 487.3,
+        "height": 733.9
+      },
+      "nodeIds": [
+        "0:text:0",
+        "0:text:1",
+        "0:container:0",
+        "0:text:2",
+        "0:container:1",
+        "0:container:2",
+        "0:text:3",
+        "0:container:3",
+        "0:text:4",
+        "0:image:0",
+        "0:image:1",
+        "0:container:4",
+        "0:text:5",
+        "0:text:6",
+        "0:image:2",
+        "0:text:7"
+      ]
+    },
+    {
+      "index": 1,
+      "width": 595.3,
+      "height": 841.9,
+      "contentBox": {
+        "x": 54,
+        "y": 54,
+        "width": 487.3,
+        "height": 733.9
+      },
+      "nodeIds": [
+        "1:container:0",
+        "1:text:0",
+        "1:text:1",
+        "1:image:0",
+        "1:container:1",
+        "1:container:2",
+        "1:text:2",
+        "1:container:3",
+        "1:text:3",
+        "1:text:4",
+        "1:text:5",
+        "1:image:1",
+        "1:image:2",
+        "1:text:6"
+      ]
+    },
+    {
+      "index": 2,
+      "width": 595.3,
+      "height": 841.9,
+      "contentBox": {
+        "x": 54,
+        "y": 54,
+        "width": 487.3,
+        "height": 733.9
+      },
+      "nodeIds": [
+        "2:container:0",
+        "2:image:0",
+        "2:container:1",
+        "2:text:0",
+        "2:text:1",
+        "2:text:2"
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "id": "0:text:0",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 54,
+        "y": 54,
+        "width": 487.3,
+        "height": 30.8
+      },
+      "order": 0,
+      "parentId": null,
+      "text": "Annual Performance Report",
+      "normText": "annual performance report",
+      "font": {
+        "size": 22,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:1",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 54,
+        "y": 88.8,
+        "width": 487.3,
+        "height": 15.4
+      },
+      "order": 1,
+      "parentId": null,
+      "text": "FY 2025 — Generated with Forme engine-native chart components",
+      "normText": "fy 2025 — generated with forme engine-native chart components",
+      "font": {
+        "size": 11,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:0",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 54,
+        "y": 128.2,
+        "width": 487.3,
+        "height": 237.4
+      },
+      "order": 2,
+      "parentId": null,
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 10,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:2",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 54,
+        "y": 128.2,
+        "width": 487.3,
+        "height": 18.2
+      },
+      "order": 3,
+      "parentId": "0:container:0",
+      "text": "Revenue & Budget Overview",
+      "normText": "revenue & budget overview",
+      "font": {
+        "size": 13,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:1",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 54,
+        "y": 154.4,
+        "width": 487.3,
+        "height": 207.2
+      },
+      "order": 4,
+      "parentId": "0:container:0",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 10,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:2",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 54,
+        "y": 154.4,
+        "width": 233.6,
+        "height": 207.2
+      },
+      "order": 5,
+      "parentId": "0:container:1",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 10,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:3",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 54,
+        "y": 154.4,
+        "width": 233.6,
+        "height": 11.2
+      },
+      "order": 6,
+      "parentId": "0:container:2",
+      "text": "Quarterly Revenue",
+      "normText": "quarterly revenue",
+      "font": {
+        "size": 8,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:3",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 307.6,
+        "y": 154.4,
+        "width": 233.6,
+        "height": 207.2
+      },
+      "order": 7,
+      "parentId": "0:container:1",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 10,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:4",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 307.6,
+        "y": 154.4,
+        "width": 233.6,
+        "height": 11.2
+      },
+      "order": 8,
+      "parentId": "0:container:3",
+      "text": "Department Budget (K)",
+      "normText": "department budget (k)",
+      "font": {
+        "size": 8,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:image:0",
+      "role": "image",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 54,
+        "y": 173.6,
+        "width": 240,
+        "height": 180
+      },
+      "order": 9,
+      "parentId": "0:container:2",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 10,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:image:1",
+      "role": "image",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 307.6,
+        "y": 173.6,
+        "width": 240,
+        "height": 180
+      },
+      "order": 10,
+      "parentId": "0:container:3",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 10,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:4",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 54,
+        "y": 393.6,
+        "width": 487.3,
+        "height": 252.8
+      },
+      "order": 11,
+      "parentId": null,
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 10,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:5",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 54,
+        "y": 393.6,
+        "width": 487.3,
+        "height": 18.2
+      },
+      "order": 12,
+      "parentId": "0:container:4",
+      "text": "User Growth",
+      "normText": "user growth",
+      "font": {
+        "size": 13,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:6",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 54,
+        "y": 419.8,
+        "width": 487.3,
+        "height": 12.6
+      },
+      "order": 13,
+      "parentId": "0:container:4",
+      "text": "Monthly active users and new signups across the full fiscal year.",
+      "normText": "monthly active users and new signups across the full fiscal year.",
+      "font": {
+        "size": 9,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:image:2",
+      "role": "image",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 54,
+        "y": 442.4,
+        "width": 510,
+        "height": 200
+      },
+      "order": 14,
+      "parentId": "0:container:4",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 10,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:7",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 54,
+        "y": 694.4,
+        "width": 487.3,
+        "height": 11.2
+      },
+      "order": 15,
+      "parentId": null,
+      "text": "Page 1 of 2 — Confidential",
+      "normText": "page 1 of 2 — confidential",
+      "font": {
+        "size": 8,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:container:0",
+      "role": "container",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 54,
+        "y": 54,
+        "width": 487.3,
+        "height": 252.8
+      },
+      "order": 0,
+      "parentId": null,
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 10,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:text:0",
+      "role": "text",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 54,
+        "y": 54,
+        "width": 487.3,
+        "height": 18.2
+      },
+      "order": 1,
+      "parentId": "1:container:0",
+      "text": "Traffic Sources",
+      "normText": "traffic sources",
+      "font": {
+        "size": 13,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:text:1",
+      "role": "text",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 54,
+        "y": 80.2,
+        "width": 487.3,
+        "height": 12.6
+      },
+      "order": 2,
+      "parentId": "1:container:0",
+      "text": "Cumulative visitor counts by acquisition channel, showing organic growth outpacing paid.",
+      "normText": "cumulative visitor counts by acquisition channel, showing organic growth outpacing paid.",
+      "font": {
+        "size": 9,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:image:0",
+      "role": "image",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 54,
+        "y": 102.8,
+        "width": 510,
+        "height": 200
+      },
+      "order": 3,
+      "parentId": "1:container:0",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 10,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:container:1",
+      "role": "container",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 54,
+        "y": 334.8,
+        "width": 487.3,
+        "height": 265.4
+      },
+      "order": 4,
+      "parentId": null,
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 10,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:container:2",
+      "role": "container",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 54,
+        "y": 334.8,
+        "width": 233.6,
+        "height": 265.4
+      },
+      "order": 5,
+      "parentId": "1:container:1",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 10,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:text:2",
+      "role": "text",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 54,
+        "y": 334.8,
+        "width": 233.6,
+        "height": 18.2
+      },
+      "order": 6,
+      "parentId": "1:container:2",
+      "text": "API Latency",
+      "normText": "api latency",
+      "font": {
+        "size": 13,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:container:3",
+      "role": "container",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 307.6,
+        "y": 334.8,
+        "width": 233.6,
+        "height": 265.4
+      },
+      "order": 7,
+      "parentId": "1:container:1",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 10,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:text:3",
+      "role": "text",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 307.6,
+        "y": 334.8,
+        "width": 233.6,
+        "height": 18.2
+      },
+      "order": 8,
+      "parentId": "1:container:3",
+      "text": "Monthly Expenses",
+      "normText": "monthly expenses",
+      "font": {
+        "size": 13,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:text:4",
+      "role": "text",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 54,
+        "y": 361,
+        "width": 233.6,
+        "height": 25.2
+      },
+      "order": 9,
+      "parentId": "1:container:2",
+      "text": "Response time (ms) vs concurrent requests across API versions.",
+      "normText": "response time (ms) vs concurrent requests across api versions.",
+      "font": {
+        "size": 9,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:text:5",
+      "role": "text",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 307.6,
+        "y": 361,
+        "width": 233.6,
+        "height": 12.6
+      },
+      "order": 10,
+      "parentId": "1:container:3",
+      "text": "Operating expenses Jan–Aug with value labels.",
+      "normText": "operating expenses jan–aug with value labels.",
+      "font": {
+        "size": 9,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:image:1",
+      "role": "image",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 307.6,
+        "y": 383.6,
+        "width": 240,
+        "height": 200
+      },
+      "order": 11,
+      "parentId": "1:container:3",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 10,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:image:2",
+      "role": "image",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 54,
+        "y": 396.2,
+        "width": 240,
+        "height": 200
+      },
+      "order": 12,
+      "parentId": "1:container:2",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 10,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:text:6",
+      "role": "text",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 54,
+        "y": 616.2,
+        "width": 487.3,
+        "height": 18.2
+      },
+      "order": 13,
+      "parentId": null,
+      "text": "Donut: Revenue Split",
+      "normText": "donut: revenue split",
+      "font": {
+        "size": 13,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "2:container:0",
+      "role": "container",
+      "pageIndex": 2,
+      "bbox": {
+        "x": 54,
+        "y": 54,
+        "width": 233.6,
+        "height": 150
+      },
+      "order": 0,
+      "parentId": null,
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 10,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "2:image:0",
+      "role": "image",
+      "pageIndex": 2,
+      "bbox": {
+        "x": 54,
+        "y": 54,
+        "width": 180,
+        "height": 150
+      },
+      "order": 1,
+      "parentId": "2:container:0",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 10,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "2:container:1",
+      "role": "container",
+      "pageIndex": 2,
+      "bbox": {
+        "x": 307.6,
+        "y": 54,
+        "width": 233.6,
+        "height": 150
+      },
+      "order": 2,
+      "parentId": null,
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 10,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "2:text:0",
+      "role": "text",
+      "pageIndex": 2,
+      "bbox": {
+        "x": 307.6,
+        "y": 90.5,
+        "width": 233.6,
+        "height": 15.4
+      },
+      "order": 3,
+      "parentId": "2:container:1",
+      "text": "Key Takeaways",
+      "normText": "key takeaways",
+      "font": {
+        "size": 11,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "2:text:1",
+      "role": "text",
+      "pageIndex": 2,
+      "bbox": {
+        "x": 307.6,
+        "y": 109.9,
+        "width": 233.6,
+        "height": 57.6
+      },
+      "order": 4,
+      "parentId": "2:container:1",
+      "text": "Subscription revenue accounts for 62% of total revenue, up from 54% last year. Enterprise deals grew 18% YoY. API v3 reduced p95 latency by 70% compared to v1. Organic traffic now exceeds paid for the first time.",
+      "normText": "subscription revenue accounts for 62% of total revenue, up from 54% last year. enterprise deals grew 18% yoy. api v3 reduced p95 latency by 70% compared to v1. organic traffic now exceeds paid for the first time.",
+      "font": {
+        "size": 9,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "2:text:2",
+      "role": "text",
+      "pageIndex": 2,
+      "bbox": {
+        "x": 54,
+        "y": 224,
+        "width": 487.3,
+        "height": 11.2
+      },
+      "order": 5,
+      "parentId": null,
+      "text": "Page 2 of 2 — Confidential",
+      "normText": "page 2 of 2 — confidential",
+      "font": {
+        "size": 8,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    }
+  ],
+  "contentHash": "sha256:a0ea6ce922a134b63ff000714ffae0fffe257b6da73942dbcc49e6884579c0b1"
+}

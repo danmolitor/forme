@@ -1,0 +1,2124 @@
+{
+  "version": 1,
+  "producer": "formepdf",
+  "createdAt": "2026-09-02T01:51:57.081Z",
+  "pageCount": 1,
+  "pages": [
+    {
+      "index": 0,
+      "width": 612,
+      "height": 792,
+      "contentBox": {
+        "x": 40,
+        "y": 40,
+        "width": 532,
+        "height": 712
+      },
+      "nodeIds": [
+        "0:container:0",
+        "0:container:1",
+        "0:text:0",
+        "0:container:2",
+        "0:text:1",
+        "0:text:2",
+        "0:container:3",
+        "0:container:4",
+        "0:container:5",
+        "0:container:6",
+        "0:container:7",
+        "0:text:3",
+        "0:text:4",
+        "0:text:5",
+        "0:text:6",
+        "0:text:7",
+        "0:text:8",
+        "0:text:9",
+        "0:text:10",
+        "0:text:11",
+        "0:text:12",
+        "0:text:13",
+        "0:text:14",
+        "0:container:8",
+        "0:container:9",
+        "0:container:10",
+        "0:text:15",
+        "0:text:16",
+        "0:container:11",
+        "0:image:0",
+        "0:container:12",
+        "0:container:13",
+        "0:text:17",
+        "0:text:18",
+        "0:container:14",
+        "0:container:15",
+        "0:container:16",
+        "0:container:17",
+        "0:text:19",
+        "0:text:20",
+        "0:container:18",
+        "0:container:19",
+        "0:container:20",
+        "0:container:21",
+        "0:text:21",
+        "0:text:22",
+        "0:container:22",
+        "0:container:23",
+        "0:container:24",
+        "0:container:25",
+        "0:text:23",
+        "0:text:24",
+        "0:container:26",
+        "0:container:27",
+        "0:container:28",
+        "0:container:29",
+        "0:text:25",
+        "0:container:30",
+        "0:container:31",
+        "0:text:26",
+        "0:container:32",
+        "0:text:27",
+        "0:container:33",
+        "0:text:28",
+        "0:container:34",
+        "0:container:35",
+        "0:container:36",
+        "0:container:37",
+        "0:container:38",
+        "0:container:39",
+        "0:text:29",
+        "0:text:30",
+        "0:text:31",
+        "0:text:32",
+        "0:container:40",
+        "0:container:41",
+        "0:text:33",
+        "0:text:34",
+        "0:text:35",
+        "0:text:36",
+        "0:container:42",
+        "0:container:43",
+        "0:text:37",
+        "0:text:38"
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "id": "0:container:0",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 40,
+        "y": 40,
+        "width": 532,
+        "height": 48.8
+      },
+      "order": 0,
+      "parentId": null,
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:1",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 40,
+        "y": 40,
+        "width": 205.4,
+        "height": 48.8
+      },
+      "order": 1,
+      "parentId": "0:container:0",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:0",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 40,
+        "y": 40,
+        "width": 205.4,
+        "height": 30.8
+      },
+      "order": 2,
+      "parentId": "0:container:1",
+      "text": "Q4 2025 Dashboard",
+      "normText": "q4 2025 dashboard",
+      "font": {
+        "size": 22,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:2",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 488,
+        "y": 50.1,
+        "width": 84,
+        "height": 28.6
+      },
+      "order": 3,
+      "parentId": "0:container:0",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:1",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 496,
+        "y": 58.1,
+        "width": 68,
+        "height": 12.6
+      },
+      "order": 4,
+      "parentId": "0:container:2",
+      "text": "Oct — Dec 2025",
+      "normText": "oct — dec 2025",
+      "font": {
+        "size": 9,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:2",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 40,
+        "y": 74.8,
+        "width": 205.4,
+        "height": 14
+      },
+      "order": 5,
+      "parentId": "0:container:1",
+      "text": "Performance overview across all regions",
+      "normText": "performance overview across all regions",
+      "font": {
+        "size": 10,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:3",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 40,
+        "y": 108.8,
+        "width": 532,
+        "height": 92.6
+      },
+      "order": 6,
+      "parentId": null,
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:4",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 40,
+        "y": 108.8,
+        "width": 125.5,
+        "height": 92.6
+      },
+      "order": 7,
+      "parentId": "0:container:3",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:5",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 175.5,
+        "y": 108.8,
+        "width": 125.5,
+        "height": 92.6
+      },
+      "order": 8,
+      "parentId": "0:container:3",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:6",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 311,
+        "y": 108.8,
+        "width": 125.5,
+        "height": 92.6
+      },
+      "order": 9,
+      "parentId": "0:container:3",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:7",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 446.5,
+        "y": 108.8,
+        "width": 125.5,
+        "height": 92.6
+      },
+      "order": 10,
+      "parentId": "0:container:3",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:3",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 55,
+        "y": 123.8,
+        "width": 95.5,
+        "height": 11.2
+      },
+      "order": 11,
+      "parentId": "0:container:4",
+      "text": "REVENUE",
+      "normText": "revenue",
+      "font": {
+        "size": 8,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:4",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 190.5,
+        "y": 123.8,
+        "width": 95.5,
+        "height": 11.2
+      },
+      "order": 12,
+      "parentId": "0:container:5",
+      "text": "ORDERS",
+      "normText": "orders",
+      "font": {
+        "size": 8,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:5",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 326,
+        "y": 123.8,
+        "width": 95.5,
+        "height": 11.2
+      },
+      "order": 13,
+      "parentId": "0:container:6",
+      "text": "CUSTOMERS",
+      "normText": "customers",
+      "font": {
+        "size": 8,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:6",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 461.5,
+        "y": 123.8,
+        "width": 95.5,
+        "height": 11.2
+      },
+      "order": 14,
+      "parentId": "0:container:7",
+      "text": "REFUND RATE",
+      "normText": "refund rate",
+      "font": {
+        "size": 8,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:7",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 55,
+        "y": 139,
+        "width": 95.5,
+        "height": 30.8
+      },
+      "order": 15,
+      "parentId": "0:container:4",
+      "text": "$2.4M",
+      "normText": "$2.4m",
+      "font": {
+        "size": 22,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:8",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 190.5,
+        "y": 139,
+        "width": 95.5,
+        "height": 30.8
+      },
+      "order": 16,
+      "parentId": "0:container:5",
+      "text": "12,847",
+      "normText": "12,847",
+      "font": {
+        "size": 22,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:9",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 326,
+        "y": 139,
+        "width": 95.5,
+        "height": 30.8
+      },
+      "order": 17,
+      "parentId": "0:container:6",
+      "text": "3,291",
+      "normText": "3,291",
+      "font": {
+        "size": 22,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:10",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 461.5,
+        "y": 139,
+        "width": 95.5,
+        "height": 30.8
+      },
+      "order": 18,
+      "parentId": "0:container:7",
+      "text": "1.2%",
+      "normText": "1.2%",
+      "font": {
+        "size": 22,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:11",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 55,
+        "y": 173.8,
+        "width": 95.5,
+        "height": 12.6
+      },
+      "order": 19,
+      "parentId": "0:container:4",
+      "text": "+18% vs Q3",
+      "normText": "+18% vs q3",
+      "font": {
+        "size": 9,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:12",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 190.5,
+        "y": 173.8,
+        "width": 95.5,
+        "height": 12.6
+      },
+      "order": 20,
+      "parentId": "0:container:5",
+      "text": "+7% vs Q3",
+      "normText": "+7% vs q3",
+      "font": {
+        "size": 9,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:13",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 326,
+        "y": 173.8,
+        "width": 95.5,
+        "height": 12.6
+      },
+      "order": 21,
+      "parentId": "0:container:6",
+      "text": "+24% vs Q3",
+      "normText": "+24% vs q3",
+      "font": {
+        "size": 9,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:14",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 461.5,
+        "y": 173.8,
+        "width": 95.5,
+        "height": 12.6
+      },
+      "order": 22,
+      "parentId": "0:container:7",
+      "text": "-0.3% vs Q3",
+      "normText": "-0.3% vs q3",
+      "font": {
+        "size": 9,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:8",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 40,
+        "y": 221.4,
+        "width": 532,
+        "height": 204.2
+      },
+      "order": 23,
+      "parentId": null,
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:9",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 40,
+        "y": 221.4,
+        "width": 258,
+        "height": 204.2
+      },
+      "order": 24,
+      "parentId": "0:container:8",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:10",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 314,
+        "y": 221.4,
+        "width": 258,
+        "height": 189.8
+      },
+      "order": 25,
+      "parentId": "0:container:8",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:15",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 57,
+        "y": 238.4,
+        "width": 224,
+        "height": 15.4
+      },
+      "order": 26,
+      "parentId": "0:container:9",
+      "text": "Revenue by Region",
+      "normText": "revenue by region",
+      "font": {
+        "size": 11,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:16",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 331,
+        "y": 238.4,
+        "width": 224,
+        "height": 15.4
+      },
+      "order": 27,
+      "parentId": "0:container:10",
+      "text": "Regional Breakdown",
+      "normText": "regional breakdown",
+      "font": {
+        "size": 11,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:11",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 57,
+        "y": 263.8,
+        "width": 224,
+        "height": 120
+      },
+      "order": 28,
+      "parentId": "0:container:9",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:image:0",
+      "role": "image",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 69,
+        "y": 263.8,
+        "width": 200,
+        "height": 120
+      },
+      "order": 29,
+      "parentId": "0:container:11",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:12",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 331,
+        "y": 263.8,
+        "width": 224,
+        "height": 22.6
+      },
+      "order": 30,
+      "parentId": "0:container:10",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:13",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 331,
+        "y": 263.8,
+        "width": 224,
+        "height": 12.6
+      },
+      "order": 31,
+      "parentId": "0:container:12",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:17",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 331,
+        "y": 263.8,
+        "width": 62,
+        "height": 12.6
+      },
+      "order": 32,
+      "parentId": "0:container:13",
+      "text": "North America",
+      "normText": "north america",
+      "font": {
+        "size": 9,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:18",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 510,
+        "y": 263.8,
+        "width": 45,
+        "height": 12.6
+      },
+      "order": 33,
+      "parentId": "0:container:13",
+      "text": "$1,080,000",
+      "normText": "$1,080,000",
+      "font": {
+        "size": 9,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:14",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 331,
+        "y": 280.4,
+        "width": 224,
+        "height": 6
+      },
+      "order": 34,
+      "parentId": "0:container:12",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:15",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 331,
+        "y": 280.4,
+        "width": 201.6,
+        "height": 6
+      },
+      "order": 35,
+      "parentId": "0:container:14",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:16",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 331,
+        "y": 296.4,
+        "width": 224,
+        "height": 22.6
+      },
+      "order": 36,
+      "parentId": "0:container:10",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:17",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 331,
+        "y": 296.4,
+        "width": 224,
+        "height": 12.6
+      },
+      "order": 37,
+      "parentId": "0:container:16",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:19",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 331,
+        "y": 296.4,
+        "width": 31,
+        "height": 12.6
+      },
+      "order": 38,
+      "parentId": "0:container:17",
+      "text": "Europe",
+      "normText": "europe",
+      "font": {
+        "size": 9,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:20",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 517.5,
+        "y": 296.4,
+        "width": 37.5,
+        "height": 12.6
+      },
+      "order": 39,
+      "parentId": "0:container:17",
+      "text": "$720,000",
+      "normText": "$720,000",
+      "font": {
+        "size": 9,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:18",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 331,
+        "y": 313,
+        "width": 224,
+        "height": 6
+      },
+      "order": 40,
+      "parentId": "0:container:16",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:19",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 331,
+        "y": 313,
+        "width": 134.4,
+        "height": 6
+      },
+      "order": 41,
+      "parentId": "0:container:18",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:20",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 331,
+        "y": 329,
+        "width": 224,
+        "height": 22.6
+      },
+      "order": 42,
+      "parentId": "0:container:10",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:21",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 331,
+        "y": 329,
+        "width": 224,
+        "height": 12.6
+      },
+      "order": 43,
+      "parentId": "0:container:20",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:21",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 331,
+        "y": 329,
+        "width": 50.5,
+        "height": 12.6
+      },
+      "order": 44,
+      "parentId": "0:container:21",
+      "text": "Asia Pacific",
+      "normText": "asia pacific",
+      "font": {
+        "size": 9,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:22",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 517.5,
+        "y": 329,
+        "width": 37.5,
+        "height": 12.6
+      },
+      "order": 45,
+      "parentId": "0:container:21",
+      "text": "$480,000",
+      "normText": "$480,000",
+      "font": {
+        "size": 9,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:22",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 331,
+        "y": 345.6,
+        "width": 224,
+        "height": 6
+      },
+      "order": 46,
+      "parentId": "0:container:20",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:23",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 331,
+        "y": 345.6,
+        "width": 89.6,
+        "height": 6
+      },
+      "order": 47,
+      "parentId": "0:container:22",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:24",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 331,
+        "y": 361.6,
+        "width": 224,
+        "height": 22.6
+      },
+      "order": 48,
+      "parentId": "0:container:10",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:25",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 331,
+        "y": 361.6,
+        "width": 224,
+        "height": 12.6
+      },
+      "order": 49,
+      "parentId": "0:container:24",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:23",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 331,
+        "y": 361.6,
+        "width": 50,
+        "height": 12.6
+      },
+      "order": 50,
+      "parentId": "0:container:25",
+      "text": "Middle East",
+      "normText": "middle east",
+      "font": {
+        "size": 9,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:24",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 517.5,
+        "y": 361.6,
+        "width": 37.5,
+        "height": 12.6
+      },
+      "order": 51,
+      "parentId": "0:container:25",
+      "text": "$120,000",
+      "normText": "$120,000",
+      "font": {
+        "size": 9,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:26",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 331,
+        "y": 378.2,
+        "width": 224,
+        "height": 6
+      },
+      "order": 52,
+      "parentId": "0:container:24",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:27",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 331,
+        "y": 378.2,
+        "width": 22.4,
+        "height": 6
+      },
+      "order": 53,
+      "parentId": "0:container:26",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:28",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 57,
+        "y": 391.8,
+        "width": 224,
+        "height": 16.8
+      },
+      "order": 54,
+      "parentId": "0:container:9",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:29",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 91,
+        "y": 391.8,
+        "width": 41.3,
+        "height": 16.8
+      },
+      "order": 55,
+      "parentId": "0:container:28",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:25",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 99.2,
+        "y": 391.8,
+        "width": 33.2,
+        "height": 16.8
+      },
+      "order": 56,
+      "parentId": "0:container:29",
+      "text": "North America",
+      "normText": "north america",
+      "font": {
+        "size": 6,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:30",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 140.3,
+        "y": 391.8,
+        "width": 22.4,
+        "height": 16.8
+      },
+      "order": 57,
+      "parentId": "0:container:28",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:31",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 140.3,
+        "y": 393,
+        "width": 4.6,
+        "height": 6
+      },
+      "order": 58,
+      "parentId": "0:container:30",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:26",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 147.9,
+        "y": 391.8,
+        "width": 19.3,
+        "height": 8.4
+      },
+      "order": 59,
+      "parentId": "0:container:30",
+      "text": "Europe",
+      "normText": "europe",
+      "font": {
+        "size": 6,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:32",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 170.7,
+        "y": 391.8,
+        "width": 34,
+        "height": 16.8
+      },
+      "order": 60,
+      "parentId": "0:container:28",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:27",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 178.7,
+        "y": 391.8,
+        "width": 26,
+        "height": 16.8
+      },
+      "order": 61,
+      "parentId": "0:container:32",
+      "text": "Asia Pacific",
+      "normText": "asia pacific",
+      "font": {
+        "size": 6,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:33",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 212.7,
+        "y": 391.8,
+        "width": 34.4,
+        "height": 16.8
+      },
+      "order": 62,
+      "parentId": "0:container:28",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:28",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 220.7,
+        "y": 391.8,
+        "width": 26.3,
+        "height": 16.8
+      },
+      "order": 63,
+      "parentId": "0:container:33",
+      "text": "Middle East",
+      "normText": "middle east",
+      "font": {
+        "size": 6,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:34",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 91,
+        "y": 397.2,
+        "width": 5.2,
+        "height": 6
+      },
+      "order": 64,
+      "parentId": "0:container:29",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:35",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 170.7,
+        "y": 397.2,
+        "width": 5,
+        "height": 6
+      },
+      "order": 65,
+      "parentId": "0:container:32",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:36",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 212.7,
+        "y": 397.2,
+        "width": 5,
+        "height": 6
+      },
+      "order": 66,
+      "parentId": "0:container:33",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:37",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 40,
+        "y": 445.6,
+        "width": 532,
+        "height": 246
+      },
+      "order": 67,
+      "parentId": null,
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:38",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 40,
+        "y": 445.6,
+        "width": 259,
+        "height": 110
+      },
+      "order": 68,
+      "parentId": "0:container:37",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:39",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 313,
+        "y": 445.6,
+        "width": 259,
+        "height": 110
+      },
+      "order": 69,
+      "parentId": "0:container:37",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:29",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 55,
+        "y": 460.6,
+        "width": 229,
+        "height": 14
+      },
+      "order": 70,
+      "parentId": "0:container:38",
+      "text": "Zusammenfassung",
+      "normText": "zusammenfassung",
+      "font": {
+        "size": 10,
+        "weight": 700,
+        "family": "Helvetica, ArialUnicode",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:30",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 328,
+        "y": 460.6,
+        "width": 229,
+        "height": 14
+      },
+      "order": 71,
+      "parentId": "0:container:39",
+      "text": "Points essentiels",
+      "normText": "points essentiels",
+      "font": {
+        "size": 10,
+        "weight": 700,
+        "family": "Helvetica, ArialUnicode",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:31",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 55,
+        "y": 480.6,
+        "width": 229,
+        "height": 60
+      },
+      "order": 72,
+      "parentId": "0:container:38",
+      "text": "Das vierte Quartal verzeichnete ein starkes Umsatzwachstum in allen Regionen. Die Kundenbindungsrate blieb mit vierundneun- zig Prozent auf einem hervorragenden Niveau, was die kontinu- ierlichen Investitionen in Produktqualitat und Kundenbetreuung widerspiegelt.",
+      "normText": "das vierte quartal verzeichnete ein starkes umsatzwachstum in allen regionen. die kundenbindungsrate blieb mit vierundneun- zig prozent auf einem hervorragenden niveau, was die kontinu- ierlichen investitionen in produktqualitat und kundenbetreuung widerspiegelt.",
+      "font": {
+        "size": 8,
+        "weight": 400,
+        "family": "Helvetica, ArialUnicode",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:32",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 328,
+        "y": 480.6,
+        "width": 229,
+        "height": 60
+      },
+      "order": 73,
+      "parentId": "0:container:39",
+      "text": "Le chiffre d'affaires consolide a atteint douze virgule un millions de dollars, soit une augmentation de vingt-trois pour cent par rapport a l'exercice precedent. L'expansion dans trois nouveaux marches a contribue a une croissance trimestrielle de trente et un pour cent des nouvelles acquisitions de clients.",
+      "normText": "le chiffre d'affaires consolide a atteint douze virgule un millions de dollars, soit une augmentation de vingt-trois pour cent par rapport a l'exercice precedent. l'expansion dans trois nouveaux marches a contribue a une croissance trimestrielle de trente et un pour cent des nouvelles acquisitions de clients.",
+      "font": {
+        "size": 8,
+        "weight": 400,
+        "family": "Helvetica, ArialUnicode",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:40",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 40,
+        "y": 569.6,
+        "width": 259,
+        "height": 122
+      },
+      "order": 74,
+      "parentId": "0:container:37",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:41",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 313,
+        "y": 569.6,
+        "width": 259,
+        "height": 122
+      },
+      "order": 75,
+      "parentId": "0:container:37",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:33",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 55,
+        "y": 584.6,
+        "width": 229,
+        "height": 14
+      },
+      "order": 76,
+      "parentId": "0:container:40",
+      "text": "الأدالأدادااء ملخص",
+      "normText": "الأدالأدادااء ملخص",
+      "font": {
+        "size": 10,
+        "weight": 700,
+        "family": "Helvetica, ArialUnicode",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:34",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 328,
+        "y": 584.6,
+        "width": 229,
+        "height": 14
+      },
+      "order": 77,
+      "parentId": "0:container:41",
+      "text": "業績概要",
+      "normText": "業績概要",
+      "font": {
+        "size": 10,
+        "weight": 700,
+        "family": "Helvetica, ArialUnicode",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:35",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 55,
+        "y": 604.6,
+        "width": 229,
+        "height": 72
+      },
+      "order": 78,
+      "parentId": "0:container:40",
+      "text": "واحد فاصلة عشر اثني الرابع للربع الموحد الإيرالإيرايرارااد حقق بالمائة وعشرين ثلاثلاثثة بنسبة زيادة مسجسججلاًلاً دولارولارلارر، مليون ثلاثلاثثة في التوسع أسهم وقد .السابق بالعام مقارنة وثلاثيثلاثيلاثيثيين واحد بنسبة سنوي ربع نمو في جديدة أسواق استبقاء معدل وبلغ .الجدد العملالعملاعملاملالاء اكتساب في بالمائة .بالمائة وتسعين أربعة العملالعملاعملاملالاء",
+      "normText": "واحد فاصلة عشر اثني الرابع للربع الموحد الإيرالإيرايرارااد حقق بالمائة وعشرين ثلاثلاثثة بنسبة زيادة مسجسججلاًلاً دولارولارلارر، مليون ثلاثلاثثة في التوسع أسهم وقد .السابق بالعام مقارنة وثلاثيثلاثيلاثيثيين واحد بنسبة سنوي ربع نمو في جديدة أسواق استبقاء معدل وبلغ .الجدد العملالعملاعملاملالاء اكتساب في بالمائة .بالمائة وتسعين أربعة العملالعملاعملاملالاء",
+      "font": {
+        "size": 8,
+        "weight": 400,
+        "family": "Helvetica, ArialUnicode",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:36",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 328,
+        "y": 604.6,
+        "width": 229,
+        "height": 72
+      },
+      "order": 79,
+      "parentId": "0:container:41",
+      "text": "第四四半期の連結売上高は千二百十万ドルに達し、前年同期比 で二十三パーセントの増収となりました。三つの新市場への展 開が寄与し、新規顧客獲得数は前四半期比で三十一パーセント 増加しました。製品品質と顧客対応への継続的な投資が、顧客 維持率を九十四パーセントという高水準に保つ要因となってい ます。",
+      "normText": "第四四半期の連結売上高は千二百十万ドルに達し、前年同期比 で二十三パーセントの増収となりました。三つの新市場への展 開が寄与し、新規顧客獲得数は前四半期比で三十一パーセント 増加しました。製品品質と顧客対応への継続的な投資が、顧客 維持率を九十四パーセントという高水準に保つ要因となってい ます。",
+      "font": {
+        "size": 8,
+        "weight": 400,
+        "family": "Helvetica, ArialUnicode",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:42",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 40,
+        "y": 735.2,
+        "width": 532,
+        "height": 16.8
+      },
+      "order": 80,
+      "parentId": null,
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:43",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 40,
+        "y": 735.2,
+        "width": 532,
+        "height": 16.8
+      },
+      "order": 81,
+      "parentId": "0:container:42",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:37",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 40,
+        "y": 742.2,
+        "width": 82.9,
+        "height": 9.8
+      },
+      "order": 82,
+      "parentId": "0:container:43",
+      "text": "Acme Corp — Confidential",
+      "normText": "acme corp — confidential",
+      "font": {
+        "size": 7,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:38",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 545.1,
+        "y": 742.2,
+        "width": 26.9,
+        "height": 9.8
+      },
+      "order": 83,
+      "parentId": "0:container:43",
+      "text": "Page {\u0002}",
+      "normText": "page {\u0002}",
+      "font": {
+        "size": 7,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    }
+  ],
+  "contentHash": "sha256:66919abab9d04d1a032e5ce69a126756cde4df2c80458171ea69107a28210ba8"
+}

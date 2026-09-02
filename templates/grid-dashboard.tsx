@@ -5,9 +5,10 @@ Font.register({
   src: '/System/Library/Fonts/Supplemental/Arial Unicode.ttf',
 });
 
-export default function GridDashboard(data: any) {
+export default function GridDashboard(data: any = {}) {
   const metrics = data.metrics || [];
   const regions = data.regions || [];
+  const translations = data.translations || [];
   const barColors = ['#3b82f6', '#0f172a', '#64748b', '#94a3b8'];
 
   // Bar chart SVG
@@ -97,7 +98,7 @@ export default function GridDashboard(data: any) {
 
         {/* Multilingual summaries (DE, FR, AR, JA) */}
         <View style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-          {data.translations.map((t: any, i: number) => (
+          {translations.map((t: any, i: number) => (
             <View key={i} style={{ padding: 14, backgroundColor: t.bgColor, borderRadius: 6, borderWidth: 1, borderColor: t.borderColor }}>
               <Text style={{ fontSize: 10, fontWeight: 700, color: t.headingColor, marginBottom: 6, fontFamily: 'Helvetica, ArialUnicode', ...(t.direction && { direction: t.direction, textAlign: 'right' }) }}>{t.heading}</Text>
               <Text style={{ fontSize: 8, lineHeight: 1.5, color: t.textColor, textAlign: 'justify', hyphens: 'auto', lang: t.lang, fontFamily: 'Helvetica, ArialUnicode', ...(t.direction && { direction: t.direction, textAlign: 'right' }) }}>

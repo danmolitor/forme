@@ -1,0 +1,512 @@
+{
+  "version": 1,
+  "producer": "formepdf",
+  "createdAt": "2026-09-02T01:51:57.204Z",
+  "pageCount": 2,
+  "pages": [
+    {
+      "index": 0,
+      "width": 612,
+      "height": 792,
+      "contentBox": {
+        "x": 48,
+        "y": 48,
+        "width": 516,
+        "height": 690
+      },
+      "nodeIds": [
+        "0:container:0",
+        "0:text:0",
+        "0:text:1",
+        "0:container:1"
+      ]
+    },
+    {
+      "index": 1,
+      "width": 612,
+      "height": 792,
+      "contentBox": {
+        "x": 48,
+        "y": 48,
+        "width": 516,
+        "height": 690
+      },
+      "nodeIds": [
+        "1:container:0",
+        "1:text:0",
+        "1:container:1",
+        "1:text:1",
+        "1:text:2",
+        "1:container:2",
+        "1:text:3",
+        "1:text:4",
+        "1:container:3",
+        "1:text:5",
+        "1:text:6",
+        "1:text:7",
+        "1:container:4",
+        "1:text:8",
+        "1:text:9"
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "id": "0:container:0",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 48,
+        "y": 48,
+        "width": 516,
+        "height": 83.2
+      },
+      "order": 0,
+      "parentId": null,
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:0",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 48,
+        "y": 48,
+        "width": 516,
+        "height": 36.4
+      },
+      "order": 1,
+      "parentId": "0:container:0",
+      "text": "The Art of Digital Typography",
+      "normText": "the art of digital typography",
+      "font": {
+        "size": 26,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:1",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 48,
+        "y": 88.4,
+        "width": 516,
+        "height": 28
+      },
+      "order": 2,
+      "parentId": "0:container:0",
+      "text": "On the craft of setting type by algorithm — Knuth-Plass line breaking, Unicode, and the pursuit of even word spacing",
+      "normText": "on the craft of setting type by algorithm — knuth-plass line breaking, unicode, and the pursuit of even word spacing",
+      "font": {
+        "size": 10,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:1",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 48,
+        "y": 130.4,
+        "width": 516,
+        "height": 0.8
+      },
+      "order": 3,
+      "parentId": "0:container:0",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:container:0",
+      "role": "container",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 48,
+        "y": 48,
+        "width": 246,
+        "height": 652.5
+      },
+      "order": 0,
+      "parentId": null,
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:text:0",
+      "role": "text",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 48,
+        "y": 48,
+        "width": 246,
+        "height": 202.5
+      },
+      "order": 1,
+      "parentId": "1:container:0",
+      "text": "Typography is the art of arranging type to make written lan- guage legible, readable, and appealing when displayed. The arrangement of type involves selecting typefaces, point sizes, line lengths, line spacing, and letter spacing, as well as adjust- ing the space between pairs of letters. But of all the decisions a typographer makes, none is more fundamental than how words are distributed across lines. A single paragraph of justified text contains dozens of invisible choices: where to break each line, how much to stretch or compress each word space, whether to hyphenate a long word or carry it whole to the next line. These decisions compound. A poor break on line three forces awk- ward spacing on line four, which pushes a widow to the top of the next column. The greedy algorithm used by most software makes each decision in isolation, filling one line at a time with- out considering the consequences downstream.",
+      "normText": "typography is the art of arranging type to make written lan- guage legible, readable, and appealing when displayed. the arrangement of type involves selecting typefaces, point sizes, line lengths, line spacing, and letter spacing, as well as adjust- ing the space between pairs of letters. but of all the decisions a typographer makes, none is more fundamental than how words are distributed across lines. a single paragraph of justified text contains dozens of invisible choices: where to break each line, how much to stretch or compress each word space, whether to hyphenate a long word or carry it whole to the next line. these decisions compound. a poor break on line three forces awk- ward spacing on line four, which pushes a widow to the top of the next column. the greedy algorithm used by most software makes each decision in isolation, filling one line at a time with- out considering the consequences downstream.",
+      "font": {
+        "size": 9,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:container:1",
+      "role": "container",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 318,
+        "y": 48,
+        "width": 246,
+        "height": 668.9
+      },
+      "order": 2,
+      "parentId": null,
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:text:1",
+      "role": "text",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 318,
+        "y": 48,
+        "width": 246,
+        "height": 202.5
+      },
+      "order": 3,
+      "parentId": "1:container:1",
+      "text": "Unicode introduced a further dimension to the problem. The line-breaking rules that work for English — break at spaces, hyphens, and after certain punctuation — fail for scripts without explicit word boundaries. Chinese, Japanese, and Korean text can break between almost any two characters, but not before certain punctuation marks or after opening brackets. The Uni- code Line Break Algorithm, defined in UAX #14, codifies these rules for every character in the Unicode standard. A modern text layout engine must consult these rules at every character position, transforming the simple question \"can I break here?\" into a lookup against a database of character properties, pair tables, and contextual rules. When combined with the Knuth- Plass algorithm, these break opportunities become penalty items in the optimization, allowing the engine to find optimal breaks across any script or language.",
+      "normText": "unicode introduced a further dimension to the problem. the line-breaking rules that work for english — break at spaces, hyphens, and after certain punctuation — fail for scripts without explicit word boundaries. chinese, japanese, and korean text can break between almost any two characters, but not before certain punctuation marks or after opening brackets. the uni- code line break algorithm, defined in uax #14, codifies these rules for every character in the unicode standard. a modern text layout engine must consult these rules at every character position, transforming the simple question \"can i break here?\" into a lookup against a database of character properties, pair tables, and contextual rules. when combined with the knuth- plass algorithm, these break opportunities become penalty items in the optimization, allowing the engine to find optimal breaks across any script or language.",
+      "font": {
+        "size": 9,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:text:2",
+      "role": "text",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 48,
+        "y": 259.5,
+        "width": 246,
+        "height": 229.5
+      },
+      "order": 4,
+      "parentId": "1:container:0",
+      "text": "In 1981, Donald Knuth and Michael Plass published a paper that changed how computers set type. Their algorithm, imple- mented in the TeX typesetting system, considers an entire paragraph at once. Instead of greedily filling each line, it evalu- ates every possible combination of line breaks and selects the one that minimizes a global measure of ugliness — a quantity they called \"total demerits.\" The result is paragraphs with re- markably even word spacing, free of the rivers of whitespace that plague greedy justification. The algorithm models text as a sequence of boxes, glue, and penalties: boxes are rigid con- tent like word fragments, glue is stretchable and shrinkable space, and penalties represent the cost of breaking at a given point. Hyphenation points carry a positive penalty, discourag- ing but not prohibiting breaks within words. The dynamic pro- gramming solution runs in time proportional to the number of feasible breakpoints, which in practice is fast enough to be imperceptible.",
+      "normText": "in 1981, donald knuth and michael plass published a paper that changed how computers set type. their algorithm, imple- mented in the tex typesetting system, considers an entire paragraph at once. instead of greedily filling each line, it evalu- ates every possible combination of line breaks and selects the one that minimizes a global measure of ugliness — a quantity they called \"total demerits.\" the result is paragraphs with re- markably even word spacing, free of the rivers of whitespace that plague greedy justification. the algorithm models text as a sequence of boxes, glue, and penalties: boxes are rigid con- tent like word fragments, glue is stretchable and shrinkable space, and penalties represent the cost of breaking at a given point. hyphenation points carry a positive penalty, discourag- ing but not prohibiting breaks within words. the dynamic pro- gramming solution runs in time proportional to the number of feasible breakpoints, which in practice is fast enough to be imperceptible.",
+      "font": {
+        "size": 9,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:container:2",
+      "role": "container",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 318,
+        "y": 264.5,
+        "width": 246,
+        "height": 87.4
+      },
+      "order": 5,
+      "parentId": "1:container:1",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:text:3",
+      "role": "text",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 334.5,
+        "y": 274.5,
+        "width": 229.5,
+        "height": 51.2
+      },
+      "order": 6,
+      "parentId": "1:container:2",
+      "text": "\"Typography exists to honor content. Good typography lets the reader focus on the message, not the medium.\"",
+      "normText": "\"typography exists to honor content. good typography lets the reader focus on the message, not the medium.\"",
+      "font": {
+        "size": 11,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": true
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:text:4",
+      "role": "text",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 334.5,
+        "y": 330.7,
+        "width": 229.5,
+        "height": 11.2
+      },
+      "order": 7,
+      "parentId": "1:container:2",
+      "text": "— Robert Bringhurst, The Elements of Typographic Style",
+      "normText": "— robert bringhurst, the elements of typographic style",
+      "font": {
+        "size": 8,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:container:3",
+      "role": "container",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 318,
+        "y": 369.9,
+        "width": 246,
+        "height": 221.5
+      },
+      "order": 8,
+      "parentId": "1:container:1",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:text:5",
+      "role": "text",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 318,
+        "y": 369.9,
+        "width": 246,
+        "height": 14
+      },
+      "order": 9,
+      "parentId": "1:container:3",
+      "text": "Schriftsatz und Druckgeschichte",
+      "normText": "schriftsatz und druckgeschichte",
+      "font": {
+        "size": 10,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:text:6",
+      "role": "text",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 318,
+        "y": 388.9,
+        "width": 246,
+        "height": 175.5
+      },
+      "order": 10,
+      "parentId": "1:container:3",
+      "text": "Die Geschichte des Schriftsatzes ist untrennbar mit der Ent- wicklung des Buchdrucks verbunden. Johannes Gutenberg er- fand um 1440 in Mainz den Druck mit beweglichen Lettern und revolutionierte damit die Verbreitung von Wissen in Europa. Jeder einzelne Buchstabe wurde als Metalltype gegossen und von Hand in den Setzkasten eingeordnet. Der Schriftsetzer stand am Setzregal und griff Buchstabe für Buchstabe aus den Fächern, fügte Wortzwischenräume aus Blindmaterial ein und achtete darauf, dass jede Zeile exakt auf die Satzbreite ausge- schlossen war. Dieses Ausschließen — das gleichmäßige Ver- teilen des überschüssigen Raums auf die Wortzwischenräume einer Zeile — ist im Kern dasselbe Problem, das der Knuth- Plass-Algorithmus heute auf digitalem Weg löst.",
+      "normText": "die geschichte des schriftsatzes ist untrennbar mit der ent- wicklung des buchdrucks verbunden. johannes gutenberg er- fand um 1440 in mainz den druck mit beweglichen lettern und revolutionierte damit die verbreitung von wissen in europa. jeder einzelne buchstabe wurde als metalltype gegossen und von hand in den setzkasten eingeordnet. der schriftsetzer stand am setzregal und griff buchstabe für buchstabe aus den fächern, fügte wortzwischenräume aus blindmaterial ein und achtete darauf, dass jede zeile exakt auf die satzbreite ausge- schlossen war. dieses ausschließen — das gleichmäßige ver- teilen des überschüssigen raums auf die wortzwischenräume einer zeile — ist im kern dasselbe problem, das der knuth- plass-algorithmus heute auf digitalem weg löst.",
+      "font": {
+        "size": 9,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:text:7",
+      "role": "text",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 48,
+        "y": 498,
+        "width": 246,
+        "height": 202.5
+      },
+      "order": 11,
+      "parentId": "1:container:0",
+      "text": "The difference between greedy and optimal line breaking is most visible in narrow columns. When the line length is short relative to average word length, the greedy algorithm frequently produces lines with just two or three words stretched across the full measure, creating distracting gaps. The Knuth-Plass algorithm avoids this by accepting slightly tighter spacing on one line to prevent extreme looseness on the next. It assigns each line a \"fitness class\" — tight, normal, loose, or very loose — and penalizes adjacent lines whose fitness classes differ by more than one step. This penalty, combined with the cu- bic badness function that makes extreme ratios exponentially expensive, produces the even texture that characterizes pro- fessionally typeset documents. The human eye is remarkably sensitive to variations in word spacing; we perceive uneven spacing as a flaw even before we consciously notice it.",
+      "normText": "the difference between greedy and optimal line breaking is most visible in narrow columns. when the line length is short relative to average word length, the greedy algorithm frequently produces lines with just two or three words stretched across the full measure, creating distracting gaps. the knuth-plass algorithm avoids this by accepting slightly tighter spacing on one line to prevent extreme looseness on the next. it assigns each line a \"fitness class\" — tight, normal, loose, or very loose — and penalizes adjacent lines whose fitness classes differ by more than one step. this penalty, combined with the cu- bic badness function that makes extreme ratios exponentially expensive, produces the even texture that characterizes pro- fessionally typeset documents. the human eye is remarkably sensitive to variations in word spacing; we perceive uneven spacing as a flaw even before we consciously notice it.",
+      "font": {
+        "size": 9,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:container:4",
+      "role": "container",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 318,
+        "y": 603.4,
+        "width": 246,
+        "height": 113.5
+      },
+      "order": 12,
+      "parentId": "1:container:1",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:text:8",
+      "role": "text",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 318,
+        "y": 603.4,
+        "width": 246,
+        "height": 14
+      },
+      "order": 13,
+      "parentId": "1:container:4",
+      "text": "La tradition typographique française",
+      "normText": "la tradition typographique française",
+      "font": {
+        "size": 10,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:text:9",
+      "role": "text",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 318,
+        "y": 622.4,
+        "width": 246,
+        "height": 81
+      },
+      "order": 14,
+      "parentId": "1:container:4",
+      "text": "La typographie française possède ses propres conventions, héritées de plusieurs siècles de tradition imprimée. Les es- paces insécables avant les signes de ponctuation doubles, la finesse des caractères Garamond et Didot, et le soin apporté à la césure des mots témoignent d'une culture où la mise en page est considérée comme un art à part entière.",
+      "normText": "la typographie française possède ses propres conventions, héritées de plusieurs siècles de tradition imprimée. les es- paces insécables avant les signes de ponctuation doubles, la finesse des caractères garamond et didot, et le soin apporté à la césure des mots témoignent d'une culture où la mise en page est considérée comme un art à part entière.",
+      "font": {
+        "size": 9,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    }
+  ],
+  "contentHash": "sha256:4df2ccce47f018f1e076e6cae6c6c46ffc6ebab0f34156261c29aa01d087324f"
+}

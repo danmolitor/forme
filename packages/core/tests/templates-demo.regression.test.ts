@@ -8,12 +8,19 @@ import Receipt from '../../../templates/receipt';
 import Catalog from '../../../templates/catalog';
 import Report from '../../../templates/report';
 import ShippingLabel from '../../../templates/shipping-label';
+import ChartsShowcase from '../../../templates/charts-showcase';
+import FeatureShowcase from '../../../templates/feature-showcase';
+import GridDashboard from '../../../templates/grid-dashboard';
+import Typography from '../../../templates/typography';
 
 import invoiceData from '../../../templates/invoice-data.json';
 import receiptData from '../../../templates/receipt-data.json';
 import catalogData from '../../../templates/catalog-data.json';
 import reportData from '../../../templates/report-data.json';
 import shippingLabelData from '../../../templates/shipping-label-data.json';
+import chartsShowcaseData from '../../../templates/charts-showcase-data.json';
+import gridDashboardData from '../../../templates/grid-dashboard-data.json';
+import typographyData from '../../../templates/typography-data.json';
 
 /**
  * Structural regression coverage for the demo templates in `/templates`.
@@ -43,6 +50,14 @@ const CASES: Record<string, [(data: any) => any, unknown]> = {
   catalog: [Catalog, catalogData],
   report: [Report, reportData],
   'shipping-label': [ShippingLabel, shippingLabelData],
+  // Gallery templates (docs template-gallery). charts-showcase and
+  // feature-showcase are self-contained (data ignored / none exists);
+  // all four render deterministically on undefined data as of the
+  // 2026-09 contract fixes.
+  'charts-showcase': [ChartsShowcase, chartsShowcaseData],
+  'feature-showcase': [FeatureShowcase, undefined],
+  'grid-dashboard': [GridDashboard, gridDashboardData],
+  typography: [Typography, typographyData],
 };
 
 describe('demo template regressions (/templates)', () => {
