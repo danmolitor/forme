@@ -68,6 +68,8 @@ pub fn map_html(body: &Element, sheet: Stylesheet, page: PageConfig) -> (Documen
         metadata: Metadata::default(),
         default_page: page,
         first_page: None,
+        left_page: None,
+        right_page: None,
         fonts: vec![],
         default_style: None,
         tagged: false,

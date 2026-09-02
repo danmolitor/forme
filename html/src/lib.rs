@@ -225,6 +225,8 @@ pub fn html_to_document(html: &str, options: &HtmlOptions) -> (forme::Document, 
     // and jointly wrong.
     let mut bands: Vec<forme::Node> = Vec::new();
     let mut first_page: Option<forme::model::PageConfig> = None;
+    let mut left_page: Option<forme::model::PageConfig> = None;
+    let mut right_page: Option<forme::model::PageConfig> = None;
     if let Some(rule) = stylesheet.page.as_ref() {
         use forme::model::FixedPageFilter;
 
@@ -323,11 +325,181 @@ pub fn html_to_document(html: &str, options: &HtmlOptions) -> (forme::Document, 
         if margins_differ(&first_cfg.margin, &config.margin) {
             first_page = Some(first_cfg);
         }
+
+        // ── @page :left / :right ───────────────────────────────────
+        //
+        // Approved design: flow layout keeps the base horizontal geometry;
+        // mirrored margins preserve content width by construction, so a
+        // parity page is the base layout plus a constant x translation
+        // (applied by the engine at finalize). Anything a translation
+        // cannot express — unequal horizontal sums — warns by name and
+        // normalizes to the base. Vertical geometry stays the base's
+        // (the band trick's margin accounting is per-document).
+        let base_h_sum = config.margin.left + config.margin.right;
+        let build_side = |side_rule: Option<&sheet::SidePageRule>,
+                              label: &str,
+                              warnings: &mut Vec<String>|
+         -> Option<forme::model::PageConfig> {
+            let side = side_rule?;
+            if side.margin[0].is_some() || side.margin[2].is_some() {
+                warnings.push(format!(
+                        "top/bottom margins on @page :{label} are not supported (normalized to the base @page)"
+                    ));
+            }
+            let l = side.margin[3].and_then(|l| resolve_len(l, warnings));
+            let r = side.margin[1].and_then(|l| resolve_len(l, warnings));
+            let (left, right) = match (l, r) {
+                (Some(l), Some(r)) => (l, r),
+                (Some(l), None) => (l, config.margin.right),
+                (None, Some(r)) => (config.margin.left, r),
+                (None, None) => (config.margin.left, config.margin.right),
+            };
+            if (left + right - base_h_sum).abs() > 0.01 {
+                warnings.push(format!(
+                        "@page :{label} left and right margins must sum equally with the base @page (mirrored margins); content width is normalized to the base"
+                    ));
+                return None;
+            }
+            let mut cfg = config.clone();
+            cfg.margin.left = left;
+            cfg.margin.right = right;
+            if margins_differ(&cfg.margin, &config.margin) {
+                Some(cfg)
+            } else {
+                None
+            }
+        };
+        left_page = build_side(rule.left.as_ref(), "left", &mut warnings);
+        right_page = build_side(rule.right.as_ref(), "right", &mut warnings);
+
+        // Per-side margin boxes: slot-level overrides of the base band,
+        // supported on edges where the base @page also defines boxes (the
+        // band trick's margin zeroing is shared; a side-only band on an
+        // otherwise boxless edge would double-count the margin).
+        let first_suppresses_edge = |top: bool| {
+            rule.first.as_ref().is_some_and(|f| {
+                rule.margin_boxes
+                    .iter()
+                    .filter(|b| b.position.is_top() == top)
+                    .any(|b| f.suppress.contains(&b.position))
+            })
+        };
+        for top in [true, false] {
+            let base_boxes: Vec<&sheet::MarginBox> = rule
+                .margin_boxes
+                .iter()
+                .filter(|b| b.position.is_top() == top)
+                .collect();
+            let band_height = if top { orig_top } else { orig_bottom };
+            let mut side_overrides = [false, false]; // [left, right]
+            for (i, (side_rule, side_filter, label)) in [
+                (rule.left.as_ref(), FixedPageFilter::Left, "left"),
+                (rule.right.as_ref(), FixedPageFilter::Right, "right"),
+            ]
+            .into_iter()
+            .enumerate()
+            {
+                let Some(side) = side_rule else { continue };
+                let touches_edge = side.margin_boxes.iter().any(|b| b.position.is_top() == top)
+                    || side.suppress.iter().any(|p| p.is_top() == top);
+                if !touches_edge {
+                    continue;
+                }
+                if base_boxes.is_empty() {
+                    warnings.push(format!(
+                        "@page :{label} margin boxes on the {} edge need base @page boxes on that edge (band accounting); skipped",
+                        if top { "top" } else { "bottom" }
+                    ));
+                    continue;
+                }
+                side_overrides[i] = true;
+                // Merged view for this side: base boxes minus suppressed,
+                // overridden per slot by the side's own boxes.
+                let mut merged: Vec<&sheet::MarginBox> = base_boxes
+                    .iter()
+                    .copied()
+                    .filter(|b| !side.suppress.contains(&b.position))
+                    .filter(|b| !side.margin_boxes.iter().any(|sb| sb.position == b.position))
+                    .collect();
+                merged.extend(
+                    side.margin_boxes
+                        .iter()
+                        .filter(|b| b.position.is_top() == top),
+                );
+                if merged.is_empty() {
+                    continue; // side suppresses the whole band: no side band
+                }
+                let filter = if matches!(side_filter, FixedPageFilter::Right)
+                    && first_suppresses_edge(top)
+                {
+                    FixedPageFilter::RightNotFirst
+                } else {
+                    side_filter
+                };
+                bands.push(map::build_margin_band(
+                    &merged,
+                    band_height,
+                    top,
+                    filter,
+                    &mut warnings,
+                ));
+            }
+            // Restrict the base band to the sides it still owns.
+            if side_overrides[0] || side_overrides[1] {
+                for band in bands.iter_mut() {
+                    if let forme::NodeKind::Fixed { position, pages } = &mut band.kind {
+                        let is_top_band = matches!(position, forme::model::FixedPosition::Header);
+                        if is_top_band != top {
+                            continue;
+                        }
+                        let adjusted = match (*pages, side_overrides) {
+                            // Base bands only (side bands already carry
+                            // parity filters — leave them).
+                            (FixedPageFilter::All, [true, true])
+                            | (FixedPageFilter::NotFirst, [true, true]) => None,
+                            (FixedPageFilter::All, [true, false]) => Some(FixedPageFilter::Right),
+                            (FixedPageFilter::NotFirst, [true, false]) => {
+                                Some(FixedPageFilter::RightNotFirst)
+                            }
+                            (FixedPageFilter::All, [false, true])
+                            | (FixedPageFilter::NotFirst, [false, true]) => {
+                                Some(FixedPageFilter::Left)
+                            }
+                            _ => continue,
+                        };
+                        match adjusted {
+                            Some(f) => *pages = f,
+                            None => {
+                                // Both sides override: the side bands cover
+                                // every page; drop the base band entirely.
+                                band.children.clear();
+                            }
+                        }
+                        break; // only the first (base) band for this edge
+                    }
+                }
+            }
+        }
+        bands.retain(|b| !b.children.is_empty());
     }
 
     let (mut doc, map_warnings) = map::map_html(&body, stylesheet, config);
     warnings.extend(map_warnings);
     doc.first_page = first_page;
+    doc.left_page = left_page;
+    doc.right_page = right_page;
+    if (doc.left_page.is_some() || doc.right_page.is_some())
+        && body
+            .attr("dir")
+            .is_some_and(|d| d.eq_ignore_ascii_case("rtl"))
+    {
+        warnings.push(
+            "page progression follows the inline base direction (CSS Paged Media); dir=\"rtl\" \
+             page parity is not modeled — @page :left/:right are applied with left-to-right \
+             page progression (page 1 = :right)"
+                .to_string(),
+        );
+    }
     for font in &options.fonts {
         use base64::Engine as _;
         doc.fonts.push(forme::model::FontEntry {

@@ -112,6 +112,8 @@ fn default_doc(children: Vec<Node>) -> Document {
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
         first_page: None,
+        left_page: None,
+        right_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -574,6 +576,8 @@ fn test_metadata_in_output() {
         },
         default_page: PageConfig::default(),
         first_page: None,
+        left_page: None,
+        right_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -715,6 +719,8 @@ fn render_with_custom_font(font_data: &[u8], text: &str) -> Vec<u8> {
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
         first_page: None,
+        left_page: None,
+        right_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -870,6 +876,8 @@ fn test_mixed_standard_and_custom_fonts() {
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
         first_page: None,
+        left_page: None,
+        right_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -3254,6 +3262,8 @@ fn test_breakable_view_with_background_splits_across_pages() {
             ..Default::default()
         },
         first_page: None,
+        left_page: None,
+        right_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -3336,6 +3346,8 @@ fn test_breakable_view_background_does_not_overlap_footer() {
             ..Default::default()
         },
         first_page: None,
+        left_page: None,
+        right_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -3408,6 +3420,8 @@ fn test_breakable_view_without_visual_stays_unwrapped() {
             ..Default::default()
         },
         first_page: None,
+        left_page: None,
+        right_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -3740,6 +3754,8 @@ fn test_breakable_view_continuation_page_has_top_padding() {
         metadata: Metadata::default(),
         default_page: page_config,
         first_page: None,
+        left_page: None,
+        right_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -4093,6 +4109,8 @@ fn test_document_lang_in_pdf_catalog() {
         },
         default_page: PageConfig::default(),
         first_page: None,
+        left_page: None,
+        right_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -4336,7 +4354,8 @@ fn test_justified_text_produces_valid_pdf() {
         ..Default::default()
         },
         first_page: None,
-        fonts: vec![],
+        left_page: None,
+        right_page: None,        fonts: vec![],
         tagged: false,
         pdfa: None,
         default_style: None,
@@ -4395,6 +4414,8 @@ fn test_lang_inherits_to_text_nodes() {
             ..Default::default()
         },
         first_page: None,
+        left_page: None,
+        right_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -4469,6 +4490,8 @@ fn test_per_node_lang_override() {
             ..Default::default()
         },
         first_page: None,
+        left_page: None,
+        right_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -4496,6 +4519,8 @@ fn test_tagged_pdf_has_struct_tree_root() {
         metadata: Default::default(),
         default_page: PageConfig::default(),
         first_page: None,
+        left_page: None,
+        right_page: None,
         fonts: vec![],
         tagged: true,
         pdfa: None,
@@ -4559,6 +4584,8 @@ fn test_tagged_pdf_parent_tree_consistency() {
         metadata: Default::default(),
         default_page: PageConfig::default(),
         first_page: None,
+        left_page: None,
+        right_page: None,
         fonts: vec![],
         tagged: true,
         pdfa: None,
@@ -4634,6 +4661,8 @@ fn test_tagged_pdf_nested_text_roles() {
         metadata: Default::default(),
         default_page: PageConfig::default(),
         first_page: None,
+        left_page: None,
+        right_page: None,
         fonts: vec![],
         tagged: true,
         pdfa: None,
@@ -4731,6 +4760,8 @@ fn test_tagged_pdf_table_th_td() {
         metadata: Default::default(),
         default_page: PageConfig::default(),
         first_page: None,
+        left_page: None,
+        right_page: None,
         fonts: vec![],
         tagged: true,
         pdfa: None,
@@ -4785,6 +4816,8 @@ fn test_tagged_pdf_figure_alt_text() {
         metadata: Default::default(),
         default_page: PageConfig::default(),
         first_page: None,
+        left_page: None,
+        right_page: None,
         fonts: vec![],
         tagged: true,
         pdfa: None,
@@ -5054,6 +5087,8 @@ fn test_qrcode_renders_to_pdf() {
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
         first_page: None,
+        left_page: None,
+        right_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -5088,6 +5123,8 @@ fn test_qrcode_with_explicit_size() {
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
         first_page: None,
+        left_page: None,
+        right_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -5134,6 +5171,8 @@ fn test_qrcode_page_break() {
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
         first_page: None,
+        left_page: None,
+        right_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -5192,6 +5231,8 @@ fn test_font_fallback_chain_in_document() {
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
         first_page: None,
+        left_page: None,
+        right_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -5272,6 +5313,8 @@ fn test_text_overflow_ellipsis_single_line() {
             ..Default::default()
         },
         first_page: None,
+        left_page: None,
+        right_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -5642,6 +5685,8 @@ fn test_document_default_style() {
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
         first_page: None,
+        left_page: None,
+        right_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -5677,6 +5722,8 @@ fn test_embedded_data_round_trip() {
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
         first_page: None,
+        left_page: None,
+        right_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -5765,6 +5812,8 @@ fn test_barcode_renders_to_pdf() {
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
         first_page: None,
+        left_page: None,
+        right_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -5833,6 +5882,8 @@ fn test_barcode_layout_dimensions() {
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
         first_page: None,
+        left_page: None,
+        right_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -5886,6 +5937,8 @@ fn auto_margin_horizontal_centers_child() {
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
         first_page: None,
+        left_page: None,
+        right_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -5943,6 +5996,8 @@ fn auto_margin_left_pushes_right() {
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
         first_page: None,
+        left_page: None,
+        right_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -6264,6 +6319,8 @@ fn test_bar_chart_layout_dimensions() {
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
         first_page: None,
+        left_page: None,
+        right_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -7013,6 +7070,8 @@ fn test_pdf_ua_has_viewer_preferences() {
         },
         default_page: PageConfig::default(),
         first_page: None,
+        left_page: None,
+        right_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -7045,6 +7104,8 @@ fn test_pdf_ua_has_xmp_pdfuaid() {
         },
         default_page: PageConfig::default(),
         first_page: None,
+        left_page: None,
+        right_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -7070,6 +7131,8 @@ fn test_pdf_ua_forces_tagging() {
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
         first_page: None,
+        left_page: None,
+        right_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -7106,6 +7169,8 @@ fn test_pdf_ua_and_pdfa_combined_xmp() {
         },
         default_page: PageConfig::default(),
         first_page: None,
+        left_page: None,
+        right_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -7144,6 +7209,8 @@ fn test_tagged_pdf_has_tab_order() {
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
         first_page: None,
+        left_page: None,
+        right_page: None,
         fonts: vec![],
         tagged: true,
         pdfa: None,
@@ -7169,6 +7236,8 @@ fn test_untagged_pdf_no_tab_order() {
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
         first_page: None,
+        left_page: None,
+        right_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -7194,6 +7263,8 @@ fn test_tagged_role_map_omits_standard_self_mappings() {
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
         first_page: None,
+        left_page: None,
+        right_page: None,
         fonts: vec![],
         tagged: true,
         pdfa: None,
@@ -7238,6 +7309,8 @@ fn test_tagged_struct_tree_has_lang() {
         },
         default_page: PageConfig::default(),
         first_page: None,
+        left_page: None,
+        right_page: None,
         fonts: vec![],
         tagged: true,
         pdfa: None,
@@ -7621,6 +7694,8 @@ fn test_certify_at_render_time() {
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
         first_page: None,
+        left_page: None,
+        right_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -8071,6 +8146,8 @@ fn test_page_placeholder_survives_line_breaking() {
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
         first_page: None,
+        left_page: None,
+        right_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -8156,6 +8233,8 @@ fn test_two_pass_multi_page_common_case() {
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
         first_page: None,
+        left_page: None,
+        right_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -8208,6 +8287,8 @@ fn test_render_performance() {
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
         first_page: None,
+        left_page: None,
+        right_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -8294,6 +8375,8 @@ fn test_multi_weight_font_resolution() {
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
         first_page: None,
+        left_page: None,
+        right_page: None,
         tagged: false,
         default_style: None,
         embedded_data: None,
@@ -8340,6 +8423,8 @@ fn test_svg_opacity_produces_ext_gstate() {
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
         first_page: None,
+        left_page: None,
+        right_page: None,
         tagged: false,
         default_style: None,
         embedded_data: None,
@@ -8388,7 +8473,8 @@ fn test_svg_fill_opacity_produces_ext_gstate() {
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
         first_page: None,
-        tagged: false,
+        left_page: None,
+        right_page: None,        tagged: false,
         default_style: None,
         embedded_data: None,
         flatten_forms: false,
@@ -8430,7 +8516,8 @@ fn test_svg_inherited_group_opacity() {
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
         first_page: None,
-        tagged: false,
+        left_page: None,
+        right_page: None,        tagged: false,
         default_style: None,
         embedded_data: None,
         flatten_forms: false,
@@ -8747,6 +8834,8 @@ fn test_page_background_opacity_creates_extgstate() {
         metadata: Metadata::default(),
         default_page: config,
         first_page: None,
+        left_page: None,
+        right_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -10334,6 +10423,8 @@ fn test_heading_emits_h1_through_h6_structure_roles_in_tagged_pdf() {
         metadata: Default::default(),
         default_page: PageConfig::default(),
         first_page: None,
+        left_page: None,
+        right_page: None,
         fonts: vec![],
         tagged: true,
         pdfa: None,
@@ -10371,6 +10462,8 @@ fn test_heading_renders_text_content() {
         metadata: Default::default(),
         default_page: PageConfig::default(),
         first_page: None,
+        left_page: None,
+        right_page: None,
         fonts: vec![],
         tagged: false,
         pdfa: None,
@@ -10561,6 +10654,8 @@ fn test_list_emits_l_li_lbl_in_tagged_pdf() {
         metadata: Default::default(),
         default_page: PageConfig::default(),
         first_page: None,
+        left_page: None,
+        right_page: None,
         fonts: vec![],
         tagged: true,
         pdfa: None,
@@ -10976,6 +11071,8 @@ fn siblings_after_overflowing_flex_row_still_render() {
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
         first_page: None,
+        left_page: None,
+        right_page: None,
         fonts: vec![],
         default_style: None,
         tagged: false,
@@ -11238,6 +11335,8 @@ fn first_page_config_gives_page_one_its_own_margins() {
             },
             ..Default::default()
         }),
+        left_page: None,
+        right_page: None,
         fonts: vec![],
         default_style: None,
         tagged: false,
@@ -11263,6 +11362,8 @@ fn not_first_header_skips_page_one() {
         metadata: Metadata::default(),
         default_page: PageConfig::default(),
         first_page: None,
+        left_page: None,
+        right_page: None,
         fonts: vec![],
         default_style: None,
         tagged: false,
@@ -11359,6 +11460,8 @@ fn first_page_restores_margin_when_its_band_is_suppressed() {
             },
             ..Default::default()
         }),
+        left_page: None,
+        right_page: None,
         fonts: vec![],
         default_style: None,
         tagged: false,
@@ -11851,5 +11954,84 @@ fn dotted_border_emits_round_dots() {
     assert!(
         content.contains("[0 8.00] 0 d"),
         "dots spaced 2×width centre-to-centre"
+    );
+}
+
+#[test]
+fn test_parity_translation_excludes_page_anchored_watermarks() {
+    // @page :left/:right applies flow content as a constant x translation
+    // per page parity. Page-anchored paint — watermarks positioned from
+    // page dimensions at serialize time — must NOT translate: it would
+    // look right on page one and drift on later pages. This pins the
+    // exclusion (approved-design hold: page-anchored paint gets its own
+    // test).
+    let many_paras: String = (0..60)
+        .map(|i| {
+            format!(
+                r#"{{ "kind": {{ "type": "Text", "content": "paragraph {i} body" }}, "style": {{ "marginBottom": 10 }}, "children": [] }}"#
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(",");
+    let json = format!(
+        r#"{{
+        "defaultPage": {{ "size": {{ "Custom": {{ "width": 400, "height": 400 }} }}, "margin": {{ "top": 40, "right": 50, "bottom": 40, "left": 50 }}, "wrap": true }},
+        "rightPage": {{ "size": {{ "Custom": {{ "width": 400, "height": 400 }} }}, "margin": {{ "top": 40, "right": 30, "bottom": 40, "left": 70 }}, "wrap": true }},
+        "leftPage": {{ "size": {{ "Custom": {{ "width": 400, "height": 400 }} }}, "margin": {{ "top": 40, "right": 70, "bottom": 40, "left": 30 }}, "wrap": true }},
+        "children": [
+            {{ "kind": {{ "type": "Watermark", "text": "DRAFT", "font_size": 40, "angle": -45 }}, "style": {{}}, "children": [] }},
+            {many_paras}
+        ],
+        "metadata": {{}}
+    }}"#
+    );
+    let (_pdf, layout, _warnings) =
+        forme::render_json_with_layout(&json).expect("parity watermark doc renders");
+    assert!(
+        layout.pages.len() >= 2,
+        "need 2+ pages, got {}",
+        layout.pages.len()
+    );
+
+    fn find_x(
+        els: &[forme::layout::ElementInfo],
+        pred: &dyn Fn(&forme::layout::ElementInfo) -> bool,
+    ) -> Option<f64> {
+        for e in els {
+            if pred(e) {
+                return Some(e.x);
+            }
+            if let Some(x) = find_x(&e.children, pred) {
+                return Some(x);
+            }
+        }
+        None
+    }
+
+    let wm_x_p1 = find_x(&layout.pages[0].elements, &|e| {
+        e.node_type == "Watermark" || e.kind.contains("Watermark")
+    })
+    .expect("watermark on page 1");
+    let wm_x_p2 = find_x(&layout.pages[1].elements, &|e| {
+        e.node_type == "Watermark" || e.kind.contains("Watermark")
+    })
+    .expect("watermark on page 2");
+    assert!(
+        (wm_x_p1 - wm_x_p2).abs() < 0.01,
+        "watermark is page-anchored and must not translate: page1 x={wm_x_p1}, page2 x={wm_x_p2}"
+    );
+
+    // The flow content DOES translate: right page (1) at 70, left page (2) at 30.
+    let text_x_p1 =
+        find_x(&layout.pages[0].elements, &|e| e.node_type == "TextLine").expect("text on page 1");
+    let text_x_p2 =
+        find_x(&layout.pages[1].elements, &|e| e.node_type == "TextLine").expect("text on page 2");
+    assert!(
+        (text_x_p1 - 70.0).abs() < 0.5,
+        "page 1 (right) flow x: {text_x_p1}"
+    );
+    assert!(
+        (text_x_p2 - 30.0).abs() < 0.5,
+        "page 2 (left) flow x: {text_x_p2}"
     );
 }

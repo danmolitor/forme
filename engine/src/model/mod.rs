@@ -36,6 +36,21 @@ pub struct Document {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub first_page: Option<PageConfig>,
 
+    /// Page config for LEFT (verso, even 1-based) pages — CSS `@page :left`.
+    /// Flow layout always uses the base horizontal geometry; mirrored
+    /// margins (equal left+right sum) are applied as a constant x
+    /// translation at finalize, never a re-layout — so unequal sums are
+    /// unsupported (the HTML mapper normalizes and warns). `:first`
+    /// outranks parity on page 1.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub left_page: Option<PageConfig>,
+
+    /// Page config for RIGHT (recto, odd 1-based) pages — CSS `@page
+    /// :right`. Page 1 is a right page (left-to-right page progression per
+    /// CSS Paged Media; RTL page progression is not modeled).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub right_page: Option<PageConfig>,
+
     /// Custom fonts to register before layout. Each entry contains
     /// the font family name, base64-encoded font data, weight, and style.
     #[serde(default)]
@@ -1091,16 +1106,30 @@ pub enum FixedPageFilter {
     First,
     /// Every page except the first.
     NotFirst,
+    /// LEFT (verso) pages only — even 1-based page numbers.
+    Left,
+    /// RIGHT (recto) pages only — odd 1-based page numbers, including 1.
+    Right,
+    /// RIGHT pages except the first (used when `:first` overrides or
+    /// suppresses a margin-box slot that `:right`/base would otherwise
+    /// fill — `:first` outranks parity per CSS Paged Media specificity).
+    RightNotFirst,
 }
 
 impl FixedPageFilter {
     /// Does a fixed element with this filter appear on `page_index`
     /// (0-based)?
     pub fn applies(self, page_index: usize) -> bool {
+        // Parity is 1-based per CSS Paged Media: page 1 (index 0) is a
+        // right page in left-to-right page progression.
+        let right = (page_index + 1) % 2 == 1;
         match self {
             FixedPageFilter::All => true,
             FixedPageFilter::First => page_index == 0,
             FixedPageFilter::NotFirst => page_index > 0,
+            FixedPageFilter::Left => !right,
+            FixedPageFilter::Right => right,
+            FixedPageFilter::RightNotFirst => right && page_index > 0,
         }
     }
 }

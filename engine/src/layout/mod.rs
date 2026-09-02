@@ -1014,6 +1014,23 @@ struct PageCursor {
     /// the page content box; updated when layout descends into a `relative`/
     /// `absolute` element and restored on the way out.
     containing_block: (f64, f64, f64, f64),
+    /// `@page :left` / `:right` configs, when the document declares them.
+    /// Flow layout ALWAYS uses `config`'s geometry; the parity config is
+    /// applied as the finalized page's config plus a constant x translation
+    /// of flow content (mirrored margins preserve content width by
+    /// construction, so a translation is exact — never a re-layout). Docs
+    /// without parity configs keep these `None` and run the exact same
+    /// instructions as before.
+    left_config: Option<PageConfig>,
+    right_config: Option<PageConfig>,
+    /// The config this page presents as (margin boxes, PDF margins,
+    /// LayoutInfo). Equals `config` unless a parity config selected.
+    display_config: Option<PageConfig>,
+    /// The margin-left flow content was ACTUALLY anchored at. Flowing
+    /// containers capture the first page's content_x and carry it across
+    /// page breaks (the bake), so the parity translation must be relative
+    /// to this anchor, not to the current cursor's nominal config.
+    flow_anchor_left: f64,
 }
 
 impl PageCursor {
@@ -1042,6 +1059,21 @@ impl PageCursor {
                 content_width,
                 content_height,
             ),
+            left_config: None,
+            right_config: None,
+            display_config: None,
+            flow_anchor_left: config.margin.left,
+        }
+    }
+
+    /// Select the parity display config for a 1-based page number. Page 1
+    /// is a RIGHT page (CSS Paged Media, left-to-right page progression);
+    /// `:first` outranks parity and is handled at cursor creation.
+    fn parity_config_for(&self, page_number: usize) -> Option<PageConfig> {
+        if page_number % 2 == 1 {
+            self.right_config.clone()
+        } else {
+            self.left_config.clone()
         }
     }
 
@@ -1072,14 +1104,38 @@ impl PageCursor {
 
     fn finalize(&self) -> LayoutPage {
         let (page_w, page_h) = self.config.size.dimensions();
+
+        // Parity translation: flow content was laid out at the base
+        // horizontal geometry; a selected :left/:right config shifts it by
+        // the constant margin-left delta. Only flow elements exist at this
+        // point — fixed elements, margin boxes, and watermarks are injected
+        // later from the page's own (parity) config and must NOT translate.
+        let (elements, config) = match &self.display_config {
+            Some(display) => {
+                let dx = display.margin.left - self.flow_anchor_left;
+                let mut elements = self.elements.clone();
+                if dx != 0.0 {
+                    fn shift(els: &mut [LayoutElement], dx: f64) {
+                        for el in els {
+                            el.x += dx;
+                            shift(&mut el.children, dx);
+                        }
+                    }
+                    shift(&mut elements, dx);
+                }
+                (elements, display.clone())
+            }
+            None => (self.elements.clone(), self.config.clone()),
+        };
+
         LayoutPage {
             width: page_w,
             height: page_h,
-            elements: self.elements.clone(),
+            elements,
             fixed_header: self.fixed_header.clone(),
             fixed_footer: self.fixed_footer.clone(),
             watermarks: self.watermarks.clone(),
-            config: self.config.clone(),
+            config,
         }
     }
 
@@ -1088,6 +1144,10 @@ impl PageCursor {
         // except when this cursor was a first page with its own geometry.
         let mut cursor = PageCursor::new(&self.base_config);
         cursor.page_index = self.page_index + 1;
+        cursor.left_config = self.left_config.clone();
+        cursor.right_config = self.right_config.clone();
+        cursor.display_config = cursor.parity_config_for(cursor.page_index + 1);
+        cursor.flow_anchor_left = self.flow_anchor_left;
         cursor.fixed_header = self.fixed_header.clone();
         cursor.fixed_footer = self.fixed_footer.clone();
         cursor.watermarks = self.watermarks.clone();
@@ -1141,6 +1201,16 @@ impl LayoutEngine {
             Some(first) => PageCursor::new_first(first, &document.default_page),
             None => PageCursor::new(&document.default_page),
         };
+        // @page :left / :right parity configs. Page 1 is a RIGHT page (CSS
+        // Paged Media, LTR page progression); :first outranks :right on
+        // page 1, so the parity display only applies when :first is absent.
+        // Explicit <Page> nodes carry their own configs and do not
+        // participate in parity selection.
+        cursor.left_config = document.left_page.clone();
+        cursor.right_config = document.right_page.clone();
+        if document.first_page.is_none() {
+            cursor.display_config = cursor.parity_config_for(1);
+        }
 
         // Build a root resolved style from document default_style + lang
         let base = document.default_style.clone().unwrap_or_default();
@@ -6830,6 +6900,8 @@ mod tests {
             metadata: Default::default(),
             default_page: PageConfig::default(),
             first_page: None,
+            left_page: None,
+            right_page: None,
             fonts: vec![],
             tagged: false,
             pdfa: None,
@@ -6889,6 +6961,8 @@ mod tests {
             metadata: Default::default(),
             default_page: PageConfig::default(),
             first_page: None,
+            left_page: None,
+            right_page: None,
             fonts: vec![],
             tagged: false,
             pdfa: None,
@@ -6949,6 +7023,8 @@ mod tests {
             metadata: Default::default(),
             default_page: PageConfig::default(),
             first_page: None,
+            left_page: None,
+            right_page: None,
             fonts: vec![],
             tagged: false,
             pdfa: None,
@@ -7022,6 +7098,8 @@ mod tests {
             metadata: Default::default(),
             default_page: PageConfig::default(),
             first_page: None,
+            left_page: None,
+            right_page: None,
             fonts: vec![],
             tagged: false,
             pdfa: None,
@@ -7108,6 +7186,8 @@ mod tests {
             metadata: Default::default(),
             default_page: PageConfig::default(),
             first_page: None,
+            left_page: None,
+            right_page: None,
             fonts: vec![],
             tagged: false,
             pdfa: None,
@@ -7253,6 +7333,8 @@ mod tests {
             metadata: Default::default(),
             default_page: PageConfig::default(),
             first_page: None,
+            left_page: None,
+            right_page: None,
             fonts: vec![],
             tagged: false,
             pdfa: None,
@@ -7323,6 +7405,8 @@ mod tests {
             metadata: Default::default(),
             default_page: PageConfig::default(),
             first_page: None,
+            left_page: None,
+            right_page: None,
             fonts: vec![],
             tagged: false,
             pdfa: None,
@@ -7405,6 +7489,8 @@ mod tests {
             metadata: Default::default(),
             default_page: PageConfig::default(),
             first_page: None,
+            left_page: None,
+            right_page: None,
             fonts: vec![],
             tagged: false,
             pdfa: None,
@@ -7465,6 +7551,8 @@ mod tests {
             metadata: Default::default(),
             default_page: PageConfig::default(),
             first_page: None,
+            left_page: None,
+            right_page: None,
             fonts: vec![],
             tagged: false,
             pdfa: None,
@@ -7536,6 +7624,8 @@ mod tests {
             metadata: Default::default(),
             default_page: PageConfig::default(),
             first_page: None,
+            left_page: None,
+            right_page: None,
             fonts: vec![],
             tagged: false,
             pdfa: None,
@@ -7618,6 +7708,8 @@ mod tests {
             metadata: Default::default(),
             default_page: PageConfig::default(),
             first_page: None,
+            left_page: None,
+            right_page: None,
             fonts: vec![],
             tagged: false,
             pdfa: None,
@@ -7699,6 +7791,8 @@ mod tests {
             metadata: Default::default(),
             default_page: PageConfig::default(),
             first_page: None,
+            left_page: None,
+            right_page: None,
             fonts: vec![],
             tagged: false,
             pdfa: None,
@@ -7774,6 +7868,8 @@ mod tests {
             metadata: Default::default(),
             default_page: PageConfig::default(),
             first_page: None,
+            left_page: None,
+            right_page: None,
             fonts: vec![],
             tagged: false,
             pdfa: None,
@@ -7841,6 +7937,8 @@ mod tests {
             metadata: Default::default(),
             default_page: PageConfig::default(),
             first_page: None,
+            left_page: None,
+            right_page: None,
             fonts: vec![],
             tagged: false,
             pdfa: None,

@@ -64,7 +64,13 @@ pub fn parse_html_with_styles(html: &str) -> (Element, Vec<String>, Vec<String>)
     let mut styles = Vec::new();
     let mut links = Vec::new();
     collect_style_sources(&root, &mut styles, &mut links);
-    let body = find_body(&root).unwrap_or(Element {
+    // `dir` set on <html> inherits to <body> in HTML; the body-only mapper
+    // would otherwise never see it (used for the RTL page-progression
+    // warning on @page :left/:right).
+    let html_dir = find_tag(&root, "html")
+        .and_then(|h| h.attr("dir"))
+        .map(str::to_string);
+    let mut body = find_body(&root).unwrap_or(Element {
         tag: "body".to_string(),
         attrs: vec![],
         children: root.children,
@@ -73,7 +79,27 @@ pub fn parse_html_with_styles(html: &str) -> (Element, Vec<String>, Vec<String>)
         type_index: 0,
         type_count: 1,
     });
+    if body.attr("dir").is_none() {
+        if let Some(dir) = html_dir {
+            body.attrs.push(("dir".to_string(), dir));
+        }
+    }
     (body, styles, links)
+}
+
+/// Depth-first search for the first element with `tag`.
+fn find_tag<'a>(el: &'a Element, tag: &str) -> Option<&'a Element> {
+    if el.tag == tag {
+        return Some(el);
+    }
+    for child in &el.children {
+        if let DomNode::Element(e) = child {
+            if let Some(found) = find_tag(e, tag) {
+                return Some(found);
+            }
+        }
+    }
+    None
 }
 
 fn collect_style_sources(el: &Element, styles: &mut Vec<String>, links: &mut Vec<String>) {

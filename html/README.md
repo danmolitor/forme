@@ -93,8 +93,9 @@ noted in the warnings).
 
 | In | Pending (warned) |
 |---|---|
-| `@page` `size` (named, dimensions, `landscape`) and `margin` | `:left` / `:right` page variants |
-| `@page :first` — its own margins/margin boxes for the title page | `@page` `bleed` / `marks` |
+| `@page` `size` (named, dimensions, `landscape`) and `margin` | `@page` `bleed` / `marks` |
+| `@page :first` — its own margins/margin boxes for the title page | |
+| `@page :left` / `:right` — **mirrored margins only**: left and right margins must sum equally with the base `@page` (content width is normalized to the base and warned otherwise); top/bottom margins can't vary per side; per-side margin boxes on edges the base `@page` also defines. Page 1 is a `:right` page (LTR page progression; `dir="rtl"` parity is not modeled — warned). `:first` outranks parity on page 1 | |
 | margin boxes (`@top-center`, ...) for running headers/footers | |
 | page counters (`counter(page)` / `counter(pages)`) in margin boxes | |
 | `break-before` / `break-after` / `break-inside: avoid` | |

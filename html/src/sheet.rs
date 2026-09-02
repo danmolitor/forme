@@ -27,6 +27,10 @@ pub struct PageRule {
     pub margin_boxes: Vec<MarginBox>,
     /// The `@page :first` variant, when present.
     pub first: Option<FirstPageRule>,
+    /// The `@page :left` variant (verso pages), when present.
+    pub left: Option<SidePageRule>,
+    /// The `@page :right` variant (recto pages), when present.
+    pub right: Option<SidePageRule>,
 }
 
 /// The `@page :first` subset: margin overrides plus suppression of the
@@ -35,6 +39,19 @@ pub struct PageRule {
 pub struct FirstPageRule {
     pub margin: [Option<Length>; 4],
     /// Box positions suppressed on the first page via `content: none`.
+    pub suppress: Vec<MarginBoxPos>,
+}
+
+/// A `@page :left` / `:right` variant: horizontal margin overrides
+/// (mirrored margins — the sums must match the base; the assembler warns
+/// and normalizes otherwise), its own margin boxes, and suppression of
+/// base boxes on that side.
+#[derive(Debug, Clone, Default)]
+pub struct SidePageRule {
+    pub margin: [Option<Length>; 4],
+    /// Margin boxes defined for this side (replace base boxes per slot).
+    pub margin_boxes: Vec<MarginBox>,
+    /// Base box positions suppressed on this side via `content: none`.
     pub suppress: Vec<MarginBoxPos>,
 }
 
@@ -102,6 +119,24 @@ impl PageRule {
                 }
             }
             for s in first.suppress {
+                if !slot.suppress.contains(&s) {
+                    slot.suppress.push(s);
+                }
+            }
+        }
+        for (other_side, slot) in [(other.left, &mut self.left), (other.right, &mut self.right)] {
+            let Some(side) = other_side else { continue };
+            let slot = slot.get_or_insert_with(SidePageRule::default);
+            for i in 0..4 {
+                if side.margin[i].is_some() {
+                    slot.margin[i] = side.margin[i];
+                }
+            }
+            for mb in side.margin_boxes {
+                slot.margin_boxes.retain(|b| b.position != mb.position);
+                slot.margin_boxes.push(mb);
+            }
+            for s in side.suppress {
                 if !slot.suppress.contains(&s) {
                     slot.suppress.push(s);
                 }
@@ -827,21 +862,18 @@ fn parse_page_rule(
         }
     }
     let is_first = pseudo.as_deref() == Some("first");
+    let is_side = matches!(pseudo.as_deref(), Some("left") | Some("right"));
     if let Some(p) = &pseudo {
-        if !is_first {
+        if !is_first && !is_side {
             warnings.push(format!(
-                "@page :{p} variants are not supported (rule skipped){}",
-                if matches!(p.as_str(), "left" | "right") {
-                    " — mirrored margins wait for re-layout-per-page"
-                } else {
-                    ""
-                }
+                "@page :{p} variants are not supported (rule skipped)"
             ));
         }
     }
 
     let mut rule = PageRule::default();
     let mut first = FirstPageRule::default();
+    let mut side = SidePageRule::default();
     let mut local_warnings: Vec<String> = Vec::new();
     let _ = parser.parse_nested_block(|p| -> Result<(), cssparser::ParseError<'_, ()>> {
         loop {
@@ -882,6 +914,8 @@ fn parse_page_rule(
                             None => {
                                 if is_first {
                                     first.suppress.push(pos);
+                                } else if is_side {
+                                    side.suppress.push(pos);
                                 } else {
                                     rule.margin_boxes.retain(|b| b.position != pos);
                                 }
@@ -891,6 +925,13 @@ fn parse_page_rule(
                                     local_warnings.push(format!(
                                         "@page :first with its own @{box_name} content is unsupported (only `content: none` suppression; skipped)"
                                     ));
+                                } else if is_side {
+                                    side.margin_boxes.retain(|b| b.position != pos);
+                                    side.margin_boxes.push(MarginBox {
+                                        position: pos,
+                                        content,
+                                        style,
+                                    });
                                 } else {
                                     rule.margin_boxes.retain(|b| b.position != pos);
                                     rule.margin_boxes.push(MarginBox {
@@ -913,6 +954,8 @@ fn parse_page_rule(
                         |v| -> Result<(), cssparser::ParseError<'_, ()>> {
                             if is_first {
                                 apply_first_page_descriptor(&name, v, &mut first, &mut local_warnings);
+                            } else if is_side {
+                                apply_side_page_descriptor(&name, v, &mut side, &mut local_warnings);
                             } else {
                                 apply_page_descriptor(&name, v, &mut rule, &mut local_warnings);
                             }
@@ -927,14 +970,14 @@ fn parse_page_rule(
     });
     warnings.append(&mut local_warnings);
 
-    match pseudo {
+    match pseudo.as_deref() {
         None => {
             sheet
                 .page
                 .get_or_insert_with(PageRule::default)
                 .merge_from(rule);
         }
-        Some(_) if is_first => {
+        Some("first") => {
             let delta = PageRule {
                 first: Some(first),
                 ..Default::default()
@@ -944,8 +987,72 @@ fn parse_page_rule(
                 .get_or_insert_with(PageRule::default)
                 .merge_from(delta);
         }
+        Some("left") => {
+            let delta = PageRule {
+                left: Some(side),
+                ..Default::default()
+            };
+            sheet
+                .page
+                .get_or_insert_with(PageRule::default)
+                .merge_from(delta);
+        }
+        Some("right") => {
+            let delta = PageRule {
+                right: Some(side),
+                ..Default::default()
+            };
+            sheet
+                .page
+                .get_or_insert_with(PageRule::default)
+                .merge_from(delta);
+        }
         Some(_) => {} // unsupported variant, already warned
     }
+}
+
+/// Apply a `@page :left` / `:right` body descriptor. Horizontal margins are
+/// the supported subset; vertical margins and size warn at assembly time
+/// (they are recorded here so the assembler can name them).
+fn apply_side_page_descriptor(
+    name: &str,
+    p: &mut Parser<'_, '_>,
+    side: &mut SidePageRule,
+    warnings: &mut Vec<String>,
+) {
+    match name {
+        "margin" => {
+            // 1-4 value shorthand, same expansion as the base rule.
+            let mut vals = Vec::new();
+            while let Ok(tok) = p.next() {
+                if let Some(l) = crate::css::token_to_length(tok) {
+                    vals.push(l);
+                }
+            }
+            let m: [Length; 4] = match vals.as_slice() {
+                [a] => [*a, *a, *a, *a],
+                [v, h] => [*v, *h, *v, *h],
+                [t, h, b] => [*t, *h, *b, *h],
+                [t, r, b, l] => [*t, *r, *b, *l],
+                _ => return,
+            };
+            side.margin = [Some(m[0]), Some(m[1]), Some(m[2]), Some(m[3])];
+        }
+        "margin-top" => side.margin[0] = parse_one_len(p),
+        "margin-right" => side.margin[1] = parse_one_len(p),
+        "margin-bottom" => side.margin[2] = parse_one_len(p),
+        "margin-left" => side.margin[3] = parse_one_len(p),
+        other => {
+            warnings.push(format!(
+                "@page :left/:right descriptor '{other}' is not supported (margins and margin boxes only)"
+            ));
+        }
+    }
+}
+
+fn parse_one_len(p: &mut Parser<'_, '_>) -> Option<Length> {
+    let tok = p.next().ok()?.clone();
+    crate::css::token_to_length(&tok)
 }
 
 /// A margin-box body: a `content` descriptor plus optional styling.
@@ -1670,11 +1777,15 @@ mod tests {
     }
 
     #[test]
-    fn corner_boxes_and_left_right_variants_warn() {
+    fn corner_boxes_warn_and_side_pages_parse() {
         let (_, w) = sheet("@page { @top-left-corner { content: \"x\" } }");
         assert!(w.iter().any(|m| m.contains("@top-left-corner")));
-        let (_, w2) = sheet("@page :left { margin-right: 1in }");
-        assert!(w2.iter().any(|m| m.contains(":left")));
+        // :left/:right are in-subset now: parsed into side slots with no
+        // parse-time warning (the equal-sum check happens at assembly).
+        let (s, w2) = sheet("@page :left { margin-right: 1in }");
+        assert!(w2.is_empty(), "{w2:?}");
+        let left = s.page.unwrap().left.expect(":left captured");
+        assert_eq!(left.margin[1], Some(Length::Pt(72.0)));
     }
 
     #[test]
