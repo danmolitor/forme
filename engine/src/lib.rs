@@ -176,11 +176,19 @@ pub fn render_with_warnings(document: &Document) -> Result<(Vec<u8>, Vec<String>
 pub fn render_with_warnings_and_passes(
     document: &Document,
 ) -> Result<(Vec<u8>, Vec<String>, u32), FormeError> {
+    // Coarse phase profiling behind FORME_PROFILE (native only in practice —
+    // `env::var` is Err under wasm, so the timer is never constructed there and
+    // `Instant::now` is never called). Prints layout vs serialize to stderr.
+    let profile = std::env::var("FORME_PROFILE").is_ok();
+    let t_layout = if profile { Some(std::time::Instant::now()) } else { None };
     let (pages, font_context, passes) = layout_with_sentinel_passes(document);
+    let layout_ms = t_layout.map(|t| t.elapsed().as_secs_f64() * 1000.0);
+
     let writer = PdfWriter::new();
     let tagged = document.tagged
         || document.pdf_ua
         || matches!(document.pdfa, Some(model::PdfAConformance::A2a));
+    let t_ser = if profile { Some(std::time::Instant::now()) } else { None };
     let (pdf, warnings) = writer.write(
         &pages,
         &document.metadata,
@@ -191,11 +199,18 @@ pub fn render_with_warnings_and_passes(
         document.embedded_data.as_deref(),
         document.flatten_forms,
     )?;
+    let serialize_ms = t_ser.map(|t| t.elapsed().as_secs_f64() * 1000.0);
     let pdf = if let Some(ref sig_config) = document.certification {
         pdf::certify::certify_pdf(&pdf, sig_config)?
     } else {
         pdf
     };
+    if let (Some(l), Some(s)) = (layout_ms, serialize_ms) {
+        eprintln!(
+            "FORME_PROFILE pages={} passes={passes} layout_ms={l:.1} serialize_ms={s:.1}",
+            pages.len()
+        );
+    }
     Ok((pdf, warnings, passes))
 }
 

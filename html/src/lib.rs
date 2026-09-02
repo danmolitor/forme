@@ -172,6 +172,14 @@ fn page_config(
 /// Convert HTML to the engine's document tree without rendering. Exposed
 /// for tests and tooling that want to inspect the mapping itself.
 pub fn html_to_document(html: &str, options: &HtmlOptions) -> (forme::Document, Vec<String>) {
+    // Parse-phase timing behind FORME_PROFILE (parse + CSS cascade + map to the
+    // engine model). Native only in practice; wasm has no env, so the timer is
+    // never constructed. Pairs with the engine's layout/serialize timing.
+    let _prof_t0 = if std::env::var("FORME_PROFILE").is_ok() {
+        Some(std::time::Instant::now())
+    } else {
+        None
+    };
     let mut warnings = Vec::new();
     let (body, style_texts, stylesheet_links) = dom::parse_html_with_styles(html);
     for href in &stylesheet_links {
@@ -841,6 +849,9 @@ pub fn html_to_document(html: &str, options: &HtmlOptions) -> (forme::Document, 
         }
     }
 
+    if let Some(t) = _prof_t0 {
+        eprintln!("FORME_PROFILE parse_ms={:.1}", t.elapsed().as_secs_f64() * 1000.0);
+    }
     (doc, warnings)
 }
 
