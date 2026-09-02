@@ -1,0 +1,47 @@
+{
+  "generatedBy": "benchmarks/corpus/generate.mjs",
+  "documents": [
+    {
+      "file": "receipt.html",
+      "description": "Point-of-sale receipt — the simple single-page shape.",
+      "target": "1 page",
+      "bytes": 2357,
+      "sha256": "3fe692f1277e419a623af32cbfaad1dfb442b88976f9f5965dff51e5a9b25208"
+    },
+    {
+      "file": "report-6p.html",
+      "description": "Quarterly report — prose + one table. Continuity with the legacy ~26ms figure.",
+      "target": "6 pages",
+      "bytes": 6610,
+      "sha256": "7aeb6e3fd031396f613464eb889cfdb48f3df709e98ca2e4b195a9357a820b67"
+    },
+    {
+      "file": "invoice-50p.html",
+      "description": "Table-heavy statement: repeating <thead>, zebra rows, many page breaks.",
+      "target": "~50 pages",
+      "bytes": 141461,
+      "sha256": "9aeae8ea43719f5c1c97fbfc5ef4325827fe6eb97fb1145ac5310f070b67ab59"
+    },
+    {
+      "file": "ledger-500p.html",
+      "description": "The 500-page stress shape (the QuestPDF-thread document).",
+      "target": "~500 pages",
+      "bytes": 1411902,
+      "sha256": "bb14dfa9b465579d215747dcb6332e942e6b164c7cffee985b85d354194616b3"
+    },
+    {
+      "file": "letterhead-paged.html",
+      "description": "Paged-media overhead: @page margin boxes, running header/footer, page counters.",
+      "target": "~5 pages",
+      "bytes": 10989,
+      "sha256": "eb4e968033b090bc7e2396a5a070eeed0dbf24e43de55475c3d6cacf4d09d731"
+    },
+    {
+      "file": "compliance.html",
+      "description": "Rendered plain AND as PDF/UA-1 + PDF/A-2b — the delta is the cost of conformance.",
+      "target": "2 pages",
+      "bytes": 3305,
+      "sha256": "e6b0fca2bb85d78ed0cf67a9bbf27f97885134758e5abc15f34557feaf68e99b"
+    }
+  ]
+}
