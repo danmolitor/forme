@@ -33,7 +33,38 @@ pub enum LineHeight {
 pub enum CssDisplay {
     Block,
     Flex,
+    Grid,
     None,
+}
+
+/// A parsed grid track size. Lengths stay unresolved (`em` needs the
+/// element's computed font size, which only style.rs has).
+#[derive(Debug, Clone, PartialEq)]
+pub enum CssTrack {
+    /// Fixed length or `auto` (`Length::Auto`).
+    Len(Length),
+    /// Fractional unit.
+    Fr(f64),
+    /// `minmax(min, max)`.
+    MinMax(CssTrackBound, CssTrackBound),
+}
+
+/// A bound inside `minmax()`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum CssTrackBound {
+    Len(Length),
+    Fr(f64),
+}
+
+/// Parsed `grid-column` / `grid-row` placement for one axis.
+/// Line numbers are 1-based and positive — negative lines warn at parse
+/// (the engine clamps them to line 1, which is silently wrong vs CSS's
+/// count-from-the-end semantics).
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct CssGridLine {
+    pub start: Option<i32>,
+    pub end: Option<i32>,
+    pub span: Option<u32>,
 }
 
 /// `break-before` / `break-after` values the engine can honor.
@@ -77,6 +108,14 @@ pub struct CssStyle {
     pub justify_content: Option<JustifyContent>,
     pub align_items: Option<AlignItems>,
     pub gap: Option<f64>,
+    pub row_gap: Option<f64>,
+    pub column_gap: Option<f64>,
+    pub grid_template_columns: Option<Vec<CssTrack>>,
+    pub grid_template_rows: Option<Vec<CssTrack>>,
+    pub grid_auto_rows: Option<CssTrack>,
+    pub grid_auto_columns: Option<CssTrack>,
+    pub grid_column: Option<CssGridLine>,
+    pub grid_row: Option<CssGridLine>,
     pub text_decoration: Option<TextDecoration>,
     pub text_transform: Option<TextTransform>,
     pub letter_spacing: Option<Length>,
@@ -139,6 +178,14 @@ impl CssStyle {
             justify_content,
             align_items,
             gap,
+            row_gap,
+            column_gap,
+            grid_template_columns,
+            grid_template_rows,
+            grid_auto_rows,
+            grid_auto_columns,
+            grid_column,
+            grid_row,
             text_decoration,
             text_transform,
             letter_spacing,
@@ -358,6 +405,7 @@ pub(crate) fn apply_declaration(
                 style.display = match id.to_ascii_lowercase().as_str() {
                     "block" => Some(CssDisplay::Block),
                     "flex" => Some(CssDisplay::Flex),
+                    "grid" => Some(CssDisplay::Grid),
                     "none" => Some(CssDisplay::None),
                     other => {
                         warnings.push(format!(
@@ -405,9 +453,64 @@ pub(crate) fn apply_declaration(
             }
         }
         "gap" => {
-            if let Some(Length::Pt(v)) = parse_length(p) {
-                style.gap = Some(v);
+            // 1 value: both axes. 2 values: <row-gap> <column-gap>.
+            let first = parse_length(p);
+            let second = parse_length(p);
+            match (first, second) {
+                (Some(Length::Pt(row)), Some(Length::Pt(col))) => {
+                    style.row_gap = Some(row);
+                    style.column_gap = Some(col);
+                    style.gap = Some(row);
+                }
+                (Some(Length::Pt(v)), None) => {
+                    style.gap = Some(v);
+                    style.row_gap = Some(v);
+                    style.column_gap = Some(v);
+                }
+                _ => {}
             }
+        }
+        "row-gap" => {
+            if let Some(Length::Pt(v)) = parse_length(p) {
+                style.row_gap = Some(v);
+            }
+        }
+        "column-gap" => {
+            if let Some(Length::Pt(v)) = parse_length(p) {
+                style.column_gap = Some(v);
+            }
+        }
+        "grid-template-columns" => {
+            style.grid_template_columns = parse_track_list(p, name, warnings);
+        }
+        "grid-template-rows" => {
+            style.grid_template_rows = parse_track_list(p, name, warnings);
+        }
+        "grid-auto-rows" => {
+            style.grid_auto_rows = parse_track_list(p, name, warnings).and_then(|mut v| {
+                if v.len() == 1 {
+                    Some(v.remove(0))
+                } else {
+                    warnings.push(format!("'{name}' supports a single track size"));
+                    None
+                }
+            });
+        }
+        "grid-auto-columns" => {
+            style.grid_auto_columns = parse_track_list(p, name, warnings).and_then(|mut v| {
+                if v.len() == 1 {
+                    Some(v.remove(0))
+                } else {
+                    warnings.push(format!("'{name}' supports a single track size"));
+                    None
+                }
+            });
+        }
+        "grid-column" => {
+            style.grid_column = parse_grid_line(p, name, warnings);
+        }
+        "grid-row" => {
+            style.grid_row = parse_grid_line(p, name, warnings);
         }
         "text-decoration" | "text-decoration-line" => {
             if let Ok(id) = p.expect_ident() {
@@ -597,6 +700,267 @@ fn unit_to_length(value: f64, unit: &str) -> Option<Length> {
 fn parse_length(p: &mut Parser<'_, '_>) -> Option<Length> {
     let tok = p.next().ok()?.clone();
     token_to_length(&tok)
+}
+
+/// Parse a grid track list (`grid-template-columns` / `-rows`).
+///
+/// The supported subset is deliberate: lengths, `fr`, `auto`,
+/// `minmax(bound, bound)`, and integer `repeat()`. Everything the engine
+/// cannot express — named lines, `auto-fill`/`auto-fit`, percentage
+/// tracks, content-sized keywords — warns by name and drops the whole
+/// declaration (a partially-applied template would mislay out silently).
+fn parse_track_list(
+    p: &mut Parser<'_, '_>,
+    prop: &str,
+    warnings: &mut Vec<String>,
+) -> Option<Vec<CssTrack>> {
+    let mut out = Vec::new();
+    loop {
+        let tok = match p.next() {
+            Ok(t) => t.clone(),
+            Err(_) => break,
+        };
+        match &tok {
+            Token::SquareBracketBlock => {
+                warnings.push(format!("'{prop}': named grid lines are not supported"));
+                // Consume the bracket block so the parser stays sane.
+                let _ = p.parse_nested_block(|p| -> Result<(), ParseError<'_, ()>> {
+                    while p.next().is_ok() {}
+                    Ok(())
+                });
+                return None;
+            }
+            Token::Function(f) => {
+                let fname = f.as_ref().to_ascii_lowercase();
+                match fname.as_str() {
+                    "repeat" => {
+                        let expanded = parse_repeat(p, prop, warnings)?;
+                        out.extend(expanded);
+                    }
+                    "minmax" => {
+                        let mm = parse_minmax(p, prop, warnings)?;
+                        out.push(mm);
+                    }
+                    other => {
+                        warnings.push(format!("'{prop}': unsupported function '{other}()'"));
+                        return None;
+                    }
+                }
+            }
+            _ => {
+                let track = token_to_track(&tok, prop, warnings)?;
+                out.push(track);
+            }
+        }
+    }
+    if out.is_empty() {
+        None
+    } else {
+        Some(out)
+    }
+}
+
+/// A single non-function track token → `CssTrack`, or a named warning.
+fn token_to_track(tok: &Token, prop: &str, warnings: &mut Vec<String>) -> Option<CssTrack> {
+    if let Token::Dimension { value, unit, .. } = tok {
+        if unit.eq_ignore_ascii_case("fr") {
+            return Some(CssTrack::Fr(*value as f64));
+        }
+    }
+    if let Token::Ident(id) = tok {
+        let id = id.to_ascii_lowercase();
+        if id == "min-content" || id == "max-content" || id.starts_with("fit-content") {
+            warnings.push(format!(
+                "'{prop}': content-sized track '{id}' is not supported"
+            ));
+            return None;
+        }
+    }
+    match token_to_length(tok) {
+        Some(Length::Percent(_)) => {
+            warnings.push(format!(
+                "'{prop}': percentage track sizes are not supported"
+            ));
+            None
+        }
+        Some(len) => Some(CssTrack::Len(len)),
+        None => {
+            warnings.push(format!("'{prop}': unsupported track size"));
+            None
+        }
+    }
+}
+
+/// Nested-block result: warnings collected inside the block (the closure
+/// cannot borrow the outer warnings vec alongside the parser) + the value.
+type TrackParse = (Vec<String>, Option<Vec<CssTrack>>);
+
+/// `repeat(<integer>, <track-list>)`, expanded inline. `auto-fill` /
+/// `auto-fit` need viewport-driven track counts the engine doesn't model.
+fn parse_repeat(
+    p: &mut Parser<'_, '_>,
+    prop: &str,
+    warnings: &mut Vec<String>,
+) -> Option<Vec<CssTrack>> {
+    let result = p.parse_nested_block(|p| -> Result<TrackParse, ParseError<'_, ()>> {
+        let mut local_warnings = Vec::new();
+        let count = match p.next() {
+            Ok(Token::Number {
+                int_value: Some(n), ..
+            }) if *n > 0 => *n as usize,
+            Ok(Token::Ident(id)) => {
+                let id = id.to_ascii_lowercase();
+                local_warnings.push(format!("'{prop}': repeat({id}, …) is not supported"));
+                while p.next().is_ok() {}
+                return Ok(drain(local_warnings, None));
+            }
+            _ => {
+                local_warnings.push(format!(
+                    "'{prop}': repeat() count must be a positive integer"
+                ));
+                while p.next().is_ok() {}
+                return Ok(drain(local_warnings, None));
+            }
+        };
+        let _comma = p.next(); // the comma after the count
+        let mut pattern = Vec::new();
+        while let Ok(tok) = p.next() {
+            let tok = tok.clone();
+            match &tok {
+                Token::Function(f) if f.as_ref().eq_ignore_ascii_case("minmax") => {
+                    match parse_minmax(p, prop, &mut local_warnings) {
+                        Some(mm) => pattern.push(mm),
+                        None => return Ok(drain(local_warnings, None)),
+                    }
+                }
+                Token::SquareBracketBlock => {
+                    local_warnings.push(format!("'{prop}': named grid lines are not supported"));
+                    return Ok(drain(local_warnings, None));
+                }
+                _ => match token_to_track(&tok, prop, &mut local_warnings) {
+                    Some(t) => pattern.push(t),
+                    None => return Ok(drain(local_warnings, None)),
+                },
+            }
+        }
+        if pattern.is_empty() {
+            return Ok(drain(local_warnings, None));
+        }
+        let mut expanded = Vec::with_capacity(count * pattern.len());
+        for _ in 0..count {
+            expanded.extend(pattern.iter().cloned());
+        }
+        Ok(drain(local_warnings, Some(expanded)))
+    });
+    match result {
+        Ok((mut w, tracks)) => {
+            warnings.append(&mut w);
+            tracks
+        }
+        Err(_) => None,
+    }
+}
+
+/// Bundle nested-block warnings with the result (the nested closure can't
+/// borrow the outer warnings vec mutably alongside the parser).
+fn drain<T>(warnings: Vec<String>, value: Option<T>) -> (Vec<String>, Option<T>) {
+    (warnings, value)
+}
+
+/// `minmax(bound, bound)` — bounds are lengths, `fr`, or `auto`.
+fn parse_minmax(
+    p: &mut Parser<'_, '_>,
+    prop: &str,
+    warnings: &mut Vec<String>,
+) -> Option<CssTrack> {
+    let result = p.parse_nested_block(
+        |p| -> Result<(Vec<String>, Option<CssTrack>), ParseError<'_, ()>> {
+            let mut w = Vec::new();
+            let mut bounds = Vec::new();
+            while let Ok(tok) = p.next() {
+                let tok = tok.clone();
+                match &tok {
+                    Token::Comma => {}
+                    Token::Dimension { value, unit, .. } if unit.eq_ignore_ascii_case("fr") => {
+                        bounds.push(CssTrackBound::Fr(*value as f64));
+                    }
+                    _ => match token_to_length(&tok) {
+                        Some(Length::Percent(_)) => {
+                            w.push(format!(
+                                "'{prop}': percentage minmax() bounds are not supported"
+                            ));
+                            return Ok((w, None));
+                        }
+                        Some(len) => bounds.push(CssTrackBound::Len(len)),
+                        None => {
+                            w.push(format!("'{prop}': unsupported minmax() bound"));
+                            return Ok((w, None));
+                        }
+                    },
+                }
+            }
+            if bounds.len() != 2 {
+                w.push(format!("'{prop}': minmax() takes exactly two bounds"));
+                return Ok((w, None));
+            }
+            Ok((w, Some(CssTrack::MinMax(bounds[0], bounds[1]))))
+        },
+    );
+    match result {
+        Ok((mut w, track)) => {
+            warnings.append(&mut w);
+            track
+        }
+        Err(_) => None,
+    }
+}
+
+/// `grid-column` / `grid-row`: `<int>`, `<int> / <int>`, `span <int>`,
+/// `<int> / span <int>`. Negative line numbers warn — the engine clamps
+/// them to line 1, which silently contradicts CSS's count-from-the-end.
+fn parse_grid_line(
+    p: &mut Parser<'_, '_>,
+    prop: &str,
+    warnings: &mut Vec<String>,
+) -> Option<CssGridLine> {
+    let mut line = CssGridLine::default();
+    let mut after_slash = false;
+    let mut pending_span = false;
+    while let Ok(tok) = p.next() {
+        match tok {
+            Token::Delim('/') => after_slash = true,
+            Token::Ident(id) if id.eq_ignore_ascii_case("span") => pending_span = true,
+            Token::Ident(id) if id.eq_ignore_ascii_case("auto") => {}
+            Token::Number {
+                int_value: Some(n), ..
+            } => {
+                let n = *n;
+                if n < 0 {
+                    warnings.push(format!(
+                        "'{prop}': negative grid line numbers are not supported (CSS counts from the end; the engine cannot)"
+                    ));
+                    return None;
+                }
+                if pending_span {
+                    line.span = Some(n as u32);
+                    pending_span = false;
+                } else if after_slash {
+                    line.end = Some(n);
+                } else {
+                    line.start = Some(n);
+                }
+            }
+            _ => {
+                warnings.push(format!("'{prop}': unsupported placement value"));
+                return None;
+            }
+        }
+    }
+    if line.start.is_none() && line.end.is_none() && line.span.is_none() {
+        None
+    } else {
+        Some(line)
+    }
 }
 
 pub(crate) fn token_to_length(tok: &Token) -> Option<Length> {

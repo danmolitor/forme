@@ -25,7 +25,8 @@ use forme::model::{
     PageConfig,
 };
 use forme::style::{
-    Color, CornerValues, Dimension, EdgeValues, FlexDirection, FontStyle, TextDecoration,
+    Color, CornerValues, Dimension, Display, EdgeValues, FlexDirection, FontStyle, GridPlacement,
+    TextDecoration,
 };
 use forme::{Document, Node, NodeKind, Style, TextRun};
 
@@ -1068,6 +1069,35 @@ fn to_engine_style(c: &Computed) -> Style {
     s.justify_content = c.justify_content;
     s.align_items = c.align_items;
     s.gap = c.gap;
+    s.row_gap = c.row_gap;
+    s.column_gap = c.column_gap;
+
+    // Grid container. style.rs already downgraded template-less grids to
+    // block (with a named warning), so Grid here always has columns.
+    if c.display == CssDisplay::Grid {
+        s.display = Some(Display::Grid);
+        s.grid_template_columns = c.grid_template_columns.clone();
+        s.grid_template_rows = c.grid_template_rows.clone();
+        s.grid_auto_rows = c.grid_auto_rows.clone();
+        s.grid_auto_columns = c.grid_auto_columns.clone();
+    }
+
+    // Grid item placement (this element inside a grid parent). `span` on
+    // its own or alongside a start line — both engine-native.
+    if c.grid_column.is_some() || c.grid_row.is_some() {
+        let mut gp = GridPlacement::default();
+        if let Some(col) = c.grid_column {
+            gp.column_start = col.start;
+            gp.column_end = col.end;
+            gp.column_span = col.span;
+        }
+        if let Some(row) = c.grid_row {
+            gp.row_start = row.start;
+            gp.row_end = row.end;
+            gp.row_span = row.span;
+        }
+        s.grid_placement = Some(gp);
+    }
 
     s
 }

@@ -8,10 +8,13 @@
 //! wrong silently halves h1's UA margins and would make the spike's
 //! margin-collapse assertion pass for the wrong reason.
 
-use crate::css::{BreakInsideVal, BreakVal, CssDisplay, CssStyle, Length, LineHeight};
+use crate::css::{
+    BreakInsideVal, BreakVal, CssDisplay, CssGridLine, CssStyle, CssTrack, CssTrackBound, Length,
+    LineHeight,
+};
 use forme::style::{
-    AlignItems, BorderStyle, Color, Dimension, FlexDirection, JustifyContent, TextAlign,
-    TextDecoration, TextTransform, VerticalAlign,
+    AlignItems, BorderStyle, Color, Dimension, FlexDirection, GridTrackSize, JustifyContent,
+    TextAlign, TextDecoration, TextTransform, VerticalAlign,
 };
 
 /// CSS default `medium` (16px) in points. Matches the engine's own root
@@ -63,6 +66,18 @@ pub struct Computed {
     pub justify_content: Option<JustifyContent>,
     pub align_items: Option<AlignItems>,
     pub gap: Option<f64>,
+    pub row_gap: Option<f64>,
+    pub column_gap: Option<f64>,
+    /// Grid tracks resolved to engine sizes (em against this element's
+    /// font size). Non-inherited, like all grid properties.
+    pub grid_template_columns: Option<Vec<GridTrackSize>>,
+    pub grid_template_rows: Option<Vec<GridTrackSize>>,
+    pub grid_auto_rows: Option<GridTrackSize>,
+    pub grid_auto_columns: Option<GridTrackSize>,
+    /// Raw placement for this element AS a grid item (combined into the
+    /// engine's GridPlacement in the mapper).
+    pub grid_column: Option<CssGridLine>,
+    pub grid_row: Option<CssGridLine>,
 
     pub border_collapse: Option<bool>,
     pub vertical_align: Option<VerticalAlign>,
@@ -79,6 +94,73 @@ pub struct Computed {
     pub break_inside: Option<BreakInsideVal>,
     pub orphans: Option<u32>,
     pub widows: Option<u32>,
+}
+
+/// Resolve a parsed CSS track to an engine track size. `em` resolves
+/// against the element's own font size, matching every other property.
+fn resolve_track(t: &CssTrack, font_size: f64, warnings: &mut Vec<String>) -> GridTrackSize {
+    let len_pt = |l: &Length| -> f64 {
+        match l {
+            Length::Pt(v) => *v,
+            Length::Em(e) => e * font_size,
+            Length::Rem(r) => r * ROOT_FONT_SIZE,
+            // Percent is rejected with a named warning at parse time.
+            Length::Percent(_) | Length::Auto => 0.0,
+        }
+    };
+    match t {
+        CssTrack::Fr(f) => GridTrackSize::Fr(*f),
+        CssTrack::Len(Length::Auto) => GridTrackSize::Auto,
+        CssTrack::Len(l) => GridTrackSize::Pt(len_pt(l)),
+        CssTrack::MinMax(min, max) => match (min, max) {
+            // Tailwind's grid-cols-N emits repeat(N, minmax(0, 1fr)). The
+            // engine's MinMax track never joins fr distribution (it
+            // content-clamps), so mapping it literally would silently
+            // content-size the columns. With a zero minimum, minmax(0, Xfr)
+            // is exactly a plain Xfr track — normalize.
+            (CssTrackBound::Len(l), CssTrackBound::Fr(f)) => {
+                let min_pt = len_pt(l);
+                if min_pt != 0.0 {
+                    warnings.push(
+                        "minmax(<length>, <fr>) with a nonzero minimum is not supported (the \
+                         engine cannot flex a track with a floor); treated as a plain fr track"
+                            .to_string(),
+                    );
+                }
+                GridTrackSize::Fr(*f)
+            }
+            (CssTrackBound::Fr(_), _) => {
+                warnings.push(
+                    "fr is not valid as a minmax() minimum; the maximum bound is used".to_string(),
+                );
+                match max {
+                    CssTrackBound::Fr(f) => GridTrackSize::Fr(*f),
+                    CssTrackBound::Len(Length::Auto) => GridTrackSize::Auto,
+                    CssTrackBound::Len(l) => GridTrackSize::Pt(len_pt(l)),
+                }
+            }
+            (CssTrackBound::Len(a), CssTrackBound::Len(b)) => GridTrackSize::MinMax(
+                Box::new(match a {
+                    Length::Auto => GridTrackSize::Auto,
+                    l => GridTrackSize::Pt(len_pt(l)),
+                }),
+                Box::new(match b {
+                    Length::Auto => GridTrackSize::Auto,
+                    l => GridTrackSize::Pt(len_pt(l)),
+                }),
+            ),
+        },
+    }
+}
+
+fn resolve_tracks(
+    ts: &[CssTrack],
+    font_size: f64,
+    warnings: &mut Vec<String>,
+) -> Vec<GridTrackSize> {
+    ts.iter()
+        .map(|t| resolve_track(t, font_size, warnings))
+        .collect()
 }
 
 /// Resolve a merged declaration bag against the parent's computed font size.
@@ -171,11 +253,41 @@ pub fn resolve(css: &CssStyle, parent_font_size: f64, warnings: &mut Vec<String>
         letter_spacing: css
             .letter_spacing
             .map(|l| to_pt(l, warnings, "letter-spacing")),
-        display: css.display.unwrap_or(CssDisplay::Block),
+        display: {
+            let d = css.display.unwrap_or(CssDisplay::Block);
+            if d == CssDisplay::Grid && css.grid_template_columns.is_none() {
+                warnings.push(
+                    "display: grid without grid-template-columns behaves as a block".to_string(),
+                );
+                CssDisplay::Block
+            } else {
+                d
+            }
+        },
         flex_direction: css.flex_direction,
         justify_content: css.justify_content,
         align_items: css.align_items,
         gap: css.gap,
+        row_gap: css.row_gap,
+        column_gap: css.column_gap,
+        grid_template_columns: css
+            .grid_template_columns
+            .as_ref()
+            .map(|ts| resolve_tracks(ts, font_size, warnings)),
+        grid_template_rows: css
+            .grid_template_rows
+            .as_ref()
+            .map(|ts| resolve_tracks(ts, font_size, warnings)),
+        grid_auto_rows: css
+            .grid_auto_rows
+            .as_ref()
+            .map(|t| resolve_track(t, font_size, warnings)),
+        grid_auto_columns: css
+            .grid_auto_columns
+            .as_ref()
+            .map(|t| resolve_track(t, font_size, warnings)),
+        grid_column: css.grid_column,
+        grid_row: css.grid_row,
         vertical_align: css.vertical_align,
         max_width: dim(css.max_width),
         min_width: dim(css.min_width),
