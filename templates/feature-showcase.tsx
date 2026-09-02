@@ -1,4 +1,4 @@
-import { Document, Page, View, Text, Canvas, Fixed, Watermark, BarChart, LineChart, PieChart } from '@formepdf/react';
+import { Document, Page, View, Text, H1, H2, Canvas, Fixed, Watermark, BarChart, LineChart, PieChart } from '@formepdf/react';
 
 export default function FeatureShowcase() {
   // Chart data
@@ -55,7 +55,7 @@ export default function FeatureShowcase() {
 
         {/* Header */}
         <View style={{ marginBottom: 20 }}>
-          <Text style={{ fontSize: 24, fontWeight: 700, color: '#0f172a' }}>Feature Showcase</Text>
+          <H1 style={{ fontSize: 24, fontWeight: 700, marginTop: 0, marginBottom: 0, color: '#0f172a' }}>Feature Showcase</H1>
           <Text style={{ fontSize: 10, color: '#64748b', marginTop: 4 }}>
             Five new Forme capabilities in one document
           </Text>
@@ -65,9 +65,9 @@ export default function FeatureShowcase() {
         <View style={{ flexDirection: 'row', gap: 14, marginBottom: 16 }}>
           {/* Canvas Gauge */}
           <View style={{ flex: 1, padding: 14, borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 6 }}>
-            <Text style={{ fontSize: 9, fontWeight: 700, color: '#0f172a', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 }}>
+            <H2 style={{ fontSize: 9, fontWeight: 700, marginTop: 0, color: '#0f172a', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 }}>
               Canvas Drawing
-            </Text>
+            </H2>
             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
               <Canvas
                 width={gaugeSize}
@@ -129,9 +129,9 @@ export default function FeatureShowcase() {
 
           {/* Overflow hidden demo */}
           <View style={{ flex: 1, padding: 14, borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 6 }}>
-            <Text style={{ fontSize: 9, fontWeight: 700, color: '#0f172a', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 }}>
+            <H2 style={{ fontSize: 9, fontWeight: 700, marginTop: 0, color: '#0f172a', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 }}>
               Overflow: Hidden
-            </Text>
+            </H2>
 
             {/* Clipped box */}
             <View style={{ marginBottom: 8 }}>
@@ -155,9 +155,9 @@ export default function FeatureShowcase() {
 
         {/* Charts row */}
         <View style={{ marginBottom: 16 }}>
-          <Text style={{ fontSize: 9, fontWeight: 700, color: '#0f172a', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10 }}>
+          <H2 style={{ fontSize: 9, fontWeight: 700, marginTop: 0, color: '#0f172a', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10 }}>
             Chart Components
-          </Text>
+          </H2>
           <View style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
             {/* Bar Chart */}
             <View style={{ padding: 12, borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 6 }}>
@@ -201,9 +201,9 @@ export default function FeatureShowcase() {
 
         {/* Font fallback section */}
         <View style={{ padding: 14, borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 6, marginBottom: 16 }}>
-          <Text style={{ fontSize: 9, fontWeight: 700, color: '#0f172a', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 }}>
+          <H2 style={{ fontSize: 9, fontWeight: 700, marginTop: 0, color: '#0f172a', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 }}>
             Font Fallback Chains
-          </Text>
+          </H2>
           <View style={{ flexDirection: 'row', gap: 16 }}>
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 8, color: '#64748b', marginBottom: 4 }}>fontFamily: "Helvetica, Courier"</Text>

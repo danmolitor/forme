@@ -1,4 +1,4 @@
-import { Document, Page, View, Text } from '@formepdf/react';
+import { Document, Page, View, Text, H1, H2 } from '@formepdf/react';
 
 export default function Typography(data: any = {}) {
   const {
@@ -15,9 +15,9 @@ export default function Typography(data: any = {}) {
 
         {/* Full-width header */}
         <View style={{ marginBottom: 20 }}>
-          <Text style={{ fontSize: 26, fontWeight: 700, color: '#1a1a1a', letterSpacing: -0.5 }}>
+          <H1 style={{ fontSize: 26, fontWeight: 700, marginTop: 0, marginBottom: 0, color: '#1a1a1a', letterSpacing: -0.5 }}>
             {title}
-          </Text>
+          </H1>
           <Text style={{ fontSize: 10, color: '#6b7280', marginTop: 4, letterSpacing: 0.3 }}>
             {subtitle}
           </Text>
@@ -55,9 +55,9 @@ export default function Typography(data: any = {}) {
             {/* Multilingual sections */}
             {sections.map((section: any, i: number) => (
               <View key={i} style={{ marginTop: i === 0 ? 4 : 12 }}>
-                <Text style={{ fontSize: 10, fontWeight: 700, color: '#1a1a1a', marginBottom: 5 }}>
+                <H2 style={{ fontSize: 10, fontWeight: 700, marginTop: 0, color: '#1a1a1a', marginBottom: 5 }}>
                   {section.heading}
-                </Text>
+                </H2>
                 <Text style={{ fontSize: 9, lineHeight: 1.5, color: '#1a1a1a', textAlign: 'justify', hyphens: 'auto', lang: section.lang }}>
                   {section.body}
                 </Text>

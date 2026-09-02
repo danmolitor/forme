@@ -1,4 +1,4 @@
-import { Document, Page, View, Text, Svg, Fixed, Font } from '@formepdf/react';
+import { Document, Page, View, Text, H1, H2, H3, Svg, Fixed, Font } from '@formepdf/react';
 
 Font.register({
   family: 'ArialUnicode',
@@ -40,7 +40,7 @@ export default function GridDashboard(data: any = {}) {
         {/* Header */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <View>
-            <Text style={{ fontSize: 22, fontWeight: 700, color: '#0f172a' }}>{data.title}</Text>
+            <H1 style={{ fontSize: 22, fontWeight: 700, marginTop: 0, marginBottom: 0, color: '#0f172a' }}>{data.title}</H1>
             <Text style={{ fontSize: 10, color: '#64748b', marginTop: 4 }}>{data.subtitle}</Text>
           </View>
           <View style={{ padding: 8, backgroundColor: '#f0f9ff', borderRadius: 4 }}>
@@ -65,7 +65,7 @@ export default function GridDashboard(data: any = {}) {
         <View style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
           {/* Left: Bar chart */}
           <View style={{ padding: 16, borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 6 }}>
-            <Text style={{ fontSize: 11, fontWeight: 700, color: '#0f172a', marginBottom: 10 }}>Revenue by Region</Text>
+            <H2 style={{ fontSize: 11, fontWeight: 700, marginTop: 0, color: '#0f172a', marginBottom: 10 }}>Revenue by Region</H2>
             <View style={{ alignItems: 'center' }}>
               <Svg width={200} height={120} viewBox="0 0 200 120" content={barSvg} />
             </View>
@@ -81,7 +81,7 @@ export default function GridDashboard(data: any = {}) {
 
           {/* Right: Regional details */}
           <View style={{ padding: 16, borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 6 }}>
-            <Text style={{ fontSize: 11, fontWeight: 700, color: '#0f172a', marginBottom: 10 }}>Regional Breakdown</Text>
+            <H2 style={{ fontSize: 11, fontWeight: 700, marginTop: 0, color: '#0f172a', marginBottom: 10 }}>Regional Breakdown</H2>
             {regions.map((r: any, i: number) => (
               <View key={i} style={{ marginBottom: 10 }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
@@ -100,7 +100,7 @@ export default function GridDashboard(data: any = {}) {
         <View style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
           {translations.map((t: any, i: number) => (
             <View key={i} style={{ padding: 14, backgroundColor: t.bgColor, borderRadius: 6, borderWidth: 1, borderColor: t.borderColor }}>
-              <Text style={{ fontSize: 10, fontWeight: 700, color: t.headingColor, marginBottom: 6, fontFamily: 'Helvetica, ArialUnicode', ...(t.direction && { direction: t.direction, textAlign: 'right' }) }}>{t.heading}</Text>
+              <H3 style={{ fontSize: 10, fontWeight: 700, marginTop: 0, color: t.headingColor, marginBottom: 6, fontFamily: 'Helvetica, ArialUnicode', ...(t.direction && { direction: t.direction, textAlign: 'right' }) }}>{t.heading}</H3>
               <Text style={{ fontSize: 8, lineHeight: 1.5, color: t.textColor, textAlign: 'justify', hyphens: 'auto', lang: t.lang, fontFamily: 'Helvetica, ArialUnicode', ...(t.direction && { direction: t.direction, textAlign: 'right' }) }}>
                 {t.body}
               </Text>

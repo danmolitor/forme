@@ -1,5 +1,5 @@
 import {
-  Document, Page, View, Text, BarChart, LineChart, PieChart, AreaChart, DotPlot, StyleSheet,
+  Document, Page, View, Text, H1, H2, BarChart, LineChart, PieChart, AreaChart, DotPlot, StyleSheet,
 } from '@formepdf/react';
 
 const s = StyleSheet.create({
@@ -12,6 +12,7 @@ const s = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: 700,
+    marginTop: 0,
     marginBottom: 4,
     color: '#0f172a',
   },
@@ -26,6 +27,7 @@ const s = StyleSheet.create({
   sectionTitle: {
     fontSize: 13,
     fontWeight: 700,
+    marginTop: 0,
     marginBottom: 8,
     color: '#334155',
     borderBottom: '1px solid #e2e8f0',
@@ -132,14 +134,14 @@ export default function ChartsShowcase() {
     <Document title="Charts Showcase" author="Forme">
       {/* Page 1: Header + Bar/Pie row + Line chart */}
       <Page style={s.page}>
-        <Text style={s.title}>Annual Performance Report</Text>
+        <H1 style={s.title}>Annual Performance Report</H1>
         <Text style={s.subtitle}>
           FY 2025 — Generated with Forme engine-native chart components
         </Text>
 
         {/* Bar + Pie side by side */}
         <View style={s.section}>
-          <Text style={s.sectionTitle}>Revenue & Budget Overview</Text>
+          <H2 style={s.sectionTitle}>Revenue & Budget Overview</H2>
           <View style={s.row}>
             <View style={s.col}>
               <Text style={s.badge}>Quarterly Revenue</Text>
@@ -169,7 +171,7 @@ export default function ChartsShowcase() {
 
         {/* Line chart full width */}
         <View style={s.section}>
-          <Text style={s.sectionTitle}>User Growth</Text>
+          <H2 style={s.sectionTitle}>User Growth</H2>
           <Text style={s.description}>
             Monthly active users and new signups across the full fiscal year.
           </Text>
@@ -192,7 +194,7 @@ export default function ChartsShowcase() {
       {/* Page 2: Area chart + Dot plot + Expenses bar chart */}
       <Page style={s.page}>
         <View style={s.section}>
-          <Text style={s.sectionTitle}>Traffic Sources</Text>
+          <H2 style={s.sectionTitle}>Traffic Sources</H2>
           <Text style={s.description}>
             Cumulative visitor counts by acquisition channel, showing organic growth outpacing paid.
           </Text>
@@ -208,7 +210,7 @@ export default function ChartsShowcase() {
 
         <View style={s.row}>
           <View style={s.col}>
-            <Text style={s.sectionTitle}>API Latency</Text>
+            <H2 style={s.sectionTitle}>API Latency</H2>
             <Text style={s.description}>
               Response time (ms) vs concurrent requests across API versions.
             </Text>
@@ -223,7 +225,7 @@ export default function ChartsShowcase() {
             />
           </View>
           <View style={s.col}>
-            <Text style={s.sectionTitle}>Monthly Expenses</Text>
+            <H2 style={s.sectionTitle}>Monthly Expenses</H2>
             <Text style={s.description}>
               Operating expenses Jan–Aug with value labels.
             </Text>
@@ -240,7 +242,7 @@ export default function ChartsShowcase() {
         </View>
 
         <View style={{ marginTop: 16 }}>
-          <Text style={s.sectionTitle}>Donut: Revenue Split</Text>
+          <H2 style={s.sectionTitle}>Donut: Revenue Split</H2>
           <View style={s.row}>
             <View style={s.col}>
               <PieChart
@@ -256,7 +258,7 @@ export default function ChartsShowcase() {
               />
             </View>
             <View style={{ ...s.col, justifyContent: 'center' as const }}>
-              <Text style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>Key Takeaways</Text>
+              <H2 style={{ fontSize: 11, fontWeight: 700, marginTop: 0, marginBottom: 4 }}>Key Takeaways</H2>
               <Text style={{ fontSize: 9, color: '#475569', lineHeight: 1.6 }}>
                 Subscription revenue accounts for 62% of total revenue, up from 54% last year. Enterprise deals grew 18% YoY. API v3 reduced p95 latency by 70% compared to v1. Organic traffic now exceeds paid for the first time.
               </Text>

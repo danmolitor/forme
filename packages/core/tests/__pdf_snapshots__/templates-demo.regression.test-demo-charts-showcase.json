@@ -1,7 +1,7 @@
 {
   "version": 1,
   "producer": "formepdf",
-  "createdAt": "2026-09-02T01:51:56.693Z",
+  "createdAt": "2026-09-02T01:54:52.241Z",
   "pageCount": 3,
   "pages": [
     {
@@ -15,22 +15,22 @@
         "height": 733.9
       },
       "nodeIds": [
+        "0:heading:0",
         "0:text:0",
-        "0:text:1",
         "0:container:0",
-        "0:text:2",
+        "0:heading:1",
         "0:container:1",
         "0:container:2",
-        "0:text:3",
+        "0:text:1",
         "0:container:3",
-        "0:text:4",
+        "0:text:2",
         "0:image:0",
         "0:image:1",
         "0:container:4",
-        "0:text:5",
-        "0:text:6",
+        "0:heading:2",
+        "0:text:3",
         "0:image:2",
-        "0:text:7"
+        "0:text:4"
       ]
     },
     {
@@ -45,19 +45,19 @@
       },
       "nodeIds": [
         "1:container:0",
+        "1:heading:0",
         "1:text:0",
-        "1:text:1",
         "1:image:0",
         "1:container:1",
         "1:container:2",
-        "1:text:2",
+        "1:heading:1",
         "1:container:3",
-        "1:text:3",
-        "1:text:4",
-        "1:text:5",
+        "1:heading:2",
+        "1:text:1",
+        "1:text:2",
         "1:image:1",
         "1:image:2",
-        "1:text:6"
+        "1:heading:3"
       ]
     },
     {
@@ -74,16 +74,16 @@
         "2:container:0",
         "2:image:0",
         "2:container:1",
+        "2:heading:0",
         "2:text:0",
-        "2:text:1",
-        "2:text:2"
+        "2:text:1"
       ]
     }
   ],
   "nodes": [
     {
-      "id": "0:text:0",
-      "role": "text",
+      "id": "0:heading:0",
+      "role": "heading",
       "pageIndex": 0,
       "bbox": {
         "x": 54,
@@ -101,12 +101,12 @@
         "family": "Helvetica",
         "italic": false
       },
-      "headingLevel": null,
+      "headingLevel": 1,
       "overflow": null,
       "confidence": 1
     },
     {
-      "id": "0:text:1",
+      "id": "0:text:0",
       "role": "text",
       "pageIndex": 0,
       "bbox": {
@@ -154,8 +154,8 @@
       "confidence": 1
     },
     {
-      "id": "0:text:2",
-      "role": "text",
+      "id": "0:heading:1",
+      "role": "heading",
       "pageIndex": 0,
       "bbox": {
         "x": 54,
@@ -173,7 +173,7 @@
         "family": "Helvetica",
         "italic": false
       },
-      "headingLevel": null,
+      "headingLevel": 2,
       "overflow": null,
       "confidence": 1
     },
@@ -226,7 +226,7 @@
       "confidence": 1
     },
     {
-      "id": "0:text:3",
+      "id": "0:text:1",
       "role": "text",
       "pageIndex": 0,
       "bbox": {
@@ -274,7 +274,7 @@
       "confidence": 1
     },
     {
-      "id": "0:text:4",
+      "id": "0:text:2",
       "role": "text",
       "pageIndex": 0,
       "bbox": {
@@ -370,8 +370,8 @@
       "confidence": 1
     },
     {
-      "id": "0:text:5",
-      "role": "text",
+      "id": "0:heading:2",
+      "role": "heading",
       "pageIndex": 0,
       "bbox": {
         "x": 54,
@@ -389,12 +389,12 @@
         "family": "Helvetica",
         "italic": false
       },
-      "headingLevel": null,
+      "headingLevel": 2,
       "overflow": null,
       "confidence": 1
     },
     {
-      "id": "0:text:6",
+      "id": "0:text:3",
       "role": "text",
       "pageIndex": 0,
       "bbox": {
@@ -442,7 +442,7 @@
       "confidence": 1
     },
     {
-      "id": "0:text:7",
+      "id": "0:text:4",
       "role": "text",
       "pageIndex": 0,
       "bbox": {
@@ -490,8 +490,8 @@
       "confidence": 1
     },
     {
-      "id": "1:text:0",
-      "role": "text",
+      "id": "1:heading:0",
+      "role": "heading",
       "pageIndex": 1,
       "bbox": {
         "x": 54,
@@ -509,12 +509,12 @@
         "family": "Helvetica",
         "italic": false
       },
-      "headingLevel": null,
+      "headingLevel": 2,
       "overflow": null,
       "confidence": 1
     },
     {
-      "id": "1:text:1",
+      "id": "1:text:0",
       "role": "text",
       "pageIndex": 1,
       "bbox": {
@@ -610,8 +610,8 @@
       "confidence": 1
     },
     {
-      "id": "1:text:2",
-      "role": "text",
+      "id": "1:heading:1",
+      "role": "heading",
       "pageIndex": 1,
       "bbox": {
         "x": 54,
@@ -629,7 +629,7 @@
         "family": "Helvetica",
         "italic": false
       },
-      "headingLevel": null,
+      "headingLevel": 2,
       "overflow": null,
       "confidence": 1
     },
@@ -658,8 +658,8 @@
       "confidence": 1
     },
     {
-      "id": "1:text:3",
-      "role": "text",
+      "id": "1:heading:2",
+      "role": "heading",
       "pageIndex": 1,
       "bbox": {
         "x": 307.6,
@@ -677,12 +677,12 @@
         "family": "Helvetica",
         "italic": false
       },
-      "headingLevel": null,
+      "headingLevel": 2,
       "overflow": null,
       "confidence": 1
     },
     {
-      "id": "1:text:4",
+      "id": "1:text:1",
       "role": "text",
       "pageIndex": 1,
       "bbox": {
@@ -706,7 +706,7 @@
       "confidence": 1
     },
     {
-      "id": "1:text:5",
+      "id": "1:text:2",
       "role": "text",
       "pageIndex": 1,
       "bbox": {
@@ -778,8 +778,8 @@
       "confidence": 1
     },
     {
-      "id": "1:text:6",
-      "role": "text",
+      "id": "1:heading:3",
+      "role": "heading",
       "pageIndex": 1,
       "bbox": {
         "x": 54,
@@ -797,7 +797,7 @@
         "family": "Helvetica",
         "italic": false
       },
-      "headingLevel": null,
+      "headingLevel": 2,
       "overflow": null,
       "confidence": 1
     },
@@ -874,8 +874,8 @@
       "confidence": 1
     },
     {
-      "id": "2:text:0",
-      "role": "text",
+      "id": "2:heading:0",
+      "role": "heading",
       "pageIndex": 2,
       "bbox": {
         "x": 307.6,
@@ -893,12 +893,12 @@
         "family": "Helvetica",
         "italic": false
       },
-      "headingLevel": null,
+      "headingLevel": 2,
       "overflow": null,
       "confidence": 1
     },
     {
-      "id": "2:text:1",
+      "id": "2:text:0",
       "role": "text",
       "pageIndex": 2,
       "bbox": {
@@ -922,7 +922,7 @@
       "confidence": 1
     },
     {
-      "id": "2:text:2",
+      "id": "2:text:1",
       "role": "text",
       "pageIndex": 2,
       "bbox": {
@@ -946,5 +946,5 @@
       "confidence": 1
     }
   ],
-  "contentHash": "sha256:a0ea6ce922a134b63ff000714ffae0fffe257b6da73942dbcc49e6884579c0b1"
+  "contentHash": "sha256:66ecae6fef1baaa7f6c710478c01c42e6dae90cb4152c42dd9d34709275ca0a9"
 }
