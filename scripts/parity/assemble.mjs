@@ -51,11 +51,13 @@ if (ua || a) {
 
 const determinism = readJson('determinism');
 const tests = readJson('tests');
+const benchmarks = readJson('benchmarks');
 
 const missing = [];
 if (!conformance) missing.push('conformance');
 if (!determinism) missing.push('determinism');
 if (!tests) missing.push('tests');
+if (!benchmarks) missing.push('benchmarks');
 
 const artifact = {
   schemaVersion: 1,
@@ -73,7 +75,7 @@ const artifact = {
     templates: ['invoice', 'receipt', 'report', 'shipping-label', 'letter'],
     htmlFixtures: ['letterhead', 'dashed-borders', 'statement', 'zebra-invoice'],
   },
-  sections: { conformance, determinism, tests },
+  sections: { conformance, determinism, tests, benchmarks },
   missingSections: missing,
 };
 
