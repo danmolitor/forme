@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Manual trigger — lets the benchmarks job run on any branch to observe a real
+  # runner (e.g. ledger-500p) before it's on main. Does not deploy Pages (that
+  # stays main+push only).
+  workflow_dispatch:
 
 jobs:
   engine:
@@ -335,11 +339,12 @@ jobs:
     name: Benchmarks (ci evidence column)
     runs-on: ubuntu-latest
     needs: engine
-    # Push to main only — minutes of runtime, PRs don't need it. NEVER a gate:
-    # the emitter records gaps/timeouts as data and the step is continue-on-error,
-    # so a failure here can't break the parity page (it falls back to the
-    # committed dev baseline). See scripts/parity/benchmarks.mjs.
-    if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+    # Push to main, or manual dispatch on any branch (to observe a real runner
+    # before merging). Minutes of runtime, PRs don't need it. NEVER a gate: the
+    # emitter records gaps/timeouts as data and the step is continue-on-error, so
+    # a failure here can't break the parity page (it falls back to the committed
+    # dev baseline). See scripts/parity/benchmarks.mjs.
+    if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch' }}
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4

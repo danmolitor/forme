@@ -166,7 +166,12 @@ if (bench && bench.runs && bench.runs.length) {
 <h2>Measured performance — including where we lose</h2>
 <p style="margin-top:1rem">${esc(bench.method.coldStart)} ${esc(bench.method.warmRender)} ${esc(bench.method.comparisonSurface)} Corpus is fixed, committed, and hash-checked (<span class="tag">${bench.corpus.documents.length} documents</span>).</p>
 <p class="muted" style="margin-top:.75rem">${esc(bench.method.twoRuns)}</p>
-<div class="list" style="margin-top:1rem">${runs.map((r) => `<span>${mark(true)} <strong>${esc(label(r))}</strong> — ${esc(r.environment.machine)}, ${r.environment.cpus} cpu · ${esc(r.environment.os)} · node ${esc(r.environment.node)}</span>`).join('')}</div>
+<div class="list" style="margin-top:1rem">${runs.map((r) => {
+  const env = r.environment;
+  const lag = env.measuredAtCommit && prov.commit && env.measuredAtCommit !== prov.commit;
+  const stamp = env.measuredAtCommitShort ? ` · <span class="muted">measured at ${esc(env.measuredAtCommitShort)}${env.measuredAt ? ' (' + esc(fmtDate(env.measuredAt).split(' ')[0]) + ')' : ''}${lag ? ', may lag current commit' : ''}</span>` : '';
+  return `<span>${mark(true)} <strong>${esc(label(r))}</strong> — ${esc(env.machine)}, ${env.cpus} cpu · ${esc(env.os)} · node ${esc(env.node)}${stamp}</span>`;
+}).join('')}</div>
 
 <h2 style="margin-top:2.5rem">Cold start — start to first PDF byte</h2>
 <table><thead><tr><th>Target</th>${runs.map((r) => `<th style="text-align:right">${esc(label(r))}</th>`).join('')}</tr></thead><tbody>

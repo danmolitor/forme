@@ -89,8 +89,16 @@ function spawnJson(cmd, args, timeoutMs) {
 function environment() {
   const cargo = (() => { try { return execFileSync('cargo', ['--version'], { encoding: 'utf8' }).split(' ')[1]; } catch { return null; } })();
   const chrome = (() => { try { return execFileSync(CHROME, ['--version'], { encoding: 'utf8' }).trim(); } catch { return null; } })();
+  // Stamp the commit + time this run was actually measured. The dev baseline is
+  // committed and refreshed periodically, so it can lag the page's current
+  // commit — recording measuredAtCommit lets the page label it honestly rather
+  // than implying it was measured against the code being served.
+  const commit = process.env.GITHUB_SHA || (() => { try { return execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8', cwd: REPO }).trim(); } catch { return null; } })();
   return {
     runner: CI ? 'ci' : 'dev',
+    measuredAtCommit: commit,
+    measuredAtCommitShort: commit ? commit.slice(0, 7) : null,
+    measuredAt: new Date().toISOString(),
     label: CI ? 'CI ubuntu-latest (conservative shared runner)' : 'dev machine (clean hardware, single run)',
     machine: os.cpus()[0]?.model ?? 'unknown',
     arch: os.arch(),

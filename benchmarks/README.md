@@ -55,3 +55,44 @@ node benchmarks/corpus/generate.mjs --check    # fail if on-disk drifts from the
 
 Full methodology and caveats are stamped onto the published page alongside the
 numbers.
+
+## Emitting the evidence
+
+`scripts/parity/benchmarks.mjs` measures one run for the current environment and
+emits `$PARITY_DIR/benchmarks.json` (same `emitSection` contract as the other
+parity sections). The artifact carries **two runs**:
+
+- **`ci`** — measured fresh on every push to `main` by the `benchmarks` CI job
+  (a shared `ubuntu-latest` runner: the conservative, current-commit column).
+- **`dev`** — a committed baseline at `benchmarks/results/dev.json`, measured on
+  quiet hardware. In CI the emitter loads this baseline and merges it, so the
+  page shows both columns. If the CI job is skipped or fails, `assemble.mjs`
+  falls back to this committed baseline so the page still renders the dev column.
+
+Each run records `measuredAtCommit` and `measuredAt`, and the page labels a run
+that lags the commit being served as **"may lag current commit."**
+
+### Regenerating the dev baseline
+
+Run on a quiet machine when an engine change legitimately moves performance:
+
+```bash
+BENCH_SAVE_BASELINE=1 PARITY_DIR=/tmp/pb node scripts/parity/benchmarks.mjs
+git add benchmarks/results/dev.json && git commit -m "benchmarks: refresh dev baseline"
+```
+
+**Staleness policy.** Treat the **CI column as the current-commit truth** — it is
+re-measured on every push to `main`. The **dev column is a periodically-refreshed
+clean-hardware reference**, not a per-commit number. Because every run is stamped
+with the commit it was measured at, a lagging dev column is *labeled* rather than
+silently wrong, so you do **not** need to regenerate it on every perf-affecting
+merge — refresh it after a batch of perf work lands (e.g. once the tracked
+layout/memory fixes are in) or whenever the "may lag" label has drifted far
+enough to be misleading. Do not gate merges on regenerating it.
+
+### Observing a real runner before merging
+
+The `benchmarks` job also runs on `workflow_dispatch`, so you can trigger it on a
+feature branch to watch how a real shared runner handles the corpus (notably the
+500-page ledger) *before* the code is on `main`. Dispatch never deploys Pages
+(that stays `main` + `push` only).
