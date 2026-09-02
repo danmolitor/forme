@@ -209,7 +209,7 @@ async function webMetrics() {
   const base = `http://localhost:${server.address().port}`;
   const modUrl = `${base}/packages/html/pkg-web/forme_pdf_html.js`;
   const wasmUrl = `${base}/packages/html/pkg-web/forme_pdf_html_bg.wasm`;
-  const browser = await puppeteer.launch({ executablePath: CHROME, headless: true, args: ['--no-sandbox', '--js-flags=--max-old-space-size=4096'] });
+  const browser = await P.mod.launch({ headless: true, args: ['--no-sandbox', '--js-flags=--max-old-space-size=4096'], ...P.opts });
   const docs = {};
   for (const d of DOCS) {
     const page = await browser.newPage();

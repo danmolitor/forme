@@ -164,9 +164,9 @@
     {
       "environment": {
         "runner": "dev",
-        "measuredAtCommit": "6e2a348753b4ef074a54cdf8024f0c1a9886a4c1",
-        "measuredAtCommitShort": "6e2a348",
-        "measuredAt": "2026-09-02T13:52:15.984Z",
+        "measuredAtCommit": "2c3656992ea0a2f668e04076b80353e3197569cb",
+        "measuredAtCommitShort": "2c36569",
+        "measuredAt": "2026-09-02T15:57:41.158Z",
         "label": "dev machine (clean hardware, single run)",
         "machine": "Apple M3 Max",
         "arch": "arm64",
@@ -178,24 +178,24 @@
         "chrome": "Google Chrome 152.0.7977.75"
       },
       "node": {
-        "bootMs": 21,
+        "bootMs": 22,
         "docs": {
           "receipt": {
             "pages": 1,
             "passes": 1,
             "warm": {
               "status": "ok",
-              "medianMs": 16,
-              "p95Ms": 17.3,
+              "medianMs": 16.4,
+              "p95Ms": 17.7,
               "iters": 30,
               "pdfBytes": 3577
             },
             "cold": {
               "status": "ok",
-              "totalWallMs": 103,
-              "instantiateMs": 9,
-              "firstRenderMs": 49,
-              "nodeBootMs": 21
+              "totalWallMs": 107,
+              "instantiateMs": 10,
+              "firstRenderMs": 48,
+              "nodeBootMs": 22
             },
             "peakRssMB": 0
           },
@@ -204,17 +204,17 @@
             "passes": 1,
             "warm": {
               "status": "ok",
-              "medianMs": 20.3,
-              "p95Ms": 21,
+              "medianMs": 20.8,
+              "p95Ms": 21.6,
               "iters": 30,
               "pdfBytes": 8479
             },
             "cold": {
               "status": "ok",
-              "totalWallMs": 138,
+              "totalWallMs": 140,
               "instantiateMs": 9,
-              "firstRenderMs": 53,
-              "nodeBootMs": 21
+              "firstRenderMs": 54,
+              "nodeBootMs": 22
             },
             "peakRssMB": 0
           },
@@ -223,17 +223,17 @@
             "passes": 2,
             "warm": {
               "status": "ok",
-              "medianMs": 25.2,
-              "p95Ms": 25.8,
+              "medianMs": 25.9,
+              "p95Ms": 26.6,
               "iters": 30,
               "pdfBytes": 9078
             },
             "cold": {
               "status": "ok",
-              "totalWallMs": 134,
+              "totalWallMs": 140,
               "instantiateMs": 10,
-              "firstRenderMs": 59,
-              "nodeBootMs": 21
+              "firstRenderMs": 61,
+              "nodeBootMs": 22
             },
             "peakRssMB": 0
           },
@@ -242,17 +242,17 @@
             "passes": 1,
             "warm": {
               "status": "ok",
-              "medianMs": 18.9,
-              "p95Ms": 19.9,
+              "medianMs": 19.5,
+              "p95Ms": 20.7,
               "iters": 30,
               "pdfBytes": 5252
             },
             "cold": {
               "status": "ok",
-              "totalWallMs": 133,
-              "instantiateMs": 9,
-              "firstRenderMs": 50,
-              "nodeBootMs": 21
+              "totalWallMs": 138,
+              "instantiateMs": 10,
+              "firstRenderMs": 53,
+              "nodeBootMs": 22
             },
             "peakRssMB": 0
           },
@@ -261,17 +261,17 @@
             "passes": 1,
             "warm": {
               "status": "ok",
-              "medianMs": 520.7,
-              "p95Ms": 521.7,
+              "medianMs": 534.4,
+              "p95Ms": 535.1,
               "iters": 8,
               "pdfBytes": 135584
             },
             "cold": {
               "status": "ok",
-              "totalWallMs": 643,
+              "totalWallMs": 657,
               "instantiateMs": 9,
-              "firstRenderMs": 597,
-              "nodeBootMs": 21
+              "firstRenderMs": 610,
+              "nodeBootMs": 22
             },
             "peakRssMB": 0
           },
@@ -280,17 +280,17 @@
             "passes": 2,
             "warm": {
               "status": "ok",
-              "medianMs": 9658.6,
-              "p95Ms": 9668.6,
+              "medianMs": 9997,
+              "p95Ms": 10030.6,
               "iters": 3,
               "pdfBytes": 1336966
             },
             "cold": {
               "status": "ok",
-              "totalWallMs": 16364,
-              "instantiateMs": 11,
-              "firstRenderMs": 16058,
-              "nodeBootMs": 21
+              "totalWallMs": 18590,
+              "instantiateMs": 12,
+              "firstRenderMs": 18740,
+              "nodeBootMs": 22
             },
             "peakRssMB": 1
           }
@@ -300,45 +300,118 @@
         "docs": {
           "receipt": {
             "pages": 1,
-            "coldMs": 12,
+            "coldMs": 13,
             "peakRssMB": 7
           },
           "report-6p": {
             "pages": 6,
-            "coldMs": 16,
+            "coldMs": 17,
             "peakRssMB": 8
           },
           "letterhead-paged": {
             "pages": 5,
             "coldMs": 21,
-            "peakRssMB": 11
+            "peakRssMB": 12
           },
           "compliance": {
             "pages": 2,
-            "coldMs": 14,
+            "coldMs": 15,
             "peakRssMB": 8
           },
           "invoice-50p": {
             "pages": 50,
-            "coldMs": 418,
-            "peakRssMB": 83
+            "coldMs": 433,
+            "peakRssMB": 92
           },
           "ledger-500p": {
             "pages": 500,
-            "coldMs": 7997,
-            "peakRssMB": 1156
+            "coldMs": 8310,
+            "peakRssMB": 1165
           }
         }
       },
       "web": {
-        "error": "puppeteer is not defined"
+        "docs": {
+          "receipt": {
+            "pages": 1,
+            "status": "ok",
+            "cold": {
+              "fetchMs": 31,
+              "compileInstantiateMs": 4,
+              "firstRenderMs": 41
+            },
+            "wasmLinearMemMB": 7,
+            "passes": 1,
+            "pdfBytes": 3577
+          },
+          "report-6p": {
+            "pages": 6,
+            "status": "ok",
+            "cold": {
+              "fetchMs": 23,
+              "compileInstantiateMs": 4,
+              "firstRenderMs": 49
+            },
+            "wasmLinearMemMB": 8,
+            "passes": 1,
+            "pdfBytes": 8479
+          },
+          "letterhead-paged": {
+            "pages": 5,
+            "status": "ok",
+            "cold": {
+              "fetchMs": 26,
+              "compileInstantiateMs": 4,
+              "firstRenderMs": 54
+            },
+            "wasmLinearMemMB": 10,
+            "passes": 2,
+            "pdfBytes": 9078
+          },
+          "compliance": {
+            "pages": 2,
+            "status": "ok",
+            "cold": {
+              "fetchMs": 28,
+              "compileInstantiateMs": 4,
+              "firstRenderMs": 46
+            },
+            "wasmLinearMemMB": 7,
+            "passes": 1,
+            "pdfBytes": 5252
+          },
+          "invoice-50p": {
+            "pages": 50,
+            "status": "ok",
+            "cold": {
+              "fetchMs": 28,
+              "compileInstantiateMs": 4,
+              "firstRenderMs": 572
+            },
+            "wasmLinearMemMB": 62,
+            "passes": 1,
+            "pdfBytes": 135584
+          },
+          "ledger-500p": {
+            "pages": 500,
+            "status": "ok",
+            "cold": {
+              "fetchMs": 55,
+              "compileInstantiateMs": 4,
+              "firstRenderMs": 11286
+            },
+            "wasmLinearMemMB": 887,
+            "passes": 2,
+            "pdfBytes": 1336966
+          }
+        }
       },
       "workerd": {
         "coldStart": {
-          "wallMs": 81,
-          "instantiateMs": 2,
+          "wallMs": 80,
+          "instantiateMs": 1,
           "firstRenderMs": 56,
-          "edgeEstimateMs": 63,
+          "edgeEstimateMs": 62,
           "caveat": "miniflare runs a workerd subprocess whose routing overhead the real edge does not pay; wall time OVERSTATES production cold start (true edge isolate spin-up ~5ms). Instantiate/render split is accurate. Real production cold start needs a deployment (out of scope)."
         },
         "docs": {
@@ -346,7 +419,7 @@
             "pages": 1,
             "warm": {
               "status": "ok",
-              "medianMs": 21,
+              "medianMs": 20,
               "iters": 10
             },
             "passes": 1
@@ -364,7 +437,7 @@
             "pages": 5,
             "warm": {
               "status": "ok",
-              "medianMs": 29,
+              "medianMs": 30,
               "iters": 10
             },
             "passes": 2
@@ -373,7 +446,7 @@
             "pages": 2,
             "warm": {
               "status": "ok",
-              "medianMs": 22,
+              "medianMs": 23,
               "iters": 10
             },
             "passes": 1
@@ -382,7 +455,7 @@
             "pages": 50,
             "warm": {
               "status": "ok",
-              "medianMs": 552,
+              "medianMs": 574,
               "iters": 8
             },
             "passes": 1
@@ -391,7 +464,7 @@
             "pages": 500,
             "warm": {
               "status": "ok",
-              "medianMs": 14739,
+              "medianMs": 14987,
               "iters": 1
             },
             "passes": 2
@@ -400,9 +473,9 @@
       },
       "puppeteer": {
         "coldStart": {
-          "launchMs": 457,
-          "firstRenderMs": 54,
-          "totalMs": 511,
+          "launchMs": 363,
+          "firstRenderMs": 56,
+          "totalMs": 419,
           "coldServerlessNote": "On real serverless, cold Chrome is 3-10s, and on many consumption tiers a browser cannot boot at all."
         },
         "docs": {
@@ -437,7 +510,7 @@
             "pages": 2,
             "warm": {
               "status": "ok",
-              "medianMs": 48,
+              "medianMs": 50,
               "iters": 5,
               "pdfBytes": 67974
             }
@@ -446,7 +519,7 @@
             "pages": 50,
             "warm": {
               "status": "ok",
-              "medianMs": 224,
+              "medianMs": 222,
               "iters": 5,
               "pdfBytes": 1992903
             }
@@ -455,7 +528,7 @@
             "pages": 500,
             "warm": {
               "status": "ok",
-              "medianMs": 2604,
+              "medianMs": 2706,
               "iters": 1,
               "pdfBytes": 20069686
             }
