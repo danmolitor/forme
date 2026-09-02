@@ -32,3 +32,16 @@ wasm = ["wasm-bindgen", "getrandom", "forme-pdf/wasm"]
 [[bin]]
 name = "forme-html"
 path = "src/main.rs"
+
+[dev-dependencies]
+# Heap profiler for the allocation-churn investigation (Fix 3). Attributes
+# every allocation to a call-site backtrace so we can rank sites by count and
+# bytes. Run via `cargo run --release --example dhatprofile`.
+dhat = "0.3"
+
+# dhat backtraces need line info; without it every site collapses to the same
+# frame. `debug = 1` (line tables) keeps release optimizations but restores
+# attribution. Applies only to builds rooted in this crate (examples/bin),
+# not to the published library.
+[profile.release]
+debug = 1
