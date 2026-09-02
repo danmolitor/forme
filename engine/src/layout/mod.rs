@@ -37,6 +37,7 @@ pub mod page_break;
 
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use serde::Serialize;
 
@@ -838,7 +839,12 @@ pub struct PositionedGlyph {
     /// Actual advance width of this glyph in points (from shaping or font metrics).
     pub x_advance: f64,
     pub font_size: f64,
-    pub font_family: String,
+    /// Shared font family. `Arc<str>` (not `String`) so cloning a glyph — which
+    /// happens millions of times per large doc via TextLine/subtree clones and
+    /// measure trial-layouts — is a refcount bump, not a heap allocation. dhat
+    /// flagged this field's per-glyph `String` clone as the #1 site by count
+    /// (~29% of all allocations). See benchmarks/harness/dhat-top.mjs.
+    pub font_family: Arc<str>,
     pub font_weight: u32,
     pub font_style: FontStyle,
     /// The character this glyph represents. For ligatures, the first char of the cluster.
@@ -4425,7 +4431,7 @@ impl LayoutEngine {
                                     y_offset: glyph_y,
                                     x_advance: advance,
                                     font_size: style.font_size,
-                                    font_family: resolved_family.clone(),
+                                    font_family: Arc::from(resolved_family.as_str()),
                                     font_weight: style.font_weight,
                                     font_style: style.font_style,
                                     char_value,
@@ -4460,7 +4466,7 @@ impl LayoutEngine {
                             y_offset: 0.0,
                             x_advance: advance,
                             font_size: style.font_size,
-                            font_family: resolved_family.clone(),
+                            font_family: Arc::from(resolved_family.as_str()),
                             font_weight: style.font_weight,
                             font_style: style.font_style,
                             char_value: ch,
@@ -4533,7 +4539,7 @@ impl LayoutEngine {
                                 y_offset: glyph_y,
                                 x_advance: advance,
                                 font_size: style.font_size,
-                                font_family: style.font_family.clone(),
+                                font_family: Arc::from(style.font_family.as_str()),
                                 font_weight: style.font_weight,
                                 font_style: style.font_style,
                                 char_value,
@@ -4599,7 +4605,7 @@ impl LayoutEngine {
                     y_offset: 0.0,
                     x_advance: char_width,
                     font_size: style.font_size,
-                    font_family: style.font_family.clone(),
+                    font_family: Arc::from(style.font_family.as_str()),
                     font_weight: style.font_weight,
                     font_style: style.font_style,
                     char_value: *ch,
@@ -4745,8 +4751,9 @@ impl LayoutEngine {
                         scale,
                     );
                     // Override font_family to the resolved single family
+                    let resolved_family_arc: Arc<str> = Arc::from(resolved_family.as_str());
                     for g in &mut run_glyphs {
-                        g.font_family = resolved_family.clone();
+                        g.font_family = resolved_family_arc.clone();
                     }
                     // Track BiDi levels for each glyph
                     let run_level = if is_rtl {
@@ -4778,7 +4785,7 @@ impl LayoutEngine {
                 y_offset: 0.0,
                 x_advance: char_width,
                 font_size: sc.font_size,
-                font_family: resolved_family.clone(),
+                font_family: Arc::from(resolved_family.as_str()),
                 font_weight: sc.font_weight,
                 font_style: sc.font_style,
                 char_value: sc.ch,
@@ -4854,7 +4861,7 @@ impl LayoutEngine {
                 y_offset: glyph_y,
                 x_advance: advance,
                 font_size,
-                font_family: font_family.to_string(),
+                font_family: Arc::from(font_family),
                 font_weight,
                 font_style,
                 char_value,
@@ -4911,7 +4918,7 @@ impl LayoutEngine {
                 y_offset: glyph_y,
                 x_advance: advance,
                 font_size: sc.font_size,
-                font_family: sc.font_family.clone(),
+                font_family: Arc::from(sc.font_family.as_str()),
                 font_weight: sc.font_weight,
                 font_style: sc.font_style,
                 char_value,
@@ -6326,7 +6333,7 @@ impl LayoutEngine {
                                     y_offset: 0.0,
                                     x_advance: advance,
                                     font_size: *font_size,
-                                    font_family: style.font_family.clone(),
+                                    font_family: Arc::from(style.font_family.as_str()),
                                     font_weight: style.font_weight,
                                     font_style: style.font_style,
                                     color: Some(color),
@@ -6354,7 +6361,7 @@ impl LayoutEngine {
                                     y_offset: 0.0,
                                     x_advance: w,
                                     font_size: *font_size,
-                                    font_family: style.font_family.clone(),
+                                    font_family: Arc::from(style.font_family.as_str()),
                                     font_weight: style.font_weight,
                                     font_style: style.font_style,
                                     color: Some(color),

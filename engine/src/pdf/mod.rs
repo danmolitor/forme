@@ -1538,7 +1538,7 @@ impl PdfWriter {
                         let italic =
                             matches!(first.font_style, FontStyle::Italic | FontStyle::Oblique);
                         let font_key = FontKey {
-                            family: first.font_family.clone(),
+                            family: first.font_family.to_string(),
                             weight: first.font_weight,
                             italic,
                         };
@@ -1967,7 +1967,7 @@ impl PdfWriter {
                         let italic =
                             matches!(first.font_style, FontStyle::Italic | FontStyle::Oblique);
                         let fk = FontKey {
-                            family: first.font_family.clone(),
+                            family: first.font_family.to_string(),
                             weight: first.font_weight,
                             italic,
                         };
@@ -2753,7 +2753,7 @@ impl PdfWriter {
                         let italic =
                             matches!(glyph.font_style, FontStyle::Italic | FontStyle::Oblique);
                         let key = FontKey {
-                            family: glyph.font_family.clone(),
+                            family: glyph.font_family.to_string(),
                             weight: glyph.font_weight,
                             italic,
                         };
@@ -4480,7 +4480,7 @@ mod tests {
                                 y_offset: 0.0,
                                 x_advance: 8.0,
                                 font_size: 12.0,
-                                font_family: "Helvetica".to_string(),
+                                font_family: "Helvetica".into(),
                                 font_weight: 400,
                                 font_style: FontStyle::Normal,
                                 char_value: 'A',
@@ -4525,7 +4525,7 @@ mod tests {
                                 y_offset: 0.0,
                                 x_advance: 8.0,
                                 font_size: 12.0,
-                                font_family: "Helvetica".to_string(),
+                                font_family: "Helvetica".into(),
                                 font_weight: 700,
                                 font_style: FontStyle::Normal,
                                 char_value: 'A',
@@ -4695,7 +4695,7 @@ mod tests {
                             y_offset: 0.0,
                             x_advance: 8.0,
                             font_size: 12.0,
-                            font_family: "Helvetica".to_string(),
+                            font_family: "Helvetica".into(),
                             font_weight: 400,
                             font_style: FontStyle::Normal,
                             char_value: 'H',
