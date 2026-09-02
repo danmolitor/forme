@@ -143,7 +143,7 @@ Both approaches produce the same result. Forme uses template placeholders instea
 
 3. **Dev server.** `forme dev` gives you live preview with debug overlays and click-to-inspect. react-pdf requires rendering to a file and opening it manually.
 
-4. **Speed.** Forme's Rust/WASM engine renders in milliseconds. react-pdf is typically 5-10x slower for complex documents.
+4. **Speed.** Forme's Rust/WASM engine renders typical documents in roughly 15-25ms and cold-starts in tens of milliseconds; see the measured [benchmarks](https://parity.formepdf.com/#benchmarks). (We benchmark against Puppeteer on identical HTML; we have not run a controlled react-pdf comparison, so we don't quote a multiplier.)
 
 5. **Dependencies.** Forme is a single WASM binary with no native dependencies. react-pdf depends on yoga-layout (native binary).
 

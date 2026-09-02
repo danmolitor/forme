@@ -373,7 +373,7 @@ The container is a pure render server: PDF in/out over HTTP, stateless, nothing 
 |--|-----------|-------------------|
 | Dependencies | Chromium + LibreOffice | None |
 | Image size | ~1GB | ~50MB |
-| Cold start | 2-5s | under 100ms |
+| Cold start | 2-5s | ~60ms (edge isolate) / ~110ms (Node) |
 | Input | HTML, Markdown, Office docs | JSX templates (compiled to JSON) |
 | Page breaks | Chromium-dependent | Engine-native |
 | AcroForms | No | Yes |
