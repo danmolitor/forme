@@ -5,16 +5,21 @@
 //
 // Measured live per run (reproducible, stamped): cold start + warm render +
 // peak memory + output size across native / node / web / workerd, plus a
-// Puppeteer baseline on the identical HTML. Failures and ceilings are recorded
-// values, not omissions. NOT a CI gate — emit and publish only.
+// Puppeteer baseline on the identical HTML. NOT a CI gate — emit and publish.
 //
-// A few inputs are recorded analysis from controlled one-off experiments that
-// can't be re-run cheaply each emit (they need a pre-fix rebuild or a
-// profiling binary); each is tagged with `method` so its provenance is explicit:
-//   - sentinel before/after  (A/B against a pre-fix HEAD~1 build)
-//   - whereWeLose profile     (FORME_PROFILE phase timing + allocation profiler)
+// TWO RUNS. environment.runner is 'dev' (clean hardware) or 'ci' (conservative
+// shared runner). A dev baseline is committed at benchmarks/results/dev.json;
+// in CI the emitter measures the 'ci' run and merges the committed dev run so
+// the artifact carries `runs: [dev, ci]`. If a target/document fails, times
+// out, or the runner can't fit it, that is a recorded status — never a crash
+// or a silent omission; the parent isolates heavy renders in child processes so
+// an OOM kills the child, not the emitter.
+//
+// Recorded analysis (machine-independent, tagged with `method`): the sentinel
+// before/after A/B and the whereWeLose profile — they need a pre-fix rebuild or
+// a profiling binary and are not re-measured each run.
 
-import { readFileSync, statSync } from 'node:fs';
+import { readFileSync, existsSync, writeFileSync, statSync } from 'node:fs';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createServer } from 'node:http';
 import { extname, join, dirname } from 'node:path';
@@ -25,30 +30,68 @@ import { emitSection } from './lib.mjs';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, '..', '..');
 const CORPUS = join(REPO, 'benchmarks', 'corpus');
+const HARNESS = join(REPO, 'benchmarks', 'harness');
 const NATIVE = join(REPO, 'html', 'target', 'release', 'forme-html');
-const COLDRENDER = join(REPO, 'benchmarks', 'harness', 'coldrender.mjs');
+const BASELINE = join(REPO, 'benchmarks', 'results', 'dev.json');
 const CHROME = process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+const CI = !!process.env.CI;
 
+// Per-document plan. Iteration counts scale down on CI (published per cell, so a
+// smaller count is honest, not hidden). Timeouts are explicit per document — a
+// slow large-document render on a shared runner records "did not complete"
+// rather than hanging the job.
 const DOCS = [
-  { file: 'receipt', pages: 1, iters: 30 },
-  { file: 'report-6p', pages: 6, iters: 30 },
-  { file: 'letterhead-paged', pages: 5, iters: 30 },
-  { file: 'compliance', pages: 2, iters: 30 },
-  { file: 'invoice-50p', pages: 50, iters: 8 },
-  { file: 'ledger-500p', pages: 500, iters: 3 },
+  { file: 'receipt', pages: 1, devIters: 30, ciIters: 12, timeoutMs: 60_000 },
+  { file: 'report-6p', pages: 6, devIters: 30, ciIters: 12, timeoutMs: 60_000 },
+  { file: 'letterhead-paged', pages: 5, devIters: 30, ciIters: 12, timeoutMs: 60_000 },
+  { file: 'compliance', pages: 2, devIters: 30, ciIters: 12, timeoutMs: 60_000 },
+  { file: 'invoice-50p', pages: 50, devIters: 8, ciIters: 3, timeoutMs: 120_000 },
+  { file: 'ledger-500p', pages: 500, devIters: 3, ciIters: 1, timeoutMs: 300_000 },
 ];
+const itersFor = (d) => (CI ? d.ciIters : d.devIters);
+
+// Prefer full `puppeteer` (bundled Chromium — what CI installs) and fall back to
+// `puppeteer-core` + a system Chrome path (the dev machine). Returns null if
+// neither is available, so the browser-based targets record "unavailable".
+let _pptr;
+async function getPuppeteer() {
+  if (_pptr !== undefined) return _pptr;
+  try { _pptr = { mod: (await import('puppeteer')).default, opts: {} }; return _pptr; } catch { /* try core */ }
+  try { _pptr = { mod: (await import('puppeteer-core')).default, opts: { executablePath: CHROME } }; return _pptr; } catch { /* none */ }
+  _pptr = null; return _pptr;
+}
 const readDoc = (f) => readFileSync(join(CORPUS, `${f}.html`), 'utf8');
+const round = (x, d = 0) => (x == null || Number.isNaN(x) ? null : Number(x.toFixed(d)));
 const median = (a) => { const s = [...a].sort((x, y) => x - y); return s[Math.floor(s.length / 2)]; };
-const p95 = (a) => { const s = [...a].sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.floor(s.length * 0.95))]; };
-const pagesOf = (b) => (new TextDecoder('latin1').decode(b).match(/\/Type\s*\/Page(?!s)/g) || []).length;
-const round = (x, d = 0) => (x == null ? null : Number(x.toFixed(d)));
+
+const TIMEOUT = Symbol('timeout');
+function withTimeout(promise, ms) {
+  let t;
+  const timer = new Promise((res) => { t = setTimeout(() => res(TIMEOUT), ms); });
+  return Promise.race([Promise.resolve(promise).then((v) => { clearTimeout(t); return v; }, (e) => { clearTimeout(t); throw e; }), timer]);
+}
+// Run a child that prints one JSON line; classify timeout / OOM-kill / error.
+function spawnJson(cmd, args, timeoutMs) {
+  const s = performance.now();
+  const r = spawnSync(cmd, args, { encoding: 'utf8', timeout: timeoutMs, maxBuffer: 256 * 1024 * 1024, killSignal: 'SIGKILL' });
+  const wall = performance.now() - s;
+  if (r.signal || (r.error && r.error.code === 'ETIMEDOUT')) {
+    return wall >= timeoutMs * 0.9
+      ? { status: 'timeout', limitMs: timeoutMs }
+      : { status: 'killed', note: 'process killed before timeout — likely out of memory on this runner' };
+  }
+  if (r.status !== 0) return { status: 'error', detail: (r.stderr || '').trim().split('\n').pop()?.slice(0, 140) || `exit ${r.status}` };
+  try { return { status: 'ok', ...JSON.parse((r.stdout || '').trim()) }; }
+  catch { return { status: 'error', detail: 'unparseable child output' }; }
+}
 
 // ── environment ──────────────────────────────────────────────────────────────
 function environment() {
   const cargo = (() => { try { return execFileSync('cargo', ['--version'], { encoding: 'utf8' }).split(' ')[1]; } catch { return null; } })();
   const chrome = (() => { try { return execFileSync(CHROME, ['--version'], { encoding: 'utf8' }).trim(); } catch { return null; } })();
   return {
-    runner: process.env.CI ? 'ci' : 'dev',
+    runner: CI ? 'ci' : 'dev',
+    label: CI ? 'CI ubuntu-latest (conservative shared runner)' : 'dev machine (clean hardware, single run)',
     machine: os.cpus()[0]?.model ?? 'unknown',
     arch: os.arch(),
     cpus: os.cpus().length,
@@ -57,76 +100,68 @@ function environment() {
     node: process.version,
     cargo,
     chrome,
-    note: 'CI ubuntu-latest is a shared, noisy runner and understates the engine; the dev-machine column is a quiet single environment. Both are published; neither is cherry-picked.',
   };
 }
 
-// ── corpus manifest ──────────────────────────────────────────────────────────
-function corpus() {
-  const m = JSON.parse(readFileSync(join(CORPUS, 'manifest.json'), 'utf8'));
-  return { fixed: true, hashChecked: true, generator: 'benchmarks/corpus/generate.mjs', documents: m.documents };
-}
-
-// ── node warm + cold + rss ───────────────────────────────────────────────────
-async function nodeMetrics() {
-  const { renderHtml } = await import('@formepdf/html');
-  const bootMs = (() => { const t = []; for (let i = 0; i < 10; i++) { const s = performance.now(); spawnSync('node', ['-e', '']); t.push(performance.now() - s); } return median(t); })();
-  const out = {};
-  for (const { file, pages, iters } of DOCS) {
-    const html = readDoc(file);
-    for (let w = 0; w < 3; w++) renderHtml(html, {}); // warm
-    const t = []; let r;
-    for (let i = 0; i < iters; i++) { const s = performance.now(); r = renderHtml(html, {}); t.push(performance.now() - s); }
-    // cold: fresh process
-    const cr = spawnSync('node', [COLDRENDER, join(CORPUS, `${file}.html`)], { encoding: 'utf8' });
-    const cm = /instantiate=(\d+) render=(\d+) passes=(\d+)/.exec(cr.stdout || '') || [];
-    const cs = performance.now();
-    const cw = spawnSync('node', [COLDRENDER, join(CORPUS, `${file}.html`)], { encoding: 'utf8' });
-    const coldWall = performance.now() - cs; void cw;
-    // peak process RSS via /usr/bin/time -l (macOS) / -v (linux)
-    let rssMB = null;
-    try {
-      const tv = spawnSync('/usr/bin/time', ['-l', 'node', COLDRENDER, join(CORPUS, `${file}.html`)], { encoding: 'utf8' });
-      const mac = /(\d+)\s+maximum resident set size/.exec(tv.stderr || '');
-      const lin = /Maximum resident set size \(kbytes\): (\d+)/.exec(tv.stderr || '');
-      rssMB = mac ? round(Number(mac[1]) / 1024 ** 2) : lin ? round(Number(lin[1]) / 1024) : null;
-    } catch { /* gap */ }
-    out[file] = {
-      pages: pagesOf(r.pdf) || pages,
-      passes: r.passes,
-      warm: { medianMs: round(median(t), 1), p95Ms: round(p95(t), 1), iters, pdfBytes: r.pdf.length },
-      cold: { totalWallMs: round(coldWall), instantiateMs: cm[1] ? Number(cm[1]) : null, firstRenderMs: cm[2] ? Number(cm[2]) : null, nodeBootMs: round(bootMs) },
-      peakRssMB: rssMB,
+// ── node: warm (isolated child) + cold (fresh process) ───────────────────────
+function nodeMetrics() {
+  const bootMs = (() => { const t = []; for (let i = 0; i < 8; i++) { const s = performance.now(); spawnSync('node', ['-e', '']); t.push(performance.now() - s); } return median(t); })();
+  const docs = {};
+  for (const d of DOCS) {
+    const docPath = join(CORPUS, `${d.file}.html`);
+    const warm = spawnJson('node', [join(HARNESS, 'warmrender.mjs'), docPath, String(itersFor(d))], d.timeoutMs);
+    const cr = spawnJson('node', [join(HARNESS, 'coldrender.mjs'), docPath], d.timeoutMs);
+    const s = performance.now();
+    const cw = spawnSync('node', [join(HARNESS, 'coldrender.mjs'), docPath], { encoding: 'utf8', timeout: d.timeoutMs });
+    const coldWall = cw.status === 0 ? performance.now() - s : null;
+    docs[d.file] = {
+      pages: warm.status === 'ok' ? warm.pages : d.pages,
+      passes: warm.status === 'ok' ? warm.passes : null,
+      warm: warm.status === 'ok'
+        ? { status: 'ok', medianMs: round(warm.medianMs, 1), p95Ms: round(warm.p95Ms, 1), iters: warm.iters, pdfBytes: warm.pdfBytes }
+        : warm,
+      cold: cr.status === 'ok'
+        ? { status: 'ok', totalWallMs: round(coldWall), instantiateMs: cr.instantiate ?? null, firstRenderMs: cr.render ?? null, nodeBootMs: round(bootMs) }
+        : cr,
+      peakRssMB: warm.status === 'ok' ? warm.maxRssMB ?? null : null,
     };
   }
-  return { bootMs: round(bootMs), docs: out };
+  return { bootMs: round(bootMs), docs };
 }
 
-// ── native cold + rss ────────────────────────────────────────────────────────
+// ── native: cold (fresh exec) + peak RSS via /usr/bin/time when available ────
 function nativeMetrics() {
-  const out = {};
-  for (const { file, pages } of DOCS) {
-    const path = join(CORPUS, `${file}.html`);
-    const t = [];
-    for (let i = 0; i < 12; i++) { const s = performance.now(); spawnSync(NATIVE, [path, '-o', '/tmp/_b.pdf', '-q']); t.push(performance.now() - s); }
+  if (!existsSync(NATIVE)) return { unavailable: 'native binary not built (html/target/release/forme-html)' };
+  const docs = {};
+  for (const d of DOCS) {
+    const path = join(CORPUS, `${d.file}.html`);
+    const t = []; let ok = true;
+    for (let i = 0; i < Math.min(12, itersFor(d) + 6); i++) {
+      const s = performance.now();
+      const r = spawnSync(NATIVE, [path, '-o', '/tmp/_b.pdf', '-q'], { timeout: d.timeoutMs, killSignal: 'SIGKILL' });
+      if (r.status !== 0) { ok = false; break; }
+      t.push(performance.now() - s);
+    }
     let rssMB = null;
     try {
-      const tv = spawnSync('/usr/bin/time', ['-l', NATIVE, path, '-o', '/tmp/_b.pdf', '-q'], { encoding: 'utf8' });
+      const tv = spawnSync('/usr/bin/time', ['-l', NATIVE, path, '-o', '/tmp/_b.pdf', '-q'], { encoding: 'utf8', timeout: d.timeoutMs });
       const mac = /(\d+)\s+maximum resident set size/.exec(tv.stderr || '');
       const lin = /Maximum resident set size \(kbytes\): (\d+)/.exec(tv.stderr || '');
       rssMB = mac ? round(Number(mac[1]) / 1024 ** 2) : lin ? round(Number(lin[1]) / 1024) : null;
-    } catch { /* gap */ }
-    out[file] = { pages, coldMs: round(median(t)), peakRssMB: rssMB };
+    } catch { /* /usr/bin/time absent on some runners — recorded as null */ }
+    docs[d.file] = ok
+      ? { pages: d.pages, coldMs: round(median(t)), peakRssMB: rssMB }
+      : { pages: d.pages, status: 'error', detail: 'native render failed or timed out' };
   }
-  return out;
+  return { docs };
 }
 
-// ── puppeteer baseline (cold + warm, browser reused) ─────────────────────────
+// ── puppeteer baseline: cold + warm (browser reused), per-doc timeout ────────
 async function puppeteerMetrics() {
-  let puppeteer;
-  try { puppeteer = (await import('puppeteer-core')).default; } catch { return { unavailable: 'puppeteer-core not installed' }; }
+  const P = await getPuppeteer();
+  if (!P) return { unavailable: 'no puppeteer / puppeteer-core available' };
   const tL0 = performance.now();
-  const browser = await puppeteer.launch({ executablePath: CHROME, headless: true, args: ['--no-sandbox'] });
+  const browser = await P.mod.launch({ headless: true, args: ['--no-sandbox'], ...P.opts });
   const launchMs = performance.now() - tL0;
   const page = await browser.newPage();
   const tR0 = performance.now();
@@ -134,24 +169,28 @@ async function puppeteerMetrics() {
   await page.pdf({ preferCSSPageSize: true });
   const firstRenderMs = performance.now() - tR0;
   const docs = {};
-  for (const { file, pages, iters } of DOCS) {
-    const html = readDoc(file);
-    const it = Math.max(1, Math.min(iters, file === 'ledger-500p' ? 1 : 5));
-    const t = []; let size = 0;
-    for (let i = 0; i < it; i++) { const s = performance.now(); await page.setContent(html, { waitUntil: 'load' }); const pdf = await page.pdf({ preferCSSPageSize: true }); t.push(performance.now() - s); size = pdf.length; }
-    docs[file] = { pages, warm: { medianMs: round(median(t)), iters: it, pdfBytes: size } };
+  for (const d of DOCS) {
+    const html = readDoc(d.file);
+    const it = Math.max(1, Math.min(itersFor(d), d.file === 'ledger-500p' ? 1 : 5));
+    try {
+      const res = await withTimeout((async () => {
+        const t = []; let size = 0;
+        for (let i = 0; i < it; i++) { const s = performance.now(); await page.setContent(html, { waitUntil: 'load' }); const pdf = await page.pdf({ preferCSSPageSize: true }); t.push(performance.now() - s); size = pdf.length; }
+        return { medianMs: round(median(t)), iters: it, pdfBytes: size };
+      })(), d.timeoutMs);
+      docs[d.file] = res === TIMEOUT ? { pages: d.pages, warm: { status: 'timeout', limitMs: d.timeoutMs } } : { pages: d.pages, warm: { status: 'ok', ...res } };
+    } catch (e) {
+      docs[d.file] = { pages: d.pages, warm: { status: 'error', detail: String(e.message).split('\n')[0].slice(0, 100) } };
+    }
   }
   await browser.close();
-  return {
-    coldStart: { launchMs: round(launchMs), firstRenderMs: round(firstRenderMs), totalMs: round(launchMs + firstRenderMs), coldServerlessNote: 'On real serverless, cold Chrome is 3–10s, and on many consumption tiers a browser cannot boot at all.' },
-    docs,
-  };
+  return { coldStart: { launchMs: round(launchMs), firstRenderMs: round(firstRenderMs), totalMs: round(launchMs + firstRenderMs), coldServerlessNote: 'On real serverless, cold Chrome is 3-10s, and on many consumption tiers a browser cannot boot at all.' }, docs };
 }
 
-// ── web WASM: cold-start decomposition + peak WASM linear memory ─────────────
+// ── web WASM: cold decomposition + peak WASM linear memory (fresh isolate) ───
 async function webMetrics() {
-  let puppeteer;
-  try { puppeteer = (await import('puppeteer-core')).default; } catch { return { unavailable: 'puppeteer-core not installed' }; }
+  const P = await getPuppeteer();
+  if (!P) return { unavailable: 'no puppeteer / puppeteer-core available' };
   const MIME = { '.js': 'text/javascript', '.wasm': 'application/wasm', '.html': 'text/html' };
   const server = createServer((req, res) => {
     if (req.url === '/blank') { res.setHeader('content-type', 'text/html'); return res.end('<!doctype html><meta charset=utf-8>'); }
@@ -164,11 +203,11 @@ async function webMetrics() {
   const wasmUrl = `${base}/packages/html/pkg-web/forme_pdf_html_bg.wasm`;
   const browser = await puppeteer.launch({ executablePath: CHROME, headless: true, args: ['--no-sandbox', '--js-flags=--max-old-space-size=4096'] });
   const docs = {};
-  for (const { file, pages } of DOCS) {
+  for (const d of DOCS) {
     const page = await browser.newPage();
-    await page.goto(`${base}/blank`);
     try {
-      const r = await page.evaluate(async (modUrl, wasmUrl, docUrl) => {
+      await page.goto(`${base}/blank`);
+      const res = await withTimeout(page.evaluate(async (modUrl, wasmUrl, docUrl) => {
         const t0 = performance.now();
         const bytes = await (await fetch(wasmUrl)).arrayBuffer();
         const tFetch = performance.now() - t0;
@@ -178,43 +217,73 @@ async function webMetrics() {
         const tInst = performance.now() - t1;
         const html = await (await fetch(docUrl)).text();
         const t2 = performance.now();
-        const res = mod.render_html_wasm(html, '{}');
+        const r = mod.render_html_wasm(html, '{}');
         const tRender = performance.now() - t2;
-        const pdfLen = res.pdf.length, passes = res.passes; res.free();
-        return { tFetch, tInst, tRender, passes, memMB: wexports.memory.buffer.byteLength / 1048576, pdfLen };
-      }, modUrl, wasmUrl, `${base}/benchmarks/corpus/${file}.html`);
-      docs[file] = { pages, cold: { fetchMs: round(r.tFetch), compileInstantiateMs: round(r.tInst), firstRenderMs: round(r.tRender) }, wasmLinearMemMB: round(r.memMB), passes: r.passes, pdfBytes: r.pdfLen };
-    } catch (e) { docs[file] = { pages, error: String(e.message).split('\n')[0].slice(0, 80) }; }
-    await page.close();
+        const out = { tFetch, tInst, tRender, passes: r.passes, memMB: wexports.memory.buffer.byteLength / 1048576, pdfLen: r.pdf.length };
+        r.free();
+        return out;
+      }, modUrl, wasmUrl, `${base}/benchmarks/corpus/${d.file}.html`), d.timeoutMs);
+      docs[d.file] = res === TIMEOUT
+        ? { pages: d.pages, status: 'timeout', limitMs: d.timeoutMs }
+        : { pages: d.pages, status: 'ok', cold: { fetchMs: round(res.tFetch), compileInstantiateMs: round(res.tInst), firstRenderMs: round(res.tRender) }, wasmLinearMemMB: round(res.memMB), passes: res.passes, pdfBytes: res.pdfLen };
+    } catch (e) {
+      docs[d.file] = { pages: d.pages, status: 'error', detail: String(e.message).split('\n')[0].slice(0, 100) };
+    }
+    await page.close().catch(() => {});
   }
   await browser.close(); server.close();
-  return docs;
+  return { docs };
 }
 
 // ── workerd via miniflare: cold (fresh isolate first request) + warm ─────────
 async function workerdMetrics() {
   let Miniflare;
   try { ({ Miniflare } = await import('miniflare')); } catch { return { unavailable: 'miniflare not installed' }; }
-  const { mkdirSync, copyFileSync, writeFileSync } = await import('node:fs');
-  const WK = join(REPO, 'benchmarks', 'harness', '_wk');
+  const { mkdirSync, copyFileSync } = await import('node:fs');
+  const WK = join(HARNESS, '_wk');
   mkdirSync(WK, { recursive: true });
   for (const f of ['forme_pdf_html.js', 'forme_pdf_html_bg.wasm']) copyFileSync(join(REPO, 'packages/html/pkg-web', f), join(WK, f));
   writeFileSync(join(WK, 'entry.mjs'), `import initWasm, { render_html_wasm } from './forme_pdf_html.js';\nimport wasm from './forme_pdf_html_bg.wasm';\nlet ready=false;\nexport default { async fetch(req){ const t0=Date.now(); if(!ready){await initWasm({module_or_path:wasm});ready=true;} const tInit=Date.now()-t0; const html=await req.text(); const t1=Date.now(); const r=render_html_wasm(html,'{}'); const tRender=Date.now()-t1; const passes=r.passes; r.free(); return new Response(JSON.stringify({tInit,tRender,passes}),{headers:{'content-type':'application/json'}}); } };\n`);
   const mkMf = () => new Miniflare({ scriptPath: join(WK, 'entry.mjs'), modules: true, modulesRules: [{ type: 'ESModule', include: ['**/*.js', '**/*.mjs'] }, { type: 'CompiledWasm', include: ['**/*.wasm'] }], compatibilityDate: '2024-09-01' });
-  const cold = {};
-  { const mf = mkMf(); await mf.ready; const t0 = performance.now(); const res = await mf.dispatchFetch('http://x/', { method: 'POST', body: readDoc('receipt') }); const b = await res.json(); Object.assign(cold, { wallMs: round(performance.now() - t0), instantiateMs: b.tInit, firstRenderMs: b.tRender, edgeEstimateMs: b.tInit + b.tRender + 5, caveat: 'miniflare runs a workerd subprocess whose routing overhead the real edge does not pay; wall time OVERSTATES production cold start (true edge isolate spin-up ~5ms). Instantiate/render split is accurate. Real production cold start needs a deployment (out of scope).' }); await mf.dispose(); }
-  const mf = mkMf(); await mf.ready; await mf.dispatchFetch('http://x/', { method: 'POST', body: readDoc('receipt') });
+  let coldStart;
+  try {
+    const mf = mkMf(); await mf.ready;
+    const t0 = performance.now();
+    const b = await withTimeout(mf.dispatchFetch('http://x/', { method: 'POST', body: readDoc('receipt') }).then((r) => r.json()), 60_000);
+    coldStart = b === TIMEOUT ? { status: 'timeout' } : { wallMs: round(performance.now() - t0), instantiateMs: b.tInit, firstRenderMs: b.tRender, edgeEstimateMs: b.tInit + b.tRender + 5, caveat: 'miniflare runs a workerd subprocess whose routing overhead the real edge does not pay; wall time OVERSTATES production cold start (true edge isolate spin-up ~5ms). Instantiate/render split is accurate. Real production cold start needs a deployment (out of scope).' };
+    await mf.dispose();
+  } catch (e) { coldStart = { status: 'error', detail: String(e.message).split('\n')[0].slice(0, 100) }; }
+  const mf = mkMf(); await mf.ready;
+  await mf.dispatchFetch('http://x/', { method: 'POST', body: readDoc('receipt') }).catch(() => {});
   const docs = {};
-  for (const { file, pages } of DOCS) {
-    const it = file === 'ledger-500p' ? 1 : (pages > 40 ? 4 : 12);
-    try { const rt = []; let passes = 0; for (let i = 0; i < it; i++) { const res = await mf.dispatchFetch('http://x/', { method: 'POST', body: readDoc(file) }); const b = await res.json(); rt.push(b.tRender); passes = b.passes; } docs[file] = { pages, warm: { medianMs: round(median(rt)), iters: it }, passes }; }
-    catch (e) { docs[file] = { pages, error: String(e.message).split('\n')[0].slice(0, 60) }; }
+  for (const d of DOCS) {
+    const it = d.file === 'ledger-500p' ? 1 : Math.min(itersFor(d), 10);
+    try {
+      const res = await withTimeout((async () => {
+        const rt = []; let passes = 0;
+        for (let i = 0; i < it; i++) { const r = await mf.dispatchFetch('http://x/', { method: 'POST', body: readDoc(d.file) }); const b = await r.json(); rt.push(b.tRender); passes = b.passes; }
+        return { medianMs: round(median(rt)), iters: it, passes };
+      })(), d.timeoutMs);
+      docs[d.file] = res === TIMEOUT ? { pages: d.pages, warm: { status: 'timeout', limitMs: d.timeoutMs } } : { pages: d.pages, warm: { status: 'ok', medianMs: res.medianMs, iters: res.iters }, passes: res.passes };
+    } catch (e) {
+      docs[d.file] = { pages: d.pages, warm: { status: 'error', detail: String(e.message).split('\n')[0].slice(0, 100) } };
+    }
   }
   await mf.dispose();
-  return { coldStart: cold, docs };
+  return { coldStart, docs };
 }
 
-// ── recorded analysis (measured in controlled one-offs; method tagged) ───────
+// ── shared (machine-independent) ─────────────────────────────────────────────
+function corpus() {
+  const m = JSON.parse(readFileSync(join(CORPUS, 'manifest.json'), 'utf8'));
+  return { fixed: true, hashChecked: true, generator: 'benchmarks/corpus/generate.mjs', documents: m.documents };
+}
+const METHOD = {
+  coldStart: 'Process/isolate start through first PDF byte, including module instantiation.',
+  warmRender: 'Steady state after warm-up; median and p95 over the published iteration count. Puppeteer reuses one browser across iterations (setContent + page.pdf each).',
+  comparisonSurface: 'All targets and Puppeteer render byte-identical HTML from the fixed corpus, so every column is the same document.',
+  twoRuns: 'Two environments are published side by side and neither is cherry-picked: a dev machine (clean, quiet, single run) shows the engine on good hardware; CI ubuntu-latest (a shared, noisy runner) is the conservative number and the one that is regenerated on every push. Where a document ran on one but not the other, the gap is shown rather than the row hidden.',
+};
 const SENTINEL_FIX = {
   method: 'A/B: pre-fix WASM rebuilt from HEAD~1 vs the fix, same machine/harness, node target, warm median.',
   finding: 'The published ~26ms figure was measured on a document doing two layout passes; the honest single-pass number is ~21ms.',
@@ -245,37 +314,48 @@ const WHERE_WE_LOSE = {
   ],
 };
 
-// ── assemble + emit ──────────────────────────────────────────────────────────
-const section = { environment: environment(), corpus: corpus() };
-section.method = {
-  coldStart: 'Process/isolate start through first PDF byte, including module instantiation.',
-  warmRender: 'Steady state after warm-up; median and p95 over the published iteration count. Puppeteer reuses one browser across iterations (setContent + page.pdf per iteration).',
-  comparisonSurface: 'All targets and Puppeteer render byte-identical HTML from the fixed corpus, so every column is the same document.',
-};
-async function safe(label, fn) { try { return await fn(); } catch (e) { console.error(`  (${label} failed: ${e.message})`); return { error: String(e.message).split('\n')[0].slice(0, 120) }; } }
+// ── measure one run ──────────────────────────────────────────────────────────
+async function safe(label, fn) { try { return await fn(); } catch (e) { console.error(`  (${label} failed: ${e.message})`); return { error: String(e.message).split('\n')[0].slice(0, 140) }; } }
+async function measureRun() {
+  const run = { environment: environment() };
+  console.error('measuring node…'); run.node = await safe('node', async () => nodeMetrics());
+  console.error('measuring native…'); run.native = await safe('native', async () => nativeMetrics());
+  console.error('measuring web…'); run.web = await safe('web', webMetrics);
+  console.error('measuring workerd…'); run.workerd = await safe('workerd', workerdMetrics);
+  console.error('measuring puppeteer…'); run.puppeteer = await safe('puppeteer', puppeteerMetrics);
+  return run;
+}
 
-console.error('measuring node…'); section.node = await safe('node', nodeMetrics);
-console.error('measuring native…'); section.native = await safe('native', async () => nativeMetrics());
-console.error('measuring web…'); section.web = await safe('web', webMetrics);
-console.error('measuring workerd…'); section.workerd = await safe('workerd', workerdMetrics);
-console.error('measuring puppeteer…'); section.puppeteer = await safe('puppeteer', puppeteerMetrics);
-section.sentinelFix = SENTINEL_FIX;
-section.whereWeLose = WHERE_WE_LOSE;
-
+// ── assemble two-run artifact + emit ─────────────────────────────────────────
+const run = await measureRun();
+const shared = { method: METHOD, corpus: corpus(), sentinelFix: SENTINEL_FIX, whereWeLose: WHERE_WE_LOSE };
+let runs;
+if (run.environment.runner === 'dev') {
+  runs = [run];
+} else {
+  const baseline = existsSync(BASELINE) ? JSON.parse(readFileSync(BASELINE, 'utf8')) : null;
+  const devRun = baseline?.runs?.find((r) => r.environment?.runner === 'dev') ?? baseline?.runs?.[0] ?? null;
+  runs = [devRun, run].filter(Boolean);
+}
+const section = { ...shared, runs };
 emitSection('benchmarks', section);
 
-// ── console render (FROM the object; no parallel path) ───────────────────────
-const env = section.environment;
-console.log(`\nBenchmarks — ${env.runner} runner · ${env.machine} · ${env.cpus} cpu · node ${env.node}`);
-console.log('\nCold start (→ first PDF byte):');
-for (const [t, v] of [['native', section.native?.receipt?.coldMs], ['workerd', section.workerd?.coldStart?.edgeEstimateMs], ['web', section.web?.receipt && (section.web.receipt.cold.fetchMs + section.web.receipt.cold.compileInstantiateMs + section.web.receipt.cold.firstRenderMs)], ['node', section.node?.docs?.receipt?.cold?.totalWallMs], ['puppeteer', section.puppeteer?.coldStart?.totalMs]]) {
-  console.log(`  ${t.padEnd(10)} ${v != null ? v + ' ms' : '—'}`);
+if (process.env.BENCH_SAVE_BASELINE && run.environment.runner === 'dev') {
+  writeFileSync(BASELINE, JSON.stringify(section, null, 2) + '\n');
+  console.error(`saved dev baseline → ${BASELINE}`);
 }
-console.log('\nWarm render (node) vs Puppeteer, + peak WASM linear memory:');
-console.log('  doc            pages passes  forme    pptr    memMB  fits128');
-for (const { file } of DOCS) {
-  const n = section.node?.docs?.[file], p = section.puppeteer?.docs?.[file], w = section.web?.[file];
-  const mem = w?.wasmLinearMemMB;
-  console.log(`  ${file.padEnd(14)} ${String(n?.pages ?? '').padStart(5)} ${String(n?.passes ?? '').padStart(6)}  ${String(n?.warm?.medianMs ?? '—').padStart(6)}  ${String(p?.warm?.medianMs ?? '—').padStart(6)}  ${String(mem ?? '—').padStart(5)}  ${mem != null ? (mem < 128 ? 'yes' : 'NO') : '—'}`);
+
+// ── console render (FROM the object) ─────────────────────────────────────────
+console.log(`\nBenchmarks — runs: ${runs.map((r) => `${r.environment.runner} (${r.environment.machine})`).join(', ')}`);
+for (const r of runs) {
+  console.log(`\n[${r.environment.runner}] cold start: native ${r.native?.docs?.receipt?.coldMs ?? '—'}ms · workerd ~${r.workerd?.coldStart?.edgeEstimateMs ?? '—'}ms · node ${r.node?.docs?.receipt?.cold?.totalWallMs ?? '—'}ms · puppeteer ${r.puppeteer?.coldStart?.totalMs ?? '—'}ms`);
+  console.log(`[${r.environment.runner}] warm (forme node / pptr):`);
+  for (const d of DOCS) {
+    const n = r.node?.docs?.[d.file]?.warm, p = r.puppeteer?.docs?.[d.file]?.warm, w = r.web?.docs?.[d.file];
+    const fm = n?.status === 'ok' ? n.medianMs + 'ms' : n?.status ?? '—';
+    const pm = p?.status === 'ok' ? p.medianMs + 'ms' : p?.status ?? '—';
+    const mem = w?.status === 'ok' ? w.wasmLinearMemMB + 'MB' : w?.status ?? '—';
+    console.log(`  ${d.file.padEnd(16)} forme ${String(fm).padStart(9)}  pptr ${String(pm).padStart(9)}  wasmMem ${mem}`);
+  }
 }
 console.log('\nemitted benchmarks.json' + (process.env.PARITY_DIR ? ` → ${process.env.PARITY_DIR}` : ' (PARITY_DIR unset — not written)'));

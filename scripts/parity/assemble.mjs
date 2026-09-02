@@ -51,7 +51,14 @@ if (ua || a) {
 
 const determinism = readJson('determinism');
 const tests = readJson('tests');
-const benchmarks = readJson('benchmarks');
+// Benchmarks: prefer the freshly-emitted partial (carries dev + ci runs). If the
+// CI benchmark job was skipped or failed, fall back to the committed dev
+// baseline so the page still renders the clean-hardware column — never blank.
+let benchmarks = readJson('benchmarks');
+if (!benchmarks) {
+  const devBaseline = join(REPO, 'benchmarks', 'results', 'dev.json');
+  benchmarks = existsSync(devBaseline) ? JSON.parse(readFileSync(devBaseline, 'utf8')) : null;
+}
 
 const missing = [];
 if (!conformance) missing.push('conformance');

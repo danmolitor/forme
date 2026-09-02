@@ -8,4 +8,4 @@ const t1 = performance.now();
 const html = readFileSync(process.argv[2], 'utf8');
 const out = renderHtml(html, {});
 const t2 = performance.now();
-process.stdout.write(`instantiate=${(t1 - t0).toFixed(0)} render=${(t2 - t1).toFixed(0)} passes=${out.passes}\n`);
+process.stdout.write(JSON.stringify({ instantiate: Math.round(t1 - t0), render: Math.round(t2 - t1), passes: out.passes }));

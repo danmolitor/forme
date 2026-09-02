@@ -331,14 +331,62 @@ jobs:
           name: parity-tests
           path: parity-partials/tests.json
 
+  benchmarks:
+    name: Benchmarks (ci evidence column)
+    runs-on: ubuntu-latest
+    needs: engine
+    # Push to main only — minutes of runtime, PRs don't need it. NEVER a gate:
+    # the emitter records gaps/timeouts as data and the step is continue-on-error,
+    # so a failure here can't break the parity page (it falls back to the
+    # committed dev baseline). See scripts/parity/benchmarks.mjs.
+    if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+      - name: Install dependencies
+        run: npm ci
+      - name: Build native CLI
+        run: cd html && cargo build --release --bin forme-html
+      - name: Build HTML WASM (node + web targets)
+        run: |
+          cd html
+          wasm-pack build --target nodejs --out-dir ../packages/html/pkg-node -- --features wasm
+          wasm-pack build --target web    --out-dir ../packages/html/pkg-web  -- --features wasm
+          rm -f ../packages/html/pkg-node/.gitignore ../packages/html/pkg-web/.gitignore
+      - name: Install browser + edge runtimes for the baseline
+        # Full puppeteer (bundled Chromium) + miniflare (real workerd). The emitter
+        # prefers puppeteer, falling back to puppeteer-core + system Chrome locally.
+        run: npm i --no-save puppeteer miniflare
+      - name: Run benchmark emitter
+        # Merges the committed dev baseline with a freshly-measured ci run. A slow
+        # or too-large document on this shared runner is recorded as a timeout/OOM
+        # value, not a crash — heavy renders run in isolated child processes.
+        continue-on-error: true
+        env:
+          PARITY_DIR: ${{ github.workspace }}/parity-partials
+        run: node scripts/parity/benchmarks.mjs
+      - name: Upload benchmarks partial
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: parity-benchmarks
+          path: parity-partials/benchmarks.json
+          if-no-files-found: warn
+
   parity:
     name: Parity evidence (assemble + publish)
     runs-on: ubuntu-latest
-    needs: [pdfua-conformance, html-parity, packages]
-    # Main only: the github-pages environment rejects deploys from other
-    # refs, so on PRs this job used to fail at job level in seconds and
-    # paint every otherwise-green PR "unstable".
-    if: github.ref == 'refs/heads/main'
+    # benchmarks is a SOFT dependency: parity waits for it (ordering) but does not
+    # require it. If benchmarks is skipped (PRs) or fails, parity still runs and
+    # the page renders the committed dev column — additive, never blocking.
+    needs: [pdfua-conformance, html-parity, packages, benchmarks]
+    if: ${{ !cancelled() && needs.pdfua-conformance.result == 'success' && needs.html-parity.result == 'success' && needs.packages.result == 'success' }}
     # Deploy the evidence page to this repo's GitHub Pages — no cross-repo push,
     # no token: the page ships from the same repo/CI that generates it.
     permissions:
