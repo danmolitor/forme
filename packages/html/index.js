@@ -34,7 +34,7 @@ export async function init() {}
 export function renderHtml(html, options = {}) {
   const result = render_html_wasm(html, JSON.stringify(toWireOptions(options)));
   try {
-    return { pdf: result.pdf, warnings: result.warnings };
+    return { pdf: result.pdf, warnings: result.warnings, passes: result.passes };
   } finally {
     result.free();
   }

@@ -39,6 +39,12 @@ export interface RenderHtmlResult {
   pdf: Uint8Array;
   /** Everything outside the documented subset, named — never silent. */
   warnings: string[];
+  /**
+   * Number of layout passes the render took. 1 for the common case; 2–3 only
+   * when a page-number placeholder (`{{pageNumber}}`/`{{totalPages}}`, or CSS
+   * `counter(page)`/`counter(pages)`) needs its reserved width corrected.
+   */
+  passes: number;
 }
 
 /**

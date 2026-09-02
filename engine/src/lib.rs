@@ -123,25 +123,60 @@ pub fn render(document: &Document) -> Result<Vec<u8>, FormeError> {
     render_with_warnings(document).map(|(pdf, _warnings)| pdf)
 }
 
+/// Lay out a document, running the page-number sentinel re-layout loop **only
+/// when the document actually places a `{{pageNumber}}`/`{{totalPages}}`
+/// sentinel**. Without one, the reserved sentinel width is never consumed, so a
+/// re-layout reproduces byte-identical pages — pure wasted work (measured as a
+/// 2x render cost above 100 pages, where the total-page digit count first
+/// crosses 2->3; see `benchmarks/`). The sentinel presence is detected at the
+/// exhaustive chokepoint — every sentinel glyph is measured in
+/// `FontContext::char_width`, from any source (HTML `counter()`, margin boxes,
+/// JSX literals). Returns the laid-out pages, the populated font context, and
+/// the number of full layout passes (1, or 2–3 when the width needed fixing).
+fn layout_with_sentinel_passes(
+    document: &Document,
+) -> (Vec<crate::layout::LayoutPage>, FontContext, u32) {
+    let mut font_context = FontContext::new();
+    register_document_fonts(&mut font_context, &document.fonts);
+    let engine = LayoutEngine::new();
+    font_context.reset_page_sentinel();
+    let mut pages = engine.layout(document, &font_context);
+    let mut passes = 1u32;
+
+    if font_context.saw_page_sentinel() {
+        for _ in 0..2 {
+            let needed = digits_for_count(pages.len());
+            if needed == font_context.sentinel_digit_count() {
+                break;
+            }
+            font_context.set_sentinel_digit_count(needed);
+            pages = engine.layout(document, &font_context);
+            passes += 1;
+        }
+    }
+    (pages, font_context, passes)
+}
+
+/// Number of full layout passes a document needs (1 for the common case; 2–3
+/// only when a page-number sentinel's reserved width must be corrected).
+/// Exposed as the regression guard for the sentinel re-layout optimization.
+pub fn count_layout_passes(document: &Document) -> u32 {
+    layout_with_sentinel_passes(document).2
+}
+
 /// Render a document to PDF bytes plus any non-fatal warnings (e.g. pdfUa
 /// requested without an embeddable font registered). Same output as `render`;
 /// the warnings surface through the WASM bindings and the HTML wrapper.
 pub fn render_with_warnings(document: &Document) -> Result<(Vec<u8>, Vec<String>), FormeError> {
-    let mut font_context = FontContext::new();
-    register_document_fonts(&mut font_context, &document.fonts);
-    let engine = LayoutEngine::new();
-    let mut pages = engine.layout(document, &font_context);
+    render_with_warnings_and_passes(document).map(|(pdf, warnings, _passes)| (pdf, warnings))
+}
 
-    // Re-layout if sentinel digit count was wrong (up to 3 total passes)
-    for _ in 0..2 {
-        let needed = digits_for_count(pages.len());
-        if needed == font_context.sentinel_digit_count() {
-            break;
-        }
-        font_context.set_sentinel_digit_count(needed);
-        pages = engine.layout(document, &font_context);
-    }
-
+/// Like [`render_with_warnings`], but also returns the number of layout passes
+/// the render took — surfaced through the HTML wrapper for benchmark evidence.
+pub fn render_with_warnings_and_passes(
+    document: &Document,
+) -> Result<(Vec<u8>, Vec<String>, u32), FormeError> {
+    let (pages, font_context, passes) = layout_with_sentinel_passes(document);
     let writer = PdfWriter::new();
     let tagged = document.tagged
         || document.pdf_ua
@@ -161,7 +196,7 @@ pub fn render_with_warnings(document: &Document) -> Result<(Vec<u8>, Vec<String>
     } else {
         pdf
     };
-    Ok((pdf, warnings))
+    Ok((pdf, warnings, passes))
 }
 
 /// Render a document to PDF bytes along with layout metadata.
@@ -173,21 +208,7 @@ pub fn render_with_warnings(document: &Document) -> Result<(Vec<u8>, Vec<String>
 pub fn render_with_layout(
     document: &Document,
 ) -> Result<(Vec<u8>, LayoutInfo, Vec<String>), FormeError> {
-    let mut font_context = FontContext::new();
-    register_document_fonts(&mut font_context, &document.fonts);
-    let engine = LayoutEngine::new();
-    let mut pages = engine.layout(document, &font_context);
-
-    // Re-layout if sentinel digit count was wrong (up to 3 total passes)
-    for _ in 0..2 {
-        let needed = digits_for_count(pages.len());
-        if needed == font_context.sentinel_digit_count() {
-            break;
-        }
-        font_context.set_sentinel_digit_count(needed);
-        pages = engine.layout(document, &font_context);
-    }
-
+    let (pages, font_context, _passes) = layout_with_sentinel_passes(document);
     let layout_info = LayoutInfo::from_pages(&pages);
     let writer = PdfWriter::new();
     let tagged = document.tagged
