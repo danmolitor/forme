@@ -489,6 +489,72 @@ When making layout changes, always test with:
 2. A document with enough content to overflow multiple pages
 3. A table with 50+ rows (verifies header repetition)
 
+## Compliance & conformance (PDF/UA-1 + PDF/A-2)
+
+Forme produces **PDF/UA-1** and **PDF/A-2 (2b/2u/2a)** conforming output, and the
+two **compose** — a single file can be archival AND accessible (`<Document
+pdfa="2a" pdfUa lang="en-US" fonts={standardFonts()}>`). This is validated, not
+asserted:
+
+- **Gates** (both use [veraPDF](https://verapdf.org), a hard CI gate in the
+  `pdfua-conformance` job): `scripts/verify-pdfua.mjs` (PDF/UA-1 over the 9-file
+  corpus) and `scripts/verify-pdfa.mjs` (PDF/A-2b + 2a, each also validated as
+  UA-1 — the combination). Corpus = 5 shipped templates + 4 HTML fixtures. Run
+  locally with `VERAPDF=~/verapdf/verapdf node scripts/verify-pdfua.mjs`.
+- **Fonts must be embedded.** PDF/UA and PDF/A require embedded fonts; base-14
+  aren't. `@formepdf/fonts-standard` provides metric-compatible Liberation
+  substitutes; the engine embeds them **at PDF-write time only**, keeping AFM
+  `/Widths`, so **layout geometry is byte-identical** with or without
+  compliance mode. In `pdfUa`/`pdfA` mode, an unembeddable font **warns**
+  (pdfUa) or **hard-errors** (pdfA — a file that lies about conformance is worse
+  than none). `tagged` defaults to **true** (0.15.0).
+- **PDF/A specifics** live in `engine/src/pdf/`: `xmp.rs` (pdfaid + the pdfuaid
+  extension schema for the combined config), an OutputIntent with an embedded
+  sRGB profile (`sRGB.icc`), a deterministic trailer `/ID` (content hash, never a
+  timestamp — determinism must survive), `/F` on annotations.
+- **Asset lesson (do not repeat):** `sRGB.icc` was, from ~0.9.0 to 0.15.0, a
+  Cloudflare HTML challenge page a `curl` returned and nobody inspected — every
+  PDF/A OutputIntent was invalid because nothing validated. It's now generated
+  (Little CMS, not downloaded) and there's a unit test asserting the embedded
+  bytes are a real ICC (`test_embedded_srgb_is_a_valid_icc_profile`). **Validate
+  binary assets you embed.**
+
+## Parity evidence (parity.formepdf.com)
+
+A public, always-current page showing what CI proves per commit — conformance,
+native-vs-WASM determinism, test counts, regressions. **Generated from CI, never
+hand-written**; if a number could drift without CI failing, the design is wrong.
+
+- **Scripts** in `scripts/parity/`: `lib.mjs` (emit + veraPDF-with-clauses),
+  `determinism.mjs`, `collect-tests.mjs`, `assemble.mjs` (partials → `parity.json`
+  + provenance), `render-page.mjs` (→ static site). The verify-pdf* scripts also
+  emit their section when `PARITY_DIR` is set.
+- **Governing rule:** the JSON section is the SOURCE; console output is a render
+  of it. Never a second print path that can disagree with the emitted evidence.
+- **CI:** each job emits a partial (conformance / determinism / tests); the
+  `parity` job assembles them and deploys the rendered page to **GitHub Pages**
+  (this repo, `parity.formepdf.com`) on push to main — no cross-repo push, no
+  token. Regenerate locally: set `PARITY_DIR`, run the verify + parity scripts,
+  then `assemble.mjs` and `render-page.mjs`.
+- Failures and known gaps are shown, not hidden; a missing section renders an
+  explicit "unavailable" state.
+
+## Releasing
+
+Shared version line across engine (crates.io), all `@formepdf/*` npm packages,
+python-sdk (PyPI), forme-go (git tag), VSIX. Full process in `RELEASE.md`. The
+non-obvious parts:
+
+- `scripts/bump-version.sh <version>` bumps everything; its `NPM_PACKAGES` array
+  must stay complete (a missing package ships unbumped and breaks lockstep).
+- **npm publish order is dependency-driven:** shared → fonts-standard → react →
+  core → **html (before renderer)** → svelte/vue/preact → renderer → templates →
+  cli → rest. Each `npm publish` needs an OTP.
+- **The Python and Go SDKs embed `forme.wasm`** — rebuild it from the engine on
+  every release (`cd packages/python-sdk && bash build_wasm.sh`), or they ship
+  the previous engine (this is how PDF/A would silently regress in those SDKs).
+  forme-go copies the same artifact into `templates/forme.wasm`.
+
 ## Dependencies
 
 Engine (Rust):
