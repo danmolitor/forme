@@ -32,14 +32,6 @@ Thumbs.db
 .env
 .env.*
 
-# Scripts (local dev only; CI helpers under .github/scripts/ and
-# per-package scripts/ dirs that ship in npm tarballs are tracked)
-scripts/
-!.github/scripts/
-!.github/scripts/**
-!packages/*/scripts/
-!packages/*/scripts/**
-
 # Scratch files
 test-*.tsx
 test-*.json
