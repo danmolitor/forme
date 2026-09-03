@@ -233,8 +233,10 @@ import { standardFonts } from '@formepdf/fonts-standard';
 ```
 
 **PDF/A (archival) — verified.** `<Document pdfa="2b">`, `"2u"`, and `"2a"` produce
-PDF/A-2 conforming files, verified by the same veraPDF gate: the nine-document
-corpus passes **PDF/A-2b and PDF/A-2a**. The font path uses the same
+PDF/A-2 conforming files; `"3b"`, `"3u"`, and `"3a"` produce PDF/A-3 (identical
+rules plus permission for arbitrary embedded files — the e-invoice container
+part). Verified by the same veraPDF gate: the nine-document corpus passes
+**PDF/A-2b, 2a, 3b, and 3a**. The font path uses the same
 metric-compatible embedding as PDF/UA (with a per-glyph width carve-out for the
 few glyphs where Liberation's advances diverge from the base-14 AFM metrics), an
 embedded sRGB OutputIntent, and PDF/A XMP metadata.
@@ -246,12 +248,37 @@ is conformant to each at once:
 <Document pdfa="2a" pdfUa lang="en-US" fonts={standardFonts()}>…</Document>
 ```
 
-The CI gate validates every corpus file against PDF/A-2b, PDF/A-2a, **and**
+The CI gate validates every corpus file against PDF/A-2b, 2a, 3b, and 3a, **and**
 PDF/UA-1 together (`scripts/verify-pdfa.mjs`). The HTML path takes the same via
 `pdfA` (`renderHtml`) / `--pdf-a` (CLI). Needs an embeddable font
 ([`@formepdf/fonts-standard`](./packages/fonts-standard)) — if none is
 registered, the render fails by name rather than emitting a file that falsely
 claims conformance. See [Archival](https://docs.formepdf.com/archival).
+
+**E-invoice containers (Factur-X / ZUGFeRD) — verified.** One render call
+produces the human-readable invoice PDF *and* embeds your EN 16931 invoice XML
+as a conformant PDF/A-3 associated file — spec filename, MIME type,
+`/AFRelationship`, and the Factur-X XMP identification included:
+
+```tsx
+const pdf = await renderDocument(
+  <Document pdfa="3b" pdfUa lang="de-DE" fonts={standardFonts()}>…</Document>,
+  { facturX: { xml: invoiceXml, profile: 'EN 16931' } },
+);
+```
+
+Every existing JS e-invoicing package requires you to bring the visual PDF from
+somewhere else; Forme renders it and builds the container in one pass. CI gates
+the result with **both** validators — veraPDF (PDF/A-3b + PDF/UA-1) and
+**Mustangproject**, the ZUGFeRD/Factur-X reference validator
+(`scripts/verify-einvoice.mjs`; evidence on the [parity page](https://parity.formepdf.com)).
+
+The boundary, stated plainly: Forme produces the conformant **container**. It
+does **not** generate or validate EN 16931 semantic content — the invoice XML
+is yours (from your ERP, or a library like the CEN artefacts). `MINIMUM` and
+`BASIC WL` profiles are not legally e-invoices under the German B2B mandate;
+supply an `EN 16931`-profile XML for that. See
+[E-invoicing](https://docs.formepdf.com/einvoicing).
 
 ## Browser Usage
 

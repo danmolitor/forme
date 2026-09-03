@@ -32,7 +32,7 @@ export interface RenderHtmlOptions {
    * (`@formepdf/fonts-standard`). Composes with `pdfUa` — a file can be both
    * PDF/A and PDF/UA-1 at once (archival + accessible).
    */
-  pdfA?: '2b' | '2u' | '2a';
+  pdfA?: '2b' | '2u' | '2a' | '3b' | '3u' | '3a';
 }
 
 export interface RenderHtmlResult {

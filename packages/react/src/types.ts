@@ -74,7 +74,7 @@ export interface DocumentProps {
   tagged?: boolean;
   /** PDF/A conformance level. "2b" is visual-only, "2u" adds a Unicode
    *  mapping for all text, "2a" additionally requires full tagging. */
-  pdfa?: '2a' | '2b' | '2u';
+  pdfa?: '2a' | '2b' | '2u' | '3a' | '3b' | '3u';
   /** When true, the PDF claims PDF/UA-1 conformance. Forces tagging. */
   pdfUa?: boolean;
   /** Digital certification configuration. Certifies the PDF with an X.509 certificate. */

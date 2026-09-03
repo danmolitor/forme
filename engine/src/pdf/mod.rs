@@ -45,6 +45,11 @@ use crate::style::{Color, FontStyle, Overflow, TextDecoration, TransformOp};
 use crate::svg::SvgCommand;
 use miniz_oxide::deflate::compress_to_vec_zlib;
 
+/// Default `/Params /ModDate` for attachments. A fixed constant, never
+/// wall-clock: byte-determinism is a hard guarantee (native/WASM parity is
+/// gated on it in CI). Callers wanting a real date pass `modDate`.
+const DEFAULT_ATTACHMENT_MOD_DATE: &str = "D:20000101000000Z";
+
 /// A link annotation to be added to a page.
 struct LinkAnnotation {
     x: f64,
@@ -187,8 +192,74 @@ impl PdfWriter {
         pdfa: Option<&PdfAConformance>,
         pdf_ua: bool,
         embedded_data: Option<&str>,
+        attachments: &[Attachment],
+        zugferd: Option<&ZugferdMeta>,
         flatten_forms: bool,
     ) -> Result<(Vec<u8>, Vec<String>), FormeError> {
+        // ── Attachment / e-invoice validation (before any emission) ──
+        //
+        // PDF/A-1/-2 allow only PDF/A files as attachments (veraPDF rule
+        // 6.8-5) — which the engine cannot verify, so a 2x level with any
+        // attachment refuses rather than emitting a file that lies about
+        // conformance. PDF/A-3 exists precisely to permit arbitrary
+        // embedded files.
+        if let Some(level) = pdfa {
+            if !level.allows_attachments() && (embedded_data.is_some() || !attachments.is_empty()) {
+                return Err(FormeError::RenderError(
+                    "PDF/A-2 forbids embedded files that are not themselves PDF/A \
+                     (ISO 19005-2, 6.8). Use a PDF/A-3 level — e.g. pdfa: \"3b\" — \
+                     which permits arbitrary attachments, or remove the attachment / \
+                     embedData."
+                        .to_string(),
+                ));
+            }
+        }
+        // Factur-X/ZUGFeRD identification is container metadata pointing
+        // at an attached XML: it needs PDF/A-3 and a matching attachment,
+        // or the XMP would name a profile/file that isn't there.
+        let zugferd_filename: Option<String> = if let Some(z) = zugferd {
+            const LEVELS: [&str; 6] = [
+                "MINIMUM",
+                "BASIC WL",
+                "BASIC",
+                "EN 16931",
+                "EXTENDED",
+                "XRECHNUNG",
+            ];
+            if !LEVELS.contains(&z.conformance_level.as_str()) {
+                return Err(FormeError::RenderError(format!(
+                    "zugferd.conformanceLevel {:?} is not a Factur-X profile — expected one of \
+                     MINIMUM, BASIC WL, BASIC, EN 16931, EXTENDED, XRECHNUNG (exact spelling, \
+                     spaces included).",
+                    z.conformance_level
+                )));
+            }
+            if !pdfa.is_some_and(|l| l.allows_attachments()) {
+                return Err(FormeError::RenderError(
+                    "Factur-X/ZUGFeRD (zugferd) requires a PDF/A-3 conformance level — set \
+                     pdfa: \"3b\" (or \"3a\"/\"3u\"). The e-invoice XML is an embedded file, \
+                     which only PDF/A-3 permits."
+                        .to_string(),
+                ));
+            }
+            let filename = z.document_file_name.clone().unwrap_or_else(|| {
+                if z.conformance_level == "XRECHNUNG" {
+                    "xrechnung.xml".to_string()
+                } else {
+                    "factur-x.xml".to_string()
+                }
+            });
+            if !attachments.iter().any(|a| a.name == filename) {
+                return Err(FormeError::RenderError(format!(
+                    "zugferd is set but no attachment is named {filename:?} — the XMP would \
+                     point at a file that isn't embedded. Attach the invoice XML with name: \
+                     {filename:?}, or set zugferd.documentFileName to the attachment's name."
+                )));
+            }
+            Some(filename)
+        } else {
+            None
+        };
         let mut builder = PdfBuilder {
             objects: Vec::new(),
             font_objects: Vec::new(),
@@ -461,7 +532,7 @@ impl PdfWriter {
 
         // PDF/A and/or PDF/UA: write XMP metadata stream and ICC output intent
         let xmp_metadata_id = if pdfa.is_some() || pdf_ua {
-            let xmp_xml = xmp::generate_xmp(metadata, pdfa, pdf_ua);
+            let xmp_xml = xmp::generate_xmp(metadata, pdfa, pdf_ua, zugferd);
             let xmp_bytes = xmp_xml.as_bytes();
             let xmp_obj_id = builder.objects.len();
             // XMP metadata stream must NOT be compressed (PDF/A requirement)
@@ -518,8 +589,15 @@ impl PdfWriter {
             None
         };
 
-        // Embedded data attachment (PDF 1.7 EmbeddedFile)
-        let embedded_names_id = if let Some(data) = embedded_data {
+        // Embedded files: the legacy embeddedData JSON plus caller
+        // attachments (associated files). The legacy-only path must stay
+        // byte-identical to what it always emitted; attachments add the
+        // PDF/A-3 requirements — MIME /Subtype (6.8-1), /F + /UF (6.8-2),
+        // /AFRelationship (6.8-3) — and everything joins the catalog /AF
+        // array (6.8-4) as needed.
+        let mut name_tree_entries: Vec<(String, usize)> = Vec::new();
+        let mut af_filespec_ids: Vec<usize> = Vec::new();
+        if let Some(data) = embedded_data {
             let compressed = compress_to_vec_zlib(data.as_bytes(), 6);
 
             // EmbeddedFile stream
@@ -546,18 +624,92 @@ impl PdfWriter {
                 id: fs_obj_id,
                 data: fs_data.into_bytes(),
             });
+            name_tree_entries.push(("forme-data.json".to_string(), fs_obj_id));
+            // Association is a PDF/A-3 requirement; the plain path keeps
+            // its historical byte-identical shape (no /AF).
+            if pdfa.is_some_and(|l| l.allows_attachments()) {
+                af_filespec_ids.push(fs_obj_id);
+            }
+        }
+        for att in attachments {
+            let bytes = Self::decode_attachment_src(&att.src)?;
+            let compressed = compress_to_vec_zlib(&bytes, 6);
+            let mime = att
+                .mime_type
+                .as_deref()
+                .unwrap_or("application/octet-stream");
+            let mod_date = att
+                .mod_date
+                .as_deref()
+                .unwrap_or(DEFAULT_ATTACHMENT_MOD_DATE);
 
-            // Names tree for EmbeddedFiles
+            let ef_obj_id = builder.objects.len();
+            let ef_head = format!(
+                "<< /Type /EmbeddedFile /Subtype /{} /Length {} /Filter /FlateDecode \
+                 /Params << /Size {} /ModDate ({}) >> >>\nstream\n",
+                Self::mime_to_pdf_name(mime),
+                compressed.len(),
+                bytes.len(),
+                Self::escape_pdf_string(mod_date),
+            );
+            let mut ef_bytes = ef_head.into_bytes();
+            ef_bytes.extend_from_slice(&compressed);
+            ef_bytes.extend_from_slice(b"\nendstream");
+            builder.objects.push(PdfObject {
+                id: ef_obj_id,
+                data: ef_bytes,
+            });
+
+            // The invoice XML named by zugferd gets its relationship from
+            // the profile when the caller didn't set one: MINIMUM and
+            // BASIC WL are not full invoices (spec mandates /Data); the
+            // conformant profiles use /Alternative (mandatory in DE).
+            let relationship = att.relationship.unwrap_or_else(|| {
+                if zugferd_filename.as_deref() == Some(att.name.as_str()) {
+                    match zugferd.map(|z| z.conformance_level.as_str()) {
+                        Some("MINIMUM") | Some("BASIC WL") => AfRelationship::Data,
+                        _ => AfRelationship::Alternative,
+                    }
+                } else {
+                    AfRelationship::Unspecified
+                }
+            });
+
+            let fs_obj_id = builder.objects.len();
+            let mut fs_data = format!(
+                "<< /Type /Filespec /F ({name}) /UF ({name}) /EF << /F {ef} 0 R >> /AFRelationship /{rel}",
+                name = Self::escape_pdf_string(&att.name),
+                ef = ef_obj_id,
+                rel = relationship.pdf_name(),
+            );
+            if let Some(desc) = &att.description {
+                let _ = write!(fs_data, " /Desc ({})", Self::escape_pdf_string(desc));
+            }
+            fs_data.push_str(" >>");
+            builder.objects.push(PdfObject {
+                id: fs_obj_id,
+                data: fs_data.into_bytes(),
+            });
+            name_tree_entries.push((att.name.clone(), fs_obj_id));
+            af_filespec_ids.push(fs_obj_id);
+        }
+        let embedded_names_id = if name_tree_entries.is_empty() {
+            None
+        } else {
+            // Name-tree keys must be lexically sorted (PDF 32000 §7.9.6).
+            name_tree_entries.sort_by(|a, b| a.0.cmp(&b.0));
             let names_obj_id = builder.objects.len();
-            let names_data = format!("<< /Names [(forme-data.json) {} 0 R] >>", fs_obj_id);
+            let pairs = name_tree_entries
+                .iter()
+                .map(|(name, id)| format!("({}) {} 0 R", Self::escape_pdf_string(name), id))
+                .collect::<Vec<_>>()
+                .join(" ");
+            let names_data = format!("<< /Names [{}] >>", pairs);
             builder.objects.push(PdfObject {
                 id: names_obj_id,
                 data: names_data.into_bytes(),
             });
-
             Some(names_obj_id)
-        } else {
-            None
         };
 
         // Build AcroForm for interactive form fields
@@ -1114,6 +1266,16 @@ impl PdfWriter {
         }
         if let Some(names_id) = embedded_names_id {
             write!(catalog, " /Names << /EmbeddedFiles {} 0 R >>", names_id).unwrap();
+        }
+        if !af_filespec_ids.is_empty() {
+            // Document-level association (PDF/A-3 6.8-4; Factur-X requires
+            // the invoice XML to be associated at the catalog).
+            let refs = af_filespec_ids
+                .iter()
+                .map(|id| format!("{} 0 R", id))
+                .collect::<Vec<_>>()
+                .join(" ");
+            write!(catalog, " /AF [{}]", refs).unwrap();
         }
         if pdf_ua {
             catalog.push_str(" /ViewerPreferences << /DisplayDocTitle true >>");
@@ -3975,6 +4137,36 @@ impl PdfWriter {
             .replace(')', "\\)")
     }
 
+    /// Decode an attachment `src`: plain base64, with an optional
+    /// `data:...;base64,` prefix tolerated (same convention as fonts).
+    fn decode_attachment_src(src: &str) -> Result<Vec<u8>, FormeError> {
+        use base64::Engine as _;
+        let b64 = src.rsplit_once(";base64,").map(|(_, d)| d).unwrap_or(src);
+        base64::engine::general_purpose::STANDARD
+            .decode(b64.trim())
+            .map_err(|e| {
+                FormeError::RenderError(format!(
+                    "attachment src is not valid base64 (expected base64 bytes or a data: URI): {e}"
+                ))
+            })
+    }
+
+    /// Encode a MIME type as a PDF name (PDF 32000 §7.3.5): delimiter and
+    /// non-regular characters become #XX — `text/xml` → `text#2Fxml`.
+    fn mime_to_pdf_name(mime: &str) -> String {
+        let mut out = String::with_capacity(mime.len() + 2);
+        for b in mime.bytes() {
+            let regular =
+                b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.' | b'+' | b'\'' | b'"');
+            if regular {
+                out.push(b as char);
+            } else {
+                let _ = write!(out, "#{:02X}", b);
+            }
+        }
+        out
+    }
+
     /// Encode a string for use in a PDF content stream with WinAnsi encoding.
     /// Characters outside WinAnsi range are replaced with '?'.
     fn encode_winansi_text(s: &str) -> String {
@@ -4413,6 +4605,8 @@ mod tests {
                 None,
                 false,
                 None,
+                &[],
+                None,
                 false,
             )
             .unwrap();
@@ -4452,6 +4646,8 @@ mod tests {
                 false,
                 None,
                 false,
+                None,
+                &[],
                 None,
                 false,
             )
@@ -4579,6 +4775,8 @@ mod tests {
                 false,
                 None,
                 false,
+                None,
+                &[],
                 None,
                 false,
             )
@@ -4748,6 +4946,8 @@ mod tests {
                 false,
                 None,
                 false,
+                None,
+                &[],
                 None,
                 false,
             )

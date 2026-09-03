@@ -1,0 +1,79 @@
+---
+title: E-invoicing (Factur-X / ZUGFeRD)
+description: Render the invoice PDF and embed your EN 16931 XML as a validated PDF/A-3 e-invoice container — in one pass.
+---
+
+A hybrid e-invoice (Factur-X in France, ZUGFeRD in Germany) is a PDF/A-3
+file that people can read, carrying a machine-readable EN 16931 invoice XML
+as an embedded attachment. Forme builds the **container**: you supply the
+XML, Forme renders the human-readable PDF and embeds the XML conformantly
+in the same render call.
+
+```tsx
+import { renderDocument } from '@formepdf/core';
+import { standardFonts } from '@formepdf/fonts-standard';
+
+const pdf = await renderDocument(
+  <Document pdfa="3b" pdfUa lang="de-DE" fonts={standardFonts()}>
+    <Page size="A4" margin={50}>{/* your invoice layout */}</Page>
+  </Document>,
+  {
+    facturX: {
+      xml: invoiceXml,        // your EN 16931 CII XML (string or bytes)
+      profile: 'EN 16931',    // MINIMUM | BASIC WL | BASIC | EN 16931 | EXTENDED | XRECHNUNG
+    },
+  },
+);
+```
+
+## What Forme handles
+
+- **PDF/A-3** (`pdfa: "3b"`, `"3u"`, or `"3a"`) — identical to PDF/A-2 plus
+  permission for arbitrary embedded files. 3b is sufficient for every
+  Factur-X profile.
+- The attachment as a conformant **associated file**: spec filename
+  (`factur-x.xml`; `xrechnung.xml` for the XRECHNUNG profile), MIME type
+  `text/xml`, `/F`/`/UF`, `/AFRelationship` (profile-derived: `Data` for
+  MINIMUM/BASIC WL, `Alternative` otherwise; overridable), `/Params` with a
+  deterministic `ModDate`, and the catalog `/AF` association.
+- The **Factur-X XMP identification** (`fx:` extension schema with
+  DocumentType, DocumentFileName, Version, ConformanceLevel) plus the
+  PDF/A extension-schema description that makes it legal.
+- **Composition with PDF/UA-1** — an invoice can be archival, accessible,
+  and machine-readable at once (`pdfa="3a" pdfUa`).
+- **Validation in CI**: every commit renders this exact configuration and
+  gates it on veraPDF (PDF/A-3b + PDF/UA-1) *and*
+  [Mustangproject](https://www.mustangproject.org/), the ZUGFeRD/Factur-X
+  reference validator. Evidence: [parity.formepdf.com](https://parity.formepdf.com).
+
+## What Forme does not do
+
+Forme does **not** generate or validate EN 16931 semantic content. The
+invoice XML — its ~170 business terms, tax categories, and the 300+
+business rules over them — comes from you (your ERP, billing system, or an
+EN 16931 library). A conformant container around a non-conformant XML is
+not a legal e-invoice; validate your XML with Mustang or the
+[CEN validation artefacts](https://github.com/ConnectingEurope/eInvoicing-EN16931).
+
+Also worth knowing: under the German B2B mandate, `MINIMUM` and `BASIC WL`
+profiles do **not** count as e-invoices (they lack line items) — use an
+`EN 16931`-profile XML for legal compliance in Germany, and `EN 16931` or
+`EXTENDED` for France.
+
+## Generic attachments
+
+The same machinery is available without the e-invoice framing — any file,
+under PDF/A-3 or plain PDF:
+
+```tsx
+const pdf = await renderDocument(doc, {
+  attachments: [
+    { name: 'source-data.csv', data: csvBytes, mimeType: 'text/csv', relationship: 'Source' },
+  ],
+});
+```
+
+Under PDF/A-**2**, attachments are refused with a named error: part 2 only
+permits other PDF/A files as attachments (ISO 19005-2 §6.8), which Forme
+cannot verify — a file that lies about conformance is worse than none.
+Use `pdfa: "3b"` or drop the conformance claim.

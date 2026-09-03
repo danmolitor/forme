@@ -5,6 +5,7 @@ import { render_pdf as wasmRenderPdf } from '../pkg-node/forme.js';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import type { ReactElement } from 'react';
+import { applyAttachmentOptions, type AttachmentOptions, type FacturXOptions } from './attachments.js';
 
 // ── Layout metadata types ──────────────────────────────────────────
 //
@@ -390,6 +391,19 @@ export interface RenderDocumentOptions {
   embedData?: unknown;
   /** When true, form field values are rendered as static text. No interactive fields in output. */
   flattenForms?: boolean;
+  /**
+   * Files to embed as PDF attachments (associated files). Under a
+   * PDF/A-3 level each becomes a conformant associated file; PDF/A-2
+   * refuses attachments (it only allows other PDF/A files).
+   */
+  attachments?: AttachmentOptions[];
+  /**
+   * Factur-X / ZUGFeRD e-invoice container: embeds the caller-supplied
+   * invoice XML with the spec filename, MIME type, `/AFRelationship`,
+   * and XMP identification. Requires `pdfa: "3b"` (or 3a/3u) on the
+   * `<Document>`. Forme does not generate or validate the XML itself.
+   */
+  facturX?: FacturXOptions;
 }
 
 export async function renderDocument(element: ReactElement, options?: RenderDocumentOptions): Promise<Uint8Array> {
@@ -427,6 +441,7 @@ export async function renderSerializedDoc(
   if (options?.flattenForms) {
     doc.flattenForms = true;
   }
+  applyAttachmentOptions(doc, options);
   await Promise.all([resolveFonts(doc), resolveImages(doc)]);
   return renderPdf(JSON.stringify(doc));
 }
@@ -444,6 +459,7 @@ export async function renderSerializedDocWithLayout(
   if (options?.flattenForms) {
     doc.flattenForms = true;
   }
+  applyAttachmentOptions(doc, options);
   await Promise.all([resolveFonts(doc), resolveImages(doc)]);
   return renderPdfWithLayout(JSON.stringify(doc));
 }
@@ -546,3 +562,5 @@ export async function mergePdfs(pdfs: Uint8Array[]): Promise<Uint8Array> {
 // ── Data extraction ──────────────────────────────────────────────────
 
 export { extractData } from './extract.js';
+
+export type { AttachmentOptions, FacturXOptions, AfRelationship, FacturXProfile } from './attachments.js';

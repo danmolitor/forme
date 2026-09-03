@@ -4,13 +4,19 @@
 //! PDF/A and PDF/UA. Written as an uncompressed metadata stream referenced
 //! from the Catalog via `/Metadata`.
 
-use crate::model::{Metadata, PdfAConformance};
+use crate::model::{Metadata, PdfAConformance, ZugferdMeta};
 
-/// Generate XMP metadata XML for PDF/A and/or PDF/UA documents.
+/// The Factur-X XMP extension-schema namespace. The trailing `#` is
+/// mandatory per the spec (§6.3.1).
+const FX_NS: &str = "urn:factur-x:pdfa:CrossIndustryDocument:invoice:1p0#";
+
+/// Generate XMP metadata XML for PDF/A and/or PDF/UA documents, with the
+/// optional Factur-X (`fx:`) e-invoice identification.
 pub fn generate_xmp(
     metadata: &Metadata,
     conformance: Option<&PdfAConformance>,
     pdf_ua: bool,
+    zugferd: Option<&ZugferdMeta>,
 ) -> String {
     let title = metadata.title.as_deref().unwrap_or("Untitled");
     let creator = metadata.creator.as_deref().unwrap_or("Forme");
@@ -27,12 +33,17 @@ pub fn generate_xmp(
     if pdf_ua {
         namespaces.push(r#"xmlns:pdfuaid="http://www.aiim.org/pdfua/ns/id/""#.to_string());
     }
+    if zugferd.is_some() {
+        namespaces.push(format!(r#"xmlns:fx="{FX_NS}""#));
+    }
     // PDF/A requires every property to belong to a predefined schema OR be
-    // described by an extension schema (ISO 19005-2, 6.6.2.3.1). `pdfuaid` (the
-    // PDF/UA identifier) is NOT a PDF/A-predefined schema, so when a document is
-    // BOTH PDF/A and PDF/UA we must declare the pdfaExtension description for it.
+    // described by an extension schema (ISO 19005-2, 6.6.2.3.1). Neither
+    // `pdfuaid` (the PDF/UA identifier) nor `fx` (Factur-X) is a
+    // PDF/A-predefined schema, so under PDF/A each used one needs its
+    // pdfaExtension description.
     let describe_pdfua_extension = conformance.is_some() && pdf_ua;
-    if describe_pdfua_extension {
+    let describe_fx_extension = conformance.is_some() && zugferd.is_some();
+    if describe_pdfua_extension || describe_fx_extension {
         namespaces
             .push(r#"xmlns:pdfaExtension="http://www.aiim.org/pdfa/ns/extension/""#.to_string());
         namespaces.push(r#"xmlns:pdfaSchema="http://www.aiim.org/pdfa/ns/schema#""#.to_string());
@@ -47,6 +58,9 @@ pub fn generate_xmp(
             PdfAConformance::A2a => ("2", "A"),
             PdfAConformance::A2b => ("2", "B"),
             PdfAConformance::A2u => ("2", "U"),
+            PdfAConformance::A3a => ("3", "A"),
+            PdfAConformance::A3b => ("3", "B"),
+            PdfAConformance::A3u => ("3", "U"),
         };
         entries.push_str(&format!(
             "      <pdfaid:part>{}</pdfaid:part>\n      <pdfaid:conformance>{}</pdfaid:conformance>\n",
@@ -56,13 +70,38 @@ pub fn generate_xmp(
     if pdf_ua {
         entries.push_str("      <pdfuaid:part>1</pdfuaid:part>\n");
     }
-    // The extension-schema description that makes `pdfuaid:part` legal under
-    // PDF/A. Standard boilerplate from the PDF/UA-in-PDF/A guidance.
-    if describe_pdfua_extension {
-        entries.push_str(
-            r#"      <pdfaExtension:schemas>
-        <rdf:Bag>
-          <rdf:li rdf:parseType="Resource">
+    if let Some(z) = zugferd {
+        // Values verified against Mustang's validator: ConformanceLevel
+        // uses the spec spellings ("BASIC WL", "EN 16931" — with spaces);
+        // DocumentFileName must equal the attachment name.
+        let doc_type = z.document_type.as_deref().unwrap_or("INVOICE");
+        let file_name =
+            z.document_file_name
+                .as_deref()
+                .unwrap_or(if z.conformance_level == "XRECHNUNG" {
+                    "xrechnung.xml"
+                } else {
+                    "factur-x.xml"
+                });
+        let version = z.version.as_deref().unwrap_or("1.0");
+        entries.push_str(&format!(
+            "      <fx:DocumentType>{}</fx:DocumentType>\n      <fx:DocumentFileName>{}</fx:DocumentFileName>\n      <fx:Version>{}</fx:Version>\n      <fx:ConformanceLevel>{}</fx:ConformanceLevel>\n",
+            xml_escape(doc_type),
+            xml_escape(file_name),
+            xml_escape(version),
+            xml_escape(&z.conformance_level),
+        ));
+    }
+    // Extension-schema descriptions that make the custom properties legal
+    // under PDF/A. One Bag holds an entry per non-predefined schema in
+    // use: pdfuaid (PDF/UA-in-PDF/A guidance boilerplate) and/or fx
+    // (Factur-X §6.3 — embedding the description is mandatory; a
+    // reference to external storage does not suffice).
+    if describe_pdfua_extension || describe_fx_extension {
+        entries.push_str("      <pdfaExtension:schemas>\n        <rdf:Bag>\n");
+        if describe_pdfua_extension {
+            entries.push_str(
+                r#"          <rdf:li rdf:parseType="Resource">
             <pdfaSchema:schema>PDF/UA identification schema</pdfaSchema:schema>
             <pdfaSchema:namespaceURI>http://www.aiim.org/pdfua/ns/id/</pdfaSchema:namespaceURI>
             <pdfaSchema:prefix>pdfuaid</pdfaSchema:prefix>
@@ -77,10 +116,48 @@ pub fn generate_xmp(
               </rdf:Seq>
             </pdfaSchema:property>
           </rdf:li>
-        </rdf:Bag>
-      </pdfaExtension:schemas>
 "#,
-        );
+            );
+        }
+        if describe_fx_extension {
+            entries.push_str(&format!(
+                r#"          <rdf:li rdf:parseType="Resource">
+            <pdfaSchema:schema>Factur-X PDFA Extension Schema</pdfaSchema:schema>
+            <pdfaSchema:namespaceURI>{FX_NS}</pdfaSchema:namespaceURI>
+            <pdfaSchema:prefix>fx</pdfaSchema:prefix>
+            <pdfaSchema:property>
+              <rdf:Seq>
+                <rdf:li rdf:parseType="Resource">
+                  <pdfaProperty:name>DocumentFileName</pdfaProperty:name>
+                  <pdfaProperty:valueType>Text</pdfaProperty:valueType>
+                  <pdfaProperty:category>external</pdfaProperty:category>
+                  <pdfaProperty:description>name of the embedded XML invoice file</pdfaProperty:description>
+                </rdf:li>
+                <rdf:li rdf:parseType="Resource">
+                  <pdfaProperty:name>DocumentType</pdfaProperty:name>
+                  <pdfaProperty:valueType>Text</pdfaProperty:valueType>
+                  <pdfaProperty:category>external</pdfaProperty:category>
+                  <pdfaProperty:description>INVOICE</pdfaProperty:description>
+                </rdf:li>
+                <rdf:li rdf:parseType="Resource">
+                  <pdfaProperty:name>Version</pdfaProperty:name>
+                  <pdfaProperty:valueType>Text</pdfaProperty:valueType>
+                  <pdfaProperty:category>external</pdfaProperty:category>
+                  <pdfaProperty:description>The actual version of the Factur-X XML schema</pdfaProperty:description>
+                </rdf:li>
+                <rdf:li rdf:parseType="Resource">
+                  <pdfaProperty:name>ConformanceLevel</pdfaProperty:name>
+                  <pdfaProperty:valueType>Text</pdfaProperty:valueType>
+                  <pdfaProperty:category>external</pdfaProperty:category>
+                  <pdfaProperty:description>The conformance level of the embedded Factur-X data</pdfaProperty:description>
+                </rdf:li>
+              </rdf:Seq>
+            </pdfaSchema:property>
+          </rdf:li>
+"#
+            ));
+        }
+        entries.push_str("        </rdf:Bag>\n      </pdfaExtension:schemas>\n");
     }
 
     let ns_str = namespaces
@@ -144,7 +221,7 @@ mod tests {
             title: Some("Test".to_string()),
             ..Default::default()
         };
-        let xmp = generate_xmp(&metadata, Some(&PdfAConformance::A2a), false);
+        let xmp = generate_xmp(&metadata, Some(&PdfAConformance::A2a), false, None);
         assert!(xmp.contains("<pdfaid:part>2</pdfaid:part>"));
         assert!(xmp.contains("<pdfaid:conformance>A</pdfaid:conformance>"));
         assert!(!xmp.contains("pdfuaid"));
@@ -156,7 +233,7 @@ mod tests {
             title: Some("A & B <C>".to_string()),
             ..Default::default()
         };
-        let xmp = generate_xmp(&metadata, Some(&PdfAConformance::A2b), false);
+        let xmp = generate_xmp(&metadata, Some(&PdfAConformance::A2b), false, None);
         assert!(xmp.contains("A &amp; B &lt;C&gt;"));
         assert!(xmp.contains("<pdfaid:conformance>B</pdfaid:conformance>"));
     }
@@ -167,7 +244,7 @@ mod tests {
             title: Some("Accessible".to_string()),
             ..Default::default()
         };
-        let xmp = generate_xmp(&metadata, None, true);
+        let xmp = generate_xmp(&metadata, None, true, None);
         assert!(xmp.contains("<pdfuaid:part>1</pdfuaid:part>"));
         assert!(xmp.contains("xmlns:pdfuaid"));
         assert!(!xmp.contains("pdfaid"));
@@ -179,7 +256,7 @@ mod tests {
             title: Some("Both".to_string()),
             ..Default::default()
         };
-        let xmp = generate_xmp(&metadata, Some(&PdfAConformance::A2a), true);
+        let xmp = generate_xmp(&metadata, Some(&PdfAConformance::A2a), true, None);
         assert!(xmp.contains("<pdfaid:part>2</pdfaid:part>"));
         assert!(xmp.contains("<pdfaid:conformance>A</pdfaid:conformance>"));
         assert!(xmp.contains("<pdfuaid:part>1</pdfuaid:part>"));
@@ -190,7 +267,7 @@ mod tests {
     #[test]
     fn test_xmp_pdfua_only_no_pdfa_entries() {
         let metadata = Metadata::default();
-        let xmp = generate_xmp(&metadata, None, true);
+        let xmp = generate_xmp(&metadata, None, true, None);
         assert!(xmp.contains("<pdfuaid:part>1</pdfuaid:part>"));
         assert!(!xmp.contains("<pdfaid:part>"));
         assert!(!xmp.contains("<pdfaid:conformance>"));

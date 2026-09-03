@@ -32,7 +32,7 @@ import { renderHtml } from '@formepdf/html';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FIXTURES = join(HERE, '..', 'html', 'tests', 'fixtures');
 const LANG = 'en-US';
-const LEVELS = ['2b', '2a']; // 2a additionally requires tagging; 2u sits between.
+const LEVELS = ['2b', '2a', '3b', '3a']; // 2a/3a additionally require tagging; 2u/3u sit between (same machinery, validated via 3b/3a).
 
 const CORE_FONTS = standardFonts().map((f) => ({
   family: f.family, src: Buffer.from(f.src).toString('base64'),
@@ -130,7 +130,7 @@ async function main() {
     console.error(`\n✗ ${failures.length} corpus/level combination(s) failed: ${failures.join(', ')}`);
     process.exit(1);
   }
-  console.log(`\n✓ All 9 corpus files pass PDF/A-2b, PDF/A-2a, and PDF/UA-1 together.`);
+  console.log(`\n✓ All 9 corpus files pass ${LEVELS.map((l) => `PDF/A-${l}`).join(', ')}, and PDF/UA-1 together.`);
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });

@@ -489,10 +489,18 @@ When making layout changes, always test with:
 2. A document with enough content to overflow multiple pages
 3. A table with 50+ rows (verifies header repetition)
 
-## Compliance & conformance (PDF/UA-1 + PDF/A-2)
+## Compliance & conformance (PDF/UA-1 + PDF/A-2/-3 + e-invoice containers)
 
-Forme produces **PDF/UA-1** and **PDF/A-2 (2b/2u/2a)** conforming output, and the
-two **compose** — a single file can be archival AND accessible (`<Document
+Forme produces **PDF/UA-1**, **PDF/A-2 (2b/2u/2a)**, and **PDF/A-3 (3b/3u/3a)**
+conforming output — part 3 is part 2 plus permission for arbitrary embedded
+files (`Document.attachments` + catalog `/AF`), which is what **Factur-X/ZUGFeRD
+e-invoice containers** are: `facturX` render option embeds caller-supplied
+EN 16931 XML with the `fx:` XMP identification (container only; Forme never
+generates or validates the XML semantics). Gated in CI by veraPDF (3b + ua1)
+AND Mustangproject (`scripts/verify-einvoice.mjs`, jar pinned by sha256 in
+`.github/scripts/install-mustang.sh`). Attachments under PDF/A-2 error by
+name (part 2 forbids non-PDF/A attachments). Attachment `/ModDate` defaults
+to a fixed constant — determinism must survive. PDF/UA and PDF/A **compose** — a single file can be archival AND accessible (`<Document
 pdfa="2a" pdfUa lang="en-US" fonts={standardFonts()}>`). This is validated, not
 asserted:
 

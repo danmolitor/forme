@@ -1,5 +1,12 @@
 # Changelog — @formepdf/html
 
+## [Unreleased]
+
+### Added
+
+- `pdfA` accepts `"3b"`, `"3u"`, `"3a"` (PDF/A-3 — same rules as part 2 plus permission for embedded files). The whole corpus is veraPDF-gated at 3b/3a alongside 2b/2a.
+
+
 ## [0.17.0] - 2026-09-03
 
 ### Added

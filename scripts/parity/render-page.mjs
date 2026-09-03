@@ -78,7 +78,7 @@ if (!parity) {
 }
 
 const { provenance: prov, corpus, sections } = parity;
-const conf = sections.conformance, det = sections.determinism, tests = sections.tests, bench = sections.benchmarks;
+const conf = sections.conformance, det = sections.determinism, tests = sections.tests, bench = sections.benchmarks, einv = sections.einvoice;
 const fmtDate = (iso) => { try { return new Date(iso).toISOString().replace('T', ' ').replace(/\.\d+Z$/, ' UTC'); } catch { return iso; } };
 const unavailable = (eyebrow, name) => `<section><div class="wrap"><h3 class="eyebrow">${eyebrow}</h3>
 <p class="muted" style="margin-top:.75rem">${name} evidence is unavailable for this run — the job that produces it did not report. This is shown rather than hidden so the page never implies coverage it doesn't have.</p></div></section>`;
@@ -94,18 +94,31 @@ let html = `<header class="hero"><div class="wrap">
 // Conformance
 if (conf) {
   const fixtures = [...new Set(conf.results.map((r) => r.fixture))];
+  const aLevels = conf.configurations.filter((c) => c.id !== 'ua1').map((c) => c.level);
   const cell = (f, profile, configuration) => conf.results.find((x) => x.fixture === f && x.profile === profile && x.configuration === configuration);
   const cellHtml = (r) => r ? mark(r.pass) + (r.pass ? '' : ' <span class="muted">' + esc(r.failedClauses.map((c) => c.clause + '/t' + c.test).join(', ')) + '</span>') : '<span style="color:#475569">—</span>';
   html += `<section><div class="wrap">
 <h3 class="eyebrow">Conformance</h3>
 <h2>PDF/UA-1 and PDF/A, per document</h2>
 <p style="margin-top:1rem">Validated with ${esc(conf.tool)}. The corpus is ${corpus.templates.length} shipped templates (<span class="tag">${corpus.templates.map(esc).join(', ')}</span>) and ${corpus.htmlFixtures.length} HTML fixtures (<span class="tag">${corpus.htmlFixtures.map(esc).join(', ')}</span>). Each PDF/A column is the archival-<em>and</em>-accessible render — the same file validated against the PDF/A profile <em>and</em> PDF/UA-1.</p>
-<table><thead><tr><th>Document</th><th>PDF/UA-1</th><th>PDF/A-2b + UA-1</th><th>PDF/A-2a + UA-1</th></tr></thead><tbody>
-${fixtures.map((f) => `<tr><td class="doc">${esc(f)}</td><td>${cellHtml(cell(f, 'ua1', 'ua1'))}</td><td>${cellHtml(cell(f, '2b', 'a2b'))}</td><td>${cellHtml(cell(f, '2a', 'a2a'))}</td></tr>`).join('\n')}
+<table><thead><tr><th>Document</th><th>PDF/UA-1</th>${aLevels.map((l) => `<th>PDF/A-${esc(l)} + UA-1</th>`).join('')}</tr></thead><tbody>
+${fixtures.map((f) => `<tr><td class="doc">${esc(f)}</td><td>${cellHtml(cell(f, 'ua1', 'ua1'))}</td>${aLevels.map((l) => `<td>${cellHtml(cell(f, l, 'a' + l))}</td>`).join('')}</tr>`).join('\n')}
 </tbody></table>
-<p class="muted" style="margin-top:1rem">Any failed profile shows its veraPDF clause list here; there are currently none. PDF/A-2u is supported and reachable but not gated separately (2a is the strictest of the three).</p>
+<p class="muted" style="margin-top:1rem">Any failed profile shows its veraPDF clause list here; there are currently none. PDF/A-2u/3u are supported and reachable but not gated separately (the a-levels are the strictest of each part).</p>
 </div></section>`;
 } else html += unavailable('Conformance', 'Conformance');
+
+// E-invoice container (Factur-X)
+if (einv) {
+  html += `<section><div class="wrap">
+<h3 class="eyebrow">E-invoice container</h3>
+<h2>Factur-X / ZUGFeRD (PDF/A-3)</h2>
+<p style="margin-top:1rem">One render call produces the human-readable invoice PDF <em>and</em> embeds the caller-supplied EN&nbsp;16931 CII XML as a conformant PDF/A-3 associated file (${esc(einv.render)}). The XML is ${esc(einv.xml)}. Forme validates the container, not the invoice semantics — the XML content is the caller's.</p>
+<table><thead><tr><th>Check</th><th>Result</th></tr></thead><tbody>
+${einv.checks.map((c) => `<tr><td class="doc">${esc(c.label)}</td><td>${mark(c.pass)}</td></tr>`).join('\n')}
+</tbody></table>
+</div></section>`;
+} else html += unavailable('E-invoice container', 'E-invoice');
 
 // Determinism
 if (det) {

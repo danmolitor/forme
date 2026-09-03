@@ -1,5 +1,18 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- **`facturX` render option** — the e-invoice container in one pass: renders the document AND embeds your caller-supplied EN 16931 CII XML as a conformant PDF/A-3 associated file with the Factur-X XMP identification (`renderDocument(doc, { facturX: { xml, profile: 'EN 16931' } })`, with `<Document pdfa="3b">`). Validated in CI by veraPDF (PDF/A-3b + PDF/UA-1) and Mustangproject, the ZUGFeRD/Factur-X reference validator. Container only: Forme does not generate or validate the XML's semantic content.
+- **`attachments` render option** — generic PDF attachments (associated files) with MIME type, `/AFRelationship`, description, and a deterministic `ModDate`.
+- `pdfa` accepts `"3b"`, `"3u"`, `"3a"` (PDF/A-3) across all adapters.
+
+### Changed (behavior — correctness fix)
+
+- `embedData` (and `attachments`) combined with `pdfa: "2b"/"2u"/"2a"` now **errors by name** instead of silently emitting a file that was never valid PDF/A-2 (part 2 only permits PDF/A attachments). Use `pdfa: "3b"` or drop the conformance claim.
+
+
 ## [0.17.0] - 2026-09-03
 
 ### Changed

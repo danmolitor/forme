@@ -834,8 +834,16 @@ pub fn html_to_document(html: &str, options: &HtmlOptions) -> (forme::Document, 
                 doc.pdfa = Some(PdfAConformance::A2a);
                 doc.tagged = true;
             }
+            // Part 3: identical to part 2 plus arbitrary embedded files
+            // (e-invoice containers).
+            "3b" => doc.pdfa = Some(PdfAConformance::A3b),
+            "3u" => doc.pdfa = Some(PdfAConformance::A3u),
+            "3a" => {
+                doc.pdfa = Some(PdfAConformance::A3a);
+                doc.tagged = true;
+            }
             other => warnings.push(format!(
-                "pdf_a: unknown conformance level {other:?} — expected \"2b\", \"2u\", or \"2a\". Ignoring."
+                "pdf_a: unknown conformance level {other:?} — expected \"2b\", \"2u\", \"2a\", \"3b\", \"3u\", or \"3a\". Ignoring."
             )),
         }
         // PDF/A needs embedded fonts too; if the doc has a language for pdf_ua

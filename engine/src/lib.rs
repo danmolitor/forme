@@ -205,7 +205,10 @@ pub fn render_with_warnings_and_passes(
     let writer = PdfWriter::new();
     let tagged = document.tagged
         || document.pdf_ua
-        || matches!(document.pdfa, Some(model::PdfAConformance::A2a));
+        || matches!(
+            document.pdfa,
+            Some(model::PdfAConformance::A2a) | Some(model::PdfAConformance::A3a)
+        );
     let t_ser = if profile {
         Some(std::time::Instant::now())
     } else {
@@ -219,6 +222,8 @@ pub fn render_with_warnings_and_passes(
         document.pdfa.as_ref(),
         document.pdf_ua,
         document.embedded_data.as_deref(),
+        &document.attachments,
+        document.zugferd.as_ref(),
         document.flatten_forms,
     )?;
     let serialize_ms = t_ser.map(|t| t.elapsed().as_secs_f64() * 1000.0);
@@ -250,7 +255,10 @@ pub fn render_with_layout(
     let writer = PdfWriter::new();
     let tagged = document.tagged
         || document.pdf_ua
-        || matches!(document.pdfa, Some(model::PdfAConformance::A2a));
+        || matches!(
+            document.pdfa,
+            Some(model::PdfAConformance::A2a) | Some(model::PdfAConformance::A3a)
+        );
     let (pdf, warnings) = writer.write(
         &pages,
         &document.metadata,
@@ -259,6 +267,8 @@ pub fn render_with_layout(
         document.pdfa.as_ref(),
         document.pdf_ua,
         document.embedded_data.as_deref(),
+        &document.attachments,
+        document.zugferd.as_ref(),
         document.flatten_forms,
     )?;
     let pdf = if let Some(ref sig_config) = document.certification {
