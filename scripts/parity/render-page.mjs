@@ -211,13 +211,13 @@ ${ORDER.map((f) => {
     return `<tr><td class="doc">${esc(f)}</td><td style="text-align:right;color:#94a3b8">${pagesOfDoc(f)}</td>${cells}<td style="text-align:right">${fp && fp.status === 'ok' ? kb(fp.pdfBytes) : '—'}</td><td style="text-align:right">${pp && pp.status === 'ok' ? kb(pp.pdfBytes) : '—'}</td></tr>`;
   }).join('\n')}
 </tbody></table>
-<p class="muted" style="margin-top:1rem">Forme is ~2× faster on small documents and ~15× smaller output, but a warm pooled Chrome wins on very large table-heavy documents (50p/500p). Iteration counts per cell are in the <a href="./parity.json">raw artifact</a>.</p>
+<p class="muted" style="margin-top:1rem">Forme is ~2× faster on small documents with ~15× smaller output, and — after the allocation fixes below — now edges a warm pooled Chrome on the large table-heavy documents too (50p and 500p), where it previously trailed ~2–4×. Iteration counts per cell are in the <a href="./parity.json">raw artifact</a>.</p>
 </div></section>`;
 
   const wl = bench.whereWeLose;
   html += `<section><div class="wrap">
-<h3 class="eyebrow">Where we lose &amp; why</h3>
-<h2>The large-document gap, profiled</h2>
+<h3 class="eyebrow">Where we lost &amp; why</h3>
+<h2>The large-document gap, profiled and closed</h2>
 <p style="margin-top:1rem">${esc(wl.decomposition)}</p>
 <p style="margin-top:.75rem">${esc(wl.memoryShape)}</p>
 <div class="grid two" style="margin-top:1.5rem">
