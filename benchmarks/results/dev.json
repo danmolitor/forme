@@ -146,17 +146,17 @@
       {
         "name": "Streaming (per-page/chunked) serialize-and-release",
         "target": "memory ceiling",
-        "note": "Would cap peak at ~O(one page) and let large docs render on Workers. Structural; not yet built."
+        "note": "Investigated 2026-09 and set aside as mis-scoped. The ~1GB peak is NOT in the serializer — it is the retained Vec<LayoutPage> (~2MB/page) the CALLER holds while PdfWriter::write borrows it. The writer is already ~90% streaming-ready: Pass 1 consumes+compresses everything heavy per page; Pass 2 touches only scalars (width/height) and lightweight lists. So making the writer own-and-drop pages is worthless alone — layout() has already materialized the whole tree before write() runs. The real fix is a restartable STREAMING LAYOUT producer, which collides with the sentinel count pass (you need total page count before emitting page 1) and touches pagination — a much larger project. Compliance is NOT a blocker: the structure tree, link_slots, and disjoint StructParent numbering are a few MB of lightweight metadata that stay whole-document, so nothing fragments and veraPDF stays 9/9 by construction (output can be byte-identical). Projected floor after a full fix: tens of MB, dominated by compressed content objects held for xref assembly; going lower needs incremental xref (linearized PDF) — a writer rewrite."
       },
       {
         "name": "Reduce per-node allocation (arena / SmallVec / drop style clones)",
         "target": "throughput",
-        "note": "Addresses the ~1.9× constant-factor gap. Hot-path; needs site-level allocation profiling first."
+        "note": "dhat-profiled 2026-09 (benchmarks/harness/dhatprofile + dhat-top.mjs). TWO FIXES LANDED, output byte-identical, all gates green. (A) PositionedGlyph.font_family String→Arc<str> — #1 site by allocation COUNT; every glyph owned its own family string, so each of the millions of glyph clones heap-allocated one. Arc<str> makes clone a refcount bump. (B) Table-cell rollback checkpoint elision — the dhat BACKTRACES (not the profile guess of \"measure_node_height trial-layout\") showed ~76% of all allocated BYTES came from ONE line: layout_table_row cloned the whole PageCursor (which owns elements: Vec<LayoutElement>, every element on the page) before each cell as page-break rollback, then discarded it unused whenever the cell fit. Guard added: skip the clone when the row fits (row_height <= remaining_height) and its subtree forces no break — byte-identical by construction since an elided checkpoint would never be restored. Combined result: allocations −74% (ledger-500p 182.8M→46.3M, invoice-50p 9.24M→2.45M), bytes allocated −88% (invoice-50p 2476MB→304MB). Peak memory unchanged (churn, not peak). REMAINING (Design 2, parked): the residual at-risk-cell clones near page boundaries — a length-based checkpoint replacing the clone entirely — carry intricate mem::take/cell_pages rollback semantics + ~20-field exhaustive capture; own go/no-go, likely not worth it after (B)."
       },
       {
         "name": "Sentinel re-pass re-measures only the running element",
         "target": "page-numbered large docs",
-        "note": "Removes the 2× for docs that print page numbers. Bounded."
+        "note": "Investigated 2026-09 and set aside: not scopable as written. The sentinel width is consumed during injection (footer/margin-box layout), not the flow pass, and HTML @page margin boxes are Fixed nodes — so a \"reuse flow + re-inject\" split has no guard signal to read and silently skips the correction (byte-identity caught it). Would need injection-time or model-scan detection."
       }
     ]
   },
@@ -164,9 +164,9 @@
     {
       "environment": {
         "runner": "dev",
-        "measuredAtCommit": "2c3656992ea0a2f668e04076b80353e3197569cb",
-        "measuredAtCommitShort": "2c36569",
-        "measuredAt": "2026-09-02T15:57:41.158Z",
+        "measuredAtCommit": "61d467b6c58b25f2bfa4f7f5539b24afb9fcec23",
+        "measuredAtCommitShort": "61d467b",
+        "measuredAt": "2026-09-03T00:52:50.659Z",
         "label": "dev machine (clean hardware, single run)",
         "machine": "Apple M3 Max",
         "arch": "arm64",
@@ -178,24 +178,24 @@
         "chrome": "Google Chrome 152.0.7977.75"
       },
       "node": {
-        "bootMs": 22,
+        "bootMs": 21,
         "docs": {
           "receipt": {
             "pages": 1,
             "passes": 1,
             "warm": {
               "status": "ok",
-              "medianMs": 16.4,
-              "p95Ms": 17.7,
+              "medianMs": 16.1,
+              "p95Ms": 17.3,
               "iters": 30,
               "pdfBytes": 3577
             },
             "cold": {
               "status": "ok",
-              "totalWallMs": 107,
-              "instantiateMs": 10,
-              "firstRenderMs": 48,
-              "nodeBootMs": 22
+              "totalWallMs": 109,
+              "instantiateMs": 9,
+              "firstRenderMs": 50,
+              "nodeBootMs": 21
             },
             "peakRssMB": 0
           },
@@ -204,17 +204,17 @@
             "passes": 1,
             "warm": {
               "status": "ok",
-              "medianMs": 20.8,
-              "p95Ms": 21.6,
+              "medianMs": 19.6,
+              "p95Ms": 20.6,
               "iters": 30,
               "pdfBytes": 8479
             },
             "cold": {
               "status": "ok",
-              "totalWallMs": 140,
-              "instantiateMs": 9,
+              "totalWallMs": 137,
+              "instantiateMs": 10,
               "firstRenderMs": 54,
-              "nodeBootMs": 22
+              "nodeBootMs": 21
             },
             "peakRssMB": 0
           },
@@ -223,17 +223,17 @@
             "passes": 2,
             "warm": {
               "status": "ok",
-              "medianMs": 25.9,
-              "p95Ms": 26.6,
+              "medianMs": 24.8,
+              "p95Ms": 25.7,
               "iters": 30,
               "pdfBytes": 9078
             },
             "cold": {
               "status": "ok",
-              "totalWallMs": 140,
-              "instantiateMs": 10,
-              "firstRenderMs": 61,
-              "nodeBootMs": 22
+              "totalWallMs": 138,
+              "instantiateMs": 9,
+              "firstRenderMs": 62,
+              "nodeBootMs": 21
             },
             "peakRssMB": 0
           },
@@ -242,17 +242,17 @@
             "passes": 1,
             "warm": {
               "status": "ok",
-              "medianMs": 19.5,
-              "p95Ms": 20.7,
+              "medianMs": 16.7,
+              "p95Ms": 17.3,
               "iters": 30,
               "pdfBytes": 5252
             },
             "cold": {
               "status": "ok",
-              "totalWallMs": 138,
-              "instantiateMs": 10,
-              "firstRenderMs": 53,
-              "nodeBootMs": 22
+              "totalWallMs": 134,
+              "instantiateMs": 9,
+              "firstRenderMs": 51,
+              "nodeBootMs": 21
             },
             "peakRssMB": 0
           },
@@ -261,17 +261,17 @@
             "passes": 1,
             "warm": {
               "status": "ok",
-              "medianMs": 534.4,
-              "p95Ms": 535.1,
+              "medianMs": 146.7,
+              "p95Ms": 150.5,
               "iters": 8,
               "pdfBytes": 135584
             },
             "cold": {
               "status": "ok",
-              "totalWallMs": 657,
+              "totalWallMs": 265,
               "instantiateMs": 9,
-              "firstRenderMs": 610,
-              "nodeBootMs": 22
+              "firstRenderMs": 226,
+              "nodeBootMs": 21
             },
             "peakRssMB": 0
           },
@@ -280,17 +280,17 @@
             "passes": 2,
             "warm": {
               "status": "ok",
-              "medianMs": 9997,
-              "p95Ms": 10030.6,
+              "medianMs": 2283.7,
+              "p95Ms": 2328.5,
               "iters": 3,
               "pdfBytes": 1336966
             },
             "cold": {
               "status": "ok",
-              "totalWallMs": 18590,
+              "totalWallMs": 8617,
               "instantiateMs": 12,
-              "firstRenderMs": 18740,
-              "nodeBootMs": 22
+              "firstRenderMs": 8303,
+              "nodeBootMs": 21
             },
             "peakRssMB": 1
           }
@@ -300,33 +300,33 @@
         "docs": {
           "receipt": {
             "pages": 1,
-            "coldMs": 13,
+            "coldMs": 12,
             "peakRssMB": 7
           },
           "report-6p": {
             "pages": 6,
-            "coldMs": 17,
+            "coldMs": 15,
             "peakRssMB": 8
           },
           "letterhead-paged": {
             "pages": 5,
-            "coldMs": 21,
+            "coldMs": 20,
             "peakRssMB": 12
           },
           "compliance": {
             "pages": 2,
-            "coldMs": 15,
+            "coldMs": 13,
             "peakRssMB": 8
           },
           "invoice-50p": {
             "pages": 50,
-            "coldMs": 433,
-            "peakRssMB": 92
+            "coldMs": 132,
+            "peakRssMB": 80
           },
           "ledger-500p": {
             "pages": 500,
-            "coldMs": 8310,
-            "peakRssMB": 1165
+            "coldMs": 2213,
+            "peakRssMB": 1146
           }
         }
       },
@@ -336,9 +336,9 @@
             "pages": 1,
             "status": "ok",
             "cold": {
-              "fetchMs": 31,
+              "fetchMs": 33,
               "compileInstantiateMs": 4,
-              "firstRenderMs": 41
+              "firstRenderMs": 42
             },
             "wasmLinearMemMB": 7,
             "passes": 1,
@@ -348,9 +348,9 @@
             "pages": 6,
             "status": "ok",
             "cold": {
-              "fetchMs": 23,
+              "fetchMs": 20,
               "compileInstantiateMs": 4,
-              "firstRenderMs": 49
+              "firstRenderMs": 48
             },
             "wasmLinearMemMB": 8,
             "passes": 1,
@@ -360,9 +360,9 @@
             "pages": 5,
             "status": "ok",
             "cold": {
-              "fetchMs": 26,
+              "fetchMs": 23,
               "compileInstantiateMs": 4,
-              "firstRenderMs": 54
+              "firstRenderMs": 56
             },
             "wasmLinearMemMB": 10,
             "passes": 2,
@@ -372,9 +372,9 @@
             "pages": 2,
             "status": "ok",
             "cold": {
-              "fetchMs": 28,
+              "fetchMs": 19,
               "compileInstantiateMs": 4,
-              "firstRenderMs": 46
+              "firstRenderMs": 45
             },
             "wasmLinearMemMB": 7,
             "passes": 1,
@@ -384,9 +384,9 @@
             "pages": 50,
             "status": "ok",
             "cold": {
-              "fetchMs": 28,
+              "fetchMs": 20,
               "compileInstantiateMs": 4,
-              "firstRenderMs": 572
+              "firstRenderMs": 204
             },
             "wasmLinearMemMB": 62,
             "passes": 1,
@@ -396,11 +396,11 @@
             "pages": 500,
             "status": "ok",
             "cold": {
-              "fetchMs": 55,
+              "fetchMs": 21,
               "compileInstantiateMs": 4,
-              "firstRenderMs": 11286
+              "firstRenderMs": 4183
             },
-            "wasmLinearMemMB": 887,
+            "wasmLinearMemMB": 890,
             "passes": 2,
             "pdfBytes": 1336966
           }
@@ -408,10 +408,10 @@
       },
       "workerd": {
         "coldStart": {
-          "wallMs": 80,
+          "wallMs": 84,
           "instantiateMs": 1,
-          "firstRenderMs": 56,
-          "edgeEstimateMs": 62,
+          "firstRenderMs": 59,
+          "edgeEstimateMs": 65,
           "caveat": "miniflare runs a workerd subprocess whose routing overhead the real edge does not pay; wall time OVERSTATES production cold start (true edge isolate spin-up ~5ms). Instantiate/render split is accurate. Real production cold start needs a deployment (out of scope)."
         },
         "docs": {
@@ -428,7 +428,7 @@
             "pages": 6,
             "warm": {
               "status": "ok",
-              "medianMs": 25,
+              "medianMs": 23,
               "iters": 10
             },
             "passes": 1
@@ -437,7 +437,7 @@
             "pages": 5,
             "warm": {
               "status": "ok",
-              "medianMs": 30,
+              "medianMs": 29,
               "iters": 10
             },
             "passes": 2
@@ -446,7 +446,7 @@
             "pages": 2,
             "warm": {
               "status": "ok",
-              "medianMs": 23,
+              "medianMs": 20,
               "iters": 10
             },
             "passes": 1
@@ -455,7 +455,7 @@
             "pages": 50,
             "warm": {
               "status": "ok",
-              "medianMs": 574,
+              "medianMs": 167,
               "iters": 8
             },
             "passes": 1
@@ -464,7 +464,7 @@
             "pages": 500,
             "warm": {
               "status": "ok",
-              "medianMs": 14987,
+              "medianMs": 7426,
               "iters": 1
             },
             "passes": 2
@@ -473,9 +473,9 @@
       },
       "puppeteer": {
         "coldStart": {
-          "launchMs": 363,
-          "firstRenderMs": 56,
-          "totalMs": 419,
+          "launchMs": 281,
+          "firstRenderMs": 57,
+          "totalMs": 338,
           "coldServerlessNote": "On real serverless, cold Chrome is 3-10s, and on many consumption tiers a browser cannot boot at all."
         },
         "docs": {
@@ -483,7 +483,7 @@
             "pages": 1,
             "warm": {
               "status": "ok",
-              "medianMs": 46,
+              "medianMs": 47,
               "iters": 5,
               "pdfBytes": 47153
             }
@@ -501,7 +501,7 @@
             "pages": 5,
             "warm": {
               "status": "ok",
-              "medianMs": 49,
+              "medianMs": 48,
               "iters": 5,
               "pdfBytes": 67527
             }
@@ -510,7 +510,7 @@
             "pages": 2,
             "warm": {
               "status": "ok",
-              "medianMs": 50,
+              "medianMs": 47,
               "iters": 5,
               "pdfBytes": 67974
             }
@@ -519,7 +519,7 @@
             "pages": 50,
             "warm": {
               "status": "ok",
-              "medianMs": 222,
+              "medianMs": 232,
               "iters": 5,
               "pdfBytes": 1992903
             }
@@ -528,7 +528,7 @@
             "pages": 500,
             "warm": {
               "status": "ok",
-              "medianMs": 2706,
+              "medianMs": 2665,
               "iters": 1,
               "pdfBytes": 20069686
             }
