@@ -3540,6 +3540,25 @@ impl LayoutEngine {
         cursor.y += padding.bottom + border.bottom + margin.bottom;
     }
 
+    /// True if any node in this subtree can *force* a page break during flow
+    /// layout: an explicit `PageBreak` or `PageName` marker, or a node with
+    /// `break-before` set. Height-overflow breaks are NOT covered here — those
+    /// are bounded separately by the caller's row-fits check. Used to decide
+    /// whether a table row needs a per-cell rollback checkpoint (Fix 3-B): a
+    /// row that fits and forces no break cannot break any cell, so its
+    /// checkpoints are dead. Conservative — a new forced-break source not
+    /// listed here would be missed, which the `row_may_break` invariant assert
+    /// and the byte-identity corpus are positioned to catch.
+    fn subtree_forces_break(node: &Node) -> bool {
+        if matches!(node.kind, NodeKind::PageBreak | NodeKind::PageName { .. }) {
+            return true;
+        }
+        if node.style.break_before == Some(true) {
+            return true;
+        }
+        node.children.iter().any(Self::subtree_forces_break)
+    }
+
     #[allow(clippy::too_many_arguments)]
     fn layout_table_row(
         &self,
@@ -3564,6 +3583,20 @@ impl LayoutEngine {
 
         // Snapshot before laying out cells — we'll collect them as row children
         let row_snapshot = cursor.elements.len();
+
+        // Rollback-checkpoint elision (Fix 3-B). Each cell below snapshots the
+        // full cursor (`cursor.clone()`, which deep-copies every element on the
+        // page so far) to restore if the cell's content triggers a page break.
+        // dhat flagged that single clone as ~76% of all allocated bytes. A cell
+        // can only break for two reasons: its content overflows the remaining
+        // page height, or a forced break fires inside it. If the WHOLE row fits
+        // in the remaining height (`row_height` bounds every cell's content) AND
+        // the row subtree contains no forced break, no cell can break — so the
+        // checkpoint is dead and we skip cloning it. Evaluated once here, at the
+        // row's top `y`, before the loop advances the cursor; conservative by
+        // construction (any doubt ⇒ clone), so output stays byte-identical.
+        let row_may_break =
+            row_height > cursor.remaining_height() || Self::subtree_forces_break(row);
 
         let mut all_overflow_pages: Vec<LayoutPage> = Vec::new();
         let mut cell_x = start_x;
@@ -3625,8 +3658,15 @@ impl LayoutEngine {
                 };
             }
 
-            // Save cursor state in case cell content triggers page breaks
-            let cursor_before_cell = cursor.clone();
+            // Save cursor state in case cell content triggers page breaks — but
+            // only when a break is actually possible (see `row_may_break`). When
+            // the row provably fits with no forced break, this clone is dead, so
+            // we skip the deep copy of the page's element vec.
+            let cursor_before_cell = if row_may_break {
+                Some(cursor.clone())
+            } else {
+                None
+            };
             let mut cell_pages: Vec<LayoutPage> = Vec::new();
             for child in &cell.children {
                 self.layout_node(
@@ -3656,7 +3696,13 @@ impl LayoutEngine {
                 if !is_header {
                     all_overflow_pages.extend(cell_pages);
                 }
-                *cursor = cursor_before_cell;
+                // A break occurred, so the checkpoint MUST exist: `row_may_break`
+                // is a conservative over-approximation of "a cell can break", so
+                // any real break implies we took the clone. If this ever fires,
+                // the fits/forced-break guard missed a break source — a bug to
+                // fix in the guard, not to paper over.
+                *cursor = cursor_before_cell
+                    .expect("table cell broke but no rollback checkpoint was taken (row_may_break under-approximated)");
             }
 
             cursor.y = saved_y;
