@@ -1015,6 +1015,18 @@ fn apply_char_transform(ch: char, transform: TextTransform, is_word_start: bool)
 pub struct LayoutEngine {
     text_layout: TextLayout,
     image_dim_cache: RefCell<HashMap<String, (u32, u32)>>,
+    /// THE RENDER-DEFECT CHANNEL.
+    ///
+    /// The subset warnings answer "what did you ask for that we don't
+    /// support?" — this channel answers the other question: "what did WE
+    /// get wrong?" Every message here means the engine produced output it
+    /// knows is not what the document asked for (a table column below its
+    /// min-content width, clamped overflowing columns, ...). These are
+    /// prefixed "render defect:" and surface through the same warnings
+    /// stream. The template-compat experiment (template-compat/REPORT.md)
+    /// found every catastrophic silent failure lived in this blind spot —
+    /// more entries belong here as they're discovered.
+    warnings: RefCell<Vec<String>>,
 }
 
 /// Tracks where we are on the current page during layout.
@@ -1308,6 +1320,7 @@ impl LayoutEngine {
         Self {
             text_layout: TextLayout::new(),
             image_dim_cache: RefCell::new(HashMap::new()),
+            warnings: RefCell::new(Vec::new()),
         }
     }
 
@@ -1326,8 +1339,27 @@ impl LayoutEngine {
         }
     }
 
+    /// Report a render defect (see the `warnings` field doc): the engine
+    /// knowingly produced output that differs from what was asked.
+    fn defect(&self, msg: String) {
+        let mut w = self.warnings.borrow_mut();
+        // One report per distinct defect per render — a 500-row table
+        // must not repeat its column story 500 times.
+        if !w.contains(&msg) {
+            w.push(msg);
+        }
+    }
+
+    /// Drain the render-defect warnings collected by the LAST `layout()`
+    /// call (each call starts fresh — the sentinel re-layout loop runs
+    /// layout multiple times and only the final pass's defects stand).
+    pub fn take_warnings(&self) -> Vec<String> {
+        std::mem::take(&mut *self.warnings.borrow_mut())
+    }
+
     /// Main entry point: lay out a document into pages.
     pub fn layout(&self, document: &Document, font_context: &FontContext) -> Vec<LayoutPage> {
+        self.warnings.borrow_mut().clear();
         let mut pages: Vec<LayoutPage> = Vec::new();
         let mut cursor = match &document.first_page {
             Some(first) => PageCursor::new_first(first, &document.default_page),
@@ -3289,7 +3321,13 @@ impl LayoutEngine {
         };
         let inner_width = table_width - padding.horizontal() - border.horizontal();
 
-        let col_widths = self.resolve_column_widths(column_defs, inner_width, &node.children);
+        let col_widths = self.resolve_column_widths(
+            column_defs,
+            inner_width,
+            &node.children,
+            style,
+            font_context,
+        );
 
         let mut header_rows: Vec<&Node> = Vec::new();
         let mut body_rows: Vec<&Node> = Vec::new();
@@ -5695,7 +5733,13 @@ impl LayoutEngine {
                 };
                 let inner_width =
                     outer_width - style.padding.horizontal() - style.border_width.horizontal();
-                let col_widths = self.resolve_column_widths(columns, inner_width, &node.children);
+                let col_widths = self.resolve_column_widths(
+                    columns,
+                    inner_width,
+                    &node.children,
+                    style,
+                    font_context,
+                );
                 let row_gap = style.row_gap;
                 let mut total = 0.0;
                 for (i, row) in node.children.iter().enumerate() {
@@ -6291,16 +6335,147 @@ impl LayoutEngine {
         max_height.max(row_style.min_height)
     }
 
+    /// How many columns a cell spans (colspan, min 1).
+    fn cell_col_span(cell: &Node) -> usize {
+        match &cell.kind {
+            NodeKind::TableCell { col_span, .. } => (*col_span).max(1) as usize,
+            _ => 1,
+        }
+    }
+
+    /// Per-column min-content / max-content, gathered across ALL rows.
+    /// Spanning cells contribute an even share per column — the standard
+    /// simplification. An explicit cell width pins the column's preferred
+    /// size (still never below min-content).
+    fn measure_column_content(
+        &self,
+        children: &[Node],
+        num_cols: usize,
+        available_width: f64,
+        table_style: &ResolvedStyle,
+        font_context: &FontContext,
+    ) -> (Vec<f64>, Vec<f64>) {
+        let mut col_min = vec![0.0f64; num_cols];
+        let mut col_max = vec![0.0f64; num_cols];
+        for row_node in children {
+            let mut col = 0usize;
+            for cell in &row_node.children {
+                let span = Self::cell_col_span(cell);
+                let cell_style = cell.style.resolve(Some(table_style), available_width);
+                let chrome = cell_style.padding.horizontal() + cell_style.border_width.horizontal();
+                let mut cmin = 0.0f64;
+                let mut cmax = 0.0f64;
+                for child in &cell.children {
+                    let child_style = child.style.resolve(Some(&cell_style), 0.0);
+                    cmin =
+                        cmin.max(self.measure_min_content_width(child, &child_style, font_context));
+                    cmax =
+                        cmax.max(self.measure_intrinsic_width(child, &child_style, font_context));
+                }
+                cmin += chrome;
+                let mut cmax = cmax.max(cmin) + chrome;
+                if let SizeConstraint::Fixed(w) = cell_style.width {
+                    cmax = w.max(cmin);
+                }
+                let per_min = cmin / span as f64;
+                let per_max = cmax / span as f64;
+                for k in col..(col + span).min(num_cols) {
+                    col_min[k] = col_min[k].max(per_min);
+                    col_max[k] = col_max[k].max(per_max);
+                }
+                col += span;
+            }
+        }
+        (col_min, col_max)
+    }
+
+    /// Resolve table column widths.
+    ///
+    /// With explicit defs: fixed/fraction as given, Auto shares the rest
+    /// (clamped — overflowing fixed widths are a render defect, never a
+    /// negative share). With NO defs: CSS-style automatic table layout —
+    /// column count is the widest row's colspan sum (the old first-row
+    /// cell count turned every banner-row invoice into a one-column table
+    /// and shredded the rest, per template-compat/REPORT.md), and widths
+    /// distribute by min/max content like a browser.
     fn resolve_column_widths(
         &self,
         defs: &[ColumnDef],
         available_width: f64,
         children: &[Node],
+        table_style: &ResolvedStyle,
+        font_context: &FontContext,
     ) -> Vec<f64> {
         if defs.is_empty() {
-            let num_cols = children.first().map(|row| row.children.len()).unwrap_or(1);
-            return vec![available_width / num_cols as f64; num_cols];
+            let num_cols = children
+                .iter()
+                .map(|row| row.children.iter().map(Self::cell_col_span).sum::<usize>())
+                .max()
+                .unwrap_or(1)
+                .max(1);
+
+            let (col_min, col_max) = self.measure_column_content(
+                children,
+                num_cols,
+                available_width,
+                table_style,
+                font_context,
+            );
+
+            let sum_min: f64 = col_min.iter().sum();
+            let sum_max: f64 = col_max.iter().sum();
+            let w = available_width;
+            return if sum_max <= w {
+                // Everything fits at preferred size: surplus distributes
+                // proportionally to max-content (browser behavior for
+                // width:100% tables).
+                if sum_max <= f64::EPSILON {
+                    vec![w / num_cols as f64; num_cols]
+                } else {
+                    col_max
+                        .iter()
+                        .map(|m| m + (w - sum_max) * (m / sum_max))
+                        .collect()
+                }
+            } else if sum_min <= w {
+                // Squeeze between min and max, proportional to each
+                // column's flexibility.
+                let denom = (sum_max - sum_min).max(f64::EPSILON);
+                col_min
+                    .iter()
+                    .zip(&col_max)
+                    .map(|(mn, mx)| mn + (w - sum_min) * ((mx - mn) / denom))
+                    .collect()
+            } else {
+                // The content genuinely cannot fit. Scale mins down and
+                // SAY SO — this used to be the silent shred.
+                self.defect(format!(
+                    "render defect: table columns need {:.0}pt at min-content but only {:.0}pt is available — text will wrap tighter than intended",
+                    sum_min, w
+                ));
+                let scale = w / sum_min.max(f64::EPSILON);
+                col_min.iter().map(|m| m * scale).collect()
+            };
         }
+
+        // Defs can under-specify the table: a rowspan-spacer or short
+        // first row yields fewer defs than the widest row has cells (the
+        // InvoicePlane date block, template-compat/REPORT.md). Cells
+        // beyond the defs used to get NO width at all — extend with Auto
+        // columns to the true column count instead.
+        let num_cols = children
+            .iter()
+            .map(|row| row.children.iter().map(Self::cell_col_span).sum::<usize>())
+            .max()
+            .unwrap_or(defs.len())
+            .max(defs.len());
+        let mut defs_vec: Vec<ColumnDef> = defs.to_vec();
+        while defs_vec.len() < num_cols {
+            defs_vec.push(ColumnDef {
+                width: ColumnWidth::Auto,
+            });
+        }
+        let defs = &defs_vec[..];
 
         let mut widths = Vec::new();
         let mut remaining = available_width;
@@ -6324,6 +6499,17 @@ impl LayoutEngine {
             }
         }
 
+        if remaining < 0.0 {
+            // Fixed/fraction widths exceed the table: Auto columns would
+            // have gone NEGATIVE. Clamp, and report the defect.
+            self.defect(format!(
+                "render defect: table column widths total {:.0}pt but only {:.0}pt is available — remaining columns were clamped to their minimum",
+                available_width - remaining,
+                available_width
+            ));
+            remaining = 0.0;
+        }
+
         if auto_count > 0 {
             let auto_width = remaining / auto_count as f64;
             for (i, def) in defs.iter().enumerate() {
@@ -6331,6 +6517,52 @@ impl LayoutEngine {
                     widths[i] = auto_width;
                 }
             }
+        }
+
+        // Specified widths are suggestions, not laws (browser auto table
+        // layout): a column squeezed below its min-content — the classic
+        // over-specified-width template — is floored at min-content, and
+        // the deficit comes out of columns with surplus, proportionally.
+        // A table where every column already fits is returned EXACTLY as
+        // specified (byte-stable for the shipped templates).
+        let (col_min, _) = self.measure_column_content(
+            children,
+            widths.len(),
+            available_width,
+            table_style,
+            font_context,
+        );
+        let needs_floor = widths.iter().zip(&col_min).any(|(w, m)| *w + 0.01 < *m);
+        if needs_floor {
+            let sum_min: f64 = col_min.iter().sum();
+            if sum_min > available_width {
+                self.defect(format!(
+                    "render defect: table columns need {:.0}pt at min-content but only {:.0}pt is available — text will wrap tighter than intended",
+                    sum_min, available_width
+                ));
+                let scale = available_width / sum_min.max(f64::EPSILON);
+                return col_min.iter().map(|m| m * scale).collect();
+            }
+            let deficit: f64 = widths
+                .iter()
+                .zip(&col_min)
+                .map(|(w, m)| (m - w).max(0.0))
+                .sum();
+            let surplus: f64 = widths
+                .iter()
+                .zip(&col_min)
+                .map(|(w, m)| (w - m).max(0.0))
+                .sum();
+            let take = if surplus > 0.0 {
+                deficit / surplus
+            } else {
+                0.0
+            };
+            widths = widths
+                .iter()
+                .zip(&col_min)
+                .map(|(w, m)| if *w < *m { *m } else { w - (w - m) * take })
+                .collect();
         }
 
         widths

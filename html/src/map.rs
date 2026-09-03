@@ -890,7 +890,11 @@ impl Mapper {
     }
 
     fn columns_from_first_row(&mut self, table: &Element, font_size: f64) -> Vec<ColumnDef> {
-        let Some(first_row) = find_first_tr(&table.children) else {
+        // Harvest widths from the first row WITHOUT colspans. The old
+        // first-row-only rule discarded every width the moment a table
+        // opened with a full-width banner row — which is how most real
+        // invoices open (template-compat/REPORT.md).
+        let Some(first_row) = find_first_plain_tr(&table.children) else {
             return vec![];
         };
         let mut defs = Vec::new();
@@ -899,15 +903,6 @@ impl Mapper {
             if let DomNode::Element(e) = child {
                 if !matches!(e.tag.as_str(), "td" | "th") {
                     continue;
-                }
-                let colspan = e
-                    .attr("colspan")
-                    .and_then(|v| v.parse::<u32>().ok())
-                    .unwrap_or(1);
-                if colspan > 1 {
-                    // Spanned first-row cells make per-column widths
-                    // ambiguous; let the engine distribute evenly.
-                    return vec![];
                 }
                 let computed = self.computed_for(e, font_size);
                 let def = match computed.width {
@@ -938,21 +933,39 @@ impl Mapper {
     }
 }
 
-fn find_first_tr(children: &[DomNode]) -> Option<&Element> {
-    for child in children {
-        if let DomNode::Element(e) = child {
-            match e.tag.as_str() {
-                "tr" => return Some(e),
-                "thead" | "tbody" | "tfoot" => {
-                    if let Some(tr) = find_first_tr(&e.children) {
+/// First `<tr>` whose cells all have colspan=1 — the row that can supply
+/// unambiguous per-column widths. `None` when every row spans.
+fn find_first_plain_tr(children: &[DomNode]) -> Option<&Element> {
+    fn is_plain(tr: &Element) -> bool {
+        tr.children.iter().all(|c| match c {
+            DomNode::Element(e) if matches!(e.tag.as_str(), "td" | "th") => {
+                e.attr("colspan")
+                    .and_then(|v| v.parse::<u32>().ok())
+                    .unwrap_or(1)
+                    <= 1
+            }
+            _ => true,
+        })
+    }
+    fn walk(children: &[DomNode]) -> Option<&Element> {
+        for child in children {
+            if let DomNode::Element(e) = child {
+                if e.tag == "tr" {
+                    if is_plain(e) {
+                        return Some(e);
+                    }
+                    continue; // spanned row: keep looking further down
+                }
+                if matches!(e.tag.as_str(), "thead" | "tbody" | "tfoot") {
+                    if let Some(tr) = walk(&e.children) {
                         return Some(tr);
                     }
                 }
-                _ => {}
             }
         }
+        None
     }
-    None
+    walk(children)
 }
 
 // ── Node/style construction ───────────────────────────────────────────
