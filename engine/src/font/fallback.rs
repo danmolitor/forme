@@ -37,13 +37,18 @@ pub fn segment_by_font(
         return vec![];
     }
 
-    // Fast path: single font family — check if all chars are covered
+    // Fast path: single font family — check if all chars are covered.
+    // Page-number sentinels are exempt like whitespace: they're replaced
+    // by digits at write time, so no font can (or needs to) cover them.
     if !families.contains(',') {
         let family = families.trim().trim_matches('"').trim_matches('\'');
         let font = registry.resolve(family, weight, italic);
-        let all_covered = chars
-            .iter()
-            .all(|&ch| ch.is_whitespace() || font.has_char(ch));
+        let all_covered = chars.iter().all(|&ch| {
+            ch.is_whitespace()
+                || ch == crate::layout::PAGE_NUMBER_SENTINEL
+                || ch == crate::layout::TOTAL_PAGES_SENTINEL
+                || font.has_char(ch)
+        });
         if all_covered {
             return vec![FontRun {
                 start: 0,
