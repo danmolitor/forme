@@ -211,23 +211,24 @@ ${ORDER.map((f) => {
     return `<tr><td class="doc">${esc(f)}</td><td style="text-align:right;color:#94a3b8">${pagesOfDoc(f)}</td>${cells}<td style="text-align:right">${fp && fp.status === 'ok' ? kb(fp.pdfBytes) : '—'}</td><td style="text-align:right">${pp && pp.status === 'ok' ? kb(pp.pdfBytes) : '—'}</td></tr>`;
   }).join('\n')}
 </tbody></table>
-<p class="muted" style="margin-top:1rem">Forme is ~2× faster on small documents and ~15× smaller output, but a warm pooled Chrome wins on very large table-heavy documents (50p/500p). Iteration counts per cell are in the <a href="./parity.json">raw artifact</a>.</p>
+<p class="muted" style="margin-top:1rem">Forme is ~2× faster on small documents with ~15× smaller output, and — after the allocation fixes below — now edges a warm pooled Chrome on the large table-heavy documents too (50p and 500p), where it previously trailed ~2–4×. Iteration counts per cell are in the <a href="./parity.json">raw artifact</a>.</p>
 </div></section>`;
 
   const wl = bench.whereWeLose;
   html += `<section><div class="wrap">
-<h3 class="eyebrow">Where we lose &amp; why</h3>
-<h2>The large-document gap, profiled</h2>
+<h3 class="eyebrow">Where the time goes</h3>
+<h2>The large-document gap, measured then closed</h2>
 <p style="margin-top:1rem">${esc(wl.decomposition)}</p>
 <p style="margin-top:.75rem">${esc(wl.memoryShape)}</p>
 <div class="grid two" style="margin-top:1.5rem">
 <div><table><thead><tr><th>Phase (native)</th><th style="text-align:right">invoice-50p</th><th style="text-align:right">ledger-500p</th></tr></thead><tbody>
 ${['parseMs', 'layoutMs', 'serializeMs'].map((k) => `<tr><td class="doc">${k.replace('Ms', '')}</td><td style="text-align:right">${ms(wl.phaseBreakdown[0][k])}</td><td style="text-align:right">${ms(wl.phaseBreakdown[1][k])}</td></tr>`).join('\n')}
+<tr style="color:#94a3b8"><td>layout before fix</td><td style="text-align:right">${ms(wl.phaseBreakdown[0].layoutMsBefore)}</td><td style="text-align:right">${ms(wl.phaseBreakdown[1].layoutMsBefore)}</td></tr>
 <tr style="color:#94a3b8"><td>layout ms/page/pass</td><td style="text-align:right">${wl.phaseBreakdown[0].layoutMsPerPagePerPass}</td><td style="text-align:right">${wl.phaseBreakdown[1].layoutMsPerPagePerPass}</td></tr>
-</tbody></table><p class="muted" style="margin-top:.5rem">Per-pass layout is flat at ~7.3 ms/page from 50 to 500 pages — linear, no super-linear scaling.</p></div>
+</tbody></table><p class="muted" style="margin-top:.5rem">Per-pass layout dropped from ~7.3 to ~1.8 ms/page (the allocation fix) and stays flat 50→500 pages — linear, no super-linear scaling. Parse and serialize (untouched) didn't move — the control that isolates the layout gain.</p></div>
 <div><div class="card"><div class="muted">Allocation churn (counting allocator)</div>
-<div style="margin-top:.5rem">ledger-500p: <span class="tag">${(wl.allocations[1].totalAllocs / 1e6).toFixed(0)}M allocations</span> · ~${wl.allocations[1].allocsPerRowPerPass.toLocaleString()}/row/pass</div>
-<div style="margin-top:.5rem">peak live <span class="tag">${wl.allocations[1].peakLiveMB} MB</span>, freed to ${wl.allocations[1].finalLiveMB}MB at exit (retained tree, not a leak)</div></div></div>
+<div style="margin-top:.5rem">ledger-500p: <span class="tag">${(wl.allocations[1].totalAllocsBefore / 1e6).toFixed(0)}M → ${(wl.allocations[1].totalAllocs / 1e6).toFixed(0)}M allocations</span> (−${Math.round(100 * (1 - wl.allocations[1].totalAllocs / wl.allocations[1].totalAllocsBefore))}%, ~${wl.allocations[1].allocsPerRowPerPass.toLocaleString()}/row/pass)</div>
+<div style="margin-top:.5rem">peak live <span class="tag">${wl.allocations[1].peakLiveMB} MB</span> — unchanged by the fix, freed to ${wl.allocations[1].finalLiveMB}MB at exit. Churn removed, not retained state: this is a speed win, not a capacity one (the 128MB table below is unchanged).</div></div></div>
 </div>
 <p style="margin-top:1.5rem">Tracked fixes (no dates promised):</p>
 <ul class="gaps">${wl.trackedFixes.map((x) => `<li><span class="tag">${esc(x.name)}</span> ${esc(x.note)}</li>`).join('')}</ul>

@@ -157,6 +157,26 @@ impl PdfWriter {
     }
 
     /// Write laid-out pages to a PDF byte vector.
+    ///
+    /// MEMORY NOTE (streaming-serialize investigation, 2026-09 — set aside): the
+    /// large-document peak (~1GB for a 500-page doc) is NOT here. It is the
+    /// `Vec<LayoutPage>` the caller retains (~2MB/page) while this fn borrows it
+    /// as a slice. This writer is already ~90% streaming-ready: Pass 1 (below)
+    /// consumes and zlib-compresses everything heavy per page; Pass 2 touches
+    /// only scalars (width/height) and the lightweight collected lists
+    /// (annotations, bookmarks). So making `write` take pages by value and drop
+    /// each page's `elements` after Pass 1 saves nothing on its own — `layout()`
+    /// has already materialized the whole tree before `write` is called. A real
+    /// peak reduction needs a restartable STREAMING LAYOUT producer (yield page
+    /// N, serialize, drop), which collides with the sentinel count pass (total
+    /// page count is needed before page 1 can emit) and touches pagination.
+    /// Crucially, PDF/A + PDF/UA are NOT a blocker: the structure tree
+    /// (`tagged::TagBuilder`), `link_slots`, and disjoint page/annotation
+    /// StructParent numbering are a few MB of lightweight metadata that stay
+    /// whole-document and assemble unchanged at finalize — so streaming frees
+    /// layout memory earlier without moving a single output byte, and veraPDF
+    /// stays 9/9 by construction. See `scripts/parity/benchmarks.mjs`
+    /// `trackedFixes` for the full write-up.
     #[allow(clippy::too_many_arguments)]
     pub fn write(
         &self,
@@ -1518,7 +1538,7 @@ impl PdfWriter {
                         let italic =
                             matches!(first.font_style, FontStyle::Italic | FontStyle::Oblique);
                         let font_key = FontKey {
-                            family: first.font_family.clone(),
+                            family: first.font_family.to_string(),
                             weight: first.font_weight,
                             italic,
                         };
@@ -1947,7 +1967,7 @@ impl PdfWriter {
                         let italic =
                             matches!(first.font_style, FontStyle::Italic | FontStyle::Oblique);
                         let fk = FontKey {
-                            family: first.font_family.clone(),
+                            family: first.font_family.to_string(),
                             weight: first.font_weight,
                             italic,
                         };
@@ -2733,7 +2753,7 @@ impl PdfWriter {
                         let italic =
                             matches!(glyph.font_style, FontStyle::Italic | FontStyle::Oblique);
                         let key = FontKey {
-                            family: glyph.font_family.clone(),
+                            family: glyph.font_family.to_string(),
                             weight: glyph.font_weight,
                             italic,
                         };
@@ -4460,7 +4480,7 @@ mod tests {
                                 y_offset: 0.0,
                                 x_advance: 8.0,
                                 font_size: 12.0,
-                                font_family: "Helvetica".to_string(),
+                                font_family: "Helvetica".into(),
                                 font_weight: 400,
                                 font_style: FontStyle::Normal,
                                 char_value: 'A',
@@ -4505,7 +4525,7 @@ mod tests {
                                 y_offset: 0.0,
                                 x_advance: 8.0,
                                 font_size: 12.0,
-                                font_family: "Helvetica".to_string(),
+                                font_family: "Helvetica".into(),
                                 font_weight: 700,
                                 font_style: FontStyle::Normal,
                                 char_value: 'A',
@@ -4675,7 +4695,7 @@ mod tests {
                             y_offset: 0.0,
                             x_advance: 8.0,
                             font_size: 12.0,
-                            font_family: "Helvetica".to_string(),
+                            font_family: "Helvetica".into(),
                             font_weight: 400,
                             font_style: FontStyle::Normal,
                             char_value: 'H',
