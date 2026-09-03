@@ -88,8 +88,24 @@ pub struct Document {
 
     /// Optional JSON string to embed as an attached file in the PDF.
     /// Enables round-tripping structured data through PDF files.
+    /// Forbidden under PDF/A-1/-2 (which allow only PDF/A attachments);
+    /// use a PDF/A-3 level (`"3b"` etc.) or drop the conformance claim.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub embedded_data: Option<String>,
+
+    /// Files to embed as PDF attachments (associated files). Under
+    /// PDF/A-3 each becomes a conformant associated file: MIME `/Subtype`
+    /// on the stream, `/F`+`/UF`+`/AFRelationship` on the filespec, and
+    /// membership in the catalog `/AF` array. Forbidden under PDF/A-1/-2.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub attachments: Vec<Attachment>,
+
+    /// Factur-X / ZUGFeRD e-invoice identification (XMP `fx:` schema).
+    /// Container-level only: the caller supplies the invoice XML as an
+    /// attachment; this drives the XMP that names it. Requires a PDF/A-3
+    /// level and an attachment whose name matches `document_file_name`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub zugferd: Option<ZugferdMeta>,
 
     /// When true, form field values are rendered as static content and no
     /// interactive AcroForm widgets are emitted. The resulting PDF has no
@@ -115,6 +131,98 @@ pub enum PdfAConformance {
     /// PDF/A-2u: 2b plus a Unicode mapping for all text.
     #[serde(rename = "2u")]
     A2u,
+    /// PDF/A-3a: like 2a, plus arbitrary embedded files (ISO 19005-3).
+    #[serde(rename = "3a")]
+    A3a,
+    /// PDF/A-3b: like 2b, plus arbitrary embedded files.
+    #[serde(rename = "3b")]
+    A3b,
+    /// PDF/A-3u: like 2u, plus arbitrary embedded files.
+    #[serde(rename = "3u")]
+    A3u,
+}
+
+impl PdfAConformance {
+    /// Part 3 permits embedded files of any type; parts 1/2 allow only
+    /// other PDF/A files (veraPDF rule 6.8-5), which the engine cannot
+    /// verify — so attachments under a 2x level are refused.
+    pub fn allows_attachments(&self) -> bool {
+        matches!(self, Self::A3a | Self::A3b | Self::A3u)
+    }
+}
+
+/// A file embedded as a PDF attachment (associated file).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Attachment {
+    /// Filename recorded in `/F`, `/UF`, and the EmbeddedFiles name tree
+    /// (e.g. `factur-x.xml`).
+    pub name: String,
+    /// File bytes, base64-encoded (a `data:` URI prefix is tolerated).
+    pub src: String,
+    /// MIME type for the stream `/Subtype` (PDF/A-3 requires one);
+    /// defaults to `application/octet-stream`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mime_type: Option<String>,
+    /// How the file relates to the document (`/AFRelationship`).
+    /// Defaults to `Unspecified`; the Factur-X path derives the correct
+    /// value from the profile when unset.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub relationship: Option<AfRelationship>,
+    /// Optional human-readable `/Desc`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// Modification date for `/Params /ModDate`, as a PDF date string
+    /// (`D:YYYYMMDDHHmmSSZ`). Defaults to a fixed constant — never
+    /// wall-clock — so output stays byte-deterministic.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mod_date: Option<String>,
+}
+
+/// `/AFRelationship` values (PDF 2.0 §14.13, used by PDF/A-3).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AfRelationship {
+    Data,
+    Source,
+    Alternative,
+    Supplement,
+    Unspecified,
+}
+
+impl AfRelationship {
+    pub fn pdf_name(&self) -> &'static str {
+        match self {
+            Self::Data => "Data",
+            Self::Source => "Source",
+            Self::Alternative => "Alternative",
+            Self::Supplement => "Supplement",
+            Self::Unspecified => "Unspecified",
+        }
+    }
+}
+
+/// Factur-X / ZUGFeRD XMP identification (the `fx:` extension schema).
+///
+/// Container-level metadata only — names the attached XML and its
+/// profile. The engine does not read or validate the XML itself.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ZugferdMeta {
+    /// Profile name as it appears in XMP `fx:ConformanceLevel`:
+    /// `MINIMUM`, `BASIC WL`, `BASIC`, `EN 16931`, `EXTENDED`, or
+    /// `XRECHNUNG` (spaces included — Mustang validates these exact
+    /// spellings).
+    pub conformance_level: String,
+    /// XMP `fx:DocumentFileName`; must match an attachment's `name`.
+    /// Defaults to `factur-x.xml` (`xrechnung.xml` for XRECHNUNG).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub document_file_name: Option<String>,
+    /// XMP `fx:Version` — the Factur-X schema version, default `1.0`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
+    /// XMP `fx:DocumentType`, default `INVOICE`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub document_type: Option<String>,
 }
 
 /// A rectangular region to redact in an existing PDF.

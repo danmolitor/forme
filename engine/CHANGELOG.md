@@ -1,5 +1,18 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- **PDF/A-3 (3b/3u/3a).** Identical rule set to PDF/A-2 plus permission for arbitrary embedded files (verified against the veraPDF part-2/3 rules — the only deltas are clause 6.8). XMP `pdfaid:part` 3; `3a` implies tagging like `2a`.
+- **Attachments (associated files).** `Document.attachments` embeds files with the PDF/A-3 requirements built in: MIME `/Subtype` on the stream, `/F` + `/UF` + `/AFRelationship` on the filespec, `/Params` with `/Size` and a **deterministic** default `/ModDate` (never wall-clock — byte determinism holds), and membership in the catalog `/AF` array.
+- **Factur-X / ZUGFeRD e-invoice container.** `Document.zugferd` emits the `fx:` XMP identification (DocumentType/DocumentFileName/Version/ConformanceLevel, namespace `urn:factur-x:pdfa:CrossIndustryDocument:invoice:1p0#`) with the required PDF/A extension-schema description; `/AFRelationship` defaults per profile (`Data` for MINIMUM/BASIC WL, `Alternative` otherwise). Composes with `pdf_ua`. Container only — the engine does not generate or validate the invoice XML.
+
+### Changed (behavior — correctness fix)
+
+- **`embeddedData`/attachments under PDF/A-2 now error by name** instead of silently emitting a non-conformant file: ISO 19005-2 §6.8 permits only PDF/A attachments, which the engine cannot verify. The error names the fix (`pdfa: "3b"`). Files previously produced with `pdfa: "2b"` + `embedData` were never valid PDF/A-2.
+
+
 ## [0.17.0] - 2026-09-03
 
 ### Added

@@ -73,7 +73,7 @@ export interface DocumentProps {
   /** Whether to produce a tagged (accessible) PDF with structure tree. */
   tagged?: boolean;
   /** PDF/A conformance level. "2a" requires tagging, "2b" is visual-only compliance. */
-  pdfa?: '2a' | '2b' | '2u';
+  pdfa?: '2a' | '2b' | '2u' | '3a' | '3b' | '3u';
   /** When true, the PDF claims PDF/UA-1 conformance. Forces tagging. */
   pdfUa?: boolean;
   /** Digital certification configuration. Certifies the PDF with an X.509 certificate. */

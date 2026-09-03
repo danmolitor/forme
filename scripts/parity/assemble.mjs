@@ -50,6 +50,7 @@ if (ua || a) {
 }
 
 const determinism = readJson('determinism');
+const einvoice = readJson('einvoice');
 const tests = readJson('tests');
 // Benchmarks: prefer the freshly-emitted partial (carries dev + ci runs). If the
 // CI benchmark job was skipped or failed, fall back to the committed dev
@@ -65,6 +66,7 @@ if (!conformance) missing.push('conformance');
 if (!determinism) missing.push('determinism');
 if (!tests) missing.push('tests');
 if (!benchmarks) missing.push('benchmarks');
+if (!einvoice) missing.push('einvoice');
 
 const artifact = {
   schemaVersion: 1,
@@ -82,7 +84,7 @@ const artifact = {
     templates: ['invoice', 'receipt', 'report', 'shipping-label', 'letter'],
     htmlFixtures: ['letterhead', 'dashed-borders', 'statement', 'zebra-invoice'],
   },
-  sections: { conformance, determinism, tests, benchmarks },
+  sections: { conformance, determinism, tests, benchmarks, einvoice },
   missingSections: missing,
 };
 

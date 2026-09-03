@@ -84,6 +84,8 @@ pub fn map_html(body: &Element, sheet: Stylesheet, page: PageConfig) -> (Documen
         first_page: None,
         left_page: None,
         named_pages: Default::default(),
+        attachments: vec![],
+        zugferd: None,
         right_page: None,
         fonts: vec![],
         default_style: None,

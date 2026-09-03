@@ -562,8 +562,26 @@ jobs:
           REQUIRE_VERAPDF: '1'
           PARITY_DIR: ${{ github.workspace }}/parity-partials
         run: node scripts/verify-pdfa.mjs
+      - name: Install Mustang CLI
+        # ZUGFeRD/Factur-X reference validator — pinned version + sha256
+        # (a downloaded artifact nobody verifies is how the sRGB.icc
+        # incident happened). Offline validation; Java already installed
+        # above for veraPDF.
+        run: |
+          MUSTANG_HOME="$HOME/mustang" bash .github/scripts/install-mustang.sh
+          echo "MUSTANG_JAR=$HOME/mustang/Mustang-CLI.jar" >> "$GITHUB_ENV"
+      - name: Validate the e-invoice container (veraPDF + Mustang)
+        # Renders a Factur-X EN 16931 invoice (visual PDF + corpus XML in
+        # one pass) and gates it on BOTH validators — the container claim,
+        # enforced, not asserted.
+        env:
+          REQUIRE_VALIDATORS: '1'
+          PARITY_DIR: ${{ github.workspace }}/parity-partials
+        run: node scripts/verify-einvoice.mjs
       - name: Upload parity evidence (conformance)
         uses: actions/upload-artifact@v4
         with:
           name: parity-conformance
-          path: parity-partials/conformance-*.json
+          path: |
+            parity-partials/conformance-*.json
+            parity-partials/einvoice.json

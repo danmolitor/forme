@@ -41,6 +41,7 @@ import {
   resolveImages,
   extractDataFromPdf,
 } from './shared/browserHelpers.js';
+import { applyAttachmentOptions, type AttachmentOptions, type FacturXOptions } from './attachments.js';
 
 // ── Re-export types from the main entry ────────────────────────────
 
@@ -126,6 +127,7 @@ export async function renderDocument(
   if (options?.flattenForms) {
     doc.flattenForms = true;
   }
+  applyAttachmentOptions(doc, options);
   await Promise.all([resolveFonts(doc), resolveImages(doc)]);
   return renderPdf(JSON.stringify(doc));
 }
@@ -142,6 +144,7 @@ export async function renderDocumentWithLayout(
   if (options?.flattenForms) {
     doc.flattenForms = true;
   }
+  applyAttachmentOptions(doc, options);
   await Promise.all([resolveFonts(doc), resolveImages(doc)]);
   return renderPdfWithLayout(JSON.stringify(doc));
 }
@@ -158,6 +161,7 @@ export async function renderSerializedDoc(
   if (options?.flattenForms) {
     doc.flattenForms = true;
   }
+  applyAttachmentOptions(doc, options);
   await Promise.all([resolveFonts(doc), resolveImages(doc)]);
   return renderPdf(JSON.stringify(doc));
 }
@@ -172,6 +176,7 @@ export async function renderSerializedDocWithLayout(
   if (options?.flattenForms) {
     doc.flattenForms = true;
   }
+  applyAttachmentOptions(doc, options);
   await Promise.all([resolveFonts(doc), resolveImages(doc)]);
   return renderPdfWithLayout(JSON.stringify(doc));
 }
@@ -273,3 +278,5 @@ export async function mergePdfs(pdfs: Uint8Array[]): Promise<Uint8Array> {
 export async function extractData(pdfBytes: Uint8Array): Promise<unknown | null> {
   return extractDataFromPdf(pdfBytes);
 }
+
+export type { AttachmentOptions, FacturXOptions, AfRelationship, FacturXProfile } from './attachments.js';
