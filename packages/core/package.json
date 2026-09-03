@@ -70,14 +70,14 @@
     "react": "^18 || ^19"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.12.21",
+    "@cloudflare/vitest-pool-workers": "^0.22.0",
     "@formepdf/templates": "0.16.0",
     "@pdf-testkit/vitest": "^0.1.1",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "react": "^19.0.0",
     "typescript": "^5.7.0",
-    "vitest": "^3.0.0",
+    "vitest": "^4.1.0",
     "@formepdf/fonts-standard": "0.16.0"
   },
   "files": [

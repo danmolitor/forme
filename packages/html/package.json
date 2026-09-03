@@ -79,8 +79,8 @@
     "test:workers": "vitest run --config vitest.config.workers.ts"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.12.21",
-    "vitest": "^3.0.0"
+    "@cloudflare/vitest-pool-workers": "^0.22.0",
+    "vitest": "^4.1.0"
   },
   "keywords": [
     "pdf",

@@ -20,7 +20,7 @@
     "@formepdf/core": "0.16.0",
     "@formepdf/html": "0.16.0",
     "@formepdf/react": "0.16.0",
-    "esbuild": "^0.24.0"
+    "esbuild": "^0.28.2"
   },
   "peerDependencies": {
     "react": "^18 || ^19"
@@ -35,7 +35,7 @@
     "react": "^19.0.0",
     "svelte": "^5.30.0",
     "typescript": "^5.7.0",
-    "vitest": "^3.0.0",
+    "vitest": "^4.1.0",
     "vue": "^3.4.0"
   },
   "files": [
