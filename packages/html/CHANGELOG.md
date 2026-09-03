@@ -1,6 +1,6 @@
 # Changelog — @formepdf/html
 
-## [Unreleased]
+## [0.18.0] - 2026-09-03
 
 ### Added
 
