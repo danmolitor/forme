@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.17.0] - 2026-09-03
+
+### Added
+
+- **`@page :left` / `:right` parity page selection.** `Document.left_page`/`right_page` give even/odd (1-based; page 1 is a right page, LTR page progression per CSS Paged Media) pages their own config. Flow layout always runs at the base horizontal geometry — mirrored margins (equal left+right sum) preserve content width by construction, so a parity page is the base layout plus a constant x translation at finalize, never a re-layout. Watermarks, margin boxes, and fixed elements inject from the page's own config and never translate. `FixedPageFilter` gains `Left`/`Right`/`RightNotFirst`.
+- **Named pages.** `Document.named_pages` (`@page <name>` + the CSS `page` property) with a `PageName` marker node: a name change forces a page break, and the run's pages use the named family. A named run starts at a forced break, so its REAL config may vary vertically (a zero-top-margin cover works); horizontal follows the mirrored-margin translation rule. Composes with `:first`/`:left`/`:right`; precedence per spec specificity (named > `:first` > parity). Fixed elements gain `page_name`/`exclude_page_names` scoping for per-name running headers.
+
+### Fixed
+
+- **Page-number placeholders no longer switch fonts.** `{{pageNumber}}`/`{{totalPages}}` sentinels are font-neutral in per-character fallback (previously they always fell through to base-14 Helvetica, splitting a custom-font footer across two typefaces and hard-failing PDF/A), and digits 0–9 are subset for any font that carried a sentinel so the substituted numbers have real glyphs and ToUnicode entries. Default-font documents are byte-identical. Known boundary: a registered font genuinely lacking digit glyphs still renders `.notdef` page numbers.
+- Sentinel re-layout pass is skipped entirely for documents without page-number placeholders.
+
+### Performance
+
+- Glyph font families are shared via `Arc<str>` (−31% allocations) and the dead table-cell rollback checkpoint is elided (−74% allocations); the large-document throughput gap identified in the benchmark suite is closed. A fixed deterministic benchmark corpus (`benchmarks/`) now feeds the public parity page's measured numbers.
+
+
 ## [0.15.0]
 
 ### Changed (behavior — read the migration note)

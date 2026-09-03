@@ -8,6 +8,7 @@ Full release notes live on **[GitHub Releases](https://github.com/formepdf/forme
 
 ## Recent highlights
 
+- **0.17.0** — CSS Paged Media page selection: `@page :left`/`:right` and named pages (`@page <name>` + the `page` property) in the HTML path; CSS Grid through the HTML mapper; page-number placeholders no longer switch fonts (custom-font footers stay PDF/A-eligible); ~2× fewer allocations in large-document layout.
 - **0.16.0** — PDF/A-2 conformance (levels 2b, 2u, 2a), veraPDF-verified in CI, composing with PDF/UA-1. Includes a correction: `pdfa` output from earlier versions was not valid PDF/A — [re-render guidance here](/archival).
 - **0.15.0** — Vue 3 adapter, `@formepdf/fonts-standard`, PDF/UA-1 verification as a veraPDF CI gate, and browser/Workers builds of the HTML engine.
 - **0.14.0** — the HTML input path: `@formepdf/html`, print CSS with `@page`, margin boxes, and page counters. [Docs](/html).

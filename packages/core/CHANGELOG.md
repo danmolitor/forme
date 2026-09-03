@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.0] - 2026-09-03
+
+### Changed
+
+- Embeds engine 0.17.0 — `@page :left`/`:right` parity pages and named pages (exposed in document JSON as `leftPage`, `rightPage`, `namedPages` + `PageName` marker nodes), the page-number placeholder font fix (custom-font footers with `{{pageNumber}}`/`{{totalPages}}` no longer emit a non-embedded Helvetica and stay PDF/A-eligible), and the allocation-reduction performance work. See `engine/CHANGELOG.md`.
+
+
 ## [0.14.0] - 2026-08-28
 
 ### Changed
