@@ -3488,6 +3488,20 @@ impl LayoutEngine {
         } else {
             // Page breaks occurred: clone-semantics fragment per page,
             // mirroring layout_breakable_view.
+            //
+            // STREAMING-LAYOUT NOTE (investigated 2026-09, parked — see
+            // scripts/parity/benchmarks.mjs trackedFixes "Streaming layout"):
+            // this retroactive reach-back into `pages[initial_page_count..]` is
+            // THE reason large-doc peak memory can't be streamed away. A
+            // document-spanning table (e.g. ledger-500p: one table, 500 pages)
+            // holds every page it covered resident until it closes here at
+            // end-of-document, so streaming the producer/serializer saves
+            // nothing. The fix is to emit each page's wrapper FORWARD at page
+            // finalize (open-container stack on the cursor: record draw_cmd +
+            // per-page start-y; wrap the finalizing page from start-y; reset
+            // start-y to content_top on new_page). Byte-identical (each wrapper
+            // below uses only its own page's geometry), but it must cover all
+            // four container types (table, breakable_view, flex, paragraph).
 
             // A. The page the table started on — wrap from the snapshot.
             let page = &mut pages[initial_page_count];
