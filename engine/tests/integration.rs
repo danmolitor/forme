@@ -152,7 +152,10 @@ fn assert_valid_pdf(bytes: &[u8]) {
 fn decompress_pdf_streams(pdf: &[u8]) -> String {
     use miniz_oxide::inflate::decompress_to_vec_zlib;
     let mut result = String::new();
-    let needle_start = b"stream\n";
+    // Leading newline so the needle can't match the tail of "endstream\n":
+    // without it, the first binary (font-file) stream desyncs the scan and
+    // every stream after it is silently skipped.
+    let needle_start = b"\nstream\n";
     let needle_end = b"\nendstream";
     let mut pos = 0;
     while pos + needle_start.len() < pdf.len() {
@@ -12103,5 +12106,159 @@ fn test_parity_translation_excludes_page_anchored_watermarks() {
     assert!(
         (text_x_p2 - 30.0).abs() < 0.5,
         "page 2 (left) flow x: {text_x_p2}"
+    );
+}
+
+// ─── Page-number sentinels must not change the font ───────────────────
+//
+// `{{pageNumber}}`/`{{totalPages}}` become sentinel chars (U+0002/U+0003)
+// at layout time and real digits at write time. No font covers a control
+// char, so coverage-based fallback used to shunt the sentinel into
+// Helvetica — splitting one footer line across two typefaces, emitting a
+// non-embedded base-14 font, and hard-failing PDF/A. The fix has two
+// halves that must hold together: segmentation treats sentinels as
+// font-neutral, and the subset includes digits 0-9 for any font that
+// carried a sentinel (fixing only the first turns visible-wrong-font
+// into invisible .notdef).
+
+/// The committed builtin font bytes registered under a CUSTOM family —
+/// a real TTF with no filesystem/system-font dependency.
+fn sentinel_test_doc(extra_document_fields: &str) -> String {
+    let font_b64 = base64::Engine::encode(
+        &base64::engine::general_purpose::STANDARD,
+        include_bytes!("../fonts/NotoSans-Regular.ttf"),
+    );
+    format!(
+        r#"{{
+            "children": [
+                {{ "kind": {{ "type": "Fixed", "position": "Footer" }}, "style": {{}}, "children": [
+                    {{ "kind": {{ "type": "Text", "content": "Page {{{{pageNumber}}}} of {{{{totalPages}}}}" }},
+                       "style": {{ "fontFamily": "TestSans", "fontSize": 9 }}, "children": [] }}
+                ]}},
+                {{ "kind": {{ "type": "Text", "content": "body" }}, "style": {{ "marginBottom": 900 }}, "children": [] }},
+                {{ "kind": {{ "type": "Text", "content": "second page body" }}, "style": {{}}, "children": [] }}
+            ],
+            "metadata": {{ "lang": "de-DE" }},
+            "defaultPage": {{ "size": "A4", "margin": {{ "top": 50, "right": 50, "bottom": 50, "left": 50 }}, "wrap": true }},
+            "defaultStyle": {{ "fontFamily": "TestSans", "fontSize": 11 }},
+            "fonts": [{{ "family": "TestSans", "src": "data:font/ttf;base64,{font_b64}", "weight": 400, "italic": false }}]{extra_document_fields}
+        }}"#
+    )
+}
+
+fn base_fonts(pdf: &[u8]) -> Vec<String> {
+    let text = String::from_utf8_lossy(pdf);
+    let mut fonts: Vec<String> = Vec::new();
+    for m in text.split("/BaseFont /").skip(1) {
+        let name: String = m
+            .chars()
+            .take_while(|c| c.is_alphanumeric() || *c == '-' || *c == '_' || *c == '+' || *c == ',')
+            .collect();
+        if !fonts.contains(&name) {
+            fonts.push(name);
+        }
+    }
+    fonts
+}
+
+#[test]
+fn sentinel_page_numbers_stay_in_the_custom_font() {
+    let pdf = forme::render_json(&sentinel_test_doc("")).expect("renders");
+    let fonts = base_fonts(&pdf);
+    assert!(
+        !fonts.iter().any(|f| f.contains("Helvetica")),
+        "page-number digits must use the footer's font, not base-14 Helvetica; got {fonts:?}"
+    );
+    assert!(
+        fonts.iter().any(|f| f.contains("TestSans")),
+        "the custom font must be present; got {fonts:?}"
+    );
+}
+
+#[test]
+fn sentinel_digits_are_subset_and_text_mapped() {
+    // Digits 0-9 must be in the embedded subset (else the substituted
+    // page numbers render as .notdef) and in ToUnicode (else extraction
+    // loses them — load-bearing for PDF/A-2u and PDF/UA).
+    let pdf = forme::render_json(&sentinel_test_doc("")).expect("renders");
+    let streams = decompress_pdf_streams(&pdf);
+    for digit in ["<0031>", "<0032>"] {
+        assert!(
+            streams.contains(digit),
+            "ToUnicode must map the page-number digits (missing {digit})"
+        );
+    }
+}
+
+#[test]
+fn sentinel_page_numbers_survive_pdfa_and_pdfua() {
+    // The reporter's hard-failure case: an all-embedded document using
+    // page numbering must stay PDF/A + PDF/UA eligible.
+    let json = sentinel_test_doc(r#", "pdfa": "2a", "pdfUa": true"#);
+    let result = forme::render_json(&json);
+    assert!(
+        result.is_ok(),
+        "PDF/A + UA with custom-font page numbers must render: {:?}",
+        result.err()
+    );
+}
+
+#[test]
+fn sentinel_run_path_comma_chain_stays_in_first_family() {
+    // The multi-style TextRun path resolves comma chains per character —
+    // same bug, different code path. The sentinel must adopt the chain's
+    // first registered family, not fall through to Helvetica.
+    let font_b64 = base64::Engine::encode(
+        &base64::engine::general_purpose::STANDARD,
+        include_bytes!("../fonts/NotoSans-Regular.ttf"),
+    );
+    let json = format!(
+        r#"{{
+            "children": [
+                {{ "kind": {{ "type": "Fixed", "position": "Footer" }}, "style": {{}}, "children": [
+                    {{ "kind": {{ "type": "Text", "content": "", "runs": [
+                        {{ "content": "Page ", "style": {{ "fontFamily": "TestSans, Helvetica" }} }},
+                        {{ "content": "{{{{pageNumber}}}}", "style": {{ "fontFamily": "TestSans, Helvetica" }} }}
+                    ] }}, "style": {{ "fontSize": 9 }}, "children": [] }}
+                ]}},
+                {{ "kind": {{ "type": "Text", "content": "body" }}, "style": {{ "fontFamily": "TestSans", "marginBottom": 900 }}, "children": [] }},
+                {{ "kind": {{ "type": "Text", "content": "page two" }}, "style": {{ "fontFamily": "TestSans" }}, "children": [] }}
+            ],
+            "metadata": {{}},
+            "defaultPage": {{ "size": "A4", "margin": {{ "top": 50, "right": 50, "bottom": 50, "left": 50 }}, "wrap": true }},
+            "fonts": [{{ "family": "TestSans", "src": "data:font/ttf;base64,{font_b64}", "weight": 400, "italic": false }}]
+        }}"#
+    );
+    let pdf = forme::render_json(&json).expect("renders");
+    let fonts = base_fonts(&pdf);
+    assert!(
+        !fonts.iter().any(|f| f.contains("Helvetica")),
+        "run-path sentinel must stay in the chain's first family; got {fonts:?}"
+    );
+}
+
+#[test]
+fn sentinel_default_font_documents_are_unchanged() {
+    // THE WALL: every existing user is on the default-font path. A
+    // default-font document with page numbers must keep exactly one
+    // font — Helvetica — as before. (Byte identity against the pre-fix
+    // binary is verified out-of-band in the fix commit.)
+    let json = r#"{
+        "children": [
+            { "kind": { "type": "Fixed", "position": "Footer" }, "style": {}, "children": [
+                { "kind": { "type": "Text", "content": "Page {{pageNumber}} of {{totalPages}}" }, "style": { "fontSize": 9 }, "children": [] }
+            ]},
+            { "kind": { "type": "Text", "content": "body" }, "style": { "marginBottom": 900 }, "children": [] },
+            { "kind": { "type": "Text", "content": "second page body" }, "style": {}, "children": [] }
+        ],
+        "metadata": {},
+        "defaultPage": { "size": "A4", "margin": { "top": 50, "right": 50, "bottom": 50, "left": 50 }, "wrap": true }
+    }"#;
+    let pdf = forme::render_json(json).expect("renders");
+    let fonts = base_fonts(&pdf);
+    assert_eq!(
+        fonts,
+        vec!["Helvetica".to_string()],
+        "default-font documents must keep exactly Helvetica"
     );
 }

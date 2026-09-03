@@ -2763,6 +2763,15 @@ impl PdfWriter {
                             glyph_to_char: HashMap::new(),
                         });
                         usage.chars.insert(glyph.char_value);
+                        // A page-number sentinel becomes digits at write
+                        // time — subset all ten for this font, or the
+                        // substituted numbers would render as .notdef
+                        // (char_to_gid would have no digit entries).
+                        if glyph.char_value == PAGE_NUMBER_SENTINEL
+                            || glyph.char_value == TOTAL_PAGES_SENTINEL
+                        {
+                            usage.chars.extend('0'..='9');
+                        }
                         usage.glyph_ids.insert(glyph.glyph_id);
                         // For ligatures, use the first char of the cluster
                         usage

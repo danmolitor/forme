@@ -311,6 +311,40 @@ impl FontRegistry {
     ) -> (&FontData, String) {
         let snapped_weight = if weight >= 600 { 700 } else { 400 };
 
+        // Page-number sentinels (U+0002/U+0003) are pseudo-characters
+        // replaced by DIGITS at write time — no real font has a glyph for
+        // them, so a coverage walk would always shunt them into the final
+        // Helvetica fallback, splitting the surrounding text's font (and
+        // breaking PDF/A when that font is a registered custom one). They
+        // are font-neutral: take the first REGISTERED family in the chain,
+        // ignoring coverage. Known boundary: a registered font genuinely
+        // lacking digit glyphs still renders .notdef page numbers, like
+        // any other missing glyph.
+        if ch == crate::layout::PAGE_NUMBER_SENTINEL || ch == crate::layout::TOTAL_PAGES_SENTINEL {
+            for family in families.split(',') {
+                let family = family.trim().trim_matches('"').trim_matches('\'');
+                if family.is_empty() {
+                    continue;
+                }
+                for w in [
+                    weight,
+                    snapped_weight,
+                    if snapped_weight == 700 { 400 } else { 700 },
+                ] {
+                    let key = FontKey {
+                        family: family.to_string(),
+                        weight: w,
+                        italic,
+                    };
+                    if let Some(font) = self.fonts.get(&key) {
+                        return (font, family.to_string());
+                    }
+                }
+            }
+            // No family in the chain is registered: same terminal
+            // fallback as the coverage walk below.
+        }
+
         for family in families.split(',') {
             let family = family.trim().trim_matches('"').trim_matches('\'');
             if family.is_empty() {
