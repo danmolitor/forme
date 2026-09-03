@@ -1,6 +1,6 @@
 {
   "name": "@formepdf/svelte",
-  "version": "0.16.0",
+  "version": "0.17.0",
   "description": "Svelte-to-JSON serializer for Forme PDF engine",
   "type": "module",
   "main": "./dist/index.js",
@@ -25,11 +25,11 @@
     "test:watch": "npm run embed-preview && vitest"
   },
   "dependencies": {
-    "@formepdf/shared": "0.16.0",
+    "@formepdf/shared": "0.17.0",
     "parse5": "^7.2.1"
   },
   "peerDependencies": {
-    "@formepdf/core": "^0.16.0",
+    "@formepdf/core": "^0.17.0",
     "svelte": "^5.30.0"
   },
   "peerDependenciesMeta": {
@@ -38,9 +38,9 @@
     }
   },
   "devDependencies": {
-    "@formepdf/core": "0.16.0",
-    "@formepdf/react": "0.16.0",
-    "@formepdf/tailwind": "0.16.0",
+    "@formepdf/core": "0.17.0",
+    "@formepdf/react": "0.17.0",
+    "@formepdf/tailwind": "0.17.0",
     "@sveltejs/package": "^2.3.10",
     "@sveltejs/vite-plugin-svelte": "^5.0.0",
     "@types/react": "^19.0.0",

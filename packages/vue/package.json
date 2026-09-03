@@ -1,6 +1,6 @@
 {
   "name": "@formepdf/vue",
-  "version": "0.16.0",
+  "version": "0.17.0",
   "description": "Vue-to-JSON serializer for the Forme PDF engine",
   "type": "module",
   "main": "./dist/index.js",
@@ -19,10 +19,10 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@formepdf/shared": "0.16.0"
+    "@formepdf/shared": "0.17.0"
   },
   "peerDependencies": {
-    "@formepdf/core": "^0.16.0",
+    "@formepdf/core": "^0.17.0",
     "vue": "^3.4.0"
   },
   "peerDependenciesMeta": {
@@ -31,8 +31,8 @@
     }
   },
   "devDependencies": {
-    "@formepdf/core": "0.16.0",
-    "@formepdf/react": "0.16.0",
+    "@formepdf/core": "0.17.0",
+    "@formepdf/react": "0.17.0",
     "@vitejs/plugin-vue": "^5.2.0",
     "typescript": "^5.7.0",
     "vite": "^6.0.0",

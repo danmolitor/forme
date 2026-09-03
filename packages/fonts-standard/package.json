@@ -1,6 +1,6 @@
 {
   "name": "@formepdf/fonts-standard",
-  "version": "0.16.0",
+  "version": "0.17.0",
   "description": "Embeddable, metric-compatible replacements for the standard 14 PDF fonts (Liberation Sans/Serif/Mono, OFL) — for PDF/UA and PDF/A output",
   "type": "module",
   "main": "./dist/index.js",

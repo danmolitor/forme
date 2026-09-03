@@ -316,7 +316,7 @@ dependencies = [
 
 [[package]]
 name = "forme-pdf"
-version = "0.16.0"
+version = "0.17.0"
 dependencies = [
  "barcoders",
  "base64",
@@ -352,7 +352,7 @@ dependencies = [
 
 [[package]]
 name = "forme-pdf-html"
-version = "0.16.0"
+version = "0.17.0"
 dependencies = [
  "base64",
  "cssparser",
