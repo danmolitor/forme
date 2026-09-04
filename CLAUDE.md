@@ -523,7 +523,7 @@ asserted:
   extension schema for the combined config), an OutputIntent with an embedded
   sRGB profile (`sRGB.icc`), a deterministic trailer `/ID` (content hash, never a
   timestamp — determinism must survive), `/F` on annotations.
-- **Asset lesson (do not repeat):** `sRGB.icc` was, from ~0.9.0 to 0.15.0, a
+- **Asset lesson (do not repeat):** `sRGB.icc` was, from v0.6.0 (Feb 2026, commit 0ad42c3) through 0.15.0, a
   Cloudflare HTML challenge page a `curl` returned and nobody inspected — every
   PDF/A OutputIntent was invalid because nothing validated. It's now generated
   (Little CMS, not downloaded) and there's a unit test asserting the embedded
