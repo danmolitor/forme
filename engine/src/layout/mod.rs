@@ -6095,6 +6095,25 @@ impl LayoutEngine {
             NodeKind::TextField { width, .. } | NodeKind::Dropdown { width, .. } => {
                 *width + style.padding.horizontal() + style.margin.horizontal()
             }
+            NodeKind::Table { columns } => {
+                // A table's max-content width is the SUM of its columns'
+                // max-content (the default max-of-children arm below
+                // reports only the widest cell, which made shrink-to-fit
+                // containers crush tables to one column's width).
+                let num_cols = node
+                    .children
+                    .iter()
+                    .map(|row| row.children.iter().map(Self::cell_col_span).sum::<usize>())
+                    .max()
+                    .unwrap_or(1)
+                    .max(columns.len().max(1));
+                let (_, col_max) =
+                    self.measure_column_content(&node.children, num_cols, 0.0, style, font_context);
+                col_max.iter().sum::<f64>()
+                    + style.padding.horizontal()
+                    + style.margin.horizontal()
+                    + style.border_width.horizontal()
+            }
             NodeKind::Checkbox { width, .. } | NodeKind::RadioButton { width, .. } => {
                 *width + style.padding.horizontal() + style.margin.horizontal()
             }
@@ -6142,6 +6161,23 @@ impl LayoutEngine {
         font_context: &FontContext,
     ) -> f64 {
         match &node.kind {
+            NodeKind::Table { columns } => {
+                // Min-content of a table = sum of per-column min-content
+                // (mirrors the intrinsic-width Table arm).
+                let num_cols = node
+                    .children
+                    .iter()
+                    .map(|row| row.children.iter().map(Self::cell_col_span).sum::<usize>())
+                    .max()
+                    .unwrap_or(1)
+                    .max(columns.len().max(1));
+                let (col_min, _) =
+                    self.measure_column_content(&node.children, num_cols, 0.0, style, font_context);
+                col_min.iter().sum::<f64>()
+                    + style.padding.horizontal()
+                    + style.margin.horizontal()
+                    + style.border_width.horizontal()
+            }
             NodeKind::Text { content, runs, .. } | NodeKind::Heading { content, runs, .. } => {
                 let word_width = if !runs.is_empty() {
                     // For styled runs, measure each run's widest word

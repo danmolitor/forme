@@ -245,7 +245,11 @@ fn stylesheet_links_warn_with_the_remedy_other_links_stay_silent() {
 // ── Floats: out of subset, warned loud with a remedy (Part 2, item 5) ──
 
 #[test]
-fn float_and_clear_warn_with_a_remedy_and_still_render() {
+fn float_renders_as_columns_and_warns_only_for_text_wrap() {
+    // Floats are in-subset now (sibling rows); the residual warning
+    // covers the one thing still out: text wrapping ALONGSIDE a float.
+    // This doc hits exactly that case — a paragraph after an uncleared
+    // float — so the narrowed warning must fire; clear is silent.
     let html = r#"<html><head><style>
       .fig { float: left; width: 80px; }
       .foot { clear: both; }
@@ -255,22 +259,17 @@ fn float_and_clear_warn_with_a_remedy_and_still_render() {
       <div class="foot">Footer</div>
     </body></html>"#;
     let out = render_html(html, &HtmlOptions::default()).expect("must still render");
-    // Ignored-gracefully: valid PDF, no panic.
     assert!(out.pdf.len() > 100 && &out.pdf[0..5] == b"%PDF-");
-    // Warned by name, with the workaround (house style).
     assert!(
         out.warnings
             .iter()
-            .any(|w| w.contains("float is not supported")
-                && (w.contains("flex") || w.contains("position: absolute"))),
-        "float must warn with a remedy: {:?}",
+            .any(|w| w.contains("text wrapping alongside floats is not supported")),
+        "the residual text-wrap case must warn: {:?}",
         out.warnings
     );
     assert!(
-        out.warnings
-            .iter()
-            .any(|w| w.starts_with("clear is not supported")),
-        "clear must warn: {:?}",
+        !out.warnings.iter().any(|w| w.contains("clear is not")),
+        "clear is in-subset now: {:?}",
         out.warnings
     );
 }

@@ -42,7 +42,11 @@ pub fn partition_into_lines(
 
     for (i, &w) in base_widths.iter().enumerate() {
         let needed = if i == line_start { w } else { column_gap + w };
-        if i > line_start && line_width + needed > available_width {
+        // Tolerance for numeric noise only: percentage widths that sum
+        // to exactly 100% arrive with f32-precision error (0.6 stored as
+        // f32 resolves to 292.36801… of 487.28 — ~1.5e-5 over) and must
+        // not wrap. 0.01pt is invisible geometry and far above the noise.
+        if i > line_start && line_width + needed > available_width + 0.01 {
             lines.push(WrapLine {
                 start: line_start,
                 end: i,
@@ -145,5 +149,19 @@ mod tests {
         let widths = vec![100.0, 100.0];
         let lines = partition_into_lines(&widths, 10.0, 210.0);
         assert_eq!(lines.len(), 1);
+    }
+}
+
+#[cfg(test)]
+mod epsilon_probe {
+    #[test]
+    fn exact_percent_sum_shares_a_line() {
+        // Widths carry f32 percent noise (0.6f32 as f64 = 0.60000002…):
+        // a 60% + 40% pair sums ~1.5e-5 over the row and must not wrap.
+        let w = 487.28_f64;
+        let widths = [w, f64::from(0.6_f32) * w, f64::from(0.4_f32) * w];
+        let lines = super::partition_into_lines(&widths, 0.0, w);
+        assert_eq!(lines.len(), 2, "{lines:?}");
+        assert_eq!((lines[1].start, lines[1].end), (1, 3));
     }
 }

@@ -9,8 +9,8 @@
 //! margin-collapse assertion pass for the wrong reason.
 
 use crate::css::{
-    BreakInsideVal, BreakVal, CssDisplay, CssGridLine, CssStyle, CssTrack, CssTrackBound, Length,
-    LineHeight,
+    BreakInsideVal, BreakVal, ClearVal, CssDisplay, CssGridLine, CssStyle, CssTrack, CssTrackBound,
+    FloatVal, Length, LineHeight,
 };
 use forme::style::{
     AlignItems, BorderStyle, Color, Dimension, FlexDirection, GridTrackSize, JustifyContent,
@@ -97,6 +97,10 @@ pub struct Computed {
     /// CSS Paged Media `page: <name>` (non-inherited; from the element's
     /// own declarations only).
     pub page: Option<String>,
+    /// `float` (non-inherited). Drives the mapper's float-row transform.
+    pub float: Option<FloatVal>,
+    /// `clear` (non-inherited). Terminates a float run.
+    pub clear: Option<ClearVal>,
 }
 
 /// Resolve a parsed CSS track to an engine track size. `em` resolves
@@ -328,6 +332,8 @@ pub fn resolve(css: &CssStyle, parent_font_size: f64, warnings: &mut Vec<String>
         orphans: css.orphans,
         widows: css.widows,
         page: css.page.clone(),
+        float: css.float,
+        clear: css.clear,
     }
 }
 

@@ -55,6 +55,21 @@ pub struct Mapper {
     /// Whether ANY rule sets `page` — when false, the per-block peek
     /// (a second cascade pass) is skipped entirely.
     uses_page_names: bool,
+    /// Whether ANY rule or inline style floats — the same zero-cost gate
+    /// for the float-run transform.
+    uses_floats: bool,
+}
+
+/// Does any inline style in the tree mention float? (Cheap substring
+/// scan — a false positive only costs the peek, never correctness.)
+fn dom_mentions_float(el: &Element) -> bool {
+    if el.attr("style").is_some_and(|s| s.contains("float")) {
+        return true;
+    }
+    el.children.iter().any(|c| match c {
+        DomNode::Element(e) => dom_mentions_float(e),
+        _ => false,
+    })
 }
 
 /// Map a parsed `<body>` element to a complete engine document.
@@ -67,12 +82,19 @@ pub fn map_html(body: &Element, sheet: Stylesheet, page: PageConfig) -> (Documen
         pending_break_after: false,
         current_page_name: None,
         uses_page_names: false,
+        uses_floats: false,
     };
     mapper.uses_page_names = mapper
         .sheet
         .rules
         .iter()
         .any(|r| r.block.normal.page.is_some() || r.block.important.page.is_some());
+    mapper.uses_floats = mapper
+        .sheet
+        .rules
+        .iter()
+        .any(|r| r.block.normal.float.is_some() || r.block.important.float.is_some())
+        || dom_mentions_float(body);
     let children = match mapper.map_block_element(body, ROOT_FONT_SIZE) {
         Some(node) => vec![node],
         None => vec![],
@@ -437,6 +459,11 @@ impl Mapper {
     fn map_children(&mut self, children: &[DomNode], parent: &Computed) -> Vec<Node> {
         let mut out: Vec<Node> = Vec::new();
         let mut inline_buf: Vec<&DomNode> = Vec::new();
+        // Consecutive floated block siblings collect here and flush as
+        // one flex row. CSS ignores float on flex items, so the whole
+        // mechanism is off inside display:flex parents.
+        let mut float_run: Vec<(Node, crate::css::FloatVal)> = Vec::new();
+        let floats_active = self.uses_floats && parent.display != CssDisplay::Flex;
 
         for child in children {
             let is_inline_item = match child {
@@ -444,6 +471,18 @@ impl Mapper {
                 DomNode::Element(e) => is_inline(&e.tag) || e.tag == "br",
             };
             if is_inline_item {
+                // Whitespace between floats is structural noise; real
+                // inline content beside floats is the unsupported
+                // text-wrap case — flush the row and say so.
+                if !float_run.is_empty() {
+                    let significant = match child {
+                        DomNode::Text(t) => !t.trim().is_empty(),
+                        DomNode::Element(_) => true,
+                    };
+                    if significant {
+                        self.flush_float_run(&mut float_run, &mut out, true);
+                    }
+                }
                 inline_buf.push(child);
             } else if let DomNode::Element(e) = child {
                 self.flush_inline_group(&mut inline_buf, parent, &mut out);
@@ -461,9 +500,27 @@ impl Mapper {
                     // discipline handles nesting).
                     let peek = self.uses_page_names
                         || e.attr("style").is_some_and(|st| st.contains("page"));
+                    // One cascade peek serves both the page-name switch
+                    // and the float-run routing.
+                    let peeked = if peek || floats_active {
+                        Some(self.computed_for(e, parent.font_size))
+                    } else {
+                        None
+                    };
+                    let (block_float, block_clear) = match (&peeked, floats_active) {
+                        (Some(c), true) => (c.float, c.clear),
+                        _ => (None, None),
+                    };
+                    // `clear` (on floated or non-floated elements alike)
+                    // terminates the current run: following content
+                    // starts below, per CSS.
+                    if block_clear.is_some() && !float_run.is_empty() {
+                        self.flush_float_run(&mut float_run, &mut out, false);
+                    }
                     let block_page = if peek {
-                        self.computed_for(e, parent.font_size)
-                            .page
+                        peeked
+                            .as_ref()
+                            .and_then(|c| c.page.clone())
                             .or_else(|| self.current_page_name.clone())
                     } else {
                         self.current_page_name.clone()
@@ -486,7 +543,17 @@ impl Mapper {
                             if pending {
                                 node.style.break_before = Some(true);
                             }
-                            out.push(node);
+                            if let Some(side) = block_float {
+                                float_run.push((node, side));
+                            } else {
+                                // A non-floated block after an uncleared
+                                // run is the text-wrap case: warn, place
+                                // below.
+                                if !float_run.is_empty() {
+                                    self.flush_float_run(&mut float_run, &mut out, true);
+                                }
+                                out.push(node);
+                            }
                         }
                         None => {
                             self.pending_break_after = self.pending_break_after || pending;
@@ -505,8 +572,69 @@ impl Mapper {
                 }
             }
         }
+        if !float_run.is_empty() {
+            self.flush_float_run(&mut float_run, &mut out, false);
+        }
         self.flush_inline_group(&mut inline_buf, parent, &mut out);
         out
+    }
+
+    /// Flush a run of consecutive floated siblings as one flex row:
+    /// left floats in markup order, a flex-grow spacer, then right
+    /// floats REVERSED (successive float:right stack right-to-left per
+    /// CSS). flex-wrap gives float-line semantics: an over-wide run
+    /// wraps exactly as floats drop. `warn` marks the unsupported
+    /// text-wrap termination (non-floated content after an uncleared
+    /// run) — that residual warning must never go silent.
+    fn flush_float_run(
+        &mut self,
+        run: &mut Vec<(Node, crate::css::FloatVal)>,
+        out: &mut Vec<Node>,
+        warn: bool,
+    ) {
+        use crate::css::FloatVal;
+        if run.is_empty() {
+            return;
+        }
+        if warn {
+            self.warnings.push(
+                "text wrapping alongside floats is not supported; floated siblings are laid out as columns"
+                    .to_string(),
+            );
+        }
+        let items = std::mem::take(run);
+        let has_right = items.iter().any(|(_, s)| *s == FloatVal::Right);
+        let mut children: Vec<Node> = Vec::new();
+        for (node, side) in &items {
+            if *side == FloatVal::Left {
+                children.push(node.clone());
+            }
+        }
+        if has_right {
+            children.push(make_node(
+                NodeKind::View,
+                Style {
+                    flex_grow: Some(1.0),
+                    ..Default::default()
+                },
+                vec![],
+            ));
+            for (node, side) in items.iter().rev() {
+                if *side == FloatVal::Right {
+                    children.push(node.clone());
+                }
+            }
+        }
+        out.push(make_node(
+            NodeKind::View,
+            Style {
+                flex_direction: Some(forme::style::FlexDirection::Row),
+                flex_wrap: Some(forme::style::FlexWrap::Wrap),
+                align_items: Some(forme::style::AlignItems::FlexStart),
+                ..Default::default()
+            },
+            children,
+        ));
     }
 
     /// Flatten a pending inline group into an anonymous Text node. Groups
