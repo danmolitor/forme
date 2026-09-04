@@ -1027,6 +1027,20 @@ pub struct LayoutEngine {
     /// found every catastrophic silent failure lived in this blind spot —
     /// more entries belong here as they're discovered.
     warnings: RefCell<Vec<String>>,
+    /// THE MEASURE/LAYOUT AGREEMENT CHECK (env `FORME_MEASURE_CHECK=1`).
+    ///
+    /// Four shipped bugs shared one shape: `measure_*` computed a height
+    /// layout never produced (table column count, table intrinsic width,
+    /// image phantom height, row-measure percent double-resolution) — two
+    /// code paths for the same quantity with nothing forcing agreement,
+    /// each divergence found by a user or a corpus experiment. This check
+    /// makes the invariant enforced instead of remembered: when an
+    /// auto-height view's measured children height exceeds what its
+    /// children actually occupied (no page break involved), a
+    /// "measure-check:" warning is emitted. Test gates render the fixture
+    /// corpus with this on and fail on any emission, so the fifth
+    /// divergence announces itself at development time.
+    measure_check: bool,
 }
 
 /// Tracks where we are on the current page during layout.
@@ -1321,6 +1335,7 @@ impl LayoutEngine {
             text_layout: TextLayout::new(),
             image_dim_cache: RefCell::new(HashMap::new()),
             warnings: RefCell::new(Vec::new()),
+            measure_check: std::env::var("FORME_MEASURE_CHECK").is_ok_and(|v| v == "1"),
         }
     }
 
@@ -2095,6 +2110,7 @@ impl LayoutEngine {
             let saved_y = cursor.y;
             cursor.y += margin.top + padding.top + border.top;
 
+            let pages_before = pages.len();
             let children_x = node_x + padding.left + border.left;
             let is_grid =
                 matches!(style.display, Display::Grid) && style.grid_template_columns.is_some();
@@ -2123,6 +2139,32 @@ impl LayoutEngine {
 
             // Collect child elements that were pushed during layout
             let child_elements: Vec<LayoutElement> = cursor.elements.drain(snapshot..).collect();
+
+            // Measure/layout agreement check (see the `measure_check` field
+            // doc). Only the phantom-space direction is flagged — measured
+            // MORE than the children occupied — and only when the height came
+            // from measurement (Auto) and no page break muddied the extent
+            // arithmetic. (Overfill has legitimate causes: absolute children,
+            // negative margins.)
+            if self.measure_check
+                && matches!(style.height, SizeConstraint::Auto)
+                && pages.len() == pages_before
+                && !child_elements.is_empty()
+            {
+                let content_top = rect_y + padding.top + border.top;
+                let extent = child_elements
+                    .iter()
+                    .map(|el| el.y + el.height)
+                    .fold(f64::NEG_INFINITY, f64::max)
+                    - content_top;
+                if extent > 0.0 && children_height - extent > 2.0 {
+                    self.defect(format!(
+                        "measure-check: {} measured children at {children_height:.1}pt but they occupy {extent:.1}pt (phantom {:.1}pt)",
+                        node_kind_name(&node.kind),
+                        children_height - extent,
+                    ));
+                }
+            }
 
             let rect_element = LayoutElement {
                 x: node_x,
@@ -5628,15 +5670,25 @@ impl LayoutEngine {
                     SizeConstraint::Fixed(w) => (w - style.margin.horizontal()).max(0.0),
                     SizeConstraint::Auto => available_width - style.margin.horizontal(),
                 };
+                // Measurement must reach the same line count layout will:
+                // same text transform, same breaker (greedy vs Knuth-Plass —
+                // the two can disagree at boundary widths, where optimal
+                // accepts a slightly-overfull line greedy would wrap).
+                // Divergence here is exactly what FORME_MEASURE_CHECK exists
+                // to catch.
                 if !runs.is_empty() {
-                    // Measure runs
                     let mut styled_chars: Vec<StyledChar> = Vec::new();
                     for run in runs {
                         let run_style = run.style.resolve(Some(style), measure_width);
+                        let transform = run_style.text_transform;
                         let run_content = substitute_page_placeholders(&run.content);
+                        let mut prev_is_whitespace = true;
                         for ch in run_content.chars() {
+                            let transformed_ch =
+                                apply_char_transform(ch, transform, prev_is_whitespace);
+                            prev_is_whitespace = ch.is_whitespace();
                             styled_chars.push(StyledChar {
-                                ch,
+                                ch: transformed_ch,
                                 font_family: run_style.font_family.clone(),
                                 font_size: run_style.font_size,
                                 font_weight: run_style.font_weight,
@@ -5648,29 +5700,57 @@ impl LayoutEngine {
                             });
                         }
                     }
-                    let broken_lines = self.text_layout.break_runs_into_lines(
-                        font_context,
-                        &styled_chars,
-                        measure_width,
-                        style.hyphens,
-                        style.lang.as_deref(),
-                    );
+                    let justify = matches!(style.text_align, TextAlign::Justify);
+                    let broken_lines = match style.line_breaking {
+                        LineBreaking::Optimal => self.text_layout.break_runs_into_lines_optimal(
+                            font_context,
+                            &styled_chars,
+                            measure_width,
+                            style.hyphens,
+                            style.lang.as_deref(),
+                            justify,
+                        ),
+                        LineBreaking::Greedy => self.text_layout.break_runs_into_lines(
+                            font_context,
+                            &styled_chars,
+                            measure_width,
+                            style.hyphens,
+                            style.lang.as_deref(),
+                        ),
+                    };
                     let line_height = style.font_size * style.line_height;
                     (broken_lines.len() as f64) * line_height + style.padding.vertical()
                 } else {
                     let content = substitute_page_placeholders(content);
-                    let lines = self.text_layout.break_into_lines(
-                        font_context,
-                        &content,
-                        measure_width,
-                        style.font_size,
-                        &style.font_family,
-                        style.font_weight,
-                        style.font_style,
-                        style.letter_spacing,
-                        style.hyphens,
-                        style.lang.as_deref(),
-                    );
+                    let transformed = apply_text_transform(&content, style.text_transform);
+                    let justify = matches!(style.text_align, TextAlign::Justify);
+                    let lines = match style.line_breaking {
+                        LineBreaking::Optimal => self.text_layout.break_into_lines_optimal(
+                            font_context,
+                            &transformed,
+                            measure_width,
+                            style.font_size,
+                            &style.font_family,
+                            style.font_weight,
+                            style.font_style,
+                            style.letter_spacing,
+                            style.hyphens,
+                            style.lang.as_deref(),
+                            justify,
+                        ),
+                        LineBreaking::Greedy => self.text_layout.break_into_lines(
+                            font_context,
+                            &transformed,
+                            measure_width,
+                            style.font_size,
+                            &style.font_family,
+                            style.font_weight,
+                            style.font_style,
+                            style.letter_spacing,
+                            style.hyphens,
+                            style.lang.as_deref(),
+                        ),
+                    };
                     let line_height = style.font_size * style.line_height;
                     (lines.len() as f64) * line_height + style.padding.vertical()
                 }
@@ -5792,6 +5872,27 @@ impl LayoutEngine {
         parent_style: &ResolvedStyle,
         font_context: &FontContext,
     ) -> f64 {
+        // Absolutely-positioned children are out of flow: layout_children
+        // partitions them off and they never advance the cursor, so counting
+        // them here reserves phantom space equal to their height in every
+        // auto-height ancestor. Caught by FORME_MEASURE_CHECK. Clone-filter
+        // only in the rare case one is present.
+        if children
+            .iter()
+            .any(|c| matches!(c.style.position, Some(Position::Absolute)))
+        {
+            let flow: Vec<Node> = children
+                .iter()
+                .filter(|c| !matches!(c.style.position, Some(Position::Absolute)))
+                .cloned()
+                .collect();
+            return self.measure_children_height(
+                &flow,
+                available_width,
+                parent_style,
+                font_context,
+            );
+        }
         // Grid layout: measure using actual grid placement instead of stacking
         if matches!(parent_style.display, Display::Grid) {
             if let Some(template_cols) = &parent_style.grid_template_columns {
@@ -5944,7 +6045,16 @@ impl LayoutEngine {
                         .enumerate()
                         .map(|(j, child)| {
                             let fw = final_widths[line.start + j];
-                            let child_style = child.style.resolve(Some(parent_style), fw);
+                            // Resolve against the CONTAINER's width, not the
+                            // child's own final width: a child's percent width
+                            // (and percent margins/padding — CSS resolves them
+                            // against the containing block) must not resolve
+                            // against itself. Resolving `width: 27%` against
+                            // fw made it 27% of 27%, so text measured at a
+                            // quarter width — one word per line — and rows
+                            // measured 2.5-4x taller than layout produced.
+                            let child_style =
+                                child.style.resolve(Some(parent_style), available_width);
                             self.measure_node_height(child, fw, &child_style, font_context)
                                 + child_style.margin.vertical()
                         })
@@ -6095,6 +6205,25 @@ impl LayoutEngine {
             NodeKind::TextField { width, .. } | NodeKind::Dropdown { width, .. } => {
                 *width + style.padding.horizontal() + style.margin.horizontal()
             }
+            NodeKind::Table { columns } => {
+                // A table's max-content width is the SUM of its columns'
+                // max-content (the default max-of-children arm below
+                // reports only the widest cell, which made shrink-to-fit
+                // containers crush tables to one column's width).
+                let num_cols = node
+                    .children
+                    .iter()
+                    .map(|row| row.children.iter().map(Self::cell_col_span).sum::<usize>())
+                    .max()
+                    .unwrap_or(1)
+                    .max(columns.len().max(1));
+                let (_, col_max) =
+                    self.measure_column_content(&node.children, num_cols, 0.0, style, font_context);
+                col_max.iter().sum::<f64>()
+                    + style.padding.horizontal()
+                    + style.margin.horizontal()
+                    + style.border_width.horizontal()
+            }
             NodeKind::Checkbox { width, .. } | NodeKind::RadioButton { width, .. } => {
                 *width + style.padding.horizontal() + style.margin.horizontal()
             }
@@ -6142,6 +6271,23 @@ impl LayoutEngine {
         font_context: &FontContext,
     ) -> f64 {
         match &node.kind {
+            NodeKind::Table { columns } => {
+                // Min-content of a table = sum of per-column min-content
+                // (mirrors the intrinsic-width Table arm).
+                let num_cols = node
+                    .children
+                    .iter()
+                    .map(|row| row.children.iter().map(Self::cell_col_span).sum::<usize>())
+                    .max()
+                    .unwrap_or(1)
+                    .max(columns.len().max(1));
+                let (col_min, _) =
+                    self.measure_column_content(&node.children, num_cols, 0.0, style, font_context);
+                col_min.iter().sum::<f64>()
+                    + style.padding.horizontal()
+                    + style.margin.horizontal()
+                    + style.border_width.horizontal()
+            }
             NodeKind::Text { content, runs, .. } | NodeKind::Heading { content, runs, .. } => {
                 let word_width = if !runs.is_empty() {
                     // For styled runs, measure each run's widest word

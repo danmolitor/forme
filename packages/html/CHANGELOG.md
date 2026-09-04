@@ -1,5 +1,20 @@
 # Changelog — @formepdf/html
 
+## [Unreleased]
+
+### Fixed (measure/layout agreement — phantom vertical gaps)
+
+- **Flex rows with percent-width children no longer reserve phantom height** (rows measured 2.5–4× taller than their content when children carried percent widths — visible as large gaps below float rows and flex headers).
+- **Margin-box content centers correctly in its band.** At boundary widths, measurement wrapped text that layout kept on one line, skewing the band's vertical centering (running headers sat too high, page numbers too low).
+- **Absolutely-positioned elements no longer leave a gap** equal to their own height in every auto-height ancestor.
+
+These came out of the new engine-level measure/layout agreement gate (`FORME_MEASURE_CHECK=1` + `tests/measure_check.rs`), which renders the fixture corpus and fails on any measured-vs-laid-out height divergence.
+
+### Added
+
+- **Float support (document subset).** `float: left/right` + `clear` are in-subset: runs of consecutive floated siblings form a row — left floats in markup order, right floats stacking right-to-left, over-wide runs dropping to new float lines, shrink-to-fit auto widths — which is the shape every affected template in the real-world corpus actually uses (Bootstrap `col-*`, left/right header pairs; zero of them wrap text around a float). Per CSS, `float` is silently ignored on flex items and table-internal elements. The honest boundary stays loud: a non-floated sibling after an uncleared float renders **below** it, not beside it, and warns (`text wrapping alongside floats is not supported; floated siblings are laid out as columns`).
+
+
 ## [0.18.0] - 2026-09-03
 
 ### Fixed
@@ -10,7 +25,6 @@
 
 - **Warning dedup.** Identical warnings collapse to one entry carrying a count ("float is not supported … (×214)"). Framework stylesheets previously produced thousands of identical lines (AdminLTE: 6,905) that drowned the signal.
 - Render-defect warnings from the engine (`render defect:` prefix) now surface: silent in-scope layout failures — the gap the template-compat experiment exposed — report themselves.
-
 - `pdfA` accepts `"3b"`, `"3u"`, `"3a"` (PDF/A-3 — same rules as part 2 plus permission for embedded files). The whole corpus is veraPDF-gated at 3b/3a alongside 2b/2a.
 
 

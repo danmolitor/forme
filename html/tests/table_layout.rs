@@ -88,24 +88,24 @@ fn duplicate_warnings_collapse_with_a_count() {
     // Framework CSS produced thousands of identical lines (AdminLTE:
     // 6,905). Identical messages collapse to one entry carrying a count.
     let html = "<html><body>\
-        <div style=\"float: left\">a</div>\
-        <div style=\"float: left\">b</div>\
-        <div style=\"float: right\">c</div>\
+        <div style=\"box-shadow: 0 0 2px red\">a</div>\
+        <div style=\"box-shadow: 0 0 2px red\">b</div>\
+        <div style=\"box-shadow: 0 0 2px red\">c</div>\
         </body></html>";
     let out = render(html);
-    let float_warnings: Vec<&String> = out
+    let shadow_warnings: Vec<&String> = out
         .warnings
         .iter()
-        .filter(|w| w.contains("float is not supported"))
+        .filter(|w| w.contains("box-shadow"))
         .collect();
     assert_eq!(
-        float_warnings.len(),
+        shadow_warnings.len(),
         1,
-        "identical warnings must dedup to one entry: {float_warnings:?}"
+        "identical warnings must dedup to one entry: {shadow_warnings:?}"
     );
     assert!(
-        float_warnings[0].contains("×3"),
+        shadow_warnings[0].contains("×3"),
         "the entry carries the count: {}",
-        float_warnings[0]
+        shadow_warnings[0]
     );
 }

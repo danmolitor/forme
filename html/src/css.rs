@@ -138,6 +138,27 @@ pub struct CssStyle {
     /// CSS Paged Media `page: <name>` — assigns the element to a named
     /// page (forces breaks between differently named boxes).
     pub page: Option<String>,
+    /// `float: left | right` — consecutive floated siblings are laid out
+    /// as a row by the mapper (the document subset; text never wraps
+    /// AROUND a float).
+    pub float: Option<FloatVal>,
+    /// `clear` — terminates a float run; following content starts below.
+    pub clear: Option<ClearVal>,
+}
+
+/// The supported `float` values.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FloatVal {
+    Left,
+    Right,
+}
+
+/// `clear` values (all treated as run terminators).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ClearVal {
+    Left,
+    Right,
+    Both,
 }
 
 impl CssStyle {
@@ -208,7 +229,9 @@ impl CssStyle {
             break_inside,
             orphans,
             widows,
-            page
+            page,
+            float,
+            clear
         );
         out
     }
@@ -564,23 +587,36 @@ pub(crate) fn apply_declaration(
         "bottom" => style.bottom = parse_length(p),
         "left" => style.left = parse_length(p),
 
-        // Floats are deliberately out of subset: text-wrap-around-a-float
-        // needs per-line available width, which this engine's single-width
-        // line breaker has no representation for. Fail loud with the remedy so
-        // migrated templates don't silently drop the property.
+        // Floats, document subset: consecutive floated siblings lay out
+        // as a row (the shape real templates use — Bootstrap columns,
+        // left/right pairs). Text wrapping AROUND a float stays out; the
+        // mapper warns when that case is actually hit.
         "float" => {
-            let _ = p.expect_ident();
-            warnings.push(
-                "float is not supported — for pulled images/quotes use flex layouts or position: absolute; see the subset table"
-                    .to_string(),
-            );
+            if let Ok(id) = p.expect_ident() {
+                style.float = match id.to_ascii_lowercase().as_str() {
+                    "left" => Some(FloatVal::Left),
+                    "right" => Some(FloatVal::Right),
+                    "none" => None,
+                    other => {
+                        warnings.push(format!("unsupported float value '{other}'"));
+                        None
+                    }
+                };
+            }
         }
         "clear" => {
-            let _ = p.expect_ident();
-            warnings.push(
-                "clear is not supported (floats are out of subset) — use flex layouts or explicit page breaks; see the subset table"
-                    .to_string(),
-            );
+            if let Ok(id) = p.expect_ident() {
+                style.clear = match id.to_ascii_lowercase().as_str() {
+                    "left" => Some(ClearVal::Left),
+                    "right" => Some(ClearVal::Right),
+                    "both" => Some(ClearVal::Both),
+                    "none" => None,
+                    other => {
+                        warnings.push(format!("unsupported clear value '{other}'"));
+                        None
+                    }
+                };
+            }
         }
 
         "text-transform" => {
