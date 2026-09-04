@@ -379,6 +379,9 @@ The `Document` component sets `__formeType: 'Document'` on the returned element 
 ### Rust Crate
 `forme-pdf` on crates.io — the Rust engine as a standalone crate. `cargo add forme-pdf`. Exports `render()`, `render_json()`, `render_with_layout()`, `render_template()`.
 
+### The Render-Defect Channel
+`LayoutEngine.warnings` (layout/mod.rs) answers "what did WE get wrong?" — the complement to the subset warnings' "what did you ask for that we don't support?". Messages are prefixed `render defect:`, deduped per render, and flow into the same warnings stream via `take_warnings()` after the final sentinel pass. First entries: table columns clamped/below-min-content. The template-compat experiment (template-compat/REPORT.md, `experiment/template-compat` branch) found every catastrophic silent failure lived in this blind spot — new in-scope layout compromises belong in this channel, not in silence. Table sizing itself is browser-style automatic layout: column count from the widest row's colspan sum, min/max-content distribution, specified widths floored at min-content.
+
 ## Known Issues & Limitations (Current State)
 
 1. No variable font axis support.
@@ -520,7 +523,7 @@ asserted:
   extension schema for the combined config), an OutputIntent with an embedded
   sRGB profile (`sRGB.icc`), a deterministic trailer `/ID` (content hash, never a
   timestamp — determinism must survive), `/F` on annotations.
-- **Asset lesson (do not repeat):** `sRGB.icc` was, from ~0.9.0 to 0.15.0, a
+- **Asset lesson (do not repeat):** `sRGB.icc` was, from v0.6.0 (Feb 2026, commit 0ad42c3) through 0.15.0, a
   Cloudflare HTML challenge page a `curl` returned and nobody inspected — every
   PDF/A OutputIntent was invalid because nothing validated. It's now generated
   (Little CMS, not downloaded) and there's a unit test asserting the embedded

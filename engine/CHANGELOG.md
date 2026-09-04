@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **Automatic table layout.** With no explicit column definitions, column count was inferred from the FIRST row's cell count ignoring colspan — a table opening with a full-width banner row (the most common invoice shape in existence) became a one-column table and every second cell rendered one character per line, silently. Columns are now counted from the widest row's colspan sum and sized by min/max content like a browser; explicit widths are treated as suggestions floored at min-content (over-specified templates shrink gracefully instead of shredding); under-specified defs (rowspan-spacer first rows) extend with Auto columns. Found by the real-world template experiment (template-compat/REPORT.md): all four BROKEN corpus templates shared this one bug.
+
+### Added
+
+- **The render-defect channel.** Warnings that answer "what did WE get wrong?" (vs. the subset contract's "what did you ask for that we don't support?"). First entries: table columns clamped when fixed widths exceed the available width, and columns forced below min-content when content genuinely cannot fit. Prefixed `render defect:` and surfaced through the existing warnings stream; layout-stage warnings now flow into render output alongside the writer's.
+
+
+## [0.18.0] - 2026-09-03
+
 ### Added
 
 - **PDF/A-3 (3b/3u/3a).** Identical rule set to PDF/A-2 plus permission for arbitrary embedded files (verified against the veraPDF part-2/3 rules — the only deltas are clause 6.8). XMP `pdfaid:part` 3; `3a` implies tagging like `2a`.

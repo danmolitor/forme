@@ -867,10 +867,38 @@ pub fn html_to_document(html: &str, options: &HtmlOptions) -> (forme::Document, 
 }
 
 /// Render an HTML string to PDF bytes.
+/// Collapse identical warnings into one entry carrying a count. Framework
+/// stylesheets (Bootstrap) can otherwise produce thousands of identical
+/// lines (AdminLTE: 6,905 — template-compat/REPORT.md) and drown the
+/// signal exactly when someone needs it. Order of first occurrence is
+/// preserved; counted entries read "… (×N)".
+fn dedup_warnings(warnings: Vec<String>) -> Vec<String> {
+    let mut order: Vec<String> = Vec::new();
+    let mut counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    for w in warnings {
+        if !counts.contains_key(&w) {
+            order.push(w.clone());
+        }
+        *counts.entry(w).or_insert(0) += 1;
+    }
+    order
+        .into_iter()
+        .map(|w| {
+            let n = counts[&w];
+            if n > 1 {
+                format!("{w} (×{n})")
+            } else {
+                w
+            }
+        })
+        .collect()
+}
+
 pub fn render_html(html: &str, options: &HtmlOptions) -> Result<HtmlOutput, FormeError> {
     let (doc, mut warnings) = html_to_document(html, options);
     let (pdf, engine_warnings, passes) = forme::render_with_warnings_and_passes(&doc)?;
     warnings.extend(engine_warnings);
+    let warnings = dedup_warnings(warnings);
     Ok(HtmlOutput {
         pdf,
         warnings,
@@ -886,6 +914,7 @@ pub fn render_html_with_layout(
     let (doc, mut warnings) = html_to_document(html, options);
     let (pdf, layout, engine_warnings) = forme::render_with_layout(&doc)?;
     warnings.extend(engine_warnings);
+    let warnings = dedup_warnings(warnings);
     Ok(HtmlLayoutOutput {
         pdf,
         layout,

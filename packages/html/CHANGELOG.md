@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **Banner-row tables no longer collapse.** Tables opening with a colspan row (most real invoices) hit an engine column-count bug that shredded later cells into one-character-per-line vertical text — fixed with browser-style automatic table layout (see engine CHANGELOG). Column widths are also now harvested from the first colspan-free row instead of being discarded whenever the first row spans.
+
+### Added
+
+- **Warning dedup.** Identical warnings collapse to one entry carrying a count ("float is not supported … (×214)"). Framework stylesheets previously produced thousands of identical lines (AdminLTE: 6,905) that drowned the signal.
+- Render-defect warnings from the engine (`render defect:` prefix) now surface: silent in-scope layout failures — the gap the template-compat experiment exposed — report themselves.
+
+
+## [0.18.0] - 2026-09-03
+
 ### Added
 
 - `pdfA` accepts `"3b"`, `"3u"`, `"3a"` (PDF/A-3 — same rules as part 2 plus permission for embedded files). The whole corpus is veraPDF-gated at 3b/3a alongside 2b/2a.

@@ -149,7 +149,12 @@ pub fn render(document: &Document) -> Result<Vec<u8>, FormeError> {
 /// injection or a document-model scan, not from the flow pass.
 fn layout_with_sentinel_passes(
     document: &Document,
-) -> (Vec<crate::layout::LayoutPage>, FontContext, u32) {
+) -> (
+    Vec<crate::layout::LayoutPage>,
+    FontContext,
+    u32,
+    Vec<String>,
+) {
     let mut font_context = FontContext::new();
     register_document_fonts(&mut font_context, &document.fonts);
     let engine = LayoutEngine::new();
@@ -168,7 +173,8 @@ fn layout_with_sentinel_passes(
             passes += 1;
         }
     }
-    (pages, font_context, passes)
+    let layout_warnings = engine.take_warnings();
+    (pages, font_context, passes, layout_warnings)
 }
 
 /// Number of full layout passes a document needs (1 for the common case; 2–3
@@ -199,7 +205,7 @@ pub fn render_with_warnings_and_passes(
     } else {
         None
     };
-    let (pages, font_context, passes) = layout_with_sentinel_passes(document);
+    let (pages, font_context, passes, layout_warnings) = layout_with_sentinel_passes(document);
     let layout_ms = t_layout.map(|t| t.elapsed().as_secs_f64() * 1000.0);
 
     let writer = PdfWriter::new();
@@ -226,6 +232,11 @@ pub fn render_with_warnings_and_passes(
         document.zugferd.as_ref(),
         document.flatten_forms,
     )?;
+    let warnings = {
+        let mut all = layout_warnings;
+        all.extend(warnings);
+        all
+    };
     let serialize_ms = t_ser.map(|t| t.elapsed().as_secs_f64() * 1000.0);
     let pdf = if let Some(ref sig_config) = document.certification {
         pdf::certify::certify_pdf(&pdf, sig_config)?
@@ -250,7 +261,7 @@ pub fn render_with_warnings_and_passes(
 pub fn render_with_layout(
     document: &Document,
 ) -> Result<(Vec<u8>, LayoutInfo, Vec<String>), FormeError> {
-    let (pages, font_context, _passes) = layout_with_sentinel_passes(document);
+    let (pages, font_context, _passes, layout_warnings) = layout_with_sentinel_passes(document);
     let layout_info = LayoutInfo::from_pages(&pages);
     let writer = PdfWriter::new();
     let tagged = document.tagged
@@ -275,6 +286,11 @@ pub fn render_with_layout(
         pdf::certify::certify_pdf(&pdf, sig_config)?
     } else {
         pdf
+    };
+    let warnings = {
+        let mut all = layout_warnings;
+        all.extend(warnings);
+        all
     };
     Ok((pdf, layout_info, warnings))
 }

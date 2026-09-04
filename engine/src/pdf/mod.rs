@@ -4542,7 +4542,7 @@ mod tests {
 
     /// The embedded sRGB profile must be a REAL ICC profile suitable for a
     /// PDF/A OutputIntent — not, say, an HTML error page a `curl` returned and
-    /// nobody inspected (which is exactly what shipped from ~0.9.0 to 0.15.0,
+    /// nobody inspected (which is exactly what shipped from v0.6.0 through 0.15.0,
     /// silently making every PDF/A OutputIntent invalid). This is the check
     /// that would have caught it: ICC signature, an OutputIntent-legal device
     /// class (`mntr`/`prtr`), and an RGB data colour space.

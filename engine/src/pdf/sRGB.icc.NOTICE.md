@@ -49,4 +49,4 @@ Any replacement MUST keep device class `mntr`/`prtr` and colour space `RGB ` —
 enforces this so a bad asset (e.g. an HTML error page) can never ship silently
 again. That is exactly the failure this file's predecessor, `srgb2014.icc`,
 represented: a Cloudflare challenge page saved as an ICC and embedded unchecked
-from ~0.9.0 through 0.15.0, making every PDF/A OutputIntent invalid.
+from v0.6.0 (introduced 2026-02-28, commit 0ad42c3) through 0.15.0, making every PDF/A OutputIntent invalid.
