@@ -131,6 +131,16 @@ positions in both engines — `break-after` isolating the summary page,
 legacy alias opening its own page. Frozen reference:
 `tests/fixtures/report.chrome-reference.pdf`.
 
+**Verified against real-world templates**: 15 production templates
+collected from GitHub — Bootstrap 2/3 float grids, mPDF- and
+wkhtmltopdf-era table layouts, nested-table email HTML, modern CSS grid
+— none written with this engine in mind. Measured against Chrome print
+output: **11 of 15 render correctly; the other 4 degrade legibly with
+every cause named in `warnings`; zero render broken.** The four
+degraded cases share known causes (a `position: running()` stray, an
+admin-shell sidebar, and two templates whose grids only activate above
+a 768px viewport — a media-query semantics question, not a layout gap).
+
 **How this compares.** wkhtmltopdf (archived 2023) and DomPDF never
 shipped margin boxes or reliable break control. Chrome only gained
 margin-box generated content in Chrome 131 (late 2024) and still requires
@@ -185,5 +195,7 @@ document embed.
 
 ## Status
 
-Pre-release (`0.0.x`), Rust API + CLI. The npm package (`@formepdf/html`,
-WASM — Node, browser, edge) is the packaging phase of the roadmap.
+Shipping. The npm package
+([`@formepdf/html`](https://www.npmjs.com/package/@formepdf/html) —
+Node, browser, workers/edge, WASM) publishes on the monorepo's shared
+version line alongside the Rust API and the `forme-html` CLI.

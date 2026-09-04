@@ -29,7 +29,17 @@ they still haven't:
   `page-break-*` spellings every wkhtmltopdf-era template still carries
 - **`orphans` / `widows`**, `<thead>` repetition on every page
 - Stylesheets with a documented selector subset, the full cascade with
-  `!important`, flexbox, tables with colspan/rowspan, lists, images
+  `!important`, flexbox, a CSS Grid subset, tables with colspan/rowspan,
+  lists, images
+- **Floats as column rows** — `float: left/right` + `clear` lay
+  consecutive floated siblings out as a row (the Bootstrap `col-*` and
+  left/right header-pair shape real templates use); only true
+  text-wrapping alongside a float is out, and it warns
+
+Measured against 15 real production templates from GitHub (Bootstrap
+2/3 grids, mPDF/wkhtmltopdf-era tables, email HTML, modern CSS grid):
+**11 of 15 render correctly, the other 4 degrade legibly with every
+cause named in `warnings`, zero render broken.**
 
 The complete property-by-property subset table lives in the
 [repository README](https://github.com/formepdf/forme/tree/main/html) —
