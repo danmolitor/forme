@@ -10,6 +10,12 @@
 
 These came out of the new engine-level measure/layout agreement gate (`FORME_MEASURE_CHECK=1` + `tests/measure_check.rs`), which renders the fixture corpus and fails on any measured-vs-laid-out height divergence.
 
+### Fixed (the whitespace/fixed-dimensions family)
+
+- **Images size like Chrome.** `width: 100%`, percent widths generally, and `max-width` are honored on `<img>`, with height following the real aspect ratio — a small logo styled `width:100%; max-width:300px` now renders as Chrome does instead of reserving a container-sized phantom block and drawing at intrinsic size (the single biggest whitespace cause in the template corpus).
+- **Page-sized body declarations are clamped and warn.** `body { width: 21cm; height: 29.7cm }` (the mPDF idiom for "I am the page") previously cut off the right edge and forced a blank first page; it now clamps to the content box with a warning naming the remedy: page geometry belongs in `@page (size, margin)`.
+- **Giant atomic table rows no longer produce blank pages.** The email-template idiom (everything inside one `<tr>`) rendered with empty pages before and after its content; the content now flows and the unfittable-row case reports itself through the render-defect channel.
+
 ### Added
 
 - **Float support (document subset).** `float: left/right` + `clear` are in-subset: runs of consecutive floated siblings form a row — left floats in markup order, right floats stacking right-to-left, over-wide runs dropping to new float lines, shrink-to-fit auto widths — which is the shape every affected template in the real-world corpus actually uses (Bootstrap `col-*`, left/right header pairs; zero of them wrap text around a float). Per CSS, `float` is silently ignored on flex items and table-internal elements. The honest boundary stays loud: a non-floated sibling after an uncleared float renders **below** it, not beside it, and warns (`text wrapping alongside floats is not supported; floated siblings are laid out as columns`).

@@ -96,7 +96,33 @@ pub fn map_html(body: &Element, sheet: Stylesheet, page: PageConfig) -> (Documen
         .any(|r| r.block.normal.float.is_some() || r.block.important.float.is_some())
         || dom_mentions_float(body);
     let children = match mapper.map_block_element(body, ROOT_FONT_SIZE) {
-        Some(node) => vec![node],
+        Some(mut node) => {
+            // body { width: 21cm; height: 29.7cm } is the mPDF-era idiom
+            // for "I am the page" — page geometry, not content sizing.
+            // Honoring it inside the content box cuts off the right edge
+            // and forces a blank first page (template-compat 05/06).
+            // Clamp to the content box and name the remedy.
+            let (page_w, page_h) = page.size.dimensions();
+            let content_w = page_w - page.margin.left - page.margin.right;
+            let content_h = page_h - page.margin.top - page.margin.bottom;
+            if let Some(Dimension::Pt(w)) = node.style.width {
+                if w > content_w + 0.5 {
+                    mapper.warnings.push(format!(
+                        "body width {w:.0}pt exceeds the {content_w:.0}pt content box and was clamped — page geometry belongs in @page (size, margin)"
+                    ));
+                    node.style.width = None;
+                }
+            }
+            if let Some(Dimension::Pt(h)) = node.style.height {
+                if h > content_h + 0.5 {
+                    mapper.warnings.push(format!(
+                        "body height {h:.0}pt exceeds the {content_h:.0}pt content box and was clamped — page geometry belongs in @page (size, margin)"
+                    ));
+                    node.style.height = None;
+                }
+            }
+            vec![node]
+        }
         None => vec![],
     };
     let doc = Document {
