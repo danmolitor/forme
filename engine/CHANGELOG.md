@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.18.0] - 2026-09-03
 
 ### Fixed
 
@@ -9,12 +9,6 @@
 ### Added
 
 - **The render-defect channel.** Warnings that answer "what did WE get wrong?" (vs. the subset contract's "what did you ask for that we don't support?"). First entries: table columns clamped when fixed widths exceed the available width, and columns forced below min-content when content genuinely cannot fit. Prefixed `render defect:` and surfaced through the existing warnings stream; layout-stage warnings now flow into render output alongside the writer's.
-
-
-## [0.18.0] - 2026-09-03
-
-### Added
-
 - **PDF/A-3 (3b/3u/3a).** Identical rule set to PDF/A-2 plus permission for arbitrary embedded files (verified against the veraPDF part-2/3 rules — the only deltas are clause 6.8). XMP `pdfaid:part` 3; `3a` implies tagging like `2a`.
 - **Attachments (associated files).** `Document.attachments` embeds files with the PDF/A-3 requirements built in: MIME `/Subtype` on the stream, `/F` + `/UF` + `/AFRelationship` on the filespec, `/Params` with `/Size` and a **deterministic** default `/ModDate` (never wall-clock — byte determinism holds), and membership in the catalog `/AF` array.
 - **Factur-X / ZUGFeRD e-invoice container.** `Document.zugferd` emits the `fx:` XMP identification (DocumentType/DocumentFileName/Version/ConformanceLevel, namespace `urn:factur-x:pdfa:CrossIndustryDocument:invoice:1p0#`) with the required PDF/A extension-schema description; `/AFRelationship` defaults per profile (`Data` for MINIMUM/BASIC WL, `Alternative` otherwise). Composes with `pdf_ua`. Container only — the engine does not generate or validate the invoice XML.
