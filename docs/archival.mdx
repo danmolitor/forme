@@ -50,9 +50,17 @@ Forme supports two PDF/A conformance levels:
 
 <Tip>If you are unsure which level to use, start with `"2b"`. It covers the majority of archival requirements and has the broadest acceptance.</Tip>
 
-### Roadmap: PDF/A-3b
+### PDF/A-3 (`3b`, `3u`, `3a`)
 
-PDF/A-3b extends PDF/A-2b with support for embedded file attachments (XML data, source spreadsheets, machine-readable invoices). This is on the roadmap but not yet supported. When available, it will use `pdfa="3b"`.
+PDF/A-3 extends PDF/A-2 with permission for embedded file attachments (XML data, source spreadsheets, machine-readable invoices) — same rule set otherwise, same level semantics:
+
+```tsx
+const pdf = await renderDocument(<Document pdfa="3b">...</Document>, {
+  attachments: [{ name: 'data.xml', data: xmlBytes, mimeType: 'application/xml' }],
+});
+```
+
+Attachments under PDF/A-**2** are refused with a named error — part 2 permits only PDF/A attachments, which the engine cannot verify; the error tells you to use `"3b"`. The main use case, Factur-X/ZUGFeRD e-invoice containers, has [its own guide](/einvoicing).
 
 ---
 
