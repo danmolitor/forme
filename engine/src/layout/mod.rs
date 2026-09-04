@@ -3482,7 +3482,24 @@ impl LayoutEngine {
             let row_height =
                 self.measure_table_row_height(body_row, &col_widths, style, font_context);
 
-            if row_height > cursor.remaining_height() {
+            // Break only when a fresh page actually buys room. A row taller
+            // than any page (the email-template idiom: everything in one
+            // <tr>) used to force a break even at the top of an empty page,
+            // emitting blank pages before itself (template-compat 11). Row
+            // atomicity stands — the row is placed whole and overflows — but
+            // that's a render defect worth saying out loud, not a reason to
+            // print empty pages.
+            let fresh_page_available = cursor.content_height
+                - cursor.fixed_header.iter().map(|(_, h)| *h).sum::<f64>()
+                - cursor.fixed_footer.iter().map(|(_, h)| *h).sum::<f64>();
+            if row_height > fresh_page_available {
+                self.defect(format!(
+                    "render defect: table row needs {row_height:.0}pt but a page holds {fresh_page_available:.0}pt — rows are atomic, so it is placed whole and overflows",
+                ));
+            }
+            if row_height > cursor.remaining_height()
+                && cursor.remaining_height() < fresh_page_available - 0.5
+            {
                 pages.push(cursor.finalize());
                 *cursor = cursor.new_page();
 
@@ -3846,7 +3863,7 @@ impl LayoutEngine {
 
         // Collect all cell elements as row children
         let row_children: Vec<LayoutElement> = cursor.elements.drain(row_snapshot..).collect();
-        cursor.elements.push(LayoutElement {
+        let row_element = LayoutElement {
             x: start_x,
             y: row_y,
             width: total_width,
@@ -3876,12 +3893,26 @@ impl LayoutEngine {
             col_span: 1,
             overflow: row_style.overflow,
             opacity: row_style.opacity,
-        });
+        };
+
+        if let Some(first_overflow) = all_overflow_pages.first_mut() {
+            // The row's content lives in the overflow pages (cell content
+            // that exceeded the page split there and the cursor was rolled
+            // back) — so the wrapper belongs on the FIRST of them, where the
+            // row visually starts. Pushing it onto the restored cursor page
+            // instead, and advancing the cursor by the full row height, used
+            // to strand a container-only (visually blank) trailing page and
+            // push everything after the table off-page (template-compat 11's
+            // empty pages). The restored page stays at the row's start y for
+            // whatever follows the table.
+            first_overflow.elements.push(row_element);
+        } else {
+            cursor.elements.push(row_element);
+            cursor.y += row_height;
+        }
 
         // Append any overflow pages from cells that exceeded page height
         pages.extend(all_overflow_pages);
-
-        cursor.y += row_height;
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -5092,6 +5123,70 @@ impl LayoutEngine {
         num_chars
     }
 
+    /// The ONE image sizing ladder — used by both `layout_image` and
+    /// `measure_node_height`, so measurement and layout agree by
+    /// construction (the measure/layout agreement family: an earlier
+    /// version measured small images at container width while layout
+    /// drew them at intrinsic size, reserving container-sized phantom
+    /// space — template-compat 01/05/07). Chrome semantics: style width
+    /// (percents already resolved) > explicit prop > intrinsic;
+    /// max/min-width clamp; height follows the real aspect ratio unless
+    /// given.
+    fn image_display_size(
+        &self,
+        src: &str,
+        style: &ResolvedStyle,
+        explicit_width: Option<f64>,
+        explicit_height: Option<f64>,
+        available_width: f64,
+    ) -> (f64, f64) {
+        let dims = if src.is_empty() {
+            None
+        } else {
+            self.get_image_dimensions(src)
+        };
+        let aspect = dims
+            .map(|(w, h)| {
+                if w > 0 {
+                    f64::from(h) / f64::from(w)
+                } else {
+                    0.75
+                }
+            })
+            .unwrap_or(0.75);
+
+        let style_w = match style.width {
+            SizeConstraint::Fixed(w) => Some(w),
+            SizeConstraint::Auto => None,
+        };
+        let style_h = match style.height {
+            SizeConstraint::Fixed(h) => Some(h),
+            SizeConstraint::Auto => None,
+        };
+        let clamp = |w: f64| w.min(style.max_width).max(style.min_width);
+
+        let width_source = style_w.or(explicit_width);
+        let height_source = style_h.or(explicit_height);
+        match (width_source, height_source) {
+            (Some(w), Some(h)) => (clamp(w), h),
+            (Some(w), None) => {
+                let w = clamp(w);
+                (w, w * aspect)
+            }
+            (None, Some(h)) => (clamp(h / aspect), h),
+            (None, None) => {
+                // Intrinsic size, shrunk to fit the container. An
+                // unloadable image keeps the container-width placeholder.
+                let w = clamp(
+                    dims.map(|(w, _)| f64::from(w))
+                        .unwrap_or(available_width)
+                        .min(available_width),
+                );
+                (w, w * aspect)
+            }
+        }
+    }
+
     #[allow(clippy::too_many_arguments)]
     fn layout_image(
         &self,
@@ -5118,32 +5213,13 @@ impl LayoutEngine {
             None
         };
 
-        // Compute display dimensions with aspect ratio preservation
-        let (img_width, img_height) = if let Some(ref img) = loaded {
-            let intrinsic_w = img.width_px as f64;
-            let intrinsic_h = img.height_px as f64;
-            let aspect = if intrinsic_w > 0.0 {
-                intrinsic_h / intrinsic_w
-            } else {
-                0.75
-            };
-
-            match (explicit_width, explicit_height) {
-                (Some(w), Some(h)) => (w, h),
-                (Some(w), None) => (w, w * aspect),
-                (None, Some(h)) => (h / aspect, h),
-                (None, None) => {
-                    let max_w = available_width - margin.horizontal();
-                    let w = intrinsic_w.min(max_w);
-                    (w, w * aspect)
-                }
-            }
-        } else {
-            // Fallback dimensions when image can't be loaded
-            let w = explicit_width.unwrap_or(available_width - margin.horizontal());
-            let h = explicit_height.unwrap_or(w * 0.75);
-            (w, h)
-        };
+        let (img_width, img_height) = self.image_display_size(
+            src,
+            style,
+            explicit_width,
+            explicit_height,
+            available_width - margin.horizontal(),
+        );
 
         let total_height = img_height + margin.vertical();
 
@@ -5760,25 +5836,15 @@ impl LayoutEngine {
                 width: explicit_w,
                 height: explicit_h,
             } => {
-                // 1. style.height takes precedence
-                if let SizeConstraint::Fixed(h) = style.height {
-                    return h + style.padding.vertical();
-                }
-                // 2. Explicit height prop
-                if let Some(h) = explicit_h {
-                    return *h + style.padding.vertical();
-                }
-                // 3. Compute from real image aspect ratio (header-only read, no pixel decode)
-                let aspect = self
-                    .get_image_dimensions(src)
-                    .map(|(w, h)| if w > 0 { h as f64 / w as f64 } else { 0.75 })
-                    .unwrap_or(0.75);
-                let w = if let SizeConstraint::Fixed(w) = style.width {
-                    w
-                } else {
-                    explicit_w.unwrap_or(available_width - style.margin.horizontal())
-                };
-                w * aspect + style.padding.vertical()
+                // Same ladder layout_image uses — agreement by construction.
+                let (_, h) = self.image_display_size(
+                    src,
+                    style,
+                    *explicit_w,
+                    *explicit_h,
+                    available_width - style.margin.horizontal(),
+                );
+                h + style.padding.vertical()
             }
             NodeKind::Svg { height, .. } => *height + style.margin.vertical(),
             NodeKind::Barcode { height, .. } => *height + style.margin.vertical(),

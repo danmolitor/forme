@@ -168,6 +168,12 @@ node packages/cli/dist/index.js dev test-preview.tsx
 # VS Code extension
 cd packages/vscode && npm run build    # esbuild → dist/extension.js
 cd packages/vscode && npm run package  # → forme-pdf-{version}.vsix
+
+# Byte wall: compare fixture PDFs against a baseline ref. Builds BOTH
+# binaries by construction (never trusts an existing one) — the
+# stale-binary trap struck four times before this existed. Exit 1 on
+# any DIFFERS, with both files named for examination.
+bash scripts/byte-wall.sh <baseline-ref> [fixture ...]
 ```
 
 ## Architecture (data flow)
