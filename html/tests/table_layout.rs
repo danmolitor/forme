@@ -109,3 +109,109 @@ fn duplicate_warnings_collapse_with_a_count() {
         shadow_warnings[0]
     );
 }
+
+// ── tfoot renders at the bottom regardless of DOM position ─────────
+
+#[test]
+fn tfoot_before_tbody_renders_last() {
+    // The niraj-invoice shape (template-compat 08): markup puts <tfoot>
+    // (Subtotal/Total) BEFORE <tbody> — browsers render tfoot at the
+    // bottom of the table regardless of DOM position; we rendered it in
+    // DOM order, printing the totals above the line items.
+    let out = render(
+        "<html><body><table>\
+           <thead><tr><th>Item</th><th>Price</th></tr></thead>\
+           <tfoot><tr><td>Total</td><td>$30</td></tr></tfoot>\
+           <tbody>\
+             <tr><td>Widget</td><td>$10</td></tr>\
+             <tr><td>Gadget</td><td>$20</td></tr>\
+           </tbody>\
+         </table></body></html>",
+    );
+    let y_of = |needle: &str| -> f64 {
+        let mut hit = None;
+        for page in &out.layout.pages {
+            walk(&page.elements, &mut |el| {
+                if hit.is_none() && el.node_type == "TextLine" {
+                    if let Some(t) = &el.text_content {
+                        if t.contains(needle) {
+                            hit = Some(el.y);
+                        }
+                    }
+                }
+            });
+        }
+        hit.unwrap_or_else(|| panic!("no line containing {needle:?}"))
+    };
+    let header = y_of("Item");
+    let widget = y_of("Widget");
+    let gadget = y_of("Gadget");
+    let total = y_of("Total");
+    assert!(header < widget, "thead first");
+    assert!(widget < gadget, "body rows in order");
+    assert!(
+        gadget < total,
+        "tfoot renders below the body rows (Total at {total:.0}, Gadget at {gadget:.0})"
+    );
+}
+
+#[test]
+fn display_none_rows_and_sections_do_not_render() {
+    // The niraj template hides its totals rows with display:none and
+    // un-hides them with JS. We don't run JS (constitution), so hidden
+    // must mean hidden — collect_rows previously bypassed the
+    // display:none check that every other element gets.
+    let out = render(
+        "<html><body><table>\
+           <tr><td>visible row</td></tr>\
+           <tr style=\"display: none\"><td>hidden row</td></tr>\
+           <thead style=\"display: none\"><tr><td>hidden section</td></tr></thead>\
+         </table></body></html>",
+    );
+    assert!(!text_lines_containing(&out, "visible row").is_empty());
+    assert!(
+        text_lines_containing(&out, "hidden row").is_empty(),
+        "display:none row must not render"
+    );
+    assert!(
+        text_lines_containing(&out, "hidden section").is_empty(),
+        "display:none section must not render"
+    );
+}
+
+#[test]
+fn second_thead_stays_in_dom_order() {
+    // Per HTML, only the FIRST thead is the table header; a later thead
+    // is an ordinary row group in DOM order. The engine hoists header
+    // rows to the top (and repeats them per page), so marking a late
+    // thead as header printed a totals block ABOVE the line items
+    // (template-compat 08's actual shape — its "totals" live in a
+    // second thead after tbody, not a tfoot).
+    let out = render(
+        "<html><body><table>\
+           <thead><tr><th>Item</th></tr></thead>\
+           <tbody><tr><td>Widget</td></tr></tbody>\
+           <thead class=\"totals\"><tr><td>Total</td></tr></thead>\
+         </table></body></html>",
+    );
+    let y_of = |needle: &str| -> f64 {
+        let mut hit = None;
+        for page in &out.layout.pages {
+            walk(&page.elements, &mut |el| {
+                if hit.is_none() && el.node_type == "TextLine" {
+                    if let Some(t) = &el.text_content {
+                        if t.contains(needle) {
+                            hit = Some(el.y);
+                        }
+                    }
+                }
+            });
+        }
+        hit.unwrap_or_else(|| panic!("no line containing {needle:?}"))
+    };
+    assert!(y_of("Item") < y_of("Widget"), "first thead is the header");
+    assert!(
+        y_of("Widget") < y_of("Total"),
+        "a second thead renders in DOM order, not hoisted"
+    );
+}
