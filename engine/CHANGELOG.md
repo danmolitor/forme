@@ -2,9 +2,13 @@
 
 ## [Unreleased]
 
-### Fixed
+### Changed (behavior — absolutely-positioned layout may shift)
 
-- **`bottom`/`right` absolute offsets anchor the margin edge, per CSS.** The border box was anchored and margins applied afterward, so `position:absolute; bottom:0` plus a `margin-top` shoved the content past the anchor — a receipt footer rendered below the page bottom with only ascender tips visible ("Thk ft", the template corpus's one silent text defect; it looked like a font bug and was actually geometry).
+- **`bottom`/`right` offsets on `position: absolute` now anchor the margin edge, per CSS.** Previously they anchored the border box and margins were applied afterward, so any absolutely-positioned element combining a `bottom` or `right` offset with margins rendered past its anchor — by exactly its vertical (for `bottom`) or horizontal (for `right`) margin sum. This is a CSS conformance fix, not a subset change.
+
+  **If your layout shifted after upgrading:** elements with `bottom`/`right` offsets AND margins now sit closer to the top-left by their margin size — that's the spec-correct position. Elements using `top`/`left` anchors, or no margins, are unaffected. How it was found: a receipt footer with `bottom: 0; margin-top: 1rem` rendered 12pt below the page bottom, leaving only the ascender tips of "Thank you for your payment." visible ("Thk ft" — it looked like a font bug and was geometry).
+
+### Fixed
 - **Table intrinsic width.** `measure_intrinsic_width` / `measure_min_content_width` had no `Table` arm, so a shrink-to-fit container holding a table measured as its widest single cell and crushed the table to one column's width (per-word vertical text). Tables now measure as the sum of per-column max/min content, colspan-aware. Related to 0.18.0's automatic-table-layout fix — the second instance of intrinsic-width measurement disagreeing with layout, surfaced from a different direction.
 - **Flex-wrap epsilon.** Percentage widths pass through `f32`, so 60% + 40% of a row could sum to a hair over 100% and spuriously wrap. Line partitioning now tolerates 0.01pt.
 - **Row-measure double percent resolution.** The Row arm of `measure_node_height` resolved each child's style against the child's own final width instead of the container's, so `width: 27%` became 27% *of* 27% — text measured at a quarter width, one word per line, and rows measured 2.5–4× taller than layout produced (phantom vertical gaps below flex rows). Third confirmed instance of the measure/layout-disagreement family.
