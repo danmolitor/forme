@@ -6,6 +6,14 @@
 
 - **Banner-row tables no longer collapse.** Tables opening with a colspan row (most real invoices) hit an engine column-count bug that shredded later cells into one-character-per-line vertical text — fixed with browser-style automatic table layout (see engine CHANGELOG). Column widths are also now harvested from the first colspan-free row instead of being discarded whenever the first row spans.
 
+### Fixed (measure/layout agreement — phantom vertical gaps)
+
+- **Flex rows with percent-width children no longer reserve phantom height** (rows measured 2.5–4× taller than their content when children carried percent widths — visible as large gaps below float rows and flex headers).
+- **Margin-box content centers correctly in its band.** At boundary widths, measurement wrapped text that layout kept on one line, skewing the band's vertical centering (running headers sat too high, page numbers too low).
+- **Absolutely-positioned elements no longer leave a gap** equal to their own height in every auto-height ancestor.
+
+These came out of the new engine-level measure/layout agreement gate (`FORME_MEASURE_CHECK=1` + `tests/measure_check.rs`), which renders the fixture corpus and fails on any measured-vs-laid-out height divergence.
+
 ### Added
 
 - **Float support (document subset).** `float: left/right` + `clear` are in-subset: runs of consecutive floated siblings form a row — left floats in markup order, right floats stacking right-to-left, over-wide runs dropping to new float lines, shrink-to-fit auto widths — which is the shape every affected template in the real-world corpus actually uses (Bootstrap `col-*`, left/right header pairs; zero of them wrap text around a float). Per CSS, `float` is silently ignored on flex items and table-internal elements. The honest boundary stays loud: a non-floated sibling after an uncleared float renders **below** it, not beside it, and warns (`text wrapping alongside floats is not supported; floated siblings are laid out as columns`).
