@@ -1,12 +1,10 @@
 # Changelog
 
-## [0.18.0] - 2026-09-03
+## [Unreleased]
 
 ### Fixed
 
-- **Automatic table layout.** With no explicit column definitions, column count was inferred from the FIRST row's cell count ignoring colspan — a table opening with a full-width banner row (the most common invoice shape in existence) became a one-column table and every second cell rendered one character per line, silently. Columns are now counted from the widest row's colspan sum and sized by min/max content like a browser; explicit widths are treated as suggestions floored at min-content (over-specified templates shrink gracefully instead of shredding); under-specified defs (rowspan-spacer first rows) extend with Auto columns. Found by the real-world template experiment (template-compat/REPORT.md): all four BROKEN corpus templates shared this one bug.
-
-- **Table intrinsic width.** `measure_intrinsic_width` / `measure_min_content_width` had no `Table` arm, so a shrink-to-fit container holding a table measured as its widest single cell and crushed the table to one column's width (per-word vertical text). Tables now measure as the sum of per-column max/min content, colspan-aware. Related to the automatic-table-layout fix above — the second instance of intrinsic-width measurement not understanding tables, surfaced from a different direction (a third would suggest a systematic gap, not coincidence).
+- **Table intrinsic width.** `measure_intrinsic_width` / `measure_min_content_width` had no `Table` arm, so a shrink-to-fit container holding a table measured as its widest single cell and crushed the table to one column's width (per-word vertical text). Tables now measure as the sum of per-column max/min content, colspan-aware. Related to 0.18.0's automatic-table-layout fix — the second instance of intrinsic-width measurement disagreeing with layout, surfaced from a different direction.
 - **Flex-wrap epsilon.** Percentage widths pass through `f32`, so 60% + 40% of a row could sum to a hair over 100% and spuriously wrap. Line partitioning now tolerates 0.01pt.
 - **Row-measure double percent resolution.** The Row arm of `measure_node_height` resolved each child's style against the child's own final width instead of the container's, so `width: 27%` became 27% *of* 27% — text measured at a quarter width, one word per line, and rows measured 2.5–4× taller than layout produced (phantom vertical gaps below flex rows). Third confirmed instance of the measure/layout-disagreement family.
 - **Measure now breaks lines the way layout does.** `measure_node_height` for text always used the greedy breaker and skipped `text-transform`; layout honors `LineBreaking::Optimal` (Knuth-Plass), which can accept a slightly-overfull line greedy would wrap. At boundary widths measurement counted one line more than layout rendered — margin-box content was visibly mis-centered in its band. Fourth instance.
@@ -15,6 +13,16 @@
 ### Added
 
 - **The measure/layout agreement check** (`FORME_MEASURE_CHECK=1`). Five shipped bugs shared one shape: intrinsic measurement computed a height layout never produced, each found by a user or a corpus experiment. The invariant is now enforced instead of remembered: with the env flag set, an auto-height view whose measured children height exceeds what they actually occupy emits a `measure-check:` warning, and a test gate renders the fixture corpus with it on and fails on any emission. On its first run the gate found instances four and five above.
+
+
+## [0.18.0] - 2026-09-03
+
+### Fixed
+
+- **Automatic table layout.** With no explicit column definitions, column count was inferred from the FIRST row's cell count ignoring colspan — a table opening with a full-width banner row (the most common invoice shape in existence) became a one-column table and every second cell rendered one character per line, silently. Columns are now counted from the widest row's colspan sum and sized by min/max content like a browser; explicit widths are treated as suggestions floored at min-content (over-specified templates shrink gracefully instead of shredding); under-specified defs (rowspan-spacer first rows) extend with Auto columns. Found by the real-world template experiment (template-compat/REPORT.md): all four BROKEN corpus templates shared this one bug.
+
+### Added
+
 - **The render-defect channel.** Warnings that answer "what did WE get wrong?" (vs. the subset contract's "what did you ask for that we don't support?"). First entries: table columns clamped when fixed widths exceed the available width, and columns forced below min-content when content genuinely cannot fit. Prefixed `render defect:` and surfaced through the existing warnings stream; layout-stage warnings now flow into render output alongside the writer's.
 - **PDF/A-3 (3b/3u/3a).** Identical rule set to PDF/A-2 plus permission for arbitrary embedded files (verified against the veraPDF part-2/3 rules — the only deltas are clause 6.8). XMP `pdfaid:part` 3; `3a` implies tagging like `2a`.
 - **Attachments (associated files).** `Document.attachments` embeds files with the PDF/A-3 requirements built in: MIME `/Subtype` on the stream, `/F` + `/UF` + `/AFRelationship` on the filespec, `/Params` with `/Size` and a **deterministic** default `/ModDate` (never wall-clock — byte determinism holds), and membership in the catalog `/AF` array.

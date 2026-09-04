@@ -1,10 +1,6 @@
 # Changelog — @formepdf/html
 
-## [0.18.0] - 2026-09-03
-
-### Fixed
-
-- **Banner-row tables no longer collapse.** Tables opening with a colspan row (most real invoices) hit an engine column-count bug that shredded later cells into one-character-per-line vertical text — fixed with browser-style automatic table layout (see engine CHANGELOG). Column widths are also now harvested from the first colspan-free row instead of being discarded whenever the first row spans.
+## [Unreleased]
 
 ### Fixed (measure/layout agreement — phantom vertical gaps)
 
@@ -17,9 +13,18 @@ These came out of the new engine-level measure/layout agreement gate (`FORME_MEA
 ### Added
 
 - **Float support (document subset).** `float: left/right` + `clear` are in-subset: runs of consecutive floated siblings form a row — left floats in markup order, right floats stacking right-to-left, over-wide runs dropping to new float lines, shrink-to-fit auto widths — which is the shape every affected template in the real-world corpus actually uses (Bootstrap `col-*`, left/right header pairs; zero of them wrap text around a float). Per CSS, `float` is silently ignored on flex items and table-internal elements. The honest boundary stays loud: a non-floated sibling after an uncleared float renders **below** it, not beside it, and warns (`text wrapping alongside floats is not supported; floated siblings are laid out as columns`).
+
+
+## [0.18.0] - 2026-09-03
+
+### Fixed
+
+- **Banner-row tables no longer collapse.** Tables opening with a colspan row (most real invoices) hit an engine column-count bug that shredded later cells into one-character-per-line vertical text — fixed with browser-style automatic table layout (see engine CHANGELOG). Column widths are also now harvested from the first colspan-free row instead of being discarded whenever the first row spans.
+
+### Added
+
 - **Warning dedup.** Identical warnings collapse to one entry carrying a count ("float is not supported … (×214)"). Framework stylesheets previously produced thousands of identical lines (AdminLTE: 6,905) that drowned the signal.
 - Render-defect warnings from the engine (`render defect:` prefix) now surface: silent in-scope layout failures — the gap the template-compat experiment exposed — report themselves.
-
 - `pdfA` accepts `"3b"`, `"3u"`, `"3a"` (PDF/A-3 — same rules as part 2 plus permission for embedded files). The whole corpus is veraPDF-gated at 3b/3a alongside 2b/2a.
 
 
