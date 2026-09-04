@@ -885,6 +885,7 @@ impl Mapper {
         };
         let mut rows: Vec<Node> = Vec::new();
         let mut next_row = 0usize;
+        let mut seen_thead = false;
         self.collect_rows(
             &el.children,
             computed.font_size,
@@ -892,6 +893,7 @@ impl Mapper {
             &mut rows,
             &table_info,
             &mut next_row,
+            &mut seen_thead,
         );
 
         // Column definitions from the first row's cell widths. Mixed
@@ -906,6 +908,7 @@ impl Mapper {
         ))
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn collect_rows(
         &mut self,
         children: &[DomNode],
@@ -914,10 +917,29 @@ impl Mapper {
         rows: &mut Vec<Node>,
         table_info: &TableInfo,
         next_row: &mut usize,
+        seen_thead: &mut bool,
     ) {
-        for child in children {
+        // <tfoot> renders at the BOTTOM of the table regardless of where
+        // it sits in the markup (HTML allows and templates commonly use
+        // tfoot before tbody so streaming renderers see it early) — so
+        // walk every non-tfoot child first, then the tfoots. RowPos is
+        // assigned in this visual order, keeping first/last aligned with
+        // what actually renders (border-collapse edge ownership).
+        let is_tfoot = |c: &&DomNode| matches!(c, DomNode::Element(e) if e.tag == "tfoot");
+        let ordered = children
+            .iter()
+            .filter(|c| !is_tfoot(c))
+            .chain(children.iter().filter(is_tfoot));
+        for child in ordered {
             match child {
                 DomNode::Element(e) if e.tag == "tr" => {
+                    // display:none must mean hidden here too — this path
+                    // bypasses map_block_element's check, and templates
+                    // hide rows they expect JS (which we don't run) to
+                    // reveal.
+                    if self.computed_for(e, font_size).display == CssDisplay::None {
+                        continue;
+                    }
                     let row_pos = RowPos {
                         first: *next_row == 0,
                         last: *next_row + 1 == table_info.total_rows,
@@ -931,11 +953,25 @@ impl Mapper {
                     // than silently accepting it. Row-level break-inside
                     // IS honored: rows are atomic by engine design.
                     let section_computed = self.computed_for(e, font_size);
+                    if section_computed.display == CssDisplay::None {
+                        continue;
+                    }
                     if section_computed.break_inside.is_some() {
                         self.warnings.push(format!(
                             "break-inside on <{}> is pending (rows are already atomic; put break-inside: avoid on the table to keep the whole table together)",
                             e.tag
                         ));
+                    }
+                    // Per HTML, only the FIRST thead is the table header;
+                    // a later thead is an ordinary row group in DOM
+                    // order. The engine hoists header rows to the top and
+                    // repeats them per page, so marking a late thead as
+                    // header printed a totals block above the line items
+                    // (template-compat 08 keeps its totals in a second
+                    // thead after tbody).
+                    let is_header = e.tag == "thead" && !*seen_thead;
+                    if e.tag == "thead" {
+                        *seen_thead = true;
                     }
                     // The section element is a selector ancestor
                     // (`tbody tr:nth-child(even)` — the zebra idiom).
@@ -943,10 +979,11 @@ impl Mapper {
                     self.collect_rows(
                         &e.children,
                         font_size,
-                        e.tag == "thead",
+                        is_header,
                         rows,
                         table_info,
                         next_row,
+                        seen_thead,
                     );
                     self.stack.pop();
                 }

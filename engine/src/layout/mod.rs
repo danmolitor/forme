@@ -2807,11 +2807,18 @@ impl LayoutEngine {
                 }
             };
 
-            // Position relative to the containing block.
+            // Position relative to the containing block. Per CSS, the
+            // offsets position the MARGIN edge: layout_node applies
+            // margin.top/left inside the slot, so a top/left anchor needs
+            // no adjustment — but bottom/right anchors must reserve the
+            // margins, or a margin shoves the border box past the anchor
+            // (template-compat 15: `bottom:0` + `margin-top:1rem` pushed a
+            // footer off the page bottom, leaving only ascender tips).
+            let abs_margin = abs_style.margin.to_edges();
             let abs_x = if let Some(l) = abs_style.left {
                 cb_x + l
             } else if let Some(r) = abs_style.right {
-                cb_x + cb_w - r - child_width
+                cb_x + cb_w - r - child_width - abs_margin.horizontal()
             } else {
                 cb_x
             };
@@ -2819,7 +2826,7 @@ impl LayoutEngine {
             let abs_y = if let Some(t) = abs_style.top {
                 cb_y + t
             } else if let Some(b) = abs_style.bottom {
-                cb_y + cb_h - b - child_height
+                cb_y + cb_h - b - child_height - abs_margin.vertical()
             } else {
                 cb_y
             };

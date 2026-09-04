@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Fixed (table sections + absolute positioning)
+
+- **`<tfoot>` renders at the bottom of the table** regardless of where it sits in the markup — HTML allows (and templates commonly use) tfoot before tbody so streaming renderers see it early; it previously rendered in DOM order.
+- **Only the first `<thead>` is the repeating table header.** A later thead is an ordinary row group in DOM order, per HTML — previously its rows were hoisted to the top of the table (a totals block kept in a second thead printed above the line items).
+- **`display: none` now applies to table rows and sections.** The row-collection path bypassed the check every other element gets, so rows a template hides for JS to reveal (which we don't run) rendered anyway.
+- **`bottom`/`right`-anchored absolute boxes respect their margins** — a behavior change: CSS offsets position the *margin edge*, and we anchored the border box, so any `position:absolute` element with a `bottom`/`right` offset and margins rendered past its anchor by the margin size. If a positioned element sits higher/further left after upgrading, that's the spec-correct spot (a `bottom:0` footer with `margin-top` previously rendered past the page bottom, leaving only ascender tips: the corpus's "Thk ft"). Engine fix — see `engine/CHANGELOG.md`.
+
 ### Fixed (measure/layout agreement — phantom vertical gaps)
 
 - **Flex rows with percent-width children no longer reserve phantom height** (rows measured 2.5–4× taller than their content when children carried percent widths — visible as large gaps below float rows and flex headers).
