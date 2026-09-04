@@ -280,7 +280,10 @@ cd forme-go && go clean -testcache && go test ./...
 #     github.com/danmolitor/forme-template-compat (7 of 15 templates carry
 #     redistribution constraints — it never joins this repo).
 cd forme/html && cargo build --release             # ALWAYS build fresh first
-cd ../../forme-template-compat && bash run.sh      # sibling checkout; renders forme + Chrome refs
+# forme-template-compat is a sibling of the forme MONOREPO PARENT dir
+# (../../.. from forme/html); its run.sh finds the binary via that layout,
+# or set FORME_HTML to the binary path explicitly.
+cd ../../../forme-template-compat && bash run.sh   # renders forme + Chrome refs
 git diff --stat out/                               # page counts + warnings vs committed snapshots
 #     DISPOSITION — this is the step, not the diff: anything that moved is
 #     one of exactly two things, and you decide which before publishing:
