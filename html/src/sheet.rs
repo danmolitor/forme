@@ -209,12 +209,93 @@ pub enum Pseudo {
     },
 }
 
+/// An attribute-selector operator (`[attr]`, `[attr=v]`, `[attr*=v]`, ...).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AttrOp {
+    /// `[attr]` — present, any value.
+    Exists,
+    /// `[attr=v]` — exact value.
+    Equals,
+    /// `[attr~=v]` — whitespace-separated word list contains `v`.
+    Includes,
+    /// `[attr|=v]` — exactly `v`, or `v` followed by `-` (the `lang` idiom).
+    DashMatch,
+    /// `[attr^=v]` — value starts with `v`.
+    Prefix,
+    /// `[attr$=v]` — value ends with `v`.
+    Suffix,
+    /// `[attr*=v]` — value contains `v` (Bootstrap 2's entire grid:
+    /// `[class*="span"] { float: left }`).
+    Substring,
+}
+
+/// One parsed attribute selector inside a compound.
+#[derive(Debug, Clone)]
+pub struct AttrSelector {
+    /// Attribute name, lowercased (HTML attribute names are ASCII
+    /// case-insensitive and the DOM stores them lowercase).
+    pub name: String,
+    pub op: AttrOp,
+    /// Expected value; empty for `Exists`.
+    pub value: String,
+    /// The `i` flag: ASCII case-insensitive value comparison.
+    pub case_insensitive: bool,
+}
+
+impl AttrSelector {
+    fn matches(&self, attrs: &[(String, String)]) -> bool {
+        let Some(actual) = attrs
+            .iter()
+            .find(|(n, _)| *n == self.name)
+            .map(|(_, v)| v.as_str())
+        else {
+            return false;
+        };
+        if self.op == AttrOp::Exists {
+            return true;
+        }
+        let (actual, expected) = if self.case_insensitive {
+            (
+                std::borrow::Cow::Owned(actual.to_ascii_lowercase()),
+                std::borrow::Cow::Owned(self.value.to_ascii_lowercase()),
+            )
+        } else {
+            (
+                std::borrow::Cow::Borrowed(actual),
+                std::borrow::Cow::Borrowed(self.value.as_str()),
+            )
+        };
+        let (actual, expected) = (actual.as_ref(), expected.as_ref());
+        match self.op {
+            AttrOp::Exists => unreachable!(),
+            AttrOp::Equals => actual == expected,
+            // Per Selectors L4, an empty or whitespace-containing `~=`
+            // value matches nothing; empty `^=`/`$=`/`*=` values likewise.
+            AttrOp::Includes => {
+                !expected.is_empty()
+                    && !expected.contains(char::is_whitespace)
+                    && actual.split_whitespace().any(|w| w == expected)
+            }
+            AttrOp::DashMatch => {
+                actual == expected
+                    || actual
+                        .strip_prefix(expected)
+                        .is_some_and(|rest| rest.starts_with('-'))
+            }
+            AttrOp::Prefix => !expected.is_empty() && actual.starts_with(expected),
+            AttrOp::Suffix => !expected.is_empty() && actual.ends_with(expected),
+            AttrOp::Substring => !expected.is_empty() && actual.contains(expected),
+        }
+    }
+}
+
 /// One compound selector: everything between combinators.
 #[derive(Debug, Clone, Default)]
 pub struct Compound {
     pub tag: Option<String>,
     pub id: Option<String>,
     pub classes: Vec<String>,
+    pub attrs: Vec<AttrSelector>,
     pub pseudos: Vec<Pseudo>,
     /// An explicit `*`. Matching-wise it's a no-op (an empty compound
     /// matches everything anyway); this flag only marks the compound as
@@ -228,6 +309,7 @@ impl Compound {
             && self.tag.is_none()
             && self.id.is_none()
             && self.classes.is_empty()
+            && self.attrs.is_empty()
             && self.pseudos.is_empty()
     }
 
@@ -243,6 +325,9 @@ impl Compound {
             }
         }
         if !self.classes.iter().all(|c| key.classes.contains(c)) {
+            return false;
+        }
+        if !self.attrs.iter().all(|a| a.matches(&key.attrs)) {
             return false;
         }
         fn nth_matches(a: i32, b: i32, index: usize) -> bool {
@@ -293,6 +378,9 @@ pub struct ElemKey {
     pub tag: String,
     pub id: Option<String>,
     pub classes: Vec<String>,
+    /// All attributes as (lowercased name, value) — what attribute
+    /// selectors match against.
+    pub attrs: Vec<(String, String)>,
     /// 0-based position among the parent's element children.
     pub index: usize,
     /// Total element children in the parent.
@@ -312,7 +400,7 @@ impl Selector {
             if c.id.is_some() {
                 ids += 1;
             }
-            classes += (c.classes.len() + c.pseudos.len()) as u32;
+            classes += (c.classes.len() + c.attrs.len() + c.pseudos.len()) as u32;
             if c.tag.is_some() {
                 types += 1;
             }
@@ -848,6 +936,19 @@ fn parse_rules(
                     .unwrap_or_default();
                 prelude.push_function(&fname, parse_nth_args(&args));
             }
+            Token::SquareBracketBlock => {
+                // Block-start token: consume the `[...]` contents here.
+                let toks: Vec<Token> = parser
+                    .parse_nested_block(|p| -> Result<Vec<Token>, cssparser::ParseError<'_, ()>> {
+                        let mut toks = Vec::new();
+                        while let Ok(t) = p.next() {
+                            toks.push(t.clone());
+                        }
+                        Ok(toks)
+                    })
+                    .unwrap_or_default();
+                prelude.push_attr(&toks);
+            }
             Token::CurlyBracketBlock => {
                 let selectors = prelude.finish(warnings);
                 let mut block = DeclBlock::default();
@@ -1329,6 +1430,60 @@ fn parse_page_size(p: &mut Parser<'_, '_>, warnings: &mut Vec<String>) -> Option
 /// Parse `:nth-child()` arguments: `even`, `odd`, and the an+b forms the
 /// CSS tokenizer splits in creative ways (`2n+1` → Dimension(2,"n") +
 /// Number(+1); `n-2` → Ident("n-2")). Returns None for anything else.
+/// Parse the tokens inside a `[...]` selector block:
+/// `name`, `name <op> value`, optionally followed by the `i` (or the
+/// default-affirming `s`) case flag. `<op>` is `=`, `~=`, `|=`, `^=`,
+/// `$=`, or `*=`; the value is an ident or a quoted string.
+fn parse_attr_selector(toks: &[Token]) -> Result<AttrSelector, String> {
+    let err = || "malformed attribute selector".to_string();
+    let mut it = toks.iter();
+    let name = match it.next() {
+        Some(Token::Ident(id)) => id.to_ascii_lowercase(),
+        _ => return Err(err()),
+    };
+    let op = match it.next() {
+        None => {
+            return Ok(AttrSelector {
+                name,
+                op: AttrOp::Exists,
+                value: String::new(),
+                case_insensitive: false,
+            });
+        }
+        Some(Token::Delim('=')) => AttrOp::Equals,
+        Some(Token::IncludeMatch) => AttrOp::Includes,
+        Some(Token::DashMatch) => AttrOp::DashMatch,
+        Some(Token::PrefixMatch) => AttrOp::Prefix,
+        Some(Token::SuffixMatch) => AttrOp::Suffix,
+        Some(Token::SubstringMatch) => AttrOp::Substring,
+        Some(Token::Delim('|')) => return Err("namespaced attribute selector".to_string()),
+        _ => return Err(err()),
+    };
+    let value = match it.next() {
+        Some(Token::Ident(id)) => id.as_ref().to_string(),
+        Some(Token::QuotedString(s)) => s.as_ref().to_string(),
+        _ => return Err(err()),
+    };
+    let case_insensitive = match it.next() {
+        None => false,
+        Some(Token::Ident(flag)) => match flag.to_ascii_lowercase().as_str() {
+            "i" => true,
+            "s" => false,
+            _ => return Err(err()),
+        },
+        _ => return Err(err()),
+    };
+    if it.next().is_some() {
+        return Err(err());
+    }
+    Ok(AttrSelector {
+        name,
+        op,
+        value,
+        case_insensitive,
+    })
+}
+
 fn parse_nth_args(args: &[Token]) -> Option<(i32, i32)> {
     let toks: Vec<&Token> = args
         .iter()
@@ -1507,7 +1662,6 @@ impl SelectorPrelude {
             other => {
                 if self.unsupported.is_none() {
                     let what = match other {
-                        Token::SquareBracketBlock => "attribute selector ('[...]')".to_string(),
                         Token::Delim('+') => "adjacent-sibling combinator ('+')".to_string(),
                         Token::Delim('~') => "general-sibling combinator ('~')".to_string(),
                         other => format!("{other:?}"),
@@ -1515,6 +1669,23 @@ impl SelectorPrelude {
                     self.unsupported = Some(what);
                 }
             }
+        }
+    }
+
+    /// The consumed contents of a `[...]` block — an attribute selector.
+    fn push_attr(&mut self, toks: &[Token]) {
+        if self.unsupported.is_some() {
+            return;
+        }
+        if std::mem::take(&mut self.expecting_pseudo) {
+            // `:[x]` — malformed; poison the selector.
+            self.unsupported = Some("'[' after ':'".to_string());
+            return;
+        }
+        self.begin_part();
+        match parse_attr_selector(toks) {
+            Ok(attr) => self.current.attrs.push(attr),
+            Err(what) => self.unsupported = Some(what),
         }
     }
 
@@ -1600,6 +1771,7 @@ mod tests {
 
     fn key(tag: &str, id: Option<&str>, classes: &[&str]) -> ElemKey {
         ElemKey {
+            attrs: vec![],
             tag: tag.to_string(),
             id: id.map(str::to_string),
             classes: classes.iter().map(|s| s.to_string()).collect(),
@@ -1630,6 +1802,134 @@ mod tests {
         assert!(!s.rules[0]
             .selector
             .matches(&key("td", None, &["amount"]), &[]));
+    }
+
+    fn key_attrs(tag: &str, attrs: &[(&str, &str)]) -> ElemKey {
+        let mut k = key(tag, None, &[]);
+        k.attrs = attrs
+            .iter()
+            .map(|(n, v)| (n.to_string(), v.to_string()))
+            .collect();
+        k
+    }
+
+    #[test]
+    fn attr_exists_and_equals() {
+        let (s, w) = sheet("[data-total] { color: red } input[type=text] { color: blue }");
+        assert!(w.is_empty(), "{w:?}");
+        assert_eq!(s.rules.len(), 2);
+        assert!(s.rules[0]
+            .selector
+            .matches(&key_attrs("td", &[("data-total", "")]), &[]));
+        assert!(!s.rules[0].selector.matches(&key("td", None, &[]), &[]));
+        assert!(s.rules[1]
+            .selector
+            .matches(&key_attrs("input", &[("type", "text")]), &[]));
+        assert!(!s.rules[1]
+            .selector
+            .matches(&key_attrs("input", &[("type", "checkbox")]), &[]));
+        // = is case-sensitive by default.
+        assert!(!s.rules[1]
+            .selector
+            .matches(&key_attrs("input", &[("type", "TEXT")]), &[]));
+    }
+
+    #[test]
+    fn attr_substring_is_bootstrap2s_grid() {
+        // The selector that IS Bootstrap 2's grid: [class*="span"].
+        let (s, w) = sheet("[class*=\"span\"] { float: left }");
+        assert!(w.is_empty(), "{w:?}");
+        let sel = &s.rules[0].selector;
+        assert!(sel.matches(&key_attrs("div", &[("class", "span4")]), &[]));
+        assert!(sel.matches(&key_attrs("div", &[("class", "span4 well")]), &[]));
+        assert!(!sel.matches(&key_attrs("div", &[("class", "row")]), &[]));
+        assert!(!sel.matches(&key("div", None, &[]), &[]));
+    }
+
+    #[test]
+    fn attr_word_dash_prefix_suffix_operators() {
+        let (s, w) = sheet(
+            "[class~=well] { color: red } \
+             [lang|=en] { color: red } \
+             [href^=\"https:\"] { color: red } \
+             [src$=\".png\"] { color: red }",
+        );
+        assert!(w.is_empty(), "{w:?}");
+        let m = |i: usize, attrs: &[(&str, &str)]| {
+            s.rules[i].selector.matches(&key_attrs("a", attrs), &[])
+        };
+        // ~= matches whole whitespace-separated words only.
+        assert!(m(0, &[("class", "span4 well")]));
+        assert!(!m(0, &[("class", "wellness")]));
+        // |= matches the exact value or a `value-` prefix.
+        assert!(m(1, &[("lang", "en")]));
+        assert!(m(1, &[("lang", "en-US")]));
+        assert!(!m(1, &[("lang", "enx")]));
+        assert!(m(2, &[("href", "https://x.test")]));
+        assert!(!m(2, &[("href", "http://x.test")]));
+        assert!(m(3, &[("src", "logo.png")]));
+        assert!(!m(3, &[("src", "logo.jpg")]));
+    }
+
+    #[test]
+    fn attr_case_insensitive_flag() {
+        let (s, w) = sheet("[type=text i] { color: red } [type=text s] { color: blue }");
+        assert!(w.is_empty(), "{w:?}");
+        assert!(s.rules[0]
+            .selector
+            .matches(&key_attrs("input", &[("type", "TEXT")]), &[]));
+        assert!(!s.rules[1]
+            .selector
+            .matches(&key_attrs("input", &[("type", "TEXT")]), &[]));
+    }
+
+    #[test]
+    fn attr_empty_value_semantics() {
+        // Per Selectors L4: empty ~=/^=/$=/*= values match nothing;
+        // [attr=""] matches an empty value.
+        let (s, w) = sheet(
+            "[class~=\"\"] { color: red } [class*=\"\"] { color: red } \
+             [data-x=\"\"] { color: red }",
+        );
+        assert!(w.is_empty(), "{w:?}");
+        let k = key_attrs("div", &[("class", "span4"), ("data-x", "")]);
+        assert!(!s.rules[0].selector.matches(&k, &[]));
+        assert!(!s.rules[1].selector.matches(&k, &[]));
+        assert!(s.rules[2].selector.matches(&k, &[]));
+    }
+
+    #[test]
+    fn attr_specificity_counts_as_class() {
+        let (s, _) = sheet("[type=text] { color: red } input[type=text].big { color: red }");
+        assert_eq!(s.rules[0].selector.specificity, 1_000);
+        assert_eq!(s.rules[1].selector.specificity, 2_001);
+    }
+
+    #[test]
+    fn attr_in_combinators_and_compounds() {
+        let (s, w) = sheet(".row > [class*=span] { float: left }");
+        assert!(w.is_empty(), "{w:?}");
+        let sel = &s.rules[0].selector;
+        let parent = key("div", None, &["row"]);
+        assert!(sel.matches(
+            &key_attrs("div", &[("class", "span4")]),
+            std::slice::from_ref(&parent)
+        ));
+        assert!(!sel.matches(
+            &key_attrs("div", &[("class", "span4")]),
+            &[key("div", None, &[])]
+        ));
+    }
+
+    #[test]
+    fn malformed_attr_selector_skipped_others_kept() {
+        let (s, w) = sheet("[=broken], p { color: red } [ns|attr] { color: blue }");
+        assert_eq!(s.rules.len(), 1, "only the p selector survives");
+        assert!(s.rules[0].selector.matches(&key("p", None, &[]), &[]));
+        assert!(w.iter().any(|m| m.contains("malformed attribute selector")));
+        assert!(w
+            .iter()
+            .any(|m| m.contains("namespaced attribute selector")));
     }
 
     #[test]
@@ -1888,6 +2188,7 @@ mod tests {
         assert!(w.is_empty(), "{w:?}");
         assert_eq!(s.rules.len(), 5);
         let key = |i: usize| ElemKey {
+            attrs: vec![],
             tag: "tr".into(),
             id: None,
             classes: vec![],
@@ -1918,6 +2219,7 @@ mod tests {
         assert!(w.is_empty(), "{w:?}");
         assert_eq!(s.rules.len(), 4);
         let key = |i: usize| ElemKey {
+            attrs: vec![],
             tag: "tr".into(),
             id: None,
             classes: vec![],
@@ -1944,6 +2246,7 @@ mod tests {
         // The 2nd <p> of two (type_index 1 of type_count 2) but the 4th
         // element child — last of its type.
         let key = ElemKey {
+            attrs: vec![],
             tag: "p".into(),
             id: None,
             classes: vec![],
@@ -1960,6 +2263,7 @@ mod tests {
         let (s, w) = sheet("li:first-child { color: red } li:last-child { color: red }");
         assert!(w.is_empty(), "{w:?}");
         let key = |i: usize, n: usize| ElemKey {
+            attrs: vec![],
             tag: "li".into(),
             id: None,
             classes: vec![],
@@ -1996,6 +2300,7 @@ mod tests {
         // A <p> that is the 4th element child but the 2nd <p>:
         // div p div p → this key is the second p.
         let key = ElemKey {
+            attrs: vec![],
             tag: "p".into(),
             id: None,
             classes: vec![],

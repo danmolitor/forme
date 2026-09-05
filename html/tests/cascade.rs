@@ -354,3 +354,37 @@ fn middle_aligned_totals_center_and_valign_attr_works() {
     let ucc = unaligned.y + unaligned.height / 2.0;
     assert!(uy + uh / 2.0 < ucc, "no-valign neighbor stays top-aligned");
 }
+
+#[test]
+fn attribute_selectors_apply_end_to_end() {
+    // The Bootstrap 2 shape: the grid's float lives entirely behind an
+    // attribute selector. Before 0.20.0 this selector was skipped (with a
+    // warning) and BS2 templates lost their columns.
+    let html = "<html><head><style>\
+        [class*=\"span\"] { color: #c00000 }\
+        [data-kind=total i] { text-decoration: underline }\
+        .span4 { font-size: 20px }\
+        </style></head><body>\
+        <div class=\"row\">\
+          <p class=\"span4\">left column</p>\
+          <p class=\"span8\" data-kind=\"TOTAL\">right column</p>\
+        </div></body></html>";
+    let (doc, warnings) = html_to_document(html, &HtmlOptions::default());
+    let left = find_by_text(&doc.children, "left column").expect("left");
+    let right = find_by_text(&doc.children, "right column").expect("right");
+    assert_color(left, "#c00000", "[class*=span] applies to span4");
+    assert_color(right, "#c00000", "[class*=span] applies to span8");
+    assert_eq!(
+        left.style.font_size,
+        Some(15.0),
+        ".span4 (same specificity, later) still composes"
+    );
+    assert!(
+        matches!(right.style.text_decoration, Some(TextDecoration::Underline)),
+        "the i flag matches TOTAL case-insensitively"
+    );
+    assert!(
+        !warnings.iter().any(|w| w.contains("attribute selector")),
+        "no skip warning any more: {warnings:?}"
+    );
+}
