@@ -508,7 +508,7 @@ jobs:
         # interchangeably, so skipping the conversion drops a CLI install
         # without changing the diff — verified locally: both forms report
         # zero semantic events against this baseline.
-        uses: danmolitor/pdf-testkit/packages/action@v0.1.4
+        uses: danmolitor/pdf-testkit/packages/action@v0.1.6
         with:
           baseline: packages/core/tests/__pdf_snapshots__/templates.regression.test-template-invoice.json
           current: invoice-layout.json
