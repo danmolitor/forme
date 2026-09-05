@@ -111,9 +111,14 @@ print`, comma lists with a match) join the cascade with normal
 specificity; `@media screen` is excluded silently, exactly like Chrome's
 print path. Templates styled for Puppeteer's print-default render
 correctly. **Feature queries** `min-width` / `max-width` / `width` and
-`orientation` are evaluated against the **page content box** (page size
-minus margins) — a paged renderer has no window, so the page is the only
-honest viewport; `orientation` derives from the page's own dimensions.
+`orientation` are evaluated against the **page box** (the full page
+size), per Media Queries Level 4's definition of `width` for paged
+media. A4 is 794 CSS px wide, so `(min-width: 768px)` is true on A4 —
+matching Chrome's print path, where Bootstrap desktop grids activate.
+(Earlier versions evaluated against the content box — page size minus
+margins — under a "the content box is the only honest viewport"
+rationale; that was a misreading of the spec, corrected here.)
+`orientation` derives from the page's own dimensions.
 `print and (min-width: 600px)` and `and`-chains of evaluable features
 evaluate fully. Anything still unmodeled (`prefers-color-scheme`, `not`,
 etc.) keeps the conservative exclude-with-named-warning — rules never
@@ -136,10 +141,12 @@ collected from GitHub — Bootstrap 2/3 float grids, mPDF- and
 wkhtmltopdf-era table layouts, nested-table email HTML, modern CSS grid
 — none written with this engine in mind. Measured against Chrome print
 output: **11 of 15 render correctly; the other 4 degrade legibly with
-every cause named in `warnings`; zero render broken.** The four
-degraded cases share known causes (a `position: running()` stray, an
-admin-shell sidebar, and two templates whose grids only activate above
-a 768px viewport — a media-query semantics question, not a layout gap).
+every cause named in `warnings`; zero render broken.** Each
+degraded case has a named cause: `rowspan` column occupancy, an
+admin-shell sidebar parked off-viewport (hidden in browsers by
+`overflow-x: hidden` clipping), `display: table`/`table-cell` on divs
+(the pre-flexbox equal-height-columns idiom), and attribute selectors
+(`[class*="span"]` — Bootstrap 2's entire grid).
 
 **How this compares.** wkhtmltopdf (archived 2023) and DomPDF never
 shipped margin boxes or reliable break control. Chrome only gained

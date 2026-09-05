@@ -200,10 +200,15 @@ pub fn html_to_document(html: &str, options: &HtmlOptions) -> (forme::Document, 
         probe.append(sheet::parse_stylesheet(css, &mut probe_warn));
     }
     let probe_config = page_config(options, probe.page.as_ref(), &mut probe_warn);
+    // Media Queries Level 4: in paged media the `width` feature is the width
+    // of the PAGE BOX, not the content area. A4 = 794 CSS px, so
+    // `(min-width: 768px)` is true on A4 — Chrome's print path agrees
+    // (Bootstrap desktop grids activate in print). We previously evaluated
+    // against the content box; that was a spec misreading.
     let (pw, ph) = probe_config.size.dimensions();
     let viewport = sheet::Viewport {
-        width: pw - probe_config.margin.left - probe_config.margin.right,
-        height: ph - probe_config.margin.top - probe_config.margin.bottom,
+        width: pw,
+        height: ph,
     };
 
     // Pass 2 (real): parse with the viewport bound so feature queries evaluate.
