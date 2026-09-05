@@ -58,6 +58,9 @@ pub struct Mapper {
     /// Whether ANY rule or inline style floats — the same zero-cost gate
     /// for the float-run transform.
     uses_floats: bool,
+    /// Set when `body` computes `overflow-x: hidden` — becomes the page
+    /// config's horizontal content clip.
+    body_clip_x: bool,
 }
 
 /// Does any inline style in the tree mention float? (Cheap substring
@@ -73,7 +76,11 @@ fn dom_mentions_float(el: &Element) -> bool {
 }
 
 /// Map a parsed `<body>` element to a complete engine document.
-pub fn map_html(body: &Element, sheet: Stylesheet, page: PageConfig) -> (Document, Vec<String>) {
+pub fn map_html(
+    body: &Element,
+    sheet: Stylesheet,
+    mut page: PageConfig,
+) -> (Document, Vec<String>) {
     let mut mapper = Mapper {
         warnings: Vec::new(),
         sheet,
@@ -83,6 +90,7 @@ pub fn map_html(body: &Element, sheet: Stylesheet, page: PageConfig) -> (Documen
         current_page_name: None,
         uses_page_names: false,
         uses_floats: false,
+        body_clip_x: false,
     };
     mapper.uses_page_names = mapper
         .sheet
@@ -125,6 +133,9 @@ pub fn map_html(body: &Element, sheet: Stylesheet, page: PageConfig) -> (Documen
         }
         None => vec![],
     };
+    if mapper.body_clip_x {
+        page.clip_content_x = true;
+    }
     let doc = Document {
         children,
         metadata: Metadata::default(),
@@ -451,6 +462,21 @@ impl Mapper {
         // text at the top of the page (template-compat 02's "Page of").
         if computed.position_running {
             return None;
+        }
+        if computed.overflow_x_hidden {
+            if el.tag == "body" {
+                // The page-level clip: a browser honoring
+                // `body { overflow-x: hidden }` suppresses horizontal
+                // overflow, which is how off-viewport-parked furniture
+                // (`right: -230px` sidebars) stays invisible. Our
+                // equivalent viewport is the page content box.
+                self.body_clip_x = true;
+            } else {
+                self.warnings.push(format!(
+                    "overflow-x: hidden on <{}> is not supported (honored on body only, as a page-level clip)",
+                    el.tag
+                ));
+            }
         }
         let computed_break_after = computed.break_after;
 

@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- **`PageConfig.clipContentX`** — clips page content horizontally to the content box (page width minus left/right margins), spanning the full page height. Visual-only: layout, page breaks, and structural output are unchanged; ink outside the content box's x-range never paints. The HTML input path sets it for `body { overflow-x: hidden }` (the off-viewport-parking idiom); JSON callers can set it directly. Off by default — output without the flag is byte-identical.
+
 ### Fixed (behavior — fixed-height flex rows may align differently)
 
 - **Single-line flex rows honor the container's definite cross size** (CSS 9.4.8). The flex line was sized at the tallest item, never the container — so `align-items: center`/`flex-end` on a fixed-height `nowrap` row was a silent no-op (a 36pt logo box "centered" its 20pt text inside a 20pt line, i.e. top-aligned). Rows with a fixed height and cross-axis alignment now actually align; `stretch` items in such rows now fill the container, per spec. Found two minutes before a launch post, in the standard logo-mark idiom.
