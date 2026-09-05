@@ -19,7 +19,11 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    include: ['tests/templates.regression.test.ts', 'tests/templates-demo.regression.test.ts'],
+    include: [
+      'tests/templates.regression.test.ts',
+      'tests/templates-demo.regression.test.ts',
+      'tests/html-fixtures.regression.test.ts',
+    ],
     exclude: ['node_modules/**'],
   },
   esbuild: {

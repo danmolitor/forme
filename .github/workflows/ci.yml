@@ -288,8 +288,22 @@ jobs:
         # vitest.config.ts excludes them — so this is the only step that
         # runs them, and its green check means what its name says rather
         # than re-reporting what `Test Core` already covered.
+        #
+        # Output is teed for the semantic-diff summary step below (the
+        # dogfood experiment); pipefail keeps this step the authoritative
+        # gate exactly as before.
         working-directory: packages/core
-        run: npm run test:templates
+        run: npm run test:templates 2>&1 | tee /tmp/templates-regression.log
+      - name: Semantic diff summary (dogfood experiment, non-gating)
+        # When a baseline mismatches, surface pdf-testkit's semantic diff
+        # (already computed by the matcher) in the job summary instead of
+        # leaving it in log scrollback. Information only — the step above
+        # is the gate; this one cannot fail the build. Remove the
+        # experiment by deleting scripts/semantic-diff-summary.sh and this
+        # step.
+        if: failure()
+        working-directory: packages/core
+        run: bash scripts/semantic-diff-summary.sh /tmp/templates-regression.log >> "$GITHUB_STEP_SUMMARY" || true
       - name: Test Core
         working-directory: packages/core
         run: npm test

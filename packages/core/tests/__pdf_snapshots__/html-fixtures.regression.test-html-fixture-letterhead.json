@@ -1,0 +1,1125 @@
+{
+  "version": 1,
+  "producer": "formepdf",
+  "createdAt": "2026-09-05T01:27:33.716Z",
+  "pageCount": 3,
+  "pages": [
+    {
+      "index": 0,
+      "width": 595.3,
+      "height": 841.9,
+      "contentBox": {
+        "x": 54,
+        "y": 72,
+        "width": 487.3,
+        "height": 769.9
+      },
+      "nodeIds": [
+        "0:text:0",
+        "0:heading:0",
+        "0:text:1",
+        "0:container:0",
+        "0:container:1",
+        "0:container:2",
+        "0:container:3",
+        "0:container:4",
+        "0:container:5",
+        "0:text:2"
+      ]
+    },
+    {
+      "index": 1,
+      "width": 595.3,
+      "height": 841.9,
+      "contentBox": {
+        "x": 54,
+        "y": 0,
+        "width": 487.3,
+        "height": 841.9
+      },
+      "nodeIds": [
+        "1:container:0",
+        "1:container:1",
+        "1:container:2",
+        "1:container:3",
+        "1:container:4",
+        "1:text:0",
+        "1:container:5",
+        "1:heading:0",
+        "1:text:1",
+        "1:container:6",
+        "1:container:7",
+        "1:container:8",
+        "1:container:9",
+        "1:container:10",
+        "1:container:11",
+        "1:text:2"
+      ]
+    },
+    {
+      "index": 2,
+      "width": 595.3,
+      "height": 841.9,
+      "contentBox": {
+        "x": 54,
+        "y": 0,
+        "width": 487.3,
+        "height": 841.9
+      },
+      "nodeIds": [
+        "2:container:0",
+        "2:container:1",
+        "2:container:2",
+        "2:container:3",
+        "2:container:4",
+        "2:text:0",
+        "2:container:5",
+        "2:heading:0",
+        "2:container:6",
+        "2:text:1",
+        "2:container:7",
+        "2:container:8",
+        "2:container:9",
+        "2:container:10",
+        "2:container:11",
+        "2:container:12",
+        "2:text:2"
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "id": "0:text:0",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 60,
+        "y": 81,
+        "width": 475.3,
+        "height": 12.6
+      },
+      "order": 0,
+      "parentId": null,
+      "text": "INTERNAL — ÉDITION RÉSERVÉE",
+      "normText": "internal — édition réservée",
+      "font": {
+        "size": 9,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:heading:0",
+      "role": "heading",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 60,
+        "y": 293.6,
+        "width": 475.3,
+        "height": 33.6
+      },
+      "order": 1,
+      "parentId": null,
+      "text": "2026 Strategy Memo",
+      "normText": "2026 strategy memo",
+      "font": {
+        "size": 24,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": 1,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:1",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 60,
+        "y": 343.3,
+        "width": 475.3,
+        "height": 16.8
+      },
+      "order": 2,
+      "parentId": null,
+      "text": "Prepared for the board — do not distribute.",
+      "normText": "prepared for the board — do not distribute.",
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:0",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 54,
+        "y": 769.9,
+        "width": 487.3,
+        "height": 72
+      },
+      "order": 3,
+      "parentId": null,
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:1",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 54,
+        "y": 769.9,
+        "width": 487.3,
+        "height": 72
+      },
+      "order": 4,
+      "parentId": "0:container:0",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:2",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 54,
+        "y": 797.5,
+        "width": 487.3,
+        "height": 16.8
+      },
+      "order": 5,
+      "parentId": "0:container:1",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:3",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 54,
+        "y": 797.5,
+        "width": 162.4,
+        "height": 16.8
+      },
+      "order": 6,
+      "parentId": "0:container:2",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:4",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 216.4,
+        "y": 797.5,
+        "width": 162.4,
+        "height": 16.8
+      },
+      "order": 7,
+      "parentId": "0:container:2",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:5",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 378.9,
+        "y": 797.5,
+        "width": 162.4,
+        "height": 16.8
+      },
+      "order": 8,
+      "parentId": "0:container:2",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:2",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 378.9,
+        "y": 797.5,
+        "width": 162.4,
+        "height": 16.8
+      },
+      "order": 9,
+      "parentId": "0:container:5",
+      "text": "\u0002",
+      "normText": "\u0002",
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:container:0",
+      "role": "container",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 54,
+        "y": 0,
+        "width": 487.3,
+        "height": 72
+      },
+      "order": 0,
+      "parentId": null,
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:container:1",
+      "role": "container",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 54,
+        "y": 0,
+        "width": 487.3,
+        "height": 72
+      },
+      "order": 1,
+      "parentId": "1:container:0",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:container:2",
+      "role": "container",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 54,
+        "y": 29.7,
+        "width": 487.3,
+        "height": 12.6
+      },
+      "order": 2,
+      "parentId": "1:container:1",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:container:3",
+      "role": "container",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 54,
+        "y": 29.7,
+        "width": 162.4,
+        "height": 12.6
+      },
+      "order": 3,
+      "parentId": "1:container:2",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:container:4",
+      "role": "container",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 216.4,
+        "y": 29.7,
+        "width": 162.4,
+        "height": 12.6
+      },
+      "order": 4,
+      "parentId": "1:container:2",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:text:0",
+      "role": "text",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 216.4,
+        "y": 29.7,
+        "width": 162.4,
+        "height": 12.6
+      },
+      "order": 5,
+      "parentId": "1:container:4",
+      "text": "ACME WIDGET CO. — CONFIDENTIAL",
+      "normText": "acme widget co. — confidential",
+      "font": {
+        "size": 9,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:container:5",
+      "role": "container",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 378.9,
+        "y": 29.7,
+        "width": 162.4,
+        "height": 12.6
+      },
+      "order": 6,
+      "parentId": "1:container:2",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:heading:0",
+      "role": "heading",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 60,
+        "y": 72,
+        "width": 475.3,
+        "height": 25.2
+      },
+      "order": 7,
+      "parentId": null,
+      "text": "Background",
+      "normText": "background",
+      "font": {
+        "size": 18,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": 2,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:text:1",
+      "role": "text",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 60,
+        "y": 112.1,
+        "width": 475.3,
+        "height": 16.8
+      },
+      "order": 8,
+      "parentId": null,
+      "text": "Body content on an inner page, beneath the running letterhead.",
+      "normText": "body content on an inner page, beneath the running letterhead.",
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:container:6",
+      "role": "container",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 54,
+        "y": 769.9,
+        "width": 487.3,
+        "height": 72
+      },
+      "order": 9,
+      "parentId": null,
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:container:7",
+      "role": "container",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 54,
+        "y": 769.9,
+        "width": 487.3,
+        "height": 72
+      },
+      "order": 10,
+      "parentId": "1:container:6",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:container:8",
+      "role": "container",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 54,
+        "y": 797.5,
+        "width": 487.3,
+        "height": 16.8
+      },
+      "order": 11,
+      "parentId": "1:container:7",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:container:9",
+      "role": "container",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 54,
+        "y": 797.5,
+        "width": 162.4,
+        "height": 16.8
+      },
+      "order": 12,
+      "parentId": "1:container:8",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:container:10",
+      "role": "container",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 216.4,
+        "y": 797.5,
+        "width": 162.4,
+        "height": 16.8
+      },
+      "order": 13,
+      "parentId": "1:container:8",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:container:11",
+      "role": "container",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 378.9,
+        "y": 797.5,
+        "width": 162.4,
+        "height": 16.8
+      },
+      "order": 14,
+      "parentId": "1:container:8",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:text:2",
+      "role": "text",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 378.9,
+        "y": 797.5,
+        "width": 162.4,
+        "height": 16.8
+      },
+      "order": 15,
+      "parentId": "1:container:11",
+      "text": "\u0002",
+      "normText": "\u0002",
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "2:container:0",
+      "role": "container",
+      "pageIndex": 2,
+      "bbox": {
+        "x": 54,
+        "y": 0,
+        "width": 487.3,
+        "height": 72
+      },
+      "order": 0,
+      "parentId": null,
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "2:container:1",
+      "role": "container",
+      "pageIndex": 2,
+      "bbox": {
+        "x": 54,
+        "y": 0,
+        "width": 487.3,
+        "height": 72
+      },
+      "order": 1,
+      "parentId": "2:container:0",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "2:container:2",
+      "role": "container",
+      "pageIndex": 2,
+      "bbox": {
+        "x": 54,
+        "y": 29.7,
+        "width": 487.3,
+        "height": 12.6
+      },
+      "order": 2,
+      "parentId": "2:container:1",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "2:container:3",
+      "role": "container",
+      "pageIndex": 2,
+      "bbox": {
+        "x": 54,
+        "y": 29.7,
+        "width": 162.4,
+        "height": 12.6
+      },
+      "order": 3,
+      "parentId": "2:container:2",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "2:container:4",
+      "role": "container",
+      "pageIndex": 2,
+      "bbox": {
+        "x": 216.4,
+        "y": 29.7,
+        "width": 162.4,
+        "height": 12.6
+      },
+      "order": 4,
+      "parentId": "2:container:2",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "2:text:0",
+      "role": "text",
+      "pageIndex": 2,
+      "bbox": {
+        "x": 216.4,
+        "y": 29.7,
+        "width": 162.4,
+        "height": 12.6
+      },
+      "order": 5,
+      "parentId": "2:container:4",
+      "text": "ACME WIDGET CO. — CONFIDENTIAL",
+      "normText": "acme widget co. — confidential",
+      "font": {
+        "size": 9,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "2:container:5",
+      "role": "container",
+      "pageIndex": 2,
+      "bbox": {
+        "x": 378.9,
+        "y": 29.7,
+        "width": 162.4,
+        "height": 12.6
+      },
+      "order": 6,
+      "parentId": "2:container:2",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "2:heading:0",
+      "role": "heading",
+      "pageIndex": 2,
+      "bbox": {
+        "x": 60,
+        "y": 72,
+        "width": 475.3,
+        "height": 25.2
+      },
+      "order": 7,
+      "parentId": "2:container:6",
+      "text": "Recommendation",
+      "normText": "recommendation",
+      "font": {
+        "size": 18,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": 2,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "2:container:6",
+      "role": "container",
+      "pageIndex": 2,
+      "bbox": {
+        "x": 60,
+        "y": 81,
+        "width": 475.3,
+        "height": 566.8
+      },
+      "order": 8,
+      "parentId": null,
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "2:text:1",
+      "role": "text",
+      "pageIndex": 2,
+      "bbox": {
+        "x": 60,
+        "y": 112.1,
+        "width": 475.3,
+        "height": 16.8
+      },
+      "order": 9,
+      "parentId": "2:container:6",
+      "text": "More inner-page content, same letterhead.",
+      "normText": "more inner-page content, same letterhead.",
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "2:container:7",
+      "role": "container",
+      "pageIndex": 2,
+      "bbox": {
+        "x": 54,
+        "y": 769.9,
+        "width": 487.3,
+        "height": 72
+      },
+      "order": 10,
+      "parentId": null,
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "2:container:8",
+      "role": "container",
+      "pageIndex": 2,
+      "bbox": {
+        "x": 54,
+        "y": 769.9,
+        "width": 487.3,
+        "height": 72
+      },
+      "order": 11,
+      "parentId": "2:container:7",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "2:container:9",
+      "role": "container",
+      "pageIndex": 2,
+      "bbox": {
+        "x": 54,
+        "y": 797.5,
+        "width": 487.3,
+        "height": 16.8
+      },
+      "order": 12,
+      "parentId": "2:container:8",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "2:container:10",
+      "role": "container",
+      "pageIndex": 2,
+      "bbox": {
+        "x": 54,
+        "y": 797.5,
+        "width": 162.4,
+        "height": 16.8
+      },
+      "order": 13,
+      "parentId": "2:container:9",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "2:container:11",
+      "role": "container",
+      "pageIndex": 2,
+      "bbox": {
+        "x": 216.4,
+        "y": 797.5,
+        "width": 162.4,
+        "height": 16.8
+      },
+      "order": 14,
+      "parentId": "2:container:9",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "2:container:12",
+      "role": "container",
+      "pageIndex": 2,
+      "bbox": {
+        "x": 378.9,
+        "y": 797.5,
+        "width": 162.4,
+        "height": 16.8
+      },
+      "order": 15,
+      "parentId": "2:container:9",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "2:text:2",
+      "role": "text",
+      "pageIndex": 2,
+      "bbox": {
+        "x": 378.9,
+        "y": 797.5,
+        "width": 162.4,
+        "height": 16.8
+      },
+      "order": 16,
+      "parentId": "2:container:12",
+      "text": "\u0002",
+      "normText": "\u0002",
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    }
+  ],
+  "contentHash": "sha256:0c9c62bc8e5c73c00317efeb48292e5bb9554d6a1810670720d8d011fb0d744f"
+}

@@ -1,0 +1,828 @@
+{
+  "version": 1,
+  "producer": "formepdf",
+  "createdAt": "2026-09-05T01:27:33.758Z",
+  "pageCount": 1,
+  "pages": [
+    {
+      "index": 0,
+      "width": 595.3,
+      "height": 841.9,
+      "contentBox": {
+        "x": 54,
+        "y": 54,
+        "width": 487.3,
+        "height": 733.9
+      },
+      "nodeIds": [
+        "0:container:0",
+        "0:container:1",
+        "0:heading:0",
+        "0:text:0",
+        "0:table:0",
+        "0:row:0",
+        "0:cell:0",
+        "0:cell:1",
+        "0:cell:2",
+        "0:row:1",
+        "0:cell:3",
+        "0:cell:4",
+        "0:cell:5",
+        "0:row:2",
+        "0:cell:6",
+        "0:cell:7",
+        "0:cell:8",
+        "0:row:3",
+        "0:cell:9",
+        "0:cell:10",
+        "0:row:4",
+        "0:cell:11",
+        "0:cell:12",
+        "0:cell:13",
+        "0:text:1",
+        "0:text:2",
+        "0:text:3",
+        "0:text:4",
+        "0:container:2",
+        "0:container:3",
+        "0:text:5",
+        "0:text:6"
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "id": "0:container:0",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 60,
+        "y": 67.4,
+        "width": 475.3,
+        "height": 374.1
+      },
+      "order": 0,
+      "parentId": null,
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:1",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 87.6,
+        "y": 67.4,
+        "width": 420,
+        "height": 374.1
+      },
+      "order": 1,
+      "parentId": "0:container:0",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:heading:0",
+      "role": "heading",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 87.6,
+        "y": 67.4,
+        "width": 420,
+        "height": 28
+      },
+      "order": 2,
+      "parentId": "0:container:1",
+      "text": "Account Statement",
+      "normText": "account statement",
+      "font": {
+        "size": 20,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": 1,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:0",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 87.6,
+        "y": 108.8,
+        "width": 420,
+        "height": 16.8
+      },
+      "order": 3,
+      "parentId": "0:container:1",
+      "text": "Statement period: August 1–28, 2026",
+      "normText": "statement period: august 1–28, 2026",
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:table:0",
+      "role": "table",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 87.6,
+        "y": 137.6,
+        "width": 420,
+        "height": 159.9
+      },
+      "order": 4,
+      "parentId": "0:container:1",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1,
+      "table": {
+        "rows": 5,
+        "cols": 3
+      }
+    },
+    {
+      "id": "0:row:0",
+      "role": "row",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 87.6,
+        "y": 137.6,
+        "width": 420,
+        "height": 18.3
+      },
+      "order": 5,
+      "parentId": "0:table:0",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:cell:0",
+      "role": "cell",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 87.6,
+        "y": 137.6,
+        "width": 99.6,
+        "height": 18.3
+      },
+      "order": 6,
+      "parentId": "0:row:0",
+      "text": "Date",
+      "normText": "date",
+      "font": {
+        "size": 12,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:cell:1",
+      "role": "cell",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 187.2,
+        "y": 137.6,
+        "width": 228.4,
+        "height": 18.3
+      },
+      "order": 7,
+      "parentId": "0:row:0",
+      "text": "Description",
+      "normText": "description",
+      "font": {
+        "size": 12,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:cell:2",
+      "role": "cell",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 415.6,
+        "y": 137.6,
+        "width": 92,
+        "height": 18.3
+      },
+      "order": 8,
+      "parentId": "0:row:0",
+      "text": "Amount",
+      "normText": "amount",
+      "font": {
+        "size": 12,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:row:1",
+      "role": "row",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 87.6,
+        "y": 155.9,
+        "width": 420,
+        "height": 22.8
+      },
+      "order": 9,
+      "parentId": "0:table:0",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:cell:3",
+      "role": "cell",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 87.6,
+        "y": 155.9,
+        "width": 99.6,
+        "height": 22.8
+      },
+      "order": 10,
+      "parentId": "0:row:1",
+      "text": "Aug 03",
+      "normText": "aug 03",
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:cell:4",
+      "role": "cell",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 187.2,
+        "y": 155.9,
+        "width": 228.4,
+        "height": 22.8
+      },
+      "order": 11,
+      "parentId": "0:row:1",
+      "text": "Widget Pro subscription",
+      "normText": "widget pro subscription",
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:cell:5",
+      "role": "cell",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 415.6,
+        "y": 155.9,
+        "width": 92,
+        "height": 22.8
+      },
+      "order": 12,
+      "parentId": "0:row:1",
+      "text": "$49.00",
+      "normText": "$49.00",
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:row:2",
+      "role": "row",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 87.6,
+        "y": 178.7,
+        "width": 420,
+        "height": 22.8
+      },
+      "order": 13,
+      "parentId": "0:table:0",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:cell:6",
+      "role": "cell",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 87.6,
+        "y": 178.7,
+        "width": 99.6,
+        "height": 22.8
+      },
+      "order": 14,
+      "parentId": "0:row:2",
+      "text": "Aug 17",
+      "normText": "aug 17",
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:cell:7",
+      "role": "cell",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 187.2,
+        "y": 178.7,
+        "width": 228.4,
+        "height": 22.8
+      },
+      "order": 15,
+      "parentId": "0:row:2",
+      "text": "Support plan",
+      "normText": "support plan",
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:cell:8",
+      "role": "cell",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 415.6,
+        "y": 178.7,
+        "width": 92,
+        "height": 22.8
+      },
+      "order": 16,
+      "parentId": "0:row:2",
+      "text": "$25.00",
+      "normText": "$25.00",
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:row:3",
+      "role": "row",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 87.6,
+        "y": 201.5,
+        "width": 420,
+        "height": 56.4
+      },
+      "order": 17,
+      "parentId": "0:table:0",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:cell:9",
+      "role": "cell",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 87.6,
+        "y": 201.5,
+        "width": 328,
+        "height": 56.4
+      },
+      "order": 18,
+      "parentId": "0:row:3",
+      "text": "Total for the period including all fees and adjustments",
+      "normText": "total for the period including all fees and adjustments",
+      "font": {
+        "size": 12,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:cell:10",
+      "role": "cell",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 415.6,
+        "y": 201.5,
+        "width": 92,
+        "height": 56.4
+      },
+      "order": 19,
+      "parentId": "0:row:3",
+      "text": "$74.00",
+      "normText": "$74.00",
+      "font": {
+        "size": 12,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:row:4",
+      "role": "row",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 87.6,
+        "y": 257.9,
+        "width": 420,
+        "height": 39.6
+      },
+      "order": 20,
+      "parentId": "0:table:0",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:cell:11",
+      "role": "cell",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 87.6,
+        "y": 257.9,
+        "width": 99.6,
+        "height": 39.6
+      },
+      "order": 21,
+      "parentId": "0:row:4",
+      "text": "Carried forward",
+      "normText": "carried forward",
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:cell:12",
+      "role": "cell",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 187.2,
+        "y": 257.9,
+        "width": 228.4,
+        "height": 39.6
+      },
+      "order": 22,
+      "parentId": "0:row:4",
+      "text": "legacy valign attr",
+      "normText": "legacy valign attr",
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:cell:13",
+      "role": "cell",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 415.6,
+        "y": 257.9,
+        "width": 92,
+        "height": 39.6
+      },
+      "order": 23,
+      "parentId": "0:row:4",
+      "text": "$0.00",
+      "normText": "$0.00",
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:1",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 87.6,
+        "y": 309.5,
+        "width": 420,
+        "height": 16.8
+      },
+      "order": 24,
+      "parentId": "0:container:1",
+      "text": "Payment overdue",
+      "normText": "payment overdue",
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:2",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 87.6,
+        "y": 338.3,
+        "width": 420,
+        "height": 16.8
+      },
+      "order": 25,
+      "parentId": "0:container:1",
+      "text": "Tie-breaker paragraph",
+      "normText": "tie-breaker paragraph",
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:3",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 87.6,
+        "y": 367.1,
+        "width": 420,
+        "height": 16.8
+      },
+      "order": 26,
+      "parentId": "0:container:1",
+      "text": "Kept selector paragraph",
+      "normText": "kept selector paragraph",
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:4",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 87.6,
+        "y": 395.9,
+        "width": 420,
+        "height": 16.8
+      },
+      "order": 27,
+      "parentId": "0:container:1",
+      "text": "Order check paragraph",
+      "normText": "order check paragraph",
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:2",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 87.6,
+        "y": 424.7,
+        "width": 420,
+        "height": 16.8
+      },
+      "order": 28,
+      "parentId": "0:container:1",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:3",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 117.6,
+        "y": 424.7,
+        "width": 390,
+        "height": 16.8
+      },
+      "order": 29,
+      "parentId": "0:container:2",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:5",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 117.6,
+        "y": 424.7,
+        "width": 13.2,
+        "height": 16.8
+      },
+      "order": 30,
+      "parentId": "0:container:3",
+      "text": "•",
+      "normText": "•",
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:6",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 130.8,
+        "y": 424.7,
+        "width": 376.8,
+        "height": 16.8
+      },
+      "order": 31,
+      "parentId": "0:container:3",
+      "text": "Autopay is enabled for this account.",
+      "normText": "autopay is enabled for this account.",
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    }
+  ],
+  "contentHash": "sha256:7b6b58b524f3de42bee29d77e8762b3838c5d18e4479e3b3c00f1da28e6dfdca"
+}
