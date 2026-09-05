@@ -1911,7 +1911,10 @@ mod tests {
         assert!(w.is_empty(), "{w:?}");
         let sel = &s.rules[0].selector;
         let parent = key("div", None, &["row"]);
-        assert!(sel.matches(&key_attrs("div", &[("class", "span4")]), &[parent.clone()]));
+        assert!(sel.matches(
+            &key_attrs("div", &[("class", "span4")]),
+            std::slice::from_ref(&parent)
+        ));
         assert!(!sel.matches(
             &key_attrs("div", &[("class", "span4")]),
             &[key("div", None, &[])]
