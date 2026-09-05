@@ -1,6 +1,6 @@
 # Changelog — @formepdf/html
 
-## [Unreleased]
+## [0.19.0] - 2026-09-04
 
 ### Fixed (table sections + absolute positioning)
 

@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.19.0] - 2026-09-04
 
 ### Changed (behavior — absolutely-positioned layout may shift)
 
