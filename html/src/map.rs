@@ -362,6 +362,7 @@ fn elem_key(el: &Element) -> ElemKey {
             .attr("class")
             .map(|c| c.split_whitespace().map(str::to_string).collect())
             .unwrap_or_default(),
+        attrs: el.attrs.clone(),
         index: el.index,
         count: el.sibling_count,
         type_index: el.type_index,

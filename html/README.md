@@ -53,8 +53,9 @@ the bar is "what does an invoice, report, statement, or contract need."
 | In | Out (warned, selector skipped) |
 |---|---|
 | type (`td`), class (`.total`), id (`#header`), universal (`*`) | pseudo-elements (`::before`, `::after`) |
-| compounds (`td.amount`, `p.note.small`) | attribute selectors (`[type=text]`) |
-| descendant (`table td`) and child (`ul > li`) combinators | sibling combinators (`+`, `~`) |
+| compounds (`td.amount`, `p.note.small`) | sibling combinators (`+`, `~`) |
+| attribute selectors — all seven operators (`[checked]`, `[type=text]`, `[class~=well]`, `[lang\|=en]`, `[href^="https:"]`, `[src$=".png"]`, `[class*="span"]` — Bootstrap 2's entire grid) plus the `i` case flag | namespaced attribute selectors (`[ns\|attr]`) |
+| descendant (`table td`) and child (`ul > li`) combinators | |
 | grouping (`h1, h2`) | `:only-child`, `:only-of-type` and remaining tree pseudo-classes (pending) |
 | `:first-child`, `:last-child`, `:nth-child(even\|odd\|an+b)` — the zebra-stripe family | `:hover` and interaction pseudo-classes — permanent: print has no hover |
 | `:first-of-type`, `:last-of-type`, `:nth-of-type(even\|odd\|an+b)`, `:nth-last-child(even\|odd\|an+b)`, `:nth-last-of-type(even\|odd\|an+b)` (count from the end) | |

@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Attribute selectors.** All seven operators — `[attr]`, `[attr=v]`, `[attr~=v]`, `[attr|=v]`, `[attr^=v]`, `[attr$=v]`, `[attr*=v]` — plus the `i` case-insensitivity flag, with class-level specificity per spec. `[class*="span"] { float: left }` is all of Bootstrap 2's grid, so BS2 templates get their columns back (the compat corpus's template 10 flips from one column to its real two-column layout; every other corpus template renders byte-identically). Previously these selectors were skipped with a warning; malformed or namespaced (`[ns|attr]`) ones still are.
+
 ### Fixed
 
 - **Vertical centering in fixed-height boxes works via flex.** `display: flex; align-items: center` (and `flex-end`) on a fixed-height box now actually aligns its content — the flex line was previously sized at the content's own height, making cross-axis alignment a silent no-op (the logo-mark idiom: a 36×36 box with two letters). Engine fix; see `engine/CHANGELOG.md` for the behavior note.
