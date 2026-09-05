@@ -3397,13 +3397,17 @@ impl LayoutEngine {
             font_context,
         );
 
-        let mut header_rows: Vec<&Node> = Vec::new();
-        let mut body_rows: Vec<&Node> = Vec::new();
+        // Column assignments for every row (colspan + rowspan occupancy),
+        // computed once over the authored row order and carried alongside
+        // each row through partitioning.
+        let all_offsets = Self::table_column_offsets(&node.children);
+        let mut header_rows: Vec<(&Node, &[usize])> = Vec::new();
+        let mut body_rows: Vec<(&Node, &[usize])> = Vec::new();
 
-        for child in &node.children {
+        for (child, offs) in node.children.iter().zip(&all_offsets) {
             match &child.kind {
-                NodeKind::TableRow { is_header: true } => header_rows.push(child),
-                _ => body_rows.push(child),
+                NodeKind::TableRow { is_header: true } => header_rows.push((child, offs)),
+                _ => body_rows.push((child, offs)),
             }
         }
 
@@ -3416,7 +3420,8 @@ impl LayoutEngine {
             let total_height: f64 = node
                 .children
                 .iter()
-                .map(|r| self.measure_table_row_height(r, &col_widths, style, font_context))
+                .zip(&all_offsets)
+                .map(|(r, o)| self.measure_table_row_height(r, &col_widths, o, style, font_context))
                 .sum::<f64>()
                 + padding.vertical()
                 + border.vertical();
@@ -3473,11 +3478,11 @@ impl LayoutEngine {
         if !header_rows.is_empty() {
             let total_header_h: f64 = header_rows
                 .iter()
-                .map(|r| self.measure_table_row_height(r, &col_widths, style, font_context))
+                .map(|(r, o)| self.measure_table_row_height(r, &col_widths, o, style, font_context))
                 .sum();
             let first_body_h = body_rows
                 .first()
-                .map(|r| self.measure_table_row_height(r, &col_widths, style, font_context))
+                .map(|(r, o)| self.measure_table_row_height(r, &col_widths, o, style, font_context))
                 .unwrap_or(0.0);
 
             let needed = total_header_h + first_body_h;
@@ -3492,10 +3497,11 @@ impl LayoutEngine {
             }
         }
 
-        for header_row in &header_rows {
+        for (header_row, offs) in &header_rows {
             self.layout_table_row(
                 header_row,
                 &col_widths,
+                offs,
                 style,
                 cursor,
                 cell_x_start,
@@ -3504,9 +3510,9 @@ impl LayoutEngine {
             );
         }
 
-        for body_row in &body_rows {
+        for (body_row, offs) in &body_rows {
             let row_height =
-                self.measure_table_row_height(body_row, &col_widths, style, font_context);
+                self.measure_table_row_height(body_row, &col_widths, offs, style, font_context);
 
             // Break only when a fresh page actually buys room. A row taller
             // than any page (the email-template idiom: everything in one
@@ -3530,10 +3536,11 @@ impl LayoutEngine {
                 *cursor = cursor.new_page();
 
                 cursor.y += padding.top + border.top;
-                for header_row in &header_rows {
+                for (header_row, h_offs) in &header_rows {
                     self.layout_table_row(
                         header_row,
                         &col_widths,
+                        h_offs,
                         style,
                         cursor,
                         cell_x_start,
@@ -3546,6 +3553,7 @@ impl LayoutEngine {
             self.layout_table_row(
                 body_row,
                 &col_widths,
+                offs,
                 style,
                 cursor,
                 cell_x_start,
@@ -3696,11 +3704,82 @@ impl LayoutEngine {
         node.children.iter().any(Self::subtree_forces_break)
     }
 
+    /// Occupancy-aware column count: the widest row's last assigned column
+    /// plus its span — includes columns carried by rowspans, so the DEFS
+    /// path and the automatic path agree with layout's assignments (the
+    /// defs path counting with a plain colspan sum starved template-compat
+    /// 05's value column to zero width).
+    fn occupancy_column_count(children: &[Node]) -> usize {
+        let offsets = Self::table_column_offsets(children);
+        children
+            .iter()
+            .zip(&offsets)
+            .map(|(row, offs)| {
+                row.children
+                    .iter()
+                    .zip(offs)
+                    .map(|(cell, &start)| start + Self::cell_col_span(cell))
+                    .max()
+                    .unwrap_or(0)
+            })
+            .max()
+            .unwrap_or(1)
+            .max(1)
+    }
+
+    /// Per-row, per-cell starting column for a table's rows, honoring BOTH
+    /// colspan advancement and ROWSPAN OCCUPANCY: a cell with rowspan=N
+    /// keeps its columns occupied for the following N-1 rows, so those
+    /// rows' cells start past it. Without this, the Anvil idiom — a
+    /// rowspan'd name cell beside per-row address lines — assigned the
+    /// address lines to column 1 and right-aligned them mid-page
+    /// (template-compat 02). Pure function of the node tree, so every
+    /// consumer (layout, row measurement, column-content distribution,
+    /// column counting) derives identical assignments.
+    fn table_column_offsets(rows: &[Node]) -> Vec<Vec<usize>> {
+        fn spans(cell: &Node) -> (usize, u32) {
+            match &cell.kind {
+                NodeKind::TableCell { col_span, row_span } => {
+                    ((*col_span).max(1) as usize, (*row_span).max(1))
+                }
+                _ => (1, 1),
+            }
+        }
+        let mut pending: Vec<u32> = Vec::new();
+        let mut out = Vec::with_capacity(rows.len());
+        for row in rows {
+            let mut offsets = Vec::with_capacity(row.children.len());
+            let mut col = 0usize;
+            for cell in &row.children {
+                let (span, rspan) = spans(cell);
+                while pending.get(col).copied().unwrap_or(0) > 0 {
+                    col += 1;
+                }
+                offsets.push(col);
+                if rspan > 1 {
+                    if pending.len() < col + span {
+                        pending.resize(col + span, 0);
+                    }
+                    for slot in pending.iter_mut().take(col + span).skip(col) {
+                        *slot = (*slot).max(rspan);
+                    }
+                }
+                col += span;
+            }
+            out.push(offsets);
+            for p in pending.iter_mut() {
+                *p = p.saturating_sub(1);
+            }
+        }
+        out
+    }
+
     #[allow(clippy::too_many_arguments)]
     fn layout_table_row(
         &self,
         row: &Node,
         col_widths: &[f64],
+        col_offsets: &[usize],
         parent_style: &ResolvedStyle,
         cursor: &mut PageCursor,
         start_x: f64,
@@ -3711,8 +3790,9 @@ impl LayoutEngine {
             .style
             .resolve(Some(parent_style), col_widths.iter().sum());
 
-        let row_height = self.measure_table_row_height(row, col_widths, parent_style, font_context);
-        let row_bl = self.row_baseline(row, &row_style, col_widths);
+        let row_height =
+            self.measure_table_row_height(row, col_widths, col_offsets, parent_style, font_context);
+        let row_bl = self.row_baseline(row, &row_style, col_widths, col_offsets);
         let row_y = cursor.content_y + cursor.y;
         let total_width: f64 = col_widths.iter().sum();
 
@@ -3736,20 +3816,17 @@ impl LayoutEngine {
             row_height > cursor.remaining_height() || Self::subtree_forces_break(row);
 
         let mut all_overflow_pages: Vec<LayoutPage> = Vec::new();
-        let mut cell_x = start_x;
-        // Track the column index separately from the cell index: a colspan
-        // cell consumes several columns' widths, and the next cell must
-        // start past ALL of them. Indexing col_widths by cell position put
-        // every cell after a colspan one slot too far left (found by the
-        // HTML input path's totals rows).
-        let mut col_idx = 0usize;
-        for cell in row.children.iter() {
+        // Column assignment comes from table_column_offsets (colspan
+        // advancement + rowspan occupancy); x and width derive from the
+        // assigned column, never from cell position.
+        for (cell_i, cell) in row.children.iter().enumerate() {
             let span = match &cell.kind {
                 NodeKind::TableCell { col_span, .. } => (*col_span).max(1) as usize,
                 _ => 1,
             };
-            let col_width: f64 = col_widths.iter().skip(col_idx).take(span).copied().sum();
-            col_idx += span;
+            let start_col = col_offsets.get(cell_i).copied().unwrap_or(0);
+            let col_width: f64 = col_widths.iter().skip(start_col).take(span).copied().sum();
+            let cell_x = start_x + col_widths.iter().take(start_col).copied().sum::<f64>();
 
             let cell_style = cell.style.resolve(Some(&row_style), col_width);
 
@@ -3883,8 +3960,6 @@ impl LayoutEngine {
                 overflow: Overflow::default(),
                 opacity: 1.0,
             });
-
-            cell_x += col_width;
         }
 
         // Collect all cell elements as row children
@@ -5929,12 +6004,19 @@ impl LayoutEngine {
                     font_context,
                 );
                 let row_gap = style.row_gap;
+                let offsets = Self::table_column_offsets(&node.children);
                 let mut total = 0.0;
                 for (i, row) in node.children.iter().enumerate() {
                     if i > 0 {
                         total += row_gap;
                     }
-                    total += self.measure_table_row_height(row, &col_widths, style, font_context);
+                    total += self.measure_table_row_height(
+                        row,
+                        &col_widths,
+                        &offsets[i],
+                        style,
+                        font_context,
+                    );
                 }
                 total + style.padding.vertical() + style.border_width.vertical()
             }
@@ -5947,7 +6029,8 @@ impl LayoutEngine {
                 let usable = (available_width - style.margin.horizontal()).max(0.0);
                 let col_w = usable / n as f64;
                 let col_widths = vec![col_w; n];
-                self.measure_table_row_height(node, &col_widths, style, font_context)
+                let offsets = Self::table_column_offsets(std::slice::from_ref(node));
+                self.measure_table_row_height(node, &col_widths, &offsets[0], style, font_context)
             }
             _ => {
                 // If a fixed height is specified, use it directly
@@ -6512,16 +6595,16 @@ impl LayoutEngine {
         row: &Node,
         row_style: &ResolvedStyle,
         col_widths: &[f64],
+        col_offsets: &[usize],
     ) -> Option<f64> {
         let mut b: Option<f64> = None;
-        let mut col_idx = 0usize;
-        for cell in row.children.iter() {
+        for (cell_i, cell) in row.children.iter().enumerate() {
             let span = match &cell.kind {
                 NodeKind::TableCell { col_span, .. } => (*col_span).max(1) as usize,
                 _ => 1,
             };
-            let col_width: f64 = col_widths.iter().skip(col_idx).take(span).copied().sum();
-            col_idx += span;
+            let start_col = col_offsets.get(cell_i).copied().unwrap_or(0);
+            let col_width: f64 = col_widths.iter().skip(start_col).take(span).copied().sum();
             let cell_style = cell.style.resolve(Some(row_style), col_width);
             if matches!(cell_style.vertical_align, VerticalAlign::Baseline) {
                 let iw = col_width
@@ -6538,6 +6621,7 @@ impl LayoutEngine {
         &self,
         row: &Node,
         col_widths: &[f64],
+        col_offsets: &[usize],
         parent_style: &ResolvedStyle,
         font_context: &FontContext,
     ) -> f64 {
@@ -6547,16 +6631,15 @@ impl LayoutEngine {
         let mut max_height: f64 = 0.0;
         // Precompute the row baseline so a baseline-shoved cell can grow the row
         // rather than clip (the risk site).
-        let row_bl = self.row_baseline(row, &row_style, col_widths);
+        let row_bl = self.row_baseline(row, &row_style, col_widths, col_offsets);
 
-        let mut col_idx = 0usize;
-        for cell in row.children.iter() {
+        for (cell_i, cell) in row.children.iter().enumerate() {
             let span = match &cell.kind {
                 NodeKind::TableCell { col_span, .. } => (*col_span).max(1) as usize,
                 _ => 1,
             };
-            let col_width: f64 = col_widths.iter().skip(col_idx).take(span).copied().sum();
-            col_idx += span;
+            let start_col = col_offsets.get(cell_i).copied().unwrap_or(0);
+            let col_width: f64 = col_widths.iter().skip(start_col).take(span).copied().sum();
             let cell_style = cell.style.resolve(Some(&row_style), col_width);
             let inner_width =
                 col_width - cell_style.padding.horizontal() - cell_style.border_width.horizontal();
@@ -6617,9 +6700,10 @@ impl LayoutEngine {
     ) -> (Vec<f64>, Vec<f64>) {
         let mut col_min = vec![0.0f64; num_cols];
         let mut col_max = vec![0.0f64; num_cols];
-        for row_node in children {
-            let mut col = 0usize;
-            for cell in &row_node.children {
+        let offsets = Self::table_column_offsets(children);
+        for (row_i, row_node) in children.iter().enumerate() {
+            for (cell_i, cell) in row_node.children.iter().enumerate() {
+                let col = offsets[row_i].get(cell_i).copied().unwrap_or(0);
                 let span = Self::cell_col_span(cell);
                 let cell_style = cell.style.resolve(Some(table_style), available_width);
                 let chrome = cell_style.padding.horizontal() + cell_style.border_width.horizontal();
@@ -6643,7 +6727,6 @@ impl LayoutEngine {
                     col_min[k] = col_min[k].max(per_min);
                     col_max[k] = col_max[k].max(per_max);
                 }
-                col += span;
             }
         }
         (col_min, col_max)
@@ -6667,12 +6750,7 @@ impl LayoutEngine {
         font_context: &FontContext,
     ) -> Vec<f64> {
         if defs.is_empty() {
-            let num_cols = children
-                .iter()
-                .map(|row| row.children.iter().map(Self::cell_col_span).sum::<usize>())
-                .max()
-                .unwrap_or(1)
-                .max(1);
+            let num_cols = Self::occupancy_column_count(children);
 
             let (col_min, col_max) = self.measure_column_content(
                 children,
@@ -6723,12 +6801,7 @@ impl LayoutEngine {
         // InvoicePlane date block, template-compat/REPORT.md). Cells
         // beyond the defs used to get NO width at all — extend with Auto
         // columns to the true column count instead.
-        let num_cols = children
-            .iter()
-            .map(|row| row.children.iter().map(Self::cell_col_span).sum::<usize>())
-            .max()
-            .unwrap_or(defs.len())
-            .max(defs.len());
+        let num_cols = Self::occupancy_column_count(children).max(defs.len());
         let mut defs_vec: Vec<ColumnDef> = defs.to_vec();
         while defs_vec.len() < num_cols {
             defs_vec.push(ColumnDef {

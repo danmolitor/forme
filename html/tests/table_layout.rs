@@ -242,3 +242,94 @@ fn shrink_to_fit_container_gives_a_table_its_intrinsic_width() {
         "label line spans the words, not a crushed column ({w:.1}pt wide)"
     );
 }
+
+// ── Rowspan occupancy in column assignment ─────────────────────────
+
+#[test]
+fn rowspan_cell_occupies_its_column_in_following_rows() {
+    // The Anvil shape (template-compat 02): a rowspan=2 cell in column
+    // 1; the next row's single cell is semantically column 2, but
+    // without rowspan occupancy it was assigned column 1 — a
+    // right-aligned address line ended up in the middle of the page.
+    let out = render(
+        "<html><head><style>body{margin:0} td{padding:0} .r{text-align:right}</style></head><body>\
+         <table style=\"width:100%\">\
+           <tr><td rowspan=\"2\">Client Name</td><td class=\"r\">Anvil Co</td></tr>\
+           <tr><td class=\"r\">123 Main Street</td></tr>\
+           <tr><td>Invoice Date</td><td class=\"r\">San Francisco</td></tr>\
+         </table></body></html>",
+    );
+    let street = text_lines_containing(&out, "123 Main Street");
+    let city = text_lines_containing(&out, "San Francisco");
+    assert!(!street.is_empty() && !city.is_empty());
+    let (sx, sw) = street[0];
+    let (cx, cw) = city[0];
+    // Both right-aligned in column 2: their RIGHT edges coincide (and sit
+    // in the right half of the page, not mid-page).
+    assert!(
+        ((sx + sw) - (cx + cw)).abs() < 1.0,
+        "street must right-align with the column-2 city line: street ends {:.1}, city ends {:.1}",
+        sx + sw,
+        cx + cw
+    );
+    assert!(
+        sx > 54.0 + 487.28 / 2.0,
+        "street sits in the right column, not mid-page (x={sx:.1})"
+    );
+}
+
+#[test]
+fn rowspan_occupancy_composes_with_colspan() {
+    // Row 1: A(rowspan=2) B C. Row 2: [A occupies col 1] D(colspan=2)
+    // spanning columns 2-3. D's text must start at column 2's x, and the
+    // table stays 3 columns wide.
+    let out = render(
+        "<html><head><style>body{margin:0} td{padding:0}</style></head><body>\
+         <table style=\"width:100%\">\
+           <tr><td rowspan=\"2\">AA</td><td>BB</td><td>CC</td></tr>\
+           <tr><td colspan=\"2\">DD wide</td></tr>\
+         </table></body></html>",
+    );
+    let b = text_lines_containing(&out, "BB");
+    let d = text_lines_containing(&out, "DD wide");
+    assert!(!b.is_empty() && !d.is_empty());
+    assert!(
+        (b[0].0 - d[0].0).abs() < 1.0,
+        "D starts at column 2 like B: B x={:.1}, D x={:.1}",
+        b[0].0,
+        d[0].0
+    );
+}
+
+#[test]
+fn rowspan_spacer_with_width_defs_extends_columns_to_occupancy_count() {
+    // The InvoicePlane date block (template-compat 05): row 1 is a lone
+    // rowspan=4 spacer with width:40% — harvested as the table's only
+    // column def. Rows 2-4 have label+value cells that occupancy assigns
+    // to columns 2-3, but the DEFS path counted columns with the old
+    // colspan sum (2), so column 3 had no width entry and collapsed to
+    // zero — "03/01/2026" stacked one character per line, and the date
+    // block grew ~10x taller (a corpus regression the page-count sweep
+    // caught before merge).
+    let out = render(
+        "<html><head><style>body{margin:0} table{width:100%} td{padding:0}</style></head><body>\
+         <table>\
+           <tr><td rowspan=\"4\" style=\"width:40%\"></td></tr>\
+           <tr><td>Invoice Date:</td><td>03/01/2026</td></tr>\
+           <tr><td>Due Date:</td><td>03/31/2026</td></tr>\
+           <tr><td>Amount Due:</td><td>$1,821.38</td></tr>\
+         </table></body></html>",
+    );
+    let date = text_lines_containing(&out, "03/01/2026");
+    assert_eq!(
+        date.len(),
+        1,
+        "the date renders as ONE line, not a zero-width per-char stack"
+    );
+    let (x, w) = date[0];
+    assert!(w > 40.0, "value column has real width ({w:.1}pt)");
+    assert!(
+        x > 54.0 + 487.28 * 0.4,
+        "value sits right of the 40% spacer column (x={x:.1})"
+    );
+}
