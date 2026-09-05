@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.20.0] - 2026-09-05
+
+### Changed
+
+- HTML input path rides `@formepdf/html` 0.20.0 (attribute selectors, CSS tables, overflow clip, fixed policy)
+
 ## [0.15.0] - Unreleased
 
 ### Added

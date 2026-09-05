@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.20.0] - 2026-09-05
+
+### Changed
+
+- Engine 0.20.0 WASM: attribute selectors, CSS tables on divs, page-level `overflow-x` clip + `position: fixed` policy, page-box `@media` width, half-leading text baselines (see `engine/CHANGELOG.md` and `packages/html/CHANGELOG.md`)
+
 ## [0.18.0] - 2026-09-03
 
 ### Added
