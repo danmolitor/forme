@@ -1,7 +1,7 @@
 {
   "version": 1,
   "producer": "formepdf",
-  "createdAt": "2026-08-26T12:42:33.899Z",
+  "createdAt": "2026-09-05T03:44:40.497Z",
   "pageCount": 1,
   "pages": [
     {
@@ -45,7 +45,7 @@
         "x": 54,
         "y": 54,
         "width": 487.3,
-        "height": 223.2
+        "height": 335.2
       },
       "order": 0,
       "parentId": null,
@@ -171,7 +171,12 @@
       "parentId": "0:container:0",
       "text": null,
       "normText": null,
-      "font": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
       "headingLevel": null,
       "overflow": null,
       "confidence": 1,
@@ -469,5 +474,5 @@
       "confidence": 1
     }
   ],
-  "contentHash": "sha256:60f4bb4ae031f5f1a95def175f7f68f0096f09245a3d9513c3d72854d6a95050"
+  "contentHash": "sha256:9fc1d003adf92766f687bc6cf4bd5a78471f50a8aa4e67dac4dfbe0031fd1f37"
 }
