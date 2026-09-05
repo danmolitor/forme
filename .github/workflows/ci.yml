@@ -17,9 +17,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - name: Install poppler (pdftoppm for visual regression)
+        run: sudo apt-get update -q && sudo apt-get install -y -q poppler-utils
       - name: Run tests
         working-directory: engine
-        run: cargo test
+        # --features visual-tests: the visual-regression suite is part of
+        # the gate. It spent months unable to even compile because the
+        # feature flag hid it from this job — same failure shape as the
+        # ICC profile and the measure/layout divergence: a check that
+        # exists but doesn't run catches nothing. The suite FAILS (not
+        # skips) in CI when pdftoppm is missing.
+        run: cargo test --features visual-tests
       - name: Check formatting
         working-directory: engine
         run: cargo fmt --check

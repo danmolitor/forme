@@ -125,7 +125,26 @@ fn references_dir(test_name: &str) -> PathBuf {
 
 /// Assert visual match against reference images, or save new references.
 fn assert_visual_match(pdf_bytes: &[u8], test_name: &str, threshold: f64) {
+    // References are LINUX-CANONICAL (rendered by the CI runner's poppler):
+    // CI is the gate, so it compares against its own rasterizer's output at
+    // the tight threshold. Cross-platform poppler anti-aliasing differs by
+    // 1.2-8.5% depending on text density (measured macOS-vs-Linux,
+    // 2026-09-05 — the 8.5% is a fully dense text page where AA noise
+    // touches every glyph), so local runs on other platforms widen the
+    // tolerance without touching the gate: FORME_VISUAL_TOLERANCE=10
+    // multiplies local thresholds. CI must never set it.
+    let threshold = match std::env::var("FORME_VISUAL_TOLERANCE") {
+        Ok(v) if std::env::var("CI").is_err() => threshold * v.parse::<f64>().unwrap_or(1.0),
+        _ => threshold,
+    };
     if !pdftoppm_available() {
+        // Locally: skip with a note (dev machines needn't carry poppler).
+        // In CI: FAIL. A gate that silently passes when its tool is
+        // missing is a vacuous gate — this suite already spent months as
+        // a corpse behind its feature flag; it doesn't get to fake life.
+        if std::env::var("CI").is_ok() {
+            panic!("pdftoppm required in CI for visual tests (install poppler-utils)");
+        }
         eprintln!(
             "SKIPPING visual test '{}': pdftoppm not installed (install poppler-utils)",
             test_name
@@ -784,6 +803,9 @@ fn visual_tagged_no_visual_change() {
     let pdf_tagged = forme::render(&doc_tagged).unwrap();
 
     if !pdftoppm_available() {
+        if std::env::var("CI").is_ok() {
+            panic!("pdftoppm required in CI for visual tests (install poppler-utils)");
+        }
         eprintln!("SKIPPING visual_tagged_no_visual_change: pdftoppm not installed");
         return;
     }
