@@ -273,6 +273,27 @@ cd forme/packages/html && npm test                 # WASM smoke
 #   packages/html/bin/forme-html.js, cmp the outputs
 cd forme-go && go clean -testcache && go test ./...
 
+# 3b. Real-template corpus (if engine/ or html/ changed) — the acceptance
+#     measure behind the README's "11 of 15" claim. The pins extracted from
+#     it run in CI; the corpus itself finds the NEXT bug, and only a human
+#     can grade it. Lives in the PRIVATE repo
+#     github.com/danmolitor/forme-template-compat (7 of 15 templates carry
+#     redistribution constraints — it never joins this repo).
+cd forme/html && cargo build --release             # ALWAYS build fresh first
+# forme-template-compat is a sibling of the forme MONOREPO PARENT dir
+# (../../.. from forme/html); its run.sh finds the binary via that layout,
+# or set FORME_HTML to the binary path explicitly.
+cd ../../../forme-template-compat && bash run.sh   # renders forme + Chrome refs
+git diff --stat out/                               # page counts + warnings vs committed snapshots
+#     DISPOSITION — this is the step, not the diff: anything that moved is
+#     one of exactly two things, and you decide which before publishing:
+#       * an intended improvement → record it in the release notes and
+#         commit the refreshed out/*.warnings.txt as the new baseline;
+#       * unexplained → a regression until proven otherwise: STOP, do not
+#         publish. "Probably fine" is how layout regressions ship.
+#     No diff = no action. Eyeballing without dispositioning is a rubber
+#     stamp.
+
 # 4. Lockfile must be regenerated after version bumps
 cd forme && npm install
 cd forme && git diff --stat package-lock.json   # should show the @formepdf/* deps moved to the new version
