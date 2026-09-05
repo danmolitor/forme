@@ -12376,3 +12376,41 @@ fn sentinel_default_font_documents_are_unchanged() {
         "default-font documents must keep exactly Helvetica"
     );
 }
+
+#[test]
+fn clip_content_x_wraps_page_content_in_a_clip_path() {
+    // `PageConfig.clipContentX` — the paged equivalent of a browser
+    // honoring `body { overflow-x: hidden }`. The page's content stream
+    // must open with a clip rect spanning the content box horizontally
+    // and the FULL page vertically (nothing vertical is lost), and the
+    // clip must be popped at the end.
+    let json = r#"{
+        "children": [
+            { "kind": { "type": "Text", "content": "clipped page" }, "style": {} }
+        ],
+        "defaultPage": {
+            "clipContentX": true,
+            "margin": { "top": 54, "right": 54, "bottom": 54, "left": 54 }
+        }
+    }"#;
+    let bytes = forme::render_json(json).expect("Should parse clip JSON");
+    assert_valid_pdf(&bytes);
+    let ops = decompress_pdf_streams(&bytes);
+    // A4 default: margin 54, page 595.28 x 841.89 -> content width 487.28.
+    assert!(
+        ops.contains("54.00 0 487.28 841.89 re W n"),
+        "clip rect must cover content-box x and full-page y: {ops}"
+    );
+
+    // And without the flag, no page-level clip is emitted.
+    let json_plain = r#"{
+        "children": [
+            { "kind": { "type": "Text", "content": "unclipped page" }, "style": {} }
+        ]
+    }"#;
+    let plain_ops = decompress_pdf_streams(&forme::render_json(json_plain).unwrap());
+    assert!(
+        !plain_ops.contains("re W n"),
+        "no clip path without clipContentX"
+    );
+}

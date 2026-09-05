@@ -89,6 +89,9 @@ pub struct Computed {
     /// `position: running()` — the element is out of normal flow; the
     /// mapper drops it (warned at parse time).
     pub position_running: bool,
+    /// `overflow-x: hidden` computed on this element. Honored on `body`
+    /// (page-level clip); warned anywhere else.
+    pub overflow_x_hidden: bool,
     /// Offsets in points, meaningful with `position_absolute` or
     /// `position_relative`.
     pub offsets: [Option<f64>; 4],
@@ -305,6 +308,7 @@ pub fn resolve(css: &CssStyle, parent_font_size: f64, warnings: &mut Vec<String>
         position_absolute: css.position_absolute == Some(true),
         position_relative: css.position_relative == Some(true),
         position_running: css.position_running == Some(true),
+        overflow_x_hidden: css.overflow_x_hidden == Some(true),
         offsets: {
             // Offsets are meaningful for both absolute and relative; on a
             // static box they're inert (warned).

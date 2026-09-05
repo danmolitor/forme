@@ -75,7 +75,9 @@ noted in the warnings).
 |---|---|
 | `margin`, `padding` (+ longhands, 1–4 value shorthands), CSS margin collapsing | |
 | `float: left/right` + `clear` — **as column rows, not text wrap**: runs of consecutive floated siblings form one row (left floats in order, right floats stacking right-to-left, over-wide runs dropping to new float lines, shrink-to-fit auto widths), which is the shape real templates use floats for (Bootstrap `col-*`, left/right header pairs). Per CSS, `float` is ignored on flex items and table-internal elements. | Text wrapping **alongside** a float — a non-floated sibling after an uncleared float renders below it, not beside it, and warns: `text wrapping alongside floats is not supported; floated siblings are laid out as columns` |
-| `border`, `border-top/right/bottom/left`, `border-width`, `border-color`, `border-radius`, `border-style` (`solid`/`dashed`/`dotted`, per side). Dash metrics match Chrome: dashed = dash 2×width / gap 1×width; dotted = round dots, diameter 1×width, 2×width centre spacing. `double`/`groove`/`ridge`/`inset`/`outset` fall back to solid. Under a dashed/dotted border, `border-radius` is dropped (per-side straight strokes), as Chrome does for dashed corners. | `position: fixed/sticky`, transforms, animation |
+| `border`, `border-top/right/bottom/left`, `border-width`, `border-color`, `border-radius`, `border-style` (`solid`/`dashed`/`dotted`, per side). Dash metrics match Chrome: dashed = dash 2×width / gap 1×width; dotted = round dots, diameter 1×width, 2×width centre spacing. `double`/`groove`/`ridge`/`inset`/`outset` fall back to solid. Under a dashed/dotted border, `border-radius` is dropped (per-side straight strokes), as Chrome does for dashed corners. | `position: sticky` (stays in flow, warned), transforms, animation |
+| `position: fixed` — **as `position: absolute`, by policy**: anchored to its containing block on the page where it occurs (a paged renderer's viewport is the page). It does not repeat on every page — margin boxes are the way to get running content — and the warning says so. `#footer { position: fixed; bottom: 0 }` sits at the page bottom. | |
+| `body { overflow-x: hidden }` — **a page-level clip**: content is clipped horizontally to the page content box (full page height), the paged equivalent of a browser suppressing horizontal overflow. This is how off-viewport-parked furniture (`right: -230px` sidebars) stays invisible. | `overflow-x` on other elements (warned; body only); `overflow-y: hidden` (refused by name — content paginates); element-level `overflow: hidden` clipping |
 | `border-collapse` on tables (single-owner-per-edge emulation; `tr` borders redistribute to cells; CSS's widest-border-wins conflict rule is approximated — the earlier edge wins; `border-radius` is ignored under collapse, per spec and Chrome) | |
 | `break-inside: avoid` on `<tr>` — honored: rows are atomic by engine design. A row taller than the page content area is **not** sliced across pages; it is placed whole and overflows (atomicity is the guarantee, not fragmentation). | `break-inside` on `<thead>`/`<tbody>` — pending; use it on the table. Slicing an over-tall row across pages is out of scope. |
 | `width`, `height` (`px`, `pt`, `em`, `rem`, `%`, `in`, `cm`, `mm`) | |
@@ -141,13 +143,13 @@ legacy alias opening its own page. Frozen reference:
 collected from GitHub — Bootstrap 2/3 float grids, mPDF- and
 wkhtmltopdf-era table layouts, nested-table email HTML, modern CSS grid
 — none written with this engine in mind. Measured against Chrome print
-output: **11 of 15 render correctly; the other 4 degrade legibly with
-every cause named in `warnings`; zero render broken.** Each
-degraded case has a named cause: `rowspan` column occupancy, an
-admin-shell sidebar parked off-viewport (hidden in browsers by
-`overflow-x: hidden` clipping), `display: table`/`table-cell` on divs
-(the pre-flexbox equal-height-columns idiom), and attribute selectors
-(`[class*="span"]` — Bootstrap 2's entire grid).
+output: **14 of 15 render correctly; the one degraded case is legible
+with its cause named in `warnings`; zero render broken.** The remaining
+gap is `display: table`/`table-cell` on divs — the pre-flexbox
+equal-height-columns idiom. (The campaign that got here closed, in
+order: automatic table layout, floats-as-rows, whitespace and fixed
+dimensions, table sections, `rowspan` occupancy, attribute selectors,
+and the page-level `overflow-x` clip + `position: fixed` policy.)
 
 **How this compares.** wkhtmltopdf (archived 2023) and DomPDF never
 shipped margin boxes or reliable break control. Chrome only gained

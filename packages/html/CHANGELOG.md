@@ -4,7 +4,13 @@
 
 ### Added
 
+- **`body { overflow-x: hidden }` is a page-level clip.** A browser honoring it suppresses horizontal overflow — which is how off-viewport-parked furniture (`right: -230px` admin-shell sidebars) stays invisible. The paged equivalent: page content is clipped horizontally to the content box (full page height; nothing vertical is lost). Honored on `body` only; declared elsewhere it warns by name. `overflow-y: hidden` is refused by name — content paginates. With the `position: fixed` policy below, the compat corpus's template 07 (AdminLTE invoice) loses its stray dark sidebar block and renders structurally like Chrome print.
+
 - **Attribute selectors.** All seven operators — `[attr]`, `[attr=v]`, `[attr~=v]`, `[attr|=v]`, `[attr^=v]`, `[attr$=v]`, `[attr*=v]` — plus the `i` case-insensitivity flag, with class-level specificity per spec. `[class*="span"] { float: left }` is all of Bootstrap 2's grid, so BS2 templates get their columns back (the compat corpus's template 10 flips from one column to its real two-column layout; every other corpus template renders byte-identically). Previously these selectors were skipped with a warning; malformed or namespaced (`[ns|attr]`) ones still are.
+
+### Changed (behavior — `position: fixed` leaves normal flow)
+
+- **`position: fixed` renders as `position: absolute`** — anchored to its containing block on the page where it occurs, not repeated on every page (margin boxes remain the way to get running content; the warning says exactly that). A paged renderer's "viewport" is the page, so fixed-to-viewport anchoring maps to the page's own geometry: `#footer { position: fixed; bottom: 0 }` (the wkhtmltopdf print-footer idiom) now sits flush at the page bottom instead of rendering in flow wherever the markup happened to put it. `position: sticky` stays unsupported (element remains in flow, warned).
 
 ### Changed (behavior — `@media` width now measures the page box)
 

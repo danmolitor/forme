@@ -125,6 +125,9 @@ pub struct CssStyle {
     pub min_height: Option<Length>,
     pub position_absolute: Option<bool>,
     pub position_relative: Option<bool>,
+    /// `overflow-x: hidden|clip` (or via the `overflow` shorthand).
+    /// Honored on `body` only, as a page-level horizontal clip.
+    pub overflow_x_hidden: Option<bool>,
     /// `position: running(<ident>)` — out of subset, but per CSS GCPM the
     /// element leaves normal flow, so the mapper must SUPPRESS it (the
     /// in-flow render was the bug, not the missing feature).
@@ -224,6 +227,7 @@ impl CssStyle {
             position_absolute,
             position_relative,
             position_running,
+            overflow_x_hidden,
             top,
             right,
             bottom,
@@ -579,10 +583,24 @@ pub(crate) fn apply_declaration(
                     // `static` is the plain default.
                     "relative" => style.position_relative = Some(true),
                     "static" => style.position_absolute = Some(false),
-                    other @ ("fixed" | "sticky") => {
-                        warnings.push(format!(
-                            "position: {other} is unsupported (use a margin box for running content)"
-                        ));
+                    // Deliberate fallback policy: a paged renderer's
+                    // "viewport" is the page, so `fixed` anchors like
+                    // `absolute` — to its containing block, on the page
+                    // where it occurs. It does NOT repeat on every page
+                    // (use a margin box for running content); the warning
+                    // names that difference.
+                    "fixed" => {
+                        style.position_absolute = Some(true);
+                        warnings.push(
+                            "position: fixed is rendered as position: absolute — anchored on the page where it occurs, not repeated on every page (use a margin box for running content)"
+                                .to_string(),
+                        );
+                    }
+                    "sticky" => {
+                        warnings.push(
+                            "position: sticky is unsupported (element stays in normal flow)"
+                                .to_string(),
+                        );
                     }
                     other => warnings.push(format!("unsupported position value '{other}'")),
                 }
@@ -710,6 +728,33 @@ pub(crate) fn apply_declaration(
         "max-width" => style.max_width = parse_length(p),
         "min-width" => style.min_width = parse_length(p),
         "min-height" => style.min_height = parse_length(p),
+
+        // Overflow, page-level subset: `overflow-x: hidden` on `body`
+        // becomes a horizontal clip to the page content box (the print
+        // equivalent of a browser suppressing horizontal overflow — how
+        // off-viewport-parked furniture stays invisible). Anywhere else
+        // the mapper warns. The vertical axis has a fixed answer in a
+        // paged renderer — content paginates — so `overflow-y: hidden`
+        // is refused by name rather than clipping pages away.
+        "overflow-x" | "overflow" => {
+            if let Ok(id) = p.expect_ident() {
+                match id.to_ascii_lowercase().as_str() {
+                    "hidden" | "clip" => style.overflow_x_hidden = Some(true),
+                    "visible" | "auto" | "scroll" => style.overflow_x_hidden = Some(false),
+                    other => warnings.push(format!("unsupported overflow value '{other}'")),
+                }
+            }
+        }
+        "overflow-y" => {
+            if let Ok(id) = p.expect_ident() {
+                match id.to_ascii_lowercase().as_str() {
+                    "hidden" | "clip" => warnings.push(
+                        "overflow-y: hidden is not supported (content paginates)".to_string(),
+                    ),
+                    _ => {} // visible/auto/scroll: pagination is the policy anyway
+                }
+            }
+        }
         "max-height" => {
             warnings.push("max-height is pending (clipping semantics undecided)".to_string());
         }

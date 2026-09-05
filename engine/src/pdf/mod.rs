@@ -1349,6 +1349,19 @@ impl PdfWriter {
             self.write_page_background(&mut stream, page, img_idx, builder);
         }
 
+        // Horizontal content clip (`PageConfig.clip_content_x`): the paged
+        // equivalent of `body { overflow-x: hidden }`. X is clipped to the
+        // content box; Y spans the full page so nothing vertical is lost.
+        let clip_x = page.config.clip_content_x;
+        if clip_x {
+            let x = page.config.margin.left;
+            let w = page.width - page.config.margin.left - page.config.margin.right;
+            stream.push_str(&format!(
+                "q\n{:.2} 0 {:.2} {:.2} re W n\n",
+                x, w, page.height
+            ));
+        }
+
         for element in &page.elements {
             self.write_element(
                 &mut stream,
@@ -1363,6 +1376,10 @@ impl PdfWriter {
                 tag_builder.as_deref_mut(),
                 flatten_forms,
             );
+        }
+
+        if clip_x {
+            stream.push_str("Q\n");
         }
 
         stream

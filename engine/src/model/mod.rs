@@ -365,6 +365,15 @@ pub struct PageConfig {
     /// Where the background image is positioned within the page.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub background_position: Option<BackgroundPosition>,
+
+    /// Clip page content horizontally to the content box (page width
+    /// minus left/right margins). The paged equivalent of a browser
+    /// honoring `body { overflow-x: hidden }`: layout is unaffected,
+    /// but ink outside the content box's x-range never paints — the
+    /// off-viewport-parking idiom (`right: -230px` sidebars) disappears
+    /// instead of smearing into the margin. Vertical ink is not clipped.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub clip_content_x: bool,
 }
 
 /// How a background image is scaled to fit a page.
@@ -403,6 +412,7 @@ impl Default for PageConfig {
             background_opacity: None,
             background_size: None,
             background_position: None,
+            clip_content_x: false,
         }
     }
 }
