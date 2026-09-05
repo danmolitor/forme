@@ -2968,7 +2968,7 @@ impl LayoutEngine {
             }
 
             // Measure line height
-            let line_height: f64 = line_items
+            let mut line_height: f64 = line_items
                 .iter()
                 .enumerate()
                 .map(|(j, item)| {
@@ -2977,6 +2977,25 @@ impl LayoutEngine {
                         + item.style.margin.vertical()
                 })
                 .fold(0.0f64, f64::max);
+
+            // CSS 9.4.8: a single-line (nowrap) flex container with a
+            // definite cross size gives its one flex line the CONTAINER'S
+            // inner cross size, not the tallest item's. Without this,
+            // align-items: center / flex-end on a fixed-height row were
+            // no-ops — a 36pt logo box "centered" its 20pt text inside a
+            // 20pt line (the launch-demo mark). `max` rather than replace:
+            // when items overspill a too-small container the line keeps
+            // content size (the spec would shrink and overflow; keeping
+            // the larger value is the conservative reading for existing
+            // documents).
+            if let Some(ps) = parent_style {
+                if matches!(ps.flex_wrap, FlexWrap::NoWrap) {
+                    if let SizeConstraint::Fixed(h) = ps.height {
+                        let inner = h - ps.padding.vertical() - ps.border_width.vertical();
+                        line_height = line_height.max(inner);
+                    }
+                }
+            }
 
             // Page break check for this line. The `cursor.y > 0.0` guard
             // matches the other break sites: when the current page is
@@ -4033,6 +4052,18 @@ impl LayoutEngine {
         };
 
         let line_height = style.font_size * style.line_height;
+        // Half-leading is not applied yet: glyphs sit at the TOP of the
+        // line box rather than vertically centered in it. Invisible at
+        // normal ratios; at >= 2x it is almost always the pre-flexbox
+        // vertical-centering idiom (line-height equal to a box height),
+        // and silently top-aligning it is exactly what the render-defect
+        // channel exists to say out loud.
+        if style.line_height >= 2.0 {
+            self.defect(format!(
+                "render defect: text renders at the top of its {:.0}pt line box — line-height half-leading is not applied; center with flex align-items instead",
+                line_height
+            ));
+        }
 
         // Widow/orphan control: decide how to break before placing lines
         let line_heights: Vec<f64> = vec![line_height; lines.len()];
@@ -4313,6 +4344,18 @@ impl LayoutEngine {
         };
 
         let line_height = style.font_size * style.line_height;
+        // Half-leading is not applied yet: glyphs sit at the TOP of the
+        // line box rather than vertically centered in it. Invisible at
+        // normal ratios; at >= 2x it is almost always the pre-flexbox
+        // vertical-centering idiom (line-height equal to a box height),
+        // and silently top-aligning it is exactly what the render-defect
+        // channel exists to say out loud.
+        if style.line_height >= 2.0 {
+            self.defect(format!(
+                "render defect: text renders at the top of its {:.0}pt line box — line-height half-leading is not applied; center with flex align-items instead",
+                line_height
+            ));
+        }
 
         // Widow/orphan control for text runs
         let line_heights: Vec<f64> = vec![line_height; broken_lines.len()];

@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed (behavior — fixed-height flex rows may align differently)
+
+- **Single-line flex rows honor the container's definite cross size** (CSS 9.4.8). The flex line was sized at the tallest item, never the container — so `align-items: center`/`flex-end` on a fixed-height `nowrap` row was a silent no-op (a 36pt logo box "centered" its 20pt text inside a 20pt line, i.e. top-aligned). Rows with a fixed height and cross-axis alignment now actually align; `stretch` items in such rows now fill the container, per spec. Found two minutes before a launch post, in the standard logo-mark idiom.
+
+### Added
+
+- **Half-leading render-defect warning.** Glyphs currently sit at the top of their line box rather than vertically centered in it (half-leading is not applied — a known structural limitation). At `line-height >= 2× font-size` this is almost always the pre-flexbox vertical-centering idiom, so it now reports itself: `render defect: text renders at the top of its Npt line box — line-height half-leading is not applied; center with flex align-items instead`.
+
 ## [0.19.0] - 2026-09-04
 
 ### Changed (behavior — absolutely-positioned layout may shift)
