@@ -480,6 +480,20 @@ impl Mapper {
         }
         let computed_break_after = computed.break_after;
 
+        // A table-internal display on an element that reaches this path is
+        // an orphan (a proper `display: table` parent maps its rows and
+        // cells directly, never through here). CSS would build anonymous
+        // table wrappers; the subset treats it as a block and says so.
+        if matches!(
+            computed.display,
+            CssDisplay::TableCell | CssDisplay::TableRow | CssDisplay::TableRowGroup
+        ) {
+            self.warnings.push(format!(
+                "display: table-cell/table-row on <{}> outside a display: table parent is treated as block",
+                el.tag
+            ));
+        }
+
         // The element becomes an ancestor for everything mapped inside it.
         self.stack.push(elem_key(el));
         let node = match el.tag.as_str() {
@@ -491,6 +505,10 @@ impl Mapper {
                 self.map_paragraph_like(el, computed, Some(level))
             }
             "p" => self.map_paragraph_like(el, computed, None),
+            // `display: table` on non-table markup — the equal-height-
+            // columns idiom. Real <table> tags stay on the tag-driven
+            // path above regardless of their display value.
+            _ if computed.display == CssDisplay::Table => self.map_css_table(el, &computed),
             _ => {
                 // Generic block container (div, section, header, ...).
                 let mut children = self.map_children(&el.children, &computed);
@@ -1155,6 +1173,265 @@ impl Mapper {
             defs
         } else {
             vec![]
+        }
+    }
+
+    /// `display: table` on non-table markup — the pre-flexbox
+    /// equal-height-columns idiom (`.row-equal { display: table }` +
+    /// `.col-equal { display: table-cell }`, template-compat 09). Maps
+    /// onto the engine's native table machinery, so cells share row
+    /// height — which is the entire point of the idiom. Anonymous-box
+    /// rules, subset-sized: a run of `table-cell` children forms one
+    /// anonymous row; `table-row` children are rows; row groups are
+    /// transparent; a run of anything else becomes one anonymous
+    /// single-cell row (CSS's anonymous cell rule). Column definitions
+    /// harvest from the first row's cell widths, like real tables.
+    fn map_css_table(&mut self, el: &Element, computed: &Computed) -> Option<Node> {
+        let mut rows: Vec<Node> = Vec::new();
+        let mut defs: Vec<ColumnDef> = Vec::new();
+        let mut any_def = false;
+        self.collect_css_rows(&el.children, computed, &mut rows, &mut defs, &mut any_def);
+
+        // A SINGLE-row CSS table is the equal-height-columns idiom — the
+        // same column shape floats-as-rows targets — and real templates
+        // wrap arbitrarily tall content in it (template-compat 09 puts
+        // its whole document in one such row). Engine table rows are
+        // atomic by design, so route this shape through a flex row
+        // instead: breakable across pages, cross-axis stretch for the
+        // equal heights, cell widths as the flex children's widths.
+        // Multi-row CSS tables are genuine grids and stay on the table
+        // machinery.
+        if rows.len() == 1 {
+            let row = rows.pop().expect("just checked");
+            let children: Vec<Node> = row
+                .children
+                .into_iter()
+                .enumerate()
+                .map(|(idx, cell)| {
+                    let mut style = cell.style;
+                    style.width = match defs.get(idx).map(|d| &d.width) {
+                        Some(ColumnWidth::Fraction(f)) => Some(Dimension::Percent(f * 100.0)),
+                        Some(ColumnWidth::Fixed(v)) => Some(Dimension::Pt(*v)),
+                        _ => None,
+                    };
+                    make_node(NodeKind::View, style, cell.children)
+                })
+                .collect();
+            let mut style = to_engine_style(computed);
+            style.flex_direction = Some(forme::style::FlexDirection::Row);
+            return Some(make_node(NodeKind::View, style, children));
+        }
+
+        let columns = if any_def { defs } else { vec![] };
+        Some(make_node(
+            NodeKind::Table { columns },
+            to_engine_style(computed),
+            rows,
+        ))
+    }
+
+    fn collect_css_rows(
+        &mut self,
+        children: &[DomNode],
+        table_computed: &Computed,
+        rows: &mut Vec<Node>,
+        defs: &mut Vec<ColumnDef>,
+        any_def: &mut bool,
+    ) {
+        let mut pending_cells: Vec<Node> = Vec::new();
+        let mut i = 0;
+        while i < children.len() {
+            match &children[i] {
+                DomNode::Element(e) => {
+                    let c = self.computed_for(e, table_computed.font_size);
+                    match c.display {
+                        CssDisplay::None => i += 1,
+                        CssDisplay::TableRow => {
+                            Self::flush_anon_row(&mut pending_cells, rows);
+                            let row = self.map_css_row(e, &c, rows.is_empty(), defs, any_def);
+                            rows.push(row);
+                            i += 1;
+                        }
+                        CssDisplay::TableRowGroup => {
+                            Self::flush_anon_row(&mut pending_cells, rows);
+                            self.collect_css_rows(&e.children, table_computed, rows, defs, any_def);
+                            i += 1;
+                        }
+                        CssDisplay::TableCell => {
+                            if rows.is_empty() {
+                                defs.push(Self::column_def_from_width(c.width, any_def));
+                            }
+                            let cell = self.map_css_cell(e, &c);
+                            pending_cells.push(cell);
+                            i += 1;
+                        }
+                        _ => {
+                            // A run of non-table-internal children becomes
+                            // one anonymous single-cell row.
+                            Self::flush_anon_row(&mut pending_cells, rows);
+                            let start = i;
+                            i += 1;
+                            while i < children.len() {
+                                match &children[i] {
+                                    DomNode::Element(e2) => {
+                                        let d =
+                                            self.computed_for(e2, table_computed.font_size).display;
+                                        if matches!(
+                                            d,
+                                            CssDisplay::TableRow
+                                                | CssDisplay::TableRowGroup
+                                                | CssDisplay::TableCell
+                                                | CssDisplay::None
+                                        ) {
+                                            break;
+                                        }
+                                        i += 1;
+                                    }
+                                    _ => i += 1,
+                                }
+                            }
+                            let content = self.map_children(&children[start..i], table_computed);
+                            if !content.is_empty() {
+                                let cell = make_node(
+                                    NodeKind::TableCell {
+                                        col_span: 1,
+                                        row_span: 1,
+                                    },
+                                    Style::default(),
+                                    content,
+                                );
+                                rows.push(make_node(
+                                    NodeKind::TableRow { is_header: false },
+                                    Style::default(),
+                                    vec![cell],
+                                ));
+                            }
+                        }
+                    }
+                }
+                _ => i += 1, // text between rows: whitespace in practice
+            }
+        }
+        Self::flush_anon_row(&mut pending_cells, rows);
+    }
+
+    /// A `display: table-row` element: its `table-cell` children are the
+    /// cells; runs of anything else wrap in anonymous cells.
+    fn map_css_row(
+        &mut self,
+        el: &Element,
+        row_computed: &Computed,
+        first_row: bool,
+        defs: &mut Vec<ColumnDef>,
+        any_def: &mut bool,
+    ) -> Node {
+        self.stack.push(elem_key(el));
+        let mut cells: Vec<Node> = Vec::new();
+        let mut i = 0;
+        let children = &el.children;
+        while i < children.len() {
+            match &children[i] {
+                DomNode::Element(e) => {
+                    let c = self.computed_for(e, row_computed.font_size);
+                    match c.display {
+                        CssDisplay::None => i += 1,
+                        CssDisplay::TableCell => {
+                            if first_row {
+                                defs.push(Self::column_def_from_width(c.width, any_def));
+                            }
+                            let cell = self.map_css_cell(e, &c);
+                            cells.push(cell);
+                            i += 1;
+                        }
+                        _ => {
+                            let start = i;
+                            i += 1;
+                            while i < children.len() {
+                                match &children[i] {
+                                    DomNode::Element(e2) => {
+                                        let d =
+                                            self.computed_for(e2, row_computed.font_size).display;
+                                        if matches!(d, CssDisplay::TableCell | CssDisplay::None) {
+                                            break;
+                                        }
+                                        i += 1;
+                                    }
+                                    _ => i += 1,
+                                }
+                            }
+                            let content = self.map_children(&children[start..i], row_computed);
+                            if !content.is_empty() {
+                                if first_row {
+                                    defs.push(Self::column_def_from_width(None, any_def));
+                                }
+                                cells.push(make_node(
+                                    NodeKind::TableCell {
+                                        col_span: 1,
+                                        row_span: 1,
+                                    },
+                                    Style::default(),
+                                    content,
+                                ));
+                            }
+                        }
+                    }
+                }
+                _ => i += 1,
+            }
+        }
+        self.stack.pop();
+        make_node(
+            NodeKind::TableRow { is_header: false },
+            to_engine_style(row_computed),
+            cells,
+        )
+    }
+
+    fn map_css_cell(&mut self, el: &Element, computed: &Computed) -> Node {
+        self.stack.push(elem_key(el));
+        let content = self.map_children(&el.children, computed);
+        self.stack.pop();
+        // The cell's `width` becomes a column definition, not a box
+        // width — clear it so the engine doesn't double-apply.
+        let mut style = to_engine_style(computed);
+        style.width = None;
+        make_node(
+            NodeKind::TableCell {
+                col_span: 1,
+                row_span: 1,
+            },
+            style,
+            content,
+        )
+    }
+
+    fn flush_anon_row(pending_cells: &mut Vec<Node>, rows: &mut Vec<Node>) {
+        if !pending_cells.is_empty() {
+            rows.push(make_node(
+                NodeKind::TableRow { is_header: false },
+                Style::default(),
+                std::mem::take(pending_cells),
+            ));
+        }
+    }
+
+    fn column_def_from_width(width: Option<Dimension>, any: &mut bool) -> ColumnDef {
+        match width {
+            Some(Dimension::Percent(p)) => {
+                *any = true;
+                ColumnDef {
+                    width: ColumnWidth::Fraction(p / 100.0),
+                }
+            }
+            Some(Dimension::Pt(v)) => {
+                *any = true;
+                ColumnDef {
+                    width: ColumnWidth::Fixed(v),
+                }
+            }
+            _ => ColumnDef {
+                width: ColumnWidth::Auto,
+            },
         }
     }
 }
