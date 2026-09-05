@@ -245,7 +245,7 @@ fn visual_invoice() {
         embedded_data: None,
         flatten_forms: false,
         pdf_ua: false,
-        signature: None,
+        certification: None,
     };
 
     let pdf = forme::render(&doc).unwrap();
@@ -288,7 +288,7 @@ fn visual_multi_page_text() {
         embedded_data: None,
         flatten_forms: false,
         pdf_ua: false,
-        signature: None,
+        certification: None,
     };
 
     let pdf = forme::render(&doc).unwrap();
@@ -427,7 +427,7 @@ fn visual_table_header_repetition() {
         embedded_data: None,
         flatten_forms: false,
         pdf_ua: false,
-        signature: None,
+        certification: None,
     };
 
     let pdf = forme::render(&doc).unwrap();
@@ -487,7 +487,7 @@ fn visual_flex_layout() {
         embedded_data: None,
         flatten_forms: false,
         pdf_ua: false,
-        signature: None,
+        certification: None,
     };
 
     let pdf = forme::render(&doc).unwrap();
@@ -547,7 +547,7 @@ fn visual_justified_text() {
         embedded_data: None,
         flatten_forms: false,
         pdf_ua: false,
-        signature: None,
+        certification: None,
     };
 
     let pdf = forme::render(&doc).unwrap();
@@ -631,7 +631,7 @@ fn visual_line_breaking_greedy_vs_optimal() {
         embedded_data: None,
         flatten_forms: false,
         pdf_ua: false,
-        signature: None,
+        certification: None,
     };
 
     let pdf = forme::render(&doc).unwrap();
@@ -711,7 +711,13 @@ fn visual_text_alignment() {
         embedded_data: None,
         flatten_forms: false,
         pdf_ua: false,
-        signature: None,
+        certification: None,
+        attachments: vec![],
+        first_page: None,
+        left_page: None,
+        named_pages: Default::default(),
+        right_page: None,
+        zugferd: None,
     };
 
     let pdf = forme::render(&doc).unwrap();
@@ -747,7 +753,7 @@ fn visual_tagged_no_visual_change() {
         embedded_data: None,
         flatten_forms: false,
         pdf_ua: false,
-        signature: None,
+        certification: None,
     };
 
     let doc_tagged = Document {
@@ -771,7 +777,7 @@ fn visual_tagged_no_visual_change() {
         embedded_data: None,
         flatten_forms: false,
         pdf_ua: false,
-        signature: None,
+        certification: None,
     };
 
     let pdf_untagged = forme::render(&doc_untagged).unwrap();
@@ -928,7 +934,7 @@ fn visual_flattened_forms() {
         embedded_data: None,
         flatten_forms: true,
         pdf_ua: false,
-        signature: None,
+        certification: None,
     };
 
     let pdf = forme::render(&doc).unwrap();

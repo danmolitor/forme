@@ -2968,7 +2968,7 @@ impl LayoutEngine {
             }
 
             // Measure line height
-            let line_height: f64 = line_items
+            let mut line_height: f64 = line_items
                 .iter()
                 .enumerate()
                 .map(|(j, item)| {
@@ -2977,6 +2977,25 @@ impl LayoutEngine {
                         + item.style.margin.vertical()
                 })
                 .fold(0.0f64, f64::max);
+
+            // CSS 9.4.8: a single-line (nowrap) flex container with a
+            // definite cross size gives its one flex line the CONTAINER'S
+            // inner cross size, not the tallest item's. Without this,
+            // align-items: center / flex-end on a fixed-height row were
+            // no-ops — a 36pt logo box "centered" its 20pt text inside a
+            // 20pt line (the launch-demo mark). `max` rather than replace:
+            // when items overspill a too-small container the line keeps
+            // content size (the spec would shrink and overflow; keeping
+            // the larger value is the conservative reading for existing
+            // documents).
+            if let Some(ps) = parent_style {
+                if matches!(ps.flex_wrap, FlexWrap::NoWrap) {
+                    if let SizeConstraint::Fixed(h) = ps.height {
+                        let inner = h - ps.padding.vertical() - ps.border_width.vertical();
+                        line_height = line_height.max(inner);
+                    }
+                }
+            }
 
             // Page break check for this line. The `cursor.y > 0.0` guard
             // matches the other break sites: when the current page is
@@ -4171,7 +4190,15 @@ impl LayoutEngine {
 
             let text_line = TextLine {
                 x: line_x,
-                y: cursor.content_y + cursor.y + style.font_size,
+                // Half-leading: the line box's extra space over the glyph block
+                // splits evenly above and below (CSS line box model). The
+                // baseline therefore sits half the leading further down —
+                // this is also what makes the pre-flexbox centering idiom
+                // (line-height matched to a box height) actually center.
+                y: cursor.content_y
+                    + cursor.y
+                    + (line_height - style.font_size) / 2.0
+                    + style.font_size,
                 glyphs,
                 width: justified_width,
                 height: line_height,
@@ -4434,7 +4461,15 @@ impl LayoutEngine {
 
             let text_line = TextLine {
                 x: line_x,
-                y: cursor.content_y + cursor.y + style.font_size,
+                // Half-leading: the line box's extra space over the glyph block
+                // splits evenly above and below (CSS line box model). The
+                // baseline therefore sits half the leading further down —
+                // this is also what makes the pre-flexbox centering idiom
+                // (line-height matched to a box height) actually center.
+                y: cursor.content_y
+                    + cursor.y
+                    + (line_height - style.font_size) / 2.0
+                    + style.font_size,
                 glyphs,
                 width: justified_width,
                 height: line_height,
@@ -6428,17 +6463,19 @@ impl LayoutEngine {
         }
     }
 
-    /// The font size of a cell's first text line. In this engine the baseline
-    /// sits exactly `font_size` below the line-box top (there is no font-ascent
-    /// metric), so this IS the first-baseline offset from the content-box top.
+    /// The first-baseline offset of a cell's first text line from its line-box
+    /// top: half-leading plus font size (the engine's baseline model — there is
+    /// no font-ascent metric, `font_size` stands in for the glyph block).
     /// Walks to the first text-producing descendant; falls back to the cell's
-    /// own font size when there is none.
-    fn cell_first_line_font_size(&self, cell: &Node, cell_style: &ResolvedStyle, w: f64) -> f64 {
-        fn first(node: &Node, parent: &ResolvedStyle, w: f64) -> Option<f64> {
+    /// own style when there is none.
+    fn cell_first_baseline_in_line(&self, cell: &Node, cell_style: &ResolvedStyle, w: f64) -> f64 {
+        fn first(node: &Node, parent: &ResolvedStyle, w: f64) -> Option<(f64, f64)> {
             for ch in &node.children {
                 let s = ch.style.resolve(Some(parent), w);
                 match &ch.kind {
-                    NodeKind::Text { .. } | NodeKind::Heading { .. } => return Some(s.font_size),
+                    NodeKind::Text { .. } | NodeKind::Heading { .. } => {
+                        return Some((s.font_size, s.line_height))
+                    }
                     _ => {
                         if let Some(f) = first(ch, &s, w) {
                             return Some(f);
@@ -6448,11 +6485,15 @@ impl LayoutEngine {
             }
             None
         }
-        first(cell, cell_style, w).unwrap_or(cell_style.font_size)
+        let (fs, lh) =
+            first(cell, cell_style, w).unwrap_or((cell_style.font_size, cell_style.line_height));
+        (fs * lh - fs) / 2.0 + fs
     }
 
     /// Distance from a cell's border-box top to its first text baseline:
-    /// `padding.top + border.top + first-line font_size`.
+    /// `padding.top + border.top + half-leading + first-line font_size` —
+    /// matching exactly where layout_text places the glyphs, or baseline
+    /// alignment drifts by half the leading.
     fn cell_baseline_distance(
         &self,
         cell: &Node,
@@ -6461,7 +6502,7 @@ impl LayoutEngine {
     ) -> f64 {
         cell_style.padding.top
             + cell_style.border_width.top
-            + self.cell_first_line_font_size(cell, cell_style, inner_width)
+            + self.cell_first_baseline_in_line(cell, cell_style, inner_width)
     }
 
     /// The row baseline: the max first-baseline distance across the row's

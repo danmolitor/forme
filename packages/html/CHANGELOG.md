@@ -1,5 +1,12 @@
 # Changelog — @formepdf/html
 
+## [Unreleased]
+
+### Fixed
+
+- **Vertical centering in fixed-height boxes works via flex.** `display: flex; align-items: center` (and `flex-end`) on a fixed-height box now actually aligns its content — the flex line was previously sized at the content's own height, making cross-axis alignment a silent no-op (the logo-mark idiom: a 36×36 box with two letters). Engine fix; see `engine/CHANGELOG.md` for the behavior note.
+- **The `line-height` centering idiom works.** Half-leading is applied engine-wide: the pre-flexbox pattern of matching `line-height` to a box height now genuinely centers, and every text baseline sits half the leading lower in its line box (closer to Chrome's placement). Layout geometry and page breaks are unchanged — only the ink inside each line box moves. See `engine/CHANGELOG.md` for the behavior-change note.
+
 ## [0.19.0] - 2026-09-04
 
 ### Fixed (table sections + absolute positioning)

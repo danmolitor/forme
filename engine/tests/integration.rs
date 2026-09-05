@@ -12036,18 +12036,21 @@ fn baseline_aligns_first_baselines_across_cells() {
     let mut ys = Vec::new();
     texts_y(&pages[0].elements, &mut ys);
     assert_eq!(ys.len(), 2, "two text lines");
-    // Baseline = line-box top + font_size. Align them: a.y + 12 == b.y + 24.
+    // Baseline = line-box top + half-leading + font_size; at the default
+    // 1.4 line-height that is font_size * 1.2 below the box top.
+    // Align them: a.y + 12*1.2 == b.y + 24*1.2.
     let (a_y, b_y) = (ys[0], ys[1]);
     assert!(
-        ((a_y + 12.0) - (b_y + 24.0)).abs() < 0.001,
+        ((a_y + 12.0 * 1.2) - (b_y + 24.0 * 1.2)).abs() < 0.001,
         "first baselines must coincide: a {} b {}",
         a_y,
         b_y
     );
     // Concretely, the small-font line is shoved down by exactly 24 - 12 = 12pt.
+    // Shove = baseline delta = (24 - 12) * 1.2 at the default line-height.
     assert!(
-        (a_y - (b_y + 12.0)).abs() < 0.001,
-        "shove = 12pt: {a_y} vs {b_y}"
+        (a_y - (b_y + 12.0 * 1.2)).abs() < 0.001,
+        "shove = 14.4pt: {a_y} vs {b_y}"
     );
 }
 
@@ -12070,11 +12073,12 @@ fn baseline_shove_grows_the_row_and_does_not_clip() {
     };
     let baseline_h = row_h(VerticalAlign::Baseline);
     let top_h = row_h(VerticalAlign::Top);
-    // The row grew by exactly the shove (40 - 12 = 28pt) — cell A dominates
-    // both rows, so the delta is purely the baseline offset.
+    // The row grew by exactly the shove — (40 - 12) * 1.2 = 33.6pt with
+    // half-leading at the default line-height — cell A dominates both
+    // rows, so the delta is purely the baseline offset.
     assert!(
-        (baseline_h - top_h - 28.0).abs() < 0.01,
-        "baseline row must grow by the 28pt shove: baseline {} vs top {}",
+        (baseline_h - top_h - 33.6).abs() < 0.01,
+        "baseline row must grow by the 33.6pt shove: baseline {} vs top {}",
         baseline_h,
         top_h
     );

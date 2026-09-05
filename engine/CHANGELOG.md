@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed (behavior — fixed-height flex rows may align differently)
+
+- **Single-line flex rows honor the container's definite cross size** (CSS 9.4.8). The flex line was sized at the tallest item, never the container — so `align-items: center`/`flex-end` on a fixed-height `nowrap` row was a silent no-op (a 36pt logo box "centered" its 20pt text inside a 20pt line, i.e. top-aligned). Rows with a fixed height and cross-axis alignment now actually align; `stretch` items in such rows now fill the container, per spec. Found two minutes before a launch post, in the standard logo-mark idiom.
+
+### Changed (behavior — every text baseline moves down by half the leading)
+
+- **Half-leading.** Glyph baselines sat exactly `font_size` below the line-box top; the leading now splits evenly above and below the glyph block, per the CSS line box model (and every browser). Every baseline moves down by `(line_height − font_size)/2` — +2.4pt at the default 1.4 ratio on 12pt text. **Line boxes do not move or resize**: layout geometry, page breaks, page counts, and structural snapshots are unchanged; only the ink inside each line box shifts, closer to where Chrome puts it. This is also what makes the pre-flexbox centering idiom (`line-height` matched to a box height) actually center — the second half of the logo-mark fix above. `vertical-align: baseline` cell alignment tracks the new baseline exactly.
+
 ## [0.19.0] - 2026-09-04
 
 ### Changed (behavior — absolutely-positioned layout may shift)
