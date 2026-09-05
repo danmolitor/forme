@@ -4,6 +4,8 @@
 
 ### Fixed (table sections + absolute positioning)
 
+- **`position: running()` elements no longer render in flow.** Per CSS GCPM the element leaves normal flow entirely (it would only appear where a margin box says `content: element(name)`, which is unsupported) — previously it was warned by name but still rendered in place, producing stray header text at the top of the page. The warning stays and now says the element was removed; `@page` margin boxes are the supported way to get running headers/footers.
+
 - **`<tfoot>` renders at the bottom of the table** regardless of where it sits in the markup — HTML allows (and templates commonly use) tfoot before tbody so streaming renderers see it early; it previously rendered in DOM order.
 - **Only the first `<thead>` is the repeating table header.** A later thead is an ordinary row group in DOM order, per HTML — previously its rows were hoisted to the top of the table (a totals block kept in a second thead printed above the line items).
 - **`display: none` now applies to table rows and sections.** The row-collection path bypassed the check every other element gets, so rows a template hides for JS to reveal (which we don't run) rendered anyway.

@@ -443,6 +443,14 @@ impl Mapper {
         if computed.display == CssDisplay::None {
             return None;
         }
+        // `position: running()` removes the element from normal flow per
+        // CSS GCPM — it would only appear where a margin box says
+        // `content: element(name)`, which we don't support (warned at
+        // parse time). Rendering it in-flow was the bug: stray header
+        // text at the top of the page (template-compat 02's "Page of").
+        if computed.position_running {
+            return None;
+        }
         let computed_break_after = computed.break_after;
 
         // The element becomes an ancestor for everything mapped inside it.

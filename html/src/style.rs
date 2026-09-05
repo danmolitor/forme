@@ -86,6 +86,9 @@ pub struct Computed {
     pub min_height: Option<Dimension>,
     pub position_absolute: bool,
     pub position_relative: bool,
+    /// `position: running()` — the element is out of normal flow; the
+    /// mapper drops it (warned at parse time).
+    pub position_running: bool,
     /// Offsets in points, meaningful with `position_absolute` or
     /// `position_relative`.
     pub offsets: [Option<f64>; 4],
@@ -301,6 +304,7 @@ pub fn resolve(css: &CssStyle, parent_font_size: f64, warnings: &mut Vec<String>
         min_height: dim(css.min_height),
         position_absolute: css.position_absolute == Some(true),
         position_relative: css.position_relative == Some(true),
+        position_running: css.position_running == Some(true),
         offsets: {
             // Offsets are meaningful for both absolute and relative; on a
             // static box they're inert (warned).

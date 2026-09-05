@@ -371,3 +371,32 @@ fn border_style_maps_per_side_and_double_falls_back_to_solid() {
     .expect("double still renders");
     assert!(out.pdf.len() > 100 && &out.pdf[0..5] == b"%PDF-");
 }
+
+#[test]
+fn running_position_removes_the_element_from_flow() {
+    // Per CSS GCPM, `position: running(name)` takes the element OUT of
+    // normal flow; it appears only where a margin box says
+    // `content: element(name)`, and simply doesn't display otherwise.
+    // We support neither half, warned by name — but the element still
+    // rendered in-flow, producing stray header text at the top of the
+    // page (template-compat 02's "Page of"). Suppression IS the
+    // spec-conformant floor here.
+    let (doc, warnings) = html_to_document(
+        "<html><head><style>.h { position: running(header) }</style></head><body>\
+         <div class=\"h\">Page of</div>\
+         <p>real content</p></body></html>",
+        &HtmlOptions::default(),
+    );
+    assert!(
+        warnings.iter().any(|w| w.contains("running()")),
+        "still warned by name: {warnings:?}"
+    );
+    assert!(
+        text_of(&doc.children, "Page of").is_none(),
+        "running element must not render in flow"
+    );
+    assert!(
+        text_of(&doc.children, "real content").is_some(),
+        "siblings unaffected"
+    );
+}
