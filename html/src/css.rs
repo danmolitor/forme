@@ -34,6 +34,17 @@ pub enum CssDisplay {
     Block,
     Flex,
     Grid,
+    /// `display: table` on non-table markup — the pre-flexbox
+    /// equal-height-columns idiom. Mapped to the engine's native table
+    /// machinery.
+    Table,
+    /// `display: table-row` (and, transparently, row groups).
+    TableRow,
+    /// `table-row-group` / `table-header-group` / `table-footer-group` —
+    /// transparent row containers inside a CSS table.
+    TableRowGroup,
+    /// `display: table-cell`.
+    TableCell,
     None,
 }
 
@@ -442,6 +453,14 @@ pub(crate) fn apply_declaration(
                     "block" => Some(CssDisplay::Block),
                     "flex" => Some(CssDisplay::Flex),
                     "grid" => Some(CssDisplay::Grid),
+                    "table" | "inline-table" => Some(CssDisplay::Table),
+                    "table-row" => Some(CssDisplay::TableRow),
+                    "table-row-group" | "table-header-group" | "table-footer-group" => {
+                        Some(CssDisplay::TableRowGroup)
+                    }
+                    "table-cell" => Some(CssDisplay::TableCell),
+                    // Column descriptors generate no box of their own.
+                    "table-column" | "table-column-group" => Some(CssDisplay::None),
                     "none" => Some(CssDisplay::None),
                     other => {
                         warnings.push(format!(

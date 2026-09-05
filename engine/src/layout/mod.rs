@@ -2276,6 +2276,25 @@ impl LayoutEngine {
 
         cursor.continuation_top_offset = prev_continuation_offset;
 
+        // A flex ROW that splits across pages lays its children out
+        // sequentially (each into the space that remains), not as
+        // parallel columns continuing side by side on every page. For
+        // short rows the difference is invisible; for column layouts
+        // taller than a page it is a real divergence from the browser
+        // rendering — say so through the defect channel rather than
+        // degrading silently.
+        if pages.len() > initial_page_count
+            && node.children.len() > 1
+            && matches!(
+                style.flex_direction,
+                FlexDirection::Row | FlexDirection::RowReverse
+            )
+        {
+            self.defect(
+                "render defect: a flex row split across pages lays its children sequentially — columns taller than a page do not continue side by side".to_string(),
+            );
+        }
+
         // Check if this view has any visual styling worth wrapping
         let has_visual = style.background_color.is_some()
             || style.border_width.top > 0.0

@@ -4,6 +4,7 @@
 
 ### Added
 
+- **Render defect: sequential flex-row splits report themselves.** A flex row that splits across pages lays its children out one after another into the remaining space — not as parallel columns continuing side by side on every page. For rows shorter than a page the difference is invisible; when a multi-child row actually splits, the engine now says so through the render-defect channel instead of degrading silently.
 - **`PageConfig.clipContentX`** — clips page content horizontally to the content box (page width minus left/right margins), spanning the full page height. Visual-only: layout, page breaks, and structural output are unchanged; ink outside the content box's x-range never paints. The HTML input path sets it for `body { overflow-x: hidden }` (the off-viewport-parking idiom); JSON callers can set it directly. Off by default — output without the flag is byte-identical.
 
 ### Fixed (behavior — fixed-height flex rows may align differently)

@@ -82,6 +82,7 @@ noted in the warnings).
 | `break-inside: avoid` on `<tr>` — honored: rows are atomic by engine design. A row taller than the page content area is **not** sliced across pages; it is placed whole and overflows (atomicity is the guarantee, not fragmentation). | `break-inside` on `<thead>`/`<tbody>` — pending; use it on the table. Slicing an over-tall row across pages is out of scope. |
 | `width`, `height` (`px`, `pt`, `em`, `rem`, `%`, `in`, `cm`, `mm`) | |
 | **CSS Grid — a documented subset, not all of grid**: `display: grid`, `grid-template-columns/rows` with `px`/`pt`/`em`/`fr`/`auto`/`minmax()`/integer `repeat()` (Tailwind's `repeat(N, minmax(0, 1fr))` included — `minmax(0, Xfr)` normalizes to `Xfr`, since the engine's MinMax never joins fr distribution), `gap`/`row-gap`/`column-gap`, `grid-auto-rows/columns`, and item placement via `grid-column`/`grid-row` (`<int>`, `<int> / <int>`, `span <int>`) | Named lines, `grid-template-areas`, `grid-auto-flow` (incl. `dense`), `auto-fill`/`auto-fit`, percentage tracks, `min-content`/`max-content`/`fit-content`, subgrid, negative line numbers (the engine can't count from the end — warned, never clamped), `minmax(<len>, <fr>)` with a nonzero minimum, cell alignment (`justify-items`/`*-self`/`place-*`) — every one warns by name |
+| **CSS tables on divs** (`display: table` / `table-row` / `table-cell`, row groups transparent) — the pre-flexbox equal-height-columns idiom. Multi-row CSS tables use the native table machinery (anonymous-cell rules, first-row width harvesting); a single-row one is the columns idiom and becomes a breakable flex row. | Parallel fragmentation: a column row taller than a page lays its children **sequentially** across pages, not side by side — reported via the render-defect channel. Orphan `table-cell`/`table-row` (no `display: table` parent) treated as block, warned. |
 | `max-width`, `min-width`, `min-height` on block-level boxes — the centered column (`max-width` + `margin: 0 auto`) works | `max-height` — pending: down-clamping is clipping semantics; flex-item min/max — pending |
 | `font-family` (fallback chains; generics `sans-serif`/`serif`/`monospace` map to Helvetica/Times/Courier), `font-size`, `font-weight`, `font-style`, `line-height` | CSS variables |
 | provided fonts: `options.fonts` / `--font Family=path.ttf` | `@font-face` fetching — remote srcs are never fetched (loud, family-naming warnings); local srcs pending (use `--font`); `@import` never fetched |
@@ -145,11 +146,14 @@ wkhtmltopdf-era table layouts, nested-table email HTML, modern CSS grid
 — none written with this engine in mind. Measured against Chrome print
 output: **14 of 15 render correctly; the one degraded case is legible
 with its cause named in `warnings`; zero render broken.** The remaining
-gap is `display: table`/`table-cell` on divs — the pre-flexbox
-equal-height-columns idiom. (The campaign that got here closed, in
-order: automatic table layout, floats-as-rows, whitespace and fixed
-dimensions, table sections, `rowspan` occupancy, attribute selectors,
-and the page-level `overflow-x` clip + `position: fixed` policy.)
+gap: that template wraps its whole document in one equal-height CSS
+table row, and a column row taller than a page lays its children out
+sequentially rather than continuing side by side (parallel flex
+fragmentation — reported through the render-defect channel). (The
+campaign that got here closed, in order: automatic table layout,
+floats-as-rows, whitespace and fixed dimensions, table sections,
+`rowspan` occupancy, attribute selectors, the page-level `overflow-x`
+clip + `position: fixed` policy, and CSS tables on divs.)
 
 **How this compares.** wkhtmltopdf (archived 2023) and DomPDF never
 shipped margin boxes or reliable break control. Chrome only gained

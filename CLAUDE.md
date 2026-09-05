@@ -408,6 +408,19 @@ Named grid areas like `gridTemplateAreas: '"header header" "sidebar main"'`. Nee
 **`grid-auto-flow: dense`** (Low effort, niche)
 Auto-placement currently uses row-major order and never backtracks. Dense packing would scan for earlier gaps that fit the item. Small change to the placement loop in `grid.rs`.
 
+**Parallel flex-row fragmentation** (High effort, awaiting a requester)
+A flex row that splits across pages lays its children out sequentially —
+each into the space that remains — not as parallel columns continuing
+side by side on every page the way Chrome fragments them. A render
+defect reports every multi-child row split (`layout_breakable_view`).
+Finding attached (template-compat 09, 2026-09-05): the equal-height
+CSS-table idiom (`display: table` + `table-cell` divs) wrapping a whole
+document is the shape that hits this; the corpus's last DEGRADED grade
+is exactly this gap. Would need per-page parallel child cursors in the
+breakable-row path — genuine layout-engine work. Deliberately parked at
+14/1/0 (Dan, 2026-09-05): one narrow-idiom template is not a buyer;
+scope it when a real document with a page-spanning column row shows up.
+
 **Variable font support** (High effort, typography value)
 Would allow a single `.ttf` file to serve multiple weights/widths via `fvar` axis values. Needs: parse `fvar` table in `font/mod.rs`, interpolate glyph outlines (or use `rustybuzz` variation support), and adjust the registration model so a single font file maps to multiple `FontKey` entries. The subsetter would also need to preserve variation tables.
 
