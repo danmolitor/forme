@@ -25,6 +25,7 @@ Three things make this migration gentler than you'd expect:
 ## What to check
 
 - **Headers/footers**: wkhtmltopdf's `--header-html`/`--footer-html` flags become `@page` margin boxes with `counter(page)` / `counter(pages)` — see [HTML Input → Paged media](/html).
+- **The `position: fixed` footer pattern works, with these semantics**: `#footer { position: fixed; bottom: 0 }` sits flush at the bottom of the page it occurs on — fixed anchors like absolute, because a paged renderer's viewport is the page. It does **not** repeat on every page the way wkhtmltopdf repeated it; for a footer on every page, use an `@page` margin box (that's what they're for). A render-time warning names this difference whenever `position: fixed` appears.
 - **Remote assets**: Forme never fetches over the network. Inline images as data URIs or local files; pass stylesheets with `--css`.
 - **Fonts**: system-font dependence becomes explicit — pass TTFs with `--font Family=path.ttf`.
 
