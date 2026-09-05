@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed (behavior — `@media` width now measures the page box)
+
+- **Media-query `width` evaluates against the page box, not the content box.** Media Queries Level 4 defines `width` in paged media as the width of the page box; Chrome's print path agrees (A4 = 794 CSS px, so `(min-width: 768px)` is true on A4 and Bootstrap desktop grids activate). Earlier versions measured the content box (page minus margins) under a "content box is the only honest viewport" rationale — a spec misreading. Only queries whose threshold falls between your content-box and page-box widths (typically the 650–794px band on default A4) change outcome; the 15-template compat corpus renders identically.
+
 ### Fixed
 
 - **Vertical centering in fixed-height boxes works via flex.** `display: flex; align-items: center` (and `flex-end`) on a fixed-height box now actually aligns its content — the flex line was previously sized at the content's own height, making cross-axis alignment a silent no-op (the logo-mark idiom: a 36×36 box with two letters). Engine fix; see `engine/CHANGELOG.md` for the behavior note.
