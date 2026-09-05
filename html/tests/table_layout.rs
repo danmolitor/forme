@@ -215,3 +215,30 @@ fn second_thead_stays_in_dom_order() {
         "a second thead renders in DOM order, not hoisted"
     );
 }
+
+#[test]
+fn shrink_to_fit_container_gives_a_table_its_intrinsic_width() {
+    // Instance 2 of the measure/layout family (the crater templates):
+    // measure_intrinsic_width had no Table arm, so a shrink-to-fit box
+    // holding a table measured as its widest single CELL and crushed
+    // the table to one column's width, wrapping header text per-word
+    // ("Invoi ce Num ber"). Tables measure as the sum of per-column
+    // content; the label must survive on one line.
+    let out = render(
+        "<html><body>\
+         <div style=\"position:absolute; top:0; right:0\">\
+           <table><tr><td>Invoice Number</td><td>INV-000012</td></tr>\
+                  <tr><td>Date</td><td>2026-03-01</td></tr></table>\
+         </div></body></html>",
+    );
+    let lines = text_lines_containing(&out, "Invoice Number");
+    assert!(
+        !lines.is_empty(),
+        "the full label renders as ONE line, not per-word fragments"
+    );
+    let (_, w) = lines[0];
+    assert!(
+        w > 60.0,
+        "label line spans the words, not a crushed column ({w:.1}pt wide)"
+    );
+}
