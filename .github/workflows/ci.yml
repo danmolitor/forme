@@ -27,14 +27,7 @@ jobs:
         # ICC profile and the measure/layout divergence: a check that
         # exists but doesn't run catches nothing. The suite FAILS (not
         # skips) in CI when pdftoppm is missing.
-        #
-        # TEMP (ref bootstrap): regenerate Linux-canonical references.
-        run: FORME_UPDATE_REFERENCES=1 cargo test --features visual-tests
-      - name: Upload regenerated references (TEMP)
-        uses: actions/upload-artifact@v4
-        with:
-          name: visual-references-linux
-          path: engine/tests/references/
+        run: cargo test --features visual-tests
       - name: Check formatting
         working-directory: engine
         run: cargo fmt --check

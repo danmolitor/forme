@@ -125,6 +125,17 @@ fn references_dir(test_name: &str) -> PathBuf {
 
 /// Assert visual match against reference images, or save new references.
 fn assert_visual_match(pdf_bytes: &[u8], test_name: &str, threshold: f64) {
+    // References are LINUX-CANONICAL (rendered by the CI runner's poppler):
+    // CI is the gate, so it compares against its own rasterizer's output at
+    // the tight threshold. Cross-platform poppler anti-aliasing differs by
+    // ~1-3% on text-dense pages (measured macOS-vs-Linux, 2026-09-05), so
+    // local runs on other platforms can widen the tolerance without
+    // touching the gate: FORME_VISUAL_TOLERANCE=5 makes local thresholds
+    // 5x. CI must never set it.
+    let threshold = match std::env::var("FORME_VISUAL_TOLERANCE") {
+        Ok(v) if std::env::var("CI").is_err() => threshold * v.parse::<f64>().unwrap_or(1.0),
+        _ => threshold,
+    };
     if !pdftoppm_available() {
         // Locally: skip with a note (dev machines needn't carry poppler).
         // In CI: FAIL. A gate that silently passes when its tool is
