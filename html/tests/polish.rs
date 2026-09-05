@@ -400,3 +400,45 @@ fn running_position_removes_the_element_from_flow() {
         "siblings unaffected"
     );
 }
+
+#[test]
+fn media_width_evaluates_against_the_page_box() {
+    // MQ Level 4: for paged media, the width feature is the width of the
+    // PAGE BOX — the full page, not the content area. A4 is 595.28pt =
+    // 794 CSS px, so (min-width: 768px) is TRUE on A4 (Chrome print
+    // agrees; Bootstrap desktop grids activate). We evaluated against
+    // the content box (487pt = 650px) under a "the page content box is
+    // the only honest viewport" doctrine that was a spec misreading.
+    let (doc, _) = html_to_document(
+        "<html><head><style>\
+         p { color: rgb(0, 0, 0) }\
+         @media (min-width: 768px) { p { color: rgb(255, 0, 0) } }\
+         @media (min-width: 900px) { p { color: rgb(0, 255, 0) } }\
+         </style></head><body><p>gated</p></body></html>",
+        &HtmlOptions::default(),
+    );
+    let text = first_text_color(&doc.children).expect("styled text");
+    // 768px = 576pt <= 595.28 page width -> red applies.
+    // 900px = 675pt > 595.28 -> green does not.
+    assert!(
+        text.r > 0.9 && text.g < 0.1,
+        "min-width:768px must pass on A4 (page box 794px): got rgb({},{},{})",
+        text.r,
+        text.g,
+        text.b
+    );
+}
+
+fn first_text_color(nodes: &[Node]) -> Option<forme::style::Color> {
+    for n in nodes {
+        if let NodeKind::Text { .. } = &n.kind {
+            if let Some(c) = n.style.color {
+                return Some(c);
+            }
+        }
+        if let Some(c) = first_text_color(&n.children) {
+            return Some(c);
+        }
+    }
+    None
+}

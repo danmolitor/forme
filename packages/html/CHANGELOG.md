@@ -6,6 +6,10 @@
 
 - **Attribute selectors.** All seven operators — `[attr]`, `[attr=v]`, `[attr~=v]`, `[attr|=v]`, `[attr^=v]`, `[attr$=v]`, `[attr*=v]` — plus the `i` case-insensitivity flag, with class-level specificity per spec. `[class*="span"] { float: left }` is all of Bootstrap 2's grid, so BS2 templates get their columns back (the compat corpus's template 10 flips from one column to its real two-column layout; every other corpus template renders byte-identically). Previously these selectors were skipped with a warning; malformed or namespaced (`[ns|attr]`) ones still are.
 
+### Changed (behavior — `@media` width now measures the page box)
+
+- **Media-query `width` evaluates against the page box, not the content box.** Media Queries Level 4 defines `width` in paged media as the width of the page box; Chrome's print path agrees (A4 = 794 CSS px, so `(min-width: 768px)` is true on A4 and Bootstrap desktop grids activate). Earlier versions measured the content box (page minus margins) under a "content box is the only honest viewport" rationale — a spec misreading. Only queries whose threshold falls between your content-box and page-box widths (typically the 650–794px band on default A4) change outcome; the 15-template compat corpus renders identically.
+
 ### Fixed
 
 - **Vertical centering in fixed-height boxes works via flex.** `display: flex; align-items: center` (and `flex-end`) on a fixed-height box now actually aligns its content — the flex line was previously sized at the content's own height, making cross-axis alignment a silent no-op (the logo-mark idiom: a 36×36 box with two letters). Engine fix; see `engine/CHANGELOG.md` for the behavior note.
