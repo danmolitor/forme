@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.20.0] - 2026-09-05
+
+### Changed
+
+- Bundles the 0.20.0 engine + HTML WASMs (corpus-campaign fixes, half-leading baselines)
+
 ## [0.15.0] - Unreleased
 
 ### Added
