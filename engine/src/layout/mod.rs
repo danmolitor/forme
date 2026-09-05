@@ -3704,6 +3704,29 @@ impl LayoutEngine {
         node.children.iter().any(Self::subtree_forces_break)
     }
 
+    /// Occupancy-aware column count: the widest row's last assigned column
+    /// plus its span — includes columns carried by rowspans, so the DEFS
+    /// path and the automatic path agree with layout's assignments (the
+    /// defs path counting with a plain colspan sum starved template-compat
+    /// 05's value column to zero width).
+    fn occupancy_column_count(children: &[Node]) -> usize {
+        let offsets = Self::table_column_offsets(children);
+        children
+            .iter()
+            .zip(&offsets)
+            .map(|(row, offs)| {
+                row.children
+                    .iter()
+                    .zip(offs)
+                    .map(|(cell, &start)| start + Self::cell_col_span(cell))
+                    .max()
+                    .unwrap_or(0)
+            })
+            .max()
+            .unwrap_or(1)
+            .max(1)
+    }
+
     /// Per-row, per-cell starting column for a table's rows, honoring BOTH
     /// colspan advancement and ROWSPAN OCCUPANCY: a cell with rowspan=N
     /// keeps its columns occupied for the following N-1 rows, so those
@@ -6727,23 +6750,7 @@ impl LayoutEngine {
         font_context: &FontContext,
     ) -> Vec<f64> {
         if defs.is_empty() {
-            // Widest row = its last cell's assigned column + span, which
-            // includes columns carried over by rowspans from earlier rows.
-            let offsets = Self::table_column_offsets(children);
-            let num_cols = children
-                .iter()
-                .zip(&offsets)
-                .map(|(row, offs)| {
-                    row.children
-                        .iter()
-                        .zip(offs)
-                        .map(|(cell, &start)| start + Self::cell_col_span(cell))
-                        .max()
-                        .unwrap_or(0)
-                })
-                .max()
-                .unwrap_or(1)
-                .max(1);
+            let num_cols = Self::occupancy_column_count(children);
 
             let (col_min, col_max) = self.measure_column_content(
                 children,
@@ -6794,12 +6801,7 @@ impl LayoutEngine {
         // InvoicePlane date block, template-compat/REPORT.md). Cells
         // beyond the defs used to get NO width at all — extend with Auto
         // columns to the true column count instead.
-        let num_cols = children
-            .iter()
-            .map(|row| row.children.iter().map(Self::cell_col_span).sum::<usize>())
-            .max()
-            .unwrap_or(defs.len())
-            .max(defs.len());
+        let num_cols = Self::occupancy_column_count(children).max(defs.len());
         let mut defs_vec: Vec<ColumnDef> = defs.to_vec();
         while defs_vec.len() < num_cols {
             defs_vec.push(ColumnDef {

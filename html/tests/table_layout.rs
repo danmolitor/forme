@@ -300,3 +300,36 @@ fn rowspan_occupancy_composes_with_colspan() {
         d[0].0
     );
 }
+
+#[test]
+fn rowspan_spacer_with_width_defs_extends_columns_to_occupancy_count() {
+    // The InvoicePlane date block (template-compat 05): row 1 is a lone
+    // rowspan=4 spacer with width:40% — harvested as the table's only
+    // column def. Rows 2-4 have label+value cells that occupancy assigns
+    // to columns 2-3, but the DEFS path counted columns with the old
+    // colspan sum (2), so column 3 had no width entry and collapsed to
+    // zero — "03/01/2026" stacked one character per line, and the date
+    // block grew ~10x taller (a corpus regression the page-count sweep
+    // caught before merge).
+    let out = render(
+        "<html><head><style>body{margin:0} table{width:100%} td{padding:0}</style></head><body>\
+         <table>\
+           <tr><td rowspan=\"4\" style=\"width:40%\"></td></tr>\
+           <tr><td>Invoice Date:</td><td>03/01/2026</td></tr>\
+           <tr><td>Due Date:</td><td>03/31/2026</td></tr>\
+           <tr><td>Amount Due:</td><td>$1,821.38</td></tr>\
+         </table></body></html>",
+    );
+    let date = text_lines_containing(&out, "03/01/2026");
+    assert_eq!(
+        date.len(),
+        1,
+        "the date renders as ONE line, not a zero-width per-char stack"
+    );
+    let (x, w) = date[0];
+    assert!(w > 40.0, "value column has real width ({w:.1}pt)");
+    assert!(
+        x > 54.0 + 487.28 * 0.4,
+        "value sits right of the 40% spacer column (x={x:.1})"
+    );
+}
