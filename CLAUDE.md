@@ -606,5 +606,3 @@ Engine (Rust):
 - Err on the side of explicitness (no implicit conversions, no magic)
 - `f64` everywhere for coordinates (sufficient precision, matches PDF spec)
 - Prefix unused variables with `_` to suppress warnings
-
-<!-- vibejournal:start -->
