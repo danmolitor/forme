@@ -2,12 +2,12 @@
 //!
 //! The launch-demo logo mark: a 36x36 box with "ND". Chrome centers it
 //! by flex align-items or by line-height half-leading; we top-aligned
-//! under every mechanism. Root causes: (1) layout_flex_row sized the
-//! flex line at max(item heights), never the container's definite cross
-//! size (CSS 9.4.8) — fixed; (2) glyph baselines sit exactly font_size
-//! below the line-box top with no half-leading — STRUCTURAL, deferred,
-//! and it must warn (silent top-alignment when centering was asked for
-//! is the render-defect class).
+//! under every mechanism. Both root causes are fixed: (1)
+//! layout_flex_row sized the flex line at max(item heights), never the
+//! container's definite cross size (CSS 9.4.8); (2) glyph baselines had
+//! no half-leading — now applied engine-wide (see the engine's
+//! half_leading tests for exact baseline pins; line BOXES deliberately
+//! don't move, so this level asserts geometry + warning retirement).
 
 use forme::layout::ElementInfo;
 use forme_pdf_html::{render_html_with_layout, HtmlLayoutOutput, HtmlOptions};
@@ -88,21 +88,25 @@ fn flex_align_flex_end_bottoms_out() {
 }
 
 #[test]
-fn line_height_centering_warns_as_a_render_defect() {
-    // Variant 2. Half-leading is not applied (structural, deferred) —
-    // but a 36pt line-height on 14pt text is the pre-flexbox centering
-    // idiom, and silently top-aligning it is the exact class the
-    // render-defect channel exists for. This warning must not go silent
-    // until half-leading ships.
+fn line_height_centering_works_and_does_not_warn() {
+    // Variant 2, the pre-flexbox idiom: half-leading is applied now, so
+    // line-height matched to the box height genuinely centers — the
+    // exact glyph-baseline pin lives in the engine's half_leading tests
+    // (this level sees line BOXES, which deliberately don't move). The
+    // interim render-defect warning is retired with the fix; it must
+    // not linger and cry wolf.
     let out = render(&format!(
         "<html><head><style>body{{margin:0}} .mark {{ {MARK} text-align: center; line-height: 36pt; }}</style></head>\
          <body><div class=\"mark\">ND</div></body></html>"
     ));
     assert!(
+        !out.warnings.iter().any(|w| w.contains("line box")),
+        "the interim warning must be gone: {:?}",
         out.warnings
-            .iter()
-            .any(|w| w.contains("render defect:") && w.contains("line box")),
-        "line-height centering must warn: {:?}",
-        out.warnings
+    );
+    let (_, h) = line_y(&out, "ND");
+    assert!(
+        (h - 36.0).abs() < 0.5,
+        "line box carries the 36pt line-height: {h}"
     );
 }
