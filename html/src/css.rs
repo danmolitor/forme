@@ -125,6 +125,10 @@ pub struct CssStyle {
     pub min_height: Option<Length>,
     pub position_absolute: Option<bool>,
     pub position_relative: Option<bool>,
+    /// `position: running(<ident>)` — out of subset, but per CSS GCPM the
+    /// element leaves normal flow, so the mapper must SUPPRESS it (the
+    /// in-flow render was the bug, not the missing feature).
+    pub position_running: Option<bool>,
     pub top: Option<Length>,
     pub right: Option<Length>,
     pub bottom: Option<Length>,
@@ -219,6 +223,7 @@ impl CssStyle {
             min_height,
             position_absolute,
             position_relative,
+            position_running,
             top,
             right,
             bottom,
@@ -558,9 +563,10 @@ pub(crate) fn apply_declaration(
             if let Ok(cssparser::Token::Function(f)) = &tok {
                 if f.eq_ignore_ascii_case("running") {
                     warnings.push(
-                        "position: running() (running elements) is not supported — use @page margin boxes for running headers/footers"
+                        "position: running() (running elements) is not supported — the element is removed from flow per spec; use @page margin boxes for running headers/footers"
                             .to_string(),
                     );
+                    style.position_running = Some(true);
                 } else {
                     warnings.push(format!("unsupported position value '{f}('"));
                 }
