@@ -386,10 +386,14 @@ jobs:
           wasm-pack build --target nodejs --out-dir ../packages/html/pkg-node -- --features wasm
           wasm-pack build --target web    --out-dir ../packages/html/pkg-web  -- --features wasm
           rm -f ../packages/html/pkg-node/.gitignore ../packages/html/pkg-web/.gitignore
-      - name: Install browser + edge runtimes for the baseline
-        # Full puppeteer (bundled Chromium) + miniflare (real workerd). The emitter
-        # prefers puppeteer, falling back to puppeteer-core + system Chrome locally.
-        run: npm i --no-save puppeteer miniflare
+      - name: Install browser runtime for the baseline
+        # Full puppeteer (bundled Chromium). The emitter prefers puppeteer,
+        # falling back to puppeteer-core + system Chrome locally. miniflare is
+        # NOT installed here: unpinned `npm i miniflare` pulled a 5.x alpha
+        # whose constructor change silently broke the workerd column — the
+        # repo's exact-pinned devDependency (miniflare 4) from `npm ci` is the
+        # one the harness must use.
+        run: npm i --no-save puppeteer
       - name: Run benchmark emitter
         # Merges the committed dev baseline with a freshly-measured ci run. A slow
         # or too-large document on this shared runner is recorded as a timeout/OOM
