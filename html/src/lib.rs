@@ -116,6 +116,10 @@ pub struct HtmlLayoutOutput {
     pub pdf: Vec<u8>,
     pub layout: LayoutInfo,
     pub warnings: Vec<String>,
+    /// Number of layout passes the render took — same meaning as
+    /// [`HtmlOutput::passes`]. The layout path dropped this until 0.20.1,
+    /// while the published TypeScript type promised it on every target.
+    pub passes: u32,
 }
 
 fn page_config(
@@ -917,13 +921,14 @@ pub fn render_html_with_layout(
     options: &HtmlOptions,
 ) -> Result<HtmlLayoutOutput, FormeError> {
     let (doc, mut warnings) = html_to_document(html, options);
-    let (pdf, layout, engine_warnings) = forme::render_with_layout(&doc)?;
+    let (pdf, layout, engine_warnings, passes) = forme::render_with_layout_and_passes(&doc)?;
     warnings.extend(engine_warnings);
     let warnings = dedup_warnings(warnings);
     Ok(HtmlLayoutOutput {
         pdf,
         layout,
         warnings,
+        passes,
     })
 }
 
@@ -977,5 +982,22 @@ mod sentinel_pass_tests {
             "page-numbered doc needing a width correction must re-layout, got {} pass(es)",
             out.passes
         );
+    }
+
+    #[test]
+    fn layout_path_reports_the_same_passes_as_the_plain_path() {
+        // The layout-bearing render dropped `passes` entirely until 0.20.1
+        // (the engine computed it and discarded it), while the published
+        // TypeScript type promised the field on every target. Pin the two
+        // paths to the same count, on both a 1-pass and a multi-pass doc.
+        for multi in [false, true] {
+            let plain = render_html(&doc(multi, 3), &HtmlOptions::default()).unwrap();
+            let layout = render_html_with_layout(&doc(multi, 3), &HtmlOptions::default()).unwrap();
+            assert_eq!(
+                layout.passes, plain.passes,
+                "layout path must report the same pass count (multi={multi})"
+            );
+            assert!(layout.passes >= 1);
+        }
     }
 }

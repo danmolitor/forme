@@ -65,17 +65,22 @@ const MIME = {
 const page = `<!doctype html><meta charset="utf8">
 <script id="fx" type="application/json">${JSON.stringify(fixture)}</script>
 <script type="module">
-  import { init, renderHtmlWithLayout } from '/worker.js';
+  import { init, renderHtml, renderHtmlWithLayout } from '/worker.js';
   (async () => {
     try {
       await init('/pkg-web/forme_pdf_html_bg.wasm');
       const html = JSON.parse(document.getElementById('fx').textContent);
-      const { pdf, layout, warnings } = renderHtmlWithLayout(html, {});
+      const plain = renderHtml(html, {});
+      const res = renderHtmlWithLayout(html, {});
+      const { pdf, layout, warnings } = res;
       window.__RESULT__ = {
         magic: new TextDecoder().decode(pdf.slice(0, 5)),
         length: pdf.length,
         pages: layout.pages.length,
         warnings: warnings.length,
+        resultKeys: Object.keys(plain).sort(),
+        layoutKeys: Object.keys(res).sort(),
+        passes: res.passes,
       };
     } catch (e) {
       window.__RESULT__ = { error: String(e && e.stack || e) };
@@ -134,6 +139,14 @@ assert.strictEqual(
   expectedPages,
   `browser page count ${result.pages} != node page count ${expectedPages}`,
 );
+// Declared-type ↔ runtime shape, in the real browser runtime. The key sets
+// mirror tests/shape.ts, which compile-checks them against index.d.ts.
+assert.deepStrictEqual(result.resultKeys, ['passes', 'pdf', 'warnings'],
+  `browser renderHtml shape: ${result.resultKeys}`);
+assert.deepStrictEqual(result.layoutKeys, ['layout', 'passes', 'pdf', 'warnings'],
+  `browser renderHtmlWithLayout shape: ${result.layoutKeys}`);
+assert.ok(Number.isInteger(result.passes) && result.passes >= 1,
+  `browser passes must be a count, got ${result.passes}`);
 console.log(
   `ok — headless Chromium rendered letterhead via the web build: ` +
     `${result.length}-byte %PDF, ${result.pages} page(s) (matches Node), ${result.warnings} warning(s)`,

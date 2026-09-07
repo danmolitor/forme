@@ -14,6 +14,7 @@ import {
   render_html_wasm_with_layout,
 } from './pkg-node/forme_pdf_html.js';
 import { toWireOptions } from './wire.js';
+import { toRenderResult, toLayoutResult } from './result.js';
 
 /**
  * No-op on Node: the nodejs target self-initializes. Present so the three
@@ -27,17 +28,12 @@ export async function init() {}
  *
  * @param {string} html
  * @param {import('./index').RenderHtmlOptions} [options]
- * @returns {{pdf: Uint8Array, warnings: string[]}}
+ * @returns {import('./index').RenderHtmlResult}
  *   `warnings` lists everything the input asked for that the documented
  *   subset doesn't cover — nothing is silently dropped.
  */
 export function renderHtml(html, options = {}) {
-  const result = render_html_wasm(html, JSON.stringify(toWireOptions(options)));
-  try {
-    return { pdf: result.pdf, warnings: result.warnings, passes: result.passes };
-  } finally {
-    result.free();
-  }
+  return toRenderResult(render_html_wasm(html, JSON.stringify(toWireOptions(options))));
 }
 
 /**
@@ -49,19 +45,8 @@ export function renderHtml(html, options = {}) {
  *
  * @param {string} html
  * @param {import('./index').RenderHtmlOptions} [options]
- * @returns {{pdf: Uint8Array, layout: import('./index').LayoutInfo, warnings: string[]}}
+ * @returns {import('./index').RenderHtmlLayoutResult}
  */
 export function renderHtmlWithLayout(html, options = {}) {
-  const result = render_html_wasm_with_layout(html, JSON.stringify(toWireOptions(options)));
-  try {
-    return {
-      pdf: result.pdf,
-      // Returned as a JSON string from WASM (the crate's wasm feature omits
-      // serde-wasm-bindgen on purpose); parse it back to the native object.
-      layout: JSON.parse(result.layout_json),
-      warnings: result.warnings,
-    };
-  } finally {
-    result.free();
-  }
+  return toLayoutResult(render_html_wasm_with_layout(html, JSON.stringify(toWireOptions(options))));
 }
