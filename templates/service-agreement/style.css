@@ -27,6 +27,8 @@
     font-size: 5.625pt;
     letter-spacing: 0.2em;
     text-transform: uppercase;
+    border-bottom: 0.75pt solid #111111;
+    padding-bottom: 6pt;
   }
   @top-center {
     content: "Northmoor and Kestrel Medical Center";
@@ -35,6 +37,8 @@
     font-size: 5.625pt;
     letter-spacing: 0.15em;
     text-transform: uppercase;
+    border-bottom: 0.75pt solid #111111;
+    padding-bottom: 6pt;
   }
   @top-right {
     content: "SVC-2026-0219";
@@ -43,6 +47,8 @@
     font-size: 5.625pt;
     letter-spacing: 0.15em;
     text-transform: uppercase;
+    border-bottom: 0.75pt solid #111111;
+    padding-bottom: 6pt;
   }
 }
 @page :first {

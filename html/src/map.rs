@@ -1823,7 +1823,7 @@ pub(crate) fn build_margin_band(
             1 => forme::style::TextAlign::Center,
             _ => forme::style::TextAlign::Right,
         };
-        let cell_style = Style {
+        let mut cell_style = Style {
             width: Some(Dimension::Percent(100.0 / 3.0)),
             text_align: Some(align),
             ..Default::default()
@@ -1831,6 +1831,16 @@ pub(crate) fn build_margin_band(
         let content_node = boxes.iter().find(|b| b.position == want).map(|b| {
             let computed = resolve(&b.style.normal, ROOT_FONT_SIZE, warnings);
             let mut text_style = to_engine_style(&computed);
+            // Borders, backgrounds and padding paint on containers, not
+            // text nodes — hoist them to the cell view (per CSS each
+            // margin box owns its own border; a full-width rule under a
+            // running header is the same border declared on all three
+            // top boxes).
+            cell_style.border_width = text_style.border_width.take();
+            cell_style.border_color = text_style.border_color.take();
+            cell_style.border_style = text_style.border_style.take();
+            cell_style.background_color = text_style.background_color.take();
+            cell_style.padding = text_style.padding.take();
             // Slot position dictates alignment unless the box set its own.
             if text_style.text_align.is_none() {
                 text_style.text_align = Some(align);

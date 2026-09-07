@@ -1458,8 +1458,46 @@ impl LayoutEngine {
             }
         }
 
-        if !cursor.elements.is_empty() || cursor.y > 0.0 {
+        // Same rule as the PageName switch: a page is real when something
+        // RENDERED on it. Bare y-advance (a parent's closing padding after
+        // a named-page restore, a trailing spacer) is whitespace and must
+        // not emit a blank final page. An empty document stays empty —
+        // zero pages is the documented contract (test_empty_document).
+        if !cursor.elements.is_empty() {
             pages.push(cursor.finalize());
+        }
+
+        // Trailing pages with no visible ink are artifacts, not content —
+        // a named-page restore that nothing follows leaves a page holding
+        // only an invisible per-fragment structure container (DrawCommand
+        // ::None, no text, no children with either). Drop them BEFORE
+        // fixed-element injection so no running furniture makes a blank
+        // page look deliberate. At least one page always remains.
+        fn has_visible_ink(els: &[LayoutElement]) -> bool {
+            els.iter().any(|e| {
+                let paints = match &e.draw {
+                    DrawCommand::None => false,
+                    // A fragment wrapper clones the view's Rect onto every
+                    // page it spans — with no fill and zero-width borders
+                    // it marks nothing.
+                    DrawCommand::Rect {
+                        background,
+                        border_width,
+                        ..
+                    } => {
+                        background.is_some()
+                            || border_width.top > 0.0
+                            || border_width.right > 0.0
+                            || border_width.bottom > 0.0
+                            || border_width.left > 0.0
+                    }
+                    _ => true,
+                };
+                paints || has_visible_ink(&e.children)
+            })
+        }
+        while pages.len() > 1 && !has_visible_ink(&pages.last().unwrap().elements) {
+            pages.pop();
         }
 
         self.inject_fixed_elements(&mut pages, font_context);
@@ -1530,16 +1568,13 @@ impl LayoutEngine {
                 // claims page 1 (and why a named rule outranks a bare
                 // `:first`: the marker replaces the first-page cursor).
                 if cursor.page_name.as_deref() != name.as_deref() {
-                    // "Empty" accounts for header bands: a fresh page's y
-                    // already includes applicable fixed-header heights.
-                    let fresh_y: f64 = cursor
-                        .fixed_header
-                        .iter()
-                        .filter(|(n, _)| cursor.fixed_applies(n))
-                        .map(|(_, h)| *h)
-                        .sum::<f64>()
-                        + cursor.continuation_top_offset;
-                    let has_content = !cursor.elements.is_empty() || cursor.y > fresh_y + 0.01;
+                    // "Content" means RENDERED elements. A y-advance with
+                    // nothing painted (a body margin, an empty spacer) is
+                    // whitespace, and a named run must still claim the
+                    // page — counting bare y produced a blank leading
+                    // page whenever the document opened with a named
+                    // block under a UA body margin.
+                    let has_content = !cursor.elements.is_empty();
                     if has_content {
                         pages.push(cursor.finalize());
                     }
@@ -4056,6 +4091,26 @@ impl LayoutEngine {
         // semantic role; everything else passes None.
         node_type_override: Option<&str>,
     ) {
+        // Text nodes paint glyphs and decorations only — borders and
+        // backgrounds render exclusively on container views. A style that
+        // asks for one here is silently unpaintable, which is exactly the
+        // defect channel's question (found live: @page margin-box styles
+        // landing on the band's text node dropped the running header's
+        // rule without a word).
+        if style.border_width.top > 0.0
+            || style.border_width.right > 0.0
+            || style.border_width.bottom > 0.0
+            || style.border_width.left > 0.0
+        {
+            self.defect(
+                "render defect: a border on a text node is not painted (wrap the text in a container element)".to_string(),
+            );
+        }
+        if style.background_color.is_some() {
+            self.defect(
+                "render defect: a background on a text node is not painted (wrap the text in a container element)".to_string(),
+            );
+        }
         let margin = &style.margin.to_edges();
         let text_x = x + margin.left;
         // Honor an explicit/resolved fixed width for the text box; only fall back

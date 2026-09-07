@@ -493,7 +493,10 @@ pub(crate) fn apply_declaration(
                 style.flex_grow = Some(n as f64);
                 style.flex_shrink = Some(1.0);
             } else {
-                warnings.push("unsupported flex shorthand value (use flex-grow / flex-basis longhands)".to_string());
+                warnings.push(
+                    "unsupported flex shorthand value (use flex-grow / flex-basis longhands)"
+                        .to_string(),
+                );
             }
         }
         "flex-direction" => {

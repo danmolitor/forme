@@ -54,6 +54,8 @@
     font-size: 5.625pt;
     letter-spacing: 0.2em;
     text-transform: uppercase;
+    border-bottom: 0.75pt solid #111111;
+    padding-bottom: 6pt;
   }
   @top-center {
     content: "Kestrel Medical Center — Contract 2026-CS-04";
@@ -62,6 +64,8 @@
     font-size: 5.625pt;
     letter-spacing: 0.15em;
     text-transform: uppercase;
+    border-bottom: 0.75pt solid #111111;
+    padding-bottom: 6pt;
   }
   @top-right {
     content: "Detail, sections A–E";
@@ -70,6 +74,8 @@
     font-size: 5.625pt;
     letter-spacing: 0.15em;
     text-transform: uppercase;
+    border-bottom: 0.75pt solid #111111;
+    padding-bottom: 6pt;
   }
 }
 @page :first {
@@ -77,4 +83,32 @@
   @top-center { content: none }
   @top-right { content: none }
 }
-.p3 { break-before: page }
+.p2 { page: detail-ac }
+.p3 { break-before: page; page: detail-de }
+
+/* Per-page section labels (the design's page-2/page-3 running headers).
+ * Named pages carry the base geometry; only the @top-right band differs. */
+@page detail-ac {
+  @top-right {
+    content: "Detail, sections A–C";
+    color: #5F5A53;
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    border-bottom: 0.75pt solid #111111;
+    padding-bottom: 6pt;
+  }
+}
+@page detail-de {
+  @top-right {
+    content: "Detail, sections D–E and tax";
+    color: #5F5A53;
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    border-bottom: 0.75pt solid #111111;
+    padding-bottom: 6pt;
+  }
+}
