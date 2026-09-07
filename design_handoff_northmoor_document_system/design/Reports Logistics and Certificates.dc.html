@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics><meta name="design_doc_mode" content="canvas"><style>
+*{box-sizing:border-box}
+body{margin:0;background:#dcd8d1;font-family:Helvetica,Arial,sans-serif;color:#111}
+a{color:var(--ac,#7b2233)}a:hover{color:#111}
+.gal{padding:56px 48px 96px}
+.galhd{margin:0 0 46px;max-width:940px}
+.galhd h1{font:400 31px/1.14 Georgia,'Times New Roman',serif;letter-spacing:-.012em;margin:0 0 14px}
+.galhd p{font:400 11.5px/1.7 Helvetica,Arial,sans-serif;color:#514d47;margin:0 0 8px;max-width:92ch}
+.galhd em{color:var(--ac,#7b2233);font-style:normal;font-weight:700}
+.grp{margin:0 0 16px;font:700 8px/1 Helvetica,Arial,sans-serif;letter-spacing:.2em;text-transform:uppercase;color:var(--ac,#7b2233);border-bottom:1px solid #c6c2ba;padding-bottom:9px}
+.docs{display:flex;flex-wrap:wrap;gap:52px;align-items:flex-start;margin:0 0 68px}
+.doc{display:flex;flex-direction:column;gap:11px;scroll-margin-top:16px}
+.doclbl{display:flex;align-items:baseline;gap:10px;font:400 11px/1.3 Helvetica,Arial,sans-serif;color:#443f39}
+.docid{font:700 9px/1 ui-monospace,Menlo,monospace;letter-spacing:.08em;padding:4px 7px;background:#111;color:#fff;text-decoration:none}
+.doc:target .docid{background:var(--ac,#7b2233)}
+.spread{display:flex;gap:20px;align-items:flex-start}
+.page{width:816px;height:1056px;background:#fdfcfa;box-shadow:0 1px 2px rgba(0,0,0,.16),0 14px 34px rgba(0,0,0,.08);padding:70px 76px 54px;position:relative;font-size:10px;line-height:1.5;overflow:hidden;flex:none;display:flex;flex-direction:column}
+.label{width:384px;height:576px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.16),0 14px 34px rgba(0,0,0,.08);padding:16px;position:relative;font-size:9px;line-height:1.4;overflow:hidden;flex:none;display:flex;flex-direction:column;border:1px solid #111}
+.atop{position:absolute;top:0;left:0;right:0;height:4px;background:var(--ac,#7b2233)}
+.pgnum{position:absolute;left:76px;right:76px;bottom:26px;display:flex;justify-content:space-between;font-size:7.5px;letter-spacing:.14em;color:#8a857e;text-transform:uppercase}
+.mark{width:44px;height:44px;background:var(--ac,#7b2233);color:#fff;font:700 20px/44px Georgia,'Times New Roman',serif;text-align:center;flex:none}
+.wm{font:700 14px/1 Helvetica,Arial,sans-serif;letter-spacing:.26em;text-transform:uppercase}
+.sub{font:700 7px/1.4 Helvetica,Arial,sans-serif;letter-spacing:.17em;text-transform:uppercase;color:var(--ac,#7b2233)}
+.lbl{font:700 7px/1.4 Helvetica,Arial,sans-serif;letter-spacing:.17em;text-transform:uppercase;color:#8a857e}
+ .dtitle{font:400 31px/1 Georgia,'Times New Roman',serif;letter-spacing:-.013em;text-transform:none}
+.hr{height:1px;background:#111}
+.hair{height:1px;background:#e2ded7}
+.hd{display:flex;justify-content:space-between;align-items:flex-start;gap:24px}
+.addr{font-size:9px;line-height:1.7;color:#4a463f}
+.meta{display:grid;gap:20px;margin:22px 0 0;font-size:9.5px;line-height:1.62}
+.meta .lbl{margin-bottom:5px}
+table.t{width:100%;border-collapse:collapse;font-size:9.5px}
+table.t th{font:700 7px/1.3 Helvetica,Arial,sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#111;text-align:left;padding:0 10px 7px 0;border-bottom:1px solid #111;vertical-align:bottom}
+table.t td{padding:6px 10px 6px 0;border-bottom:1px solid #eae6df;vertical-align:top}
+table.t th:last-child,table.t td:last-child{padding-right:0}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.gsub td{border-top:1.5px solid var(--ac,#7b2233);border-bottom:0;font-weight:700;font-size:9.5px;padding-top:10px;color:#111}
+.ghead td{border-bottom:1px solid #cfc9c0;font:700 7.5px/1.4 Helvetica,Arial,sans-serif;letter-spacing:.17em;text-transform:uppercase;padding-top:15px;color:var(--ac,#7b2233);background:transparent}
+.tt{width:340px;margin-left:auto;border-collapse:collapse;font-size:9.5px;margin-top:20px}
+.tt td{padding:6px 0;border-bottom:1px solid #eae6df;color:#4a463f}
+.tt td.num{color:#111}
+.tt tr:last-child td{border-bottom:0;border-top:1px solid #111;font-weight:700;font-size:10.5px;padding-top:9px;color:#111}
+.due{border:0;border-top:2px solid var(--ac,#7b2233);padding:13px 0 0;display:flex;justify-content:space-between;align-items:baseline;width:340px;margin:20px 0 0 auto}
+.stamp{border:1.5px solid var(--ac,#7b2233);color:var(--ac,#7b2233);padding:7px 11px;font:700 7.5px/1 Helvetica,Arial,sans-serif;letter-spacing:.2em;text-transform:uppercase}
+.tab{display:inline-block;background:var(--ac,#7b2233);color:#fff;font:700 7px/1 Helvetica,Arial,sans-serif;letter-spacing:.19em;text-transform:uppercase;padding:7px 10px}
+.flag{color:var(--ac,#7b2233);font-weight:700}
+.foot{margin-top:auto;border-top:1px solid #e2ded7;padding-top:10px;font-size:8.5px;line-height:1.7;color:#5f5a53;display:flex;gap:34px}
+.cont{font:700 7px/1 Helvetica,Arial,sans-serif;letter-spacing:.17em;text-transform:uppercase;color:var(--ac,#7b2233);margin-top:16px}
+.rhd{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid #111;padding-bottom:8px;margin-bottom:28px;font-size:7.5px;letter-spacing:.15em;text-transform:uppercase;color:#5f5a53}
+.rhd b{font:700 7.5px/1 Helvetica,Arial,sans-serif;letter-spacing:.2em;color:var(--ac,#7b2233)}
+.prose{font:400 10.5px/1.7 Georgia,'Times New Roman',serif;color:#1a1a1a}
+.prose p{margin:0 0 11px}
+.sh{font:700 7.5px/1 Helvetica,Arial,sans-serif;letter-spacing:.2em;text-transform:uppercase;margin:21px 0 11px;padding-bottom:7px;border-bottom:1px solid #111}
+.cl{display:flex;gap:14px;margin-bottom:9px;font:400 9.9px/1.68 Georgia,'Times New Roman',serif}
+.cln{flex:none;width:36px;font:700 8.5px/1.78 Helvetica,Arial,sans-serif;letter-spacing:.02em;color:#111}
+.sig{display:flex;gap:52px;margin-top:22px}
+.sigbox{flex:1;font-size:9px;line-height:1.65}
+.sigline{border-top:1px solid #111;padding-top:7px;margin-top:32px;font:700 7px/1.4 Helvetica,Arial,sans-serif;letter-spacing:.17em;text-transform:uppercase;color:#8a857e}
+.kpi{border-top:2px solid var(--ac,#7b2233);padding-top:11px}
+.kpi .v{font:400 34px/1 Georgia,'Times New Roman',serif;letter-spacing:-.02em;font-variant-numeric:tabular-nums;margin:8px 0 6px}
+.kpi .d{font-size:8.5px;color:#5f5a53;line-height:1.55}
+.toc{display:flex;align-items:baseline;gap:9px;font:400 11px/1.4 Georgia,'Times New Roman',serif;padding:10px 0;border-bottom:1px solid #eae6df}
+.toc .dots{flex:1;border-bottom:1px dotted #bdb8b0;transform:translateY(-3px)}
+.toc .num{font:700 9.5px/1 Helvetica,Arial,sans-serif;color:var(--ac,#7b2233);font-variant-numeric:tabular-nums}
+.bar{height:36px;background:repeating-linear-gradient(90deg,#111 0 2px,#fff 2px 4px,#111 4px 7px,#fff 7px 9px,#111 9px 10px,#fff 10px 13px)}
+.box{border:1px solid #111;padding:11px 13px}
+.ck{width:11px;height:11px;border:1px solid #111;display:inline-block}
+</style></helmet>
+<div class="gal" style="--ac: {{ accent }}">
+<div class="galhd">
+<h1>Northmoor document system<br>Reports, logistics &amp; certificates, ten of thirty</h1>
+<p>These are the documents someone reads by choice, so the accent works hardest here: a full oxblood field on the annual report cover, 2px keylines over 34px Georgia figures in the KPI blocks, dot-leader contents with the folio in accent, a section tab in the catalogue, an engraved double frame on the certificate, and a single flagged result on the lab report. Same accent, six different jobs.</p>
+<p>Still no photography, no icons, no gradients, no rounded corners. The shipping label is the one document not on Letter — 4 × 6 in, 384 × 576 px, pure black because it comes off a thermal printer.</p>
+</div>
+
+<div class="grp">Reports, Logistics &amp; Certificates · 21–30</div>
+<div class="docs">
+
+<div class="doc" id="3a"><div class="doclbl"><a class="docid" href="#3a">3a</a>Annual report — cover, contents, financial highlights</div>
+<div class="spread">
+<div class="page" style="padding:0">
+<div style="background:var(--ac,#7b2233);color:#fdfcfa;padding:58px 76px 52px">
+<div style="display:flex;justify-content:space-between;align-items:flex-start">
+<div style="display:flex;gap:17px;align-items:flex-start">
+<div style="width:52px;height:52px;border:1.5px solid rgba(253,252,250,.85);font:700 23px/49px Georgia,'Times New Roman',serif;text-align:center">N</div>
+<div style="padding-top:9px"><div class="wm" style="font-size:15px">Northmoor</div><div style="font:700 7px/1.5 Helvetica,Arial,sans-serif;letter-spacing:.17em;text-transform:uppercase;color:rgba(253,252,250,.74);margin-top:7px">Industrial Group, Inc. · Rochester, New York</div></div>
+</div>
+<div style="font:700 7px/1.7 Helvetica,Arial,sans-serif;letter-spacing:.17em;text-transform:uppercase;color:rgba(253,252,250,.74);text-align:right">Fabrication · Piping<br>Controls · Service</div>
+</div>
+<div style="margin-top:92px;font:400 58px/1.02 Georgia,'Times New Roman',serif;letter-spacing:-.026em">Annual Report<br>and Accounts</div>
+<div style="display:flex;align-items:flex-end;justify-content:space-between;gap:40px;margin-top:28px;border-top:1px solid rgba(253,252,250,.42);padding-top:20px">
+<div style="font:400 88px/.8 Georgia,'Times New Roman',serif;letter-spacing:-.035em">2026</div>
+<div style="font:400 10.5px/1.72 Georgia,'Times New Roman',serif;max-width:36ch;text-align:right;color:rgba(253,252,250,.94)">Revenue of 128.4 million dollars, an operating margin of 8.8 per cent, and sixty-two days at the year end without a recordable injury.</div>
+</div>
+</div>
+<div style="flex:1;padding:42px 76px 0;display:flex;flex-direction:column">
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:28px;font-size:9.5px;line-height:1.65">
+<div><div class="lbl" style="margin-bottom:6px">Financial year ended</div>30 June 2026</div>
+<div><div class="lbl" style="margin-bottom:6px">Incorporated</div>New York, 1978</div>
+<div><div class="lbl" style="margin-bottom:6px">Registered no.</div>NY 214-88-0031</div>
+<div><div class="lbl" style="margin-bottom:6px">Report published</div>07 September 2026</div>
+</div>
+<div class="hair" style="margin-top:26px"></div>
+<div style="margin-top:26px;font:400 12px/1.8 Georgia,'Times New Roman',serif;max-width:62ch">This report covers Northmoor Industrial Group, Inc. and its wholly owned subsidiary Northmoor Service Company. The statutory financial statements, on which the auditor has reported, appear on pages 50 to 75.</div>
+<div style="margin-top:auto;padding-bottom:44px;display:flex;justify-content:space-between;align-items:flex-end">
+<div style="font-size:8.5px;line-height:1.7;color:#5f5a53">418 Ellingham Road, Suite 300, Rochester, New York 14604<br>(585) 274-0180 · northmoorgroup.com</div>
+<div class="lbl">Copy 1 of 400 · not for distribution before 07 Sep</div>
+</div>
+</div>
+</div>
+<div class="page">
+<div class="rhd"><b>Northmoor · Annual report 2026</b><span>Contents</span><span>Financial year ended 30 June 2026</span></div>
+<div style="font:400 24px/1.1 Helvetica,Arial,sans-serif;letter-spacing:.01em">Contents</div>
+<div class="lbl" style="margin:28px 0 4px">Strategic report</div>
+<div class="toc"><span>Chairman's statement</span><span class="dots"></span><span class="num">04</span></div>
+<div class="toc"><span>Chief executive's review of the year</span><span class="dots"></span><span class="num">06</span></div>
+<div class="toc"><span>Our markets and where we compete</span><span class="dots"></span><span class="num">10</span></div>
+<div class="toc"><span>Operating review — fabrication and piping</span><span class="dots"></span><span class="num">14</span></div>
+<div class="toc"><span>Operating review — controls and service</span><span class="dots"></span><span class="num">18</span></div>
+<div class="toc"><span>Safety, people and community</span><span class="dots"></span><span class="num">22</span></div>
+<div class="toc"><span>Principal risks and how we manage them</span><span class="dots"></span><span class="num">26</span></div>
+<div class="lbl" style="margin:26px 0 4px">Governance</div>
+<div class="toc"><span>Board of directors</span><span class="dots"></span><span class="num">32</span></div>
+<div class="toc"><span>Directors' report</span><span class="dots"></span><span class="num">34</span></div>
+<div class="toc"><span>Audit committee report</span><span class="dots"></span><span class="num">38</span></div>
+<div class="toc"><span>Directors' remuneration</span><span class="dots"></span><span class="num">41</span></div>
+<div class="lbl" style="margin:26px 0 4px">Financial statements</div>
+<div class="toc"><span>Independent auditor's report</span><span class="dots"></span><span class="num">46</span></div>
+<div class="toc"><span>Statements of income and comprehensive income</span><span class="dots"></span><span class="num">50</span></div>
+<div class="toc"><span>Balance sheets</span><span class="dots"></span><span class="num">51</span></div>
+<div class="toc"><span>Statements of cash flows</span><span class="dots"></span><span class="num">52</span></div>
+<div class="toc"><span>Notes to the financial statements</span><span class="dots"></span><span class="num">54</span></div>
+<div class="lbl" style="margin:26px 0 4px">Other information</div>
+<div class="toc"><span>Five-year summary</span><span class="dots"></span><span class="num">76</span></div>
+<div class="toc"><span>Shareholder information and advisers</span><span class="dots"></span><span class="num">78</span></div>
+<div class="foot"><div style="flex:1">This report covers Northmoor Industrial Group, Inc. and its wholly owned subsidiary Northmoor Service Company. Figures are in thousands of US dollars unless stated.</div><div>02</div></div>
+<div class="pgnum"><span>Annual report 2026 · Contents</span><span>Page 2</span></div>
+</div>
+<div class="page">
+<div class="rhd"><b>Northmoor · Annual report 2026</b><span>Financial highlights</span><span>Strategic report</span></div>
+<div style="font:400 24px/1.1 Helvetica,Arial,sans-serif;letter-spacing:.01em">Financial highlights</div>
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:26px;margin-top:26px">
+<div class="kpi"><div class="lbl">Revenue</div><div class="v">128.4</div><div class="d">$ million, up 7.1% on 2025 (119.9)</div></div>
+<div class="kpi"><div class="lbl">Operating income</div><div class="v">11.3</div><div class="d">$ million, margin 8.8% (2025: 8.1%)</div></div>
+<div class="kpi"><div class="lbl">Net income</div><div class="v">7.9</div><div class="d">$ million, up 13.6% on 2025 (7.0)</div></div>
+<div class="kpi"><div class="lbl">Order backlog</div><div class="v">41.2</div><div class="d">$ million at 30 June, 4.9 months' cover</div></div>
+</div>
+<div class="sh">Summary income statement</div>
+<table class="t">
+<thead><tr><th>Thousands of US dollars</th><th class="num" style="width:100px">2026</th><th class="num" style="width:100px">2025</th><th class="num" style="width:90px">Change</th></tr></thead>
+<tbody>
+<tr><td>Revenue</td><td class="num">128,412</td><td class="num">119,904</td><td class="num">+7.1%</td></tr>
+<tr><td>Cost of sales</td><td class="num">(96,670)</td><td class="num">(91,032)</td><td class="num">+6.2%</td></tr>
+<tr class="gsub"><td>Gross profit</td><td class="num">31,742</td><td class="num">28,872</td><td class="num">+9.9%</td></tr>
+<tr><td>Selling, general and administrative</td><td class="num">(20,456)</td><td class="num">(19,178)</td><td class="num">+6.7%</td></tr>
+<tr class="gsub"><td>Operating income</td><td class="num">11,286</td><td class="num">9,694</td><td class="num">+16.4%</td></tr>
+<tr><td>Interest expense, net</td><td class="num">(1,204)</td><td class="num">(1,318)</td><td class="num">−8.6%</td></tr>
+<tr><td>Income tax</td><td class="num">(2,164)</td><td class="num">(1,405)</td><td class="num">+54.0%</td></tr>
+<tr class="gsub"><td>Net income</td><td class="num">7,918</td><td class="num">6,971</td><td class="num">+13.6%</td></tr>
+</tbody></table>
+<div style="display:flex;gap:34px;margin-top:26px">
+<div style="flex:1.15">
+<div class="lbl" style="margin-bottom:10px">Revenue by segment</div>
+<table class="t" style="font-size:9px"><tbody>
+<tr><td>Fabrication</td><td class="num">54,208</td><td class="num">42.2%</td></tr>
+<tr><td>Piping and fittings</td><td class="num">33,714</td><td class="num">26.3%</td></tr>
+<tr><td>Controls</td><td class="num">21,896</td><td class="num">17.0%</td></tr>
+<tr><td>Service and maintenance</td><td class="num">18,594</td><td class="num">14.5%</td></tr>
+<tr class="gsub"><td>Total</td><td class="num">128,412</td><td class="num">100.0%</td></tr>
+</tbody></table>
+</div>
+<div style="flex:1.15">
+<div class="lbl" style="margin-bottom:10px">Five-year revenue and margin</div>
+<table class="t" style="font-size:9px"><thead><tr><th>Year</th><th class="num">Revenue</th><th class="num">Op. margin</th></tr></thead><tbody>
+<tr><td>2022</td><td class="num">94,180</td><td class="num">6.4%</td></tr>
+<tr><td>2023</td><td class="num">103,662</td><td class="num">7.0%</td></tr>
+<tr><td>2024</td><td class="num">112,418</td><td class="num">7.6%</td></tr>
+<tr><td>2025</td><td class="num">119,904</td><td class="num">8.1%</td></tr>
+<tr><td>2026</td><td class="num">128,412</td><td class="num">8.8%</td></tr>
+</tbody></table>
+</div>
+<div style="flex:1">
+<div class="lbl" style="margin-bottom:10px">Non-financial measures</div>
+<table class="t" style="font-size:9px"><tbody>
+<tr><td>Employees at year end</td><td class="num">412</td></tr>
+<tr><td>Recordable injury rate</td><td class="num">1.12</td></tr>
+<tr><td>On-time delivery</td><td class="num">94.2%</td></tr>
+<tr><td>Scrap and rework</td><td class="num">1.8%</td></tr>
+<tr><td>Customers billed in year</td><td class="num">318</td></tr>
+</tbody></table>
+</div>
+</div>
+<div class="prose" style="margin-top:22px;max-width:82ch"><p>Revenue growth came principally from the controls segment, where two hospital programmes moved into installation, and from a full year of the Kestrel service agreement. Gross margin improved seventy basis points, three quarters of which is attributable to the changeover work at the finishing line rather than to price.</p></div>
+<div class="foot"><div style="flex:1">The summary above is not the statutory financial statements. Those appear on pages 50 to 75 and are the only figures on which the auditor has reported.</div><div>03</div></div>
+<div class="pgnum"><span>Annual report 2026 · Financial highlights</span><span>Page 3</span></div>
+</div>
+</div></div>
+
+<div class="doc" id="3b"><div class="doclbl"><a class="docid" href="#3b">3b</a>Monthly report — KPI blocks</div>
+<div class="spread"><div class="page">
+<div class="atop"></div>
+<div class="hd">
+<div style="display:flex;gap:14px;align-items:flex-start"><div class="mark">N</div><div><div class="wm">Northmoor</div><div class="sub" style="margin-top:4px">Operations Reporting</div></div></div>
+<div class="addr" style="text-align:right">Distribution: board, department heads<br>Prepared by Finance, 07 Sep 2026<br>Ref. OPS-2026-08</div>
+</div>
+<div class="hr" style="margin-top:20px;height:2px"></div>
+<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:27px;border-bottom:1px solid #111;padding-bottom:12px">
+<div><div class="lbl" style="color:var(--ac,#7b2233);margin-bottom:10px">Operations reporting · month 2 of FY2027</div><div class="dtitle">Monthly operating report</div></div>
+<div style="text-align:right"><div class="lbl" style="margin-bottom:7px">Period</div><div style="font:400 20px/1 Georgia,'Times New Roman',serif;font-variant-numeric:tabular-nums">August 2026</div></div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:24px;margin-top:26px">
+<div class="kpi"><div class="lbl">Revenue, month</div><div class="v">11,204</div><div class="d">$ thousand · plan 10,800 · +3.7% to plan</div></div>
+<div class="kpi"><div class="lbl">Gross margin</div><div class="v">25.1%</div><div class="d">Plan 24.6% · prior month 24.4%</div></div>
+<div class="kpi"><div class="lbl">On-time delivery</div><div class="v">92.6%</div><div class="d">Target 95.0% · 14 late lines of 189</div></div>
+<div class="kpi"><div class="lbl">Recordable injuries</div><div class="v">0</div><div class="d">62 days without a recordable injury</div></div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:24px;margin-top:24px">
+<div class="kpi"><div class="lbl">Order intake</div><div class="v">12,880</div><div class="d">$ thousand · book to bill 1.15</div></div>
+<div class="kpi"><div class="lbl">Backlog</div><div class="v">42.8</div><div class="d">$ million · 4.9 months' cover</div></div>
+<div class="kpi"><div class="lbl">Scrap and rework</div><div class="v">2.1%</div><div class="d">Target 1.6% · driven by the 4471-B housings</div></div>
+<div class="kpi"><div class="lbl">Debtor days</div><div class="v">47</div><div class="d">Target 42 · one account 101 days overdue</div></div>
+</div>
+<div class="sh">Performance against plan</div>
+<table class="t">
+<thead><tr><th>Thousands of US dollars</th><th class="num" style="width:82px">Actual</th><th class="num" style="width:82px">Plan</th><th class="num" style="width:82px">Variance</th><th class="num" style="width:92px">YTD actual</th><th class="num" style="width:92px">YTD plan</th></tr></thead>
+<tbody>
+<tr><td>Fabrication</td><td class="num">4,742</td><td class="num">4,600</td><td class="num">142</td><td class="num">9,318</td><td class="num">9,100</td></tr>
+<tr><td>Piping and fittings</td><td class="num">2,918</td><td class="num">2,850</td><td class="num">68</td><td class="num">5,704</td><td class="num">5,700</td></tr>
+<tr><td>Controls</td><td class="num">1,986</td><td class="num">1,750</td><td class="num">236</td><td class="num">3,842</td><td class="num">3,500</td></tr>
+<tr><td>Service and maintenance</td><td class="num">1,558</td><td class="num">1,600</td><td class="num">(42)</td><td class="num">3,106</td><td class="num">3,200</td></tr>
+<tr class="gsub"><td>Revenue</td><td class="num">11,204</td><td class="num">10,800</td><td class="num">404</td><td class="num">21,970</td><td class="num">21,500</td></tr>
+<tr><td>Gross profit</td><td class="num">2,812</td><td class="num">2,657</td><td class="num">155</td><td class="num">5,438</td><td class="num">5,289</td></tr>
+<tr><td>Operating expenses</td><td class="num">(1,806)</td><td class="num">(1,780)</td><td class="num">(26)</td><td class="num">(3,588)</td><td class="num">(3,560)</td></tr>
+<tr class="gsub"><td>Operating income</td><td class="num">1,006</td><td class="num">877</td><td class="num">129</td><td class="num">1,850</td><td class="num">1,729</td></tr>
+</tbody></table>
+<div style="display:flex;gap:34px;margin-top:26px">
+<div style="flex:1.3"><div class="lbl" style="margin-bottom:8px">Commentary</div><div class="prose" style="font-size:10px"><p>Controls carried the month: the second Kestrel panel shipped a week early and was invoiced in August rather than September. Service was slightly behind plan on visit timing only; the annual charge is unaffected.</p><p>Scrap is the one area off track. Twenty-two of the sixty bearing housings from the new Elkhart source needed rework on the bore; the supplier has accepted the cost and first-article inspection now applies to every machined line.</p></div></div>
+<div style="flex:1"><div class="lbl" style="margin-bottom:8px">Actions carried forward</div>
+<table class="t" style="font-size:9px"><thead><tr><th>Action</th><th style="width:82px">Owner</th><th style="width:74px">Due</th></tr></thead><tbody>
+<tr><td>Close freight dispute, INV-4102</td><td>M. Okonjo</td><td>19 Sep</td></tr>
+<tr><td>Requalify housing bore gauge</td><td>P. Raghunathan</td><td>16 Oct</td></tr>
+<tr><td>Recover two late lines, R-07</td><td>R. Halloran</td><td>02 Oct</td></tr>
+</tbody></table></div>
+</div>
+<div class="foot"><div style="flex:1">Figures are management accounts, unaudited, and exclude intercompany eliminations of 118 in the month.</div><div>OPS-2026-08</div></div>
+<div class="pgnum"><span>Monthly operating report · August 2026</span><span>Page 1 of 1</span></div>
+</div></div></div>
+
+<div class="doc" id="3c"><div class="doclbl"><a class="docid" href="#3c">3c</a>Laboratory report — reference ranges</div>
+<div class="spread"><div class="page">
+<div class="atop"></div>
+<div class="hd">
+<div style="display:flex;gap:14px;align-items:flex-start"><div class="mark">N</div><div><div class="wm">Northmoor</div><div class="sub" style="margin-top:4px">Analytical Laboratory · ISO/IEC 17025</div></div></div>
+<div class="addr" style="text-align:right">2200 Lyell Avenue<br>Rochester, NY 14606<br>Accreditation 4471-01 · lab@northmoorgroup.com</div>
+</div>
+<div class="hr" style="margin-top:20px;height:2px"></div>
+<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:27px;border-bottom:1px solid #111;padding-bottom:12px">
+<div><div class="lbl" style="color:var(--ac,#7b2233);margin-bottom:10px">Analytical laboratory · ISO/IEC 17025 accredited</div><div class="dtitle">Certificate of analysis</div></div>
+<div style="text-align:right"><div class="lbl" style="margin-bottom:7px">Report number</div><div style="font:400 20px/1 Georgia,'Times New Roman',serif;font-variant-numeric:tabular-nums">LAB-2026-11408</div><div class="tab" style="margin-top:9px">Final</div></div>
+</div>
+<div class="meta" style="grid-template-columns:1.2fr 1fr 1fr 1fr">
+<div><div class="lbl">Client</div>Kestrel Medical Center<br>Central Sterile Processing<br>1465 Whitmore Parkway<br>Cleveland, OH 44106</div>
+<div><div class="lbl">Sample</div>Reverse osmosis water, post-polish<br>Point of use, sterilizer 3<div class="lbl" style="margin-top:12px">Sample ID</div>KMC-RO-0904-03</div>
+<div><div class="lbl">Collected</div>04 Sep 2026, 09:40 EDT<br>By D. Whitcomb, in duplicate<div class="lbl" style="margin-top:12px">Received</div>04 Sep 2026, 15:12 EDT</div>
+<div><div class="lbl">Analysis</div>05–06 Sep 2026<div class="lbl" style="margin-top:12px">Reported</div>07 Sep 2026<div class="lbl" style="margin-top:12px">Purchase order</div>KMC-PO-88214</div>
+</div>
+<div class="sh">Results</div>
+<table class="t">
+<thead><tr><th style="width:34px">No.</th><th>Analyte</th><th style="width:74px">Method</th><th class="num" style="width:78px">Result</th><th style="width:56px">Unit</th><th class="num" style="width:104px">Reference range</th><th style="width:66px">Assessment</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>pH at 25 °C</td><td>SM 4500-H+</td><td class="num">6.8</td><td>pH</td><td class="num">6.5 – 8.5</td><td>Within</td></tr>
+<tr><td>2</td><td>Conductivity</td><td>SM 2510 B</td><td class="num">0.9</td><td>µS/cm</td><td class="num">≤ 1.3</td><td>Within</td></tr>
+<tr><td>3</td><td>Total organic carbon</td><td>SM 5310 C</td><td class="num">0.31</td><td>mg/L</td><td class="num">≤ 0.50</td><td>Within</td></tr>
+<tr><td>4</td><td>Total hardness as CaCO₃</td><td>SM 2340 C</td><td class="num">&lt; 1.0</td><td>mg/L</td><td class="num">≤ 1.0</td><td>Within</td></tr>
+<tr><td>5</td><td>Chloride</td><td>EPA 300.0</td><td class="num">0.42</td><td>mg/L</td><td class="num">≤ 1.00</td><td>Within</td></tr>
+<tr><td>6</td><td>Iron, total</td><td>EPA 200.7</td><td class="num">0.014</td><td>mg/L</td><td class="num">≤ 0.050</td><td>Within</td></tr>
+<tr><td>7</td><td>Heterotrophic plate count, 48 h</td><td>SM 9215 B</td><td class="num flag" style="font:400 15px/1 Georgia,'Times New Roman',serif">138</td><td>CFU/mL</td><td class="num">≤ 100</td><td class="flag">Exceeds</td></tr>
+<tr><td>8</td><td>Bacterial endotoxin</td><td>USP &lt;85&gt; LAL</td><td class="num">0.06</td><td>EU/mL</td><td class="num">≤ 0.25</td><td>Within</td></tr>
+</tbody></table>
+<div class="sh">Interpretation and recommendation</div>
+<div class="prose" style="max-width:82ch">
+<p>Seven of eight analytes are within the reference ranges specified for sterilizer feed water at this facility. The heterotrophic plate count of 138 CFU/mL exceeds the action limit of 100; the duplicate returned 129, so the result is reliable rather than a plating artefact. Endotoxin remains well within limit, consistent with biofilm in the distribution loop rather than a breach of the membrane.</p>
+<p>We recommend sanitisation of the loop downstream of the polish cartridge, replacement of the point-of-use filter at sterilizer 3, and resampling at two points after seventy-two hours. Sterilizer 3 need not be withdrawn from service on this result alone; the resample should be treated as urgent.</p>
+</div>
+<div class="sig">
+<div class="sigbox"><div class="lbl">Analyst</div><div class="sigline" style="margin-top:14px">J. Osei-Bonsu · Chemist</div></div>
+<div class="sigbox"><div class="lbl">Approved by</div><div class="sigline" style="margin-top:14px">P. N. Raghunathan · Laboratory Manager</div></div>
+<div class="sigbox" style="flex:.6"><div class="lbl">Date of issue</div><div class="sigline" style="margin-top:14px">07 September 2026</div></div>
+</div>
+<div class="foot"><div style="flex:1">Results relate only to the items tested. This report may not be reproduced except in full without the laboratory's written approval. Measurement uncertainty on request; samples retained thirty days.</div><div>LAB-2026-11408</div></div>
+<div class="pgnum"><span>Certificate of analysis LAB-2026-11408 · Kestrel Medical Center</span><span>Page 1 of 1</span></div>
+</div></div></div>
+
+<div class="doc" id="3d"><div class="doclbl"><a class="docid" href="#3d">3d</a>Inspection checklist</div>
+<div class="spread"><div class="page">
+<div class="atop"></div>
+<div class="hd">
+<div style="display:flex;gap:14px;align-items:flex-start"><div class="mark">N</div><div><div class="wm">Northmoor</div><div class="sub" style="margin-top:4px">Quality Assurance</div></div></div>
+<div class="addr" style="text-align:right">Form QA-16 rev. 5<br>Retain with the job packet<br>2200 Lyell Avenue, Rochester NY</div>
+</div>
+<div class="hr" style="margin-top:20px;height:2px"></div>
+<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:27px;border-bottom:1px solid #111;padding-bottom:12px">
+<div><div class="lbl" style="color:var(--ac,#7b2233);margin-bottom:10px">Quality assurance · form QA-16</div><div class="dtitle">Final inspection checklist</div></div>
+<div style="text-align:right"><div class="lbl" style="margin-bottom:7px">Record number</div><div style="font:400 20px/1 Georgia,'Times New Roman',serif;font-variant-numeric:tabular-nums">QA-2026-2087</div></div>
+</div>
+<div class="meta" style="grid-template-columns:1fr 1fr 1fr 1fr">
+<div><div class="lbl">Job / shop order</div>20918 · Skid frames, units 41–48<div class="lbl" style="margin-top:12px">Drawing</div>4471-A rev. C</div>
+<div><div class="lbl">Customer</div>Brightwater Foods LLC<div class="lbl" style="margin-top:12px">Release</div>R-07, ship window 05–16 Oct</div>
+<div><div class="lbl">Inspector</div>H. Delacroix, stamp 44<div class="lbl" style="margin-top:12px">Date</div>07 September 2026</div>
+<div><div class="lbl">Quantity presented</div>8 of 8<div class="lbl" style="margin-top:12px">Sampling</div>100% dimensional, visual all</div>
+</div>
+<table class="t" style="margin-top:26px">
+<thead><tr><th style="width:34px">No.</th><th>Check</th><th style="width:130px">Requirement</th><th style="width:76px">Result</th><th style="width:30px">Pass</th><th style="width:30px">Fail</th><th style="width:30px">N/A</th></tr></thead>
+<tbody>
+<tr class="ghead"><td colspan="7">Section 1 — Documentation</td></tr>
+<tr><td>1.1</td><td>Current drawing revision in the job packet</td><td>Rev. C, dated 12 Jun 2026</td><td>Verified</td><td><span class="ck"></span></td><td><span class="ck"></span></td><td><span class="ck"></span></td></tr>
+<tr><td>1.2</td><td>Material certificates present for all heats</td><td>Mill certs, 3 heats</td><td>3 of 3</td><td><span class="ck"></span></td><td><span class="ck"></span></td><td><span class="ck"></span></td></tr>
+<tr><td>1.3</td><td>Welder qualifications current</td><td>ASME IX, in date</td><td>4 welders</td><td><span class="ck"></span></td><td><span class="ck"></span></td><td><span class="ck"></span></td></tr>
+<tr class="ghead"><td colspan="7">Section 2 — Dimensional</td></tr>
+<tr><td>2.1</td><td>Overall length</td><td>96.00 in ± 0.06</td><td>95.98 – 96.03</td><td><span class="ck"></span></td><td><span class="ck"></span></td><td><span class="ck"></span></td></tr>
+<tr><td>2.2</td><td>Overall width</td><td>48.00 in ± 0.06</td><td>47.99 – 48.02</td><td><span class="ck"></span></td><td><span class="ck"></span></td><td><span class="ck"></span></td></tr>
+<tr><td>2.3</td><td>Diagonal difference, squareness</td><td>≤ 0.12 in</td><td>0.07 max</td><td><span class="ck"></span></td><td><span class="ck"></span></td><td><span class="ck"></span></td></tr>
+<tr><td>2.4</td><td>Mounting hole pattern, position</td><td>± 0.03 in to datum B</td><td>0.02 max</td><td><span class="ck"></span></td><td><span class="ck"></span></td><td><span class="ck"></span></td></tr>
+<tr class="ghead"><td colspan="7">Section 3 — Welding and finish</td></tr>
+<tr><td>3.1</td><td>Visual weld inspection, all joints</td><td>AWS D1.1 table 6.1</td><td>Accept</td><td><span class="ck"></span></td><td><span class="ck"></span></td><td><span class="ck"></span></td></tr>
+<tr><td>3.2</td><td>Undercut and spatter removed</td><td>None permitted</td><td>Accept</td><td><span class="ck"></span></td><td><span class="ck"></span></td><td><span class="ck"></span></td></tr>
+<tr><td>3.3</td><td>Dry film thickness, primer</td><td>2.0 – 3.5 mil</td><td>2.4 – 3.1</td><td><span class="ck"></span></td><td><span class="ck"></span></td><td><span class="ck"></span></td></tr>
+<tr><td>3.4</td><td>Adhesion, cross-hatch test</td><td>ASTM D3359, 4B min</td><td>4B</td><td><span class="ck"></span></td><td><span class="ck"></span></td><td><span class="ck"></span></td></tr>
+<tr class="ghead"><td colspan="7">Section 4 — Identification and packing</td></tr>
+<tr><td>4.1</td><td>Serial plate fitted and legible</td><td>NM-20918-41 to 48</td><td>8 of 8</td><td><span class="ck"></span></td><td><span class="ck"></span></td><td><span class="ck"></span></td></tr>
+<tr><td>4.2</td><td>Protective wrap and edge guards</td><td>Spec PK-04</td><td>Applied</td><td><span class="ck"></span></td><td><span class="ck"></span></td><td><span class="ck"></span></td></tr>
+</tbody></table>
+<div style="display:flex;gap:26px;margin-top:22px">
+<div style="flex:1.4"><div class="lbl" style="margin-bottom:7px">Observations and non-conformances raised</div><div style="font-size:9.5px;line-height:1.65">Unit 44: minor spatter on the inside face of the near rail, removed and re-inspected at 14:20 — no NCR raised. Unit 47: primer at 3.1 mil on the corner gusset, within tolerance, noted for the powder coat line.</div></div>
+<div style="width:250px" class="box"><div class="lbl" style="margin-bottom:6px">Disposition</div><div style="font-size:10px;line-height:1.8"><span class="ck" style="margin-right:6px"></span>Accept &nbsp;&nbsp;<span class="ck" style="margin-right:6px"></span>Accept with note<br><span class="ck" style="margin-right:6px"></span>Rework &nbsp;&nbsp;<span class="ck" style="margin-right:6px"></span>Reject</div></div>
+</div>
+<div class="sig" style="margin-top:18px">
+<div class="sigbox"><div class="lbl">Inspector</div><div class="sigline" style="margin-top:16px">H. Delacroix · stamp 44</div></div>
+<div class="sigbox"><div class="lbl">Quality manager</div><div class="sigline" style="margin-top:16px">P. N. Raghunathan</div></div>
+<div class="sigbox" style="flex:.6"><div class="lbl">Date of inspection</div><div class="sigline" style="margin-top:16px">07 September 2026</div></div>
+</div>
+<div class="foot" style="padding-top:8px"><div style="flex:1">Retain with the job packet for seven years. A failed check requires an NCR before the job may proceed.</div><div>QA-2026-2087</div></div>
+<div class="pgnum"><span>Final inspection · Job 20918 · QA-2026-2087</span><span>Page 1 of 1</span></div>
+</div></div></div>
+
+<div class="doc" id="3e"><div class="doclbl"><a class="docid" href="#3e">3e</a>Shipping label — 4 × 6 in, thermal</div>
+<div class="spread"><div class="label">
+<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid #111;padding-bottom:9px">
+<div style="display:flex;gap:8px;align-items:flex-start"><div class="mark" style="width:26px;height:26px;font-size:11px;line-height:26px">N</div><div><div class="wm" style="font-size:9px">Northmoor</div><div class="sub" style="font-size:6px;margin-top:2px">2200 Lyell Ave, Rochester NY 14606</div></div></div>
+<div style="text-align:right;font:700 7px/1.3 Helvetica,Arial,sans-serif;letter-spacing:.1em;text-transform:uppercase">Ground<br>Freight prepaid</div>
+</div>
+<div style="display:flex;gap:10px;border-bottom:1px solid #111;padding:9px 0">
+<div style="flex:1"><div class="lbl" style="font-size:6.5px">From</div><div style="font-size:8px;line-height:1.45;margin-top:3px">Northmoor Industrial Group<br>Shipping Dock 2<br>2200 Lyell Avenue<br>Rochester, NY 14606<br>(585) 274-0180</div></div>
+<div style="flex:1"><div class="lbl" style="font-size:6.5px">Carrier</div><div style="font-size:8px;line-height:1.45;margin-top:3px">Erie Valley Freight<br>Pro 7742-118-04<br>Service: LTL, 2 day<br>Ship date 07 Sep 2026</div></div>
+</div>
+<div style="padding:11px 0 9px;border-bottom:2px solid #111">
+<div class="lbl" style="font-size:6.5px">Ship to</div>
+<div style="font:700 16px/1.28 Helvetica,Arial,sans-serif;margin-top:5px">Brightwater Foods LLC<br>Plant 2 — Receiving Dock 4<br>3900 Harvard Road<br>Cleveland, OH 44105</div>
+<div style="font-size:8px;margin-top:6px;color:#444">Attn. Receiving supervisor · (216) 441-2200 · Hours 06:00–14:00</div>
+</div>
+<div style="display:flex;gap:10px;padding:9px 0;border-bottom:1px solid #111;font-size:8px">
+<div style="flex:1"><div class="lbl" style="font-size:6.5px">Pieces</div><div style="font:700 13px/1.2 Helvetica,Arial,sans-serif;margin-top:3px">3 of 3</div></div>
+<div style="flex:1"><div class="lbl" style="font-size:6.5px">Weight</div><div style="font:700 13px/1.2 Helvetica,Arial,sans-serif;margin-top:3px">418 lb</div></div>
+<div style="flex:1.4"><div class="lbl" style="font-size:6.5px">Dimensions</div><div style="font:700 13px/1.2 Helvetica,Arial,sans-serif;margin-top:3px">48×40×36 in</div></div>
+<div style="flex:1.2"><div class="lbl" style="font-size:6.5px">Class</div><div style="font:700 13px/1.2 Helvetica,Arial,sans-serif;margin-top:3px">NMFC 70</div></div>
+</div>
+<div style="display:flex;gap:10px;padding:9px 0;border-bottom:1px solid #111;font-size:8px;line-height:1.5">
+<div style="flex:1"><div class="lbl" style="font-size:6.5px">Purchase order</div>44-7712</div>
+<div style="flex:1"><div class="lbl" style="font-size:6.5px">Packing slip</div>PS-88214</div>
+<div style="flex:1"><div class="lbl" style="font-size:6.5px">Release</div>R-07</div>
+</div>
+<div style="margin-top:auto;padding-top:10px">
+<div class="bar"></div>
+<div style="font:700 11px/1 ui-monospace,Menlo,monospace;letter-spacing:.14em;text-align:center;margin-top:6px">7742 1180 4 0003</div>
+<div style="display:flex;justify-content:space-between;font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:#444;margin-top:8px;border-top:1px solid #111;padding-top:5px"><span>Do not double stack</span><span>Label 3 of 3</span></div>
+</div>
+</div></div></div>
+
+<div class="doc" id="3f"><div class="doclbl"><a class="docid" href="#3f">3f</a>Packing slip</div>
+<div class="spread"><div class="page">
+<div class="atop"></div>
+<div class="hd">
+<div style="display:flex;gap:14px;align-items:flex-start"><div class="mark">N</div><div><div class="wm">Northmoor</div><div class="sub" style="margin-top:4px">Shipping — Dock 2</div></div></div>
+<div class="addr" style="text-align:right">2200 Lyell Avenue<br>Rochester, NY 14606<br>(585) 274-0180 ext. 610</div>
+</div>
+<div class="hr" style="margin-top:20px;height:2px"></div>
+<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:27px;border-bottom:1px solid #111;padding-bottom:12px">
+<div><div class="lbl" style="color:var(--ac,#7b2233);margin-bottom:10px">Shipping · no prices shown</div><div class="dtitle">Packing slip</div></div>
+<div style="text-align:right"><div class="lbl" style="margin-bottom:7px">Slip number</div><div style="font:400 20px/1 Georgia,'Times New Roman',serif;font-variant-numeric:tabular-nums">PS-88214</div></div>
+</div>
+<div class="meta" style="grid-template-columns:1.3fr 1.3fr 1fr 1fr">
+<div><div class="lbl">Sold to</div>Brightwater Foods LLC<br>2140 Carnegie Avenue<br>Cleveland, OH 44115</div>
+<div><div class="lbl">Ship to</div>Brightwater Foods LLC<br>Plant 2 — Receiving Dock 4<br>3900 Harvard Road<br>Cleveland, OH 44105</div>
+<div><div class="lbl">Ship date</div>07 September 2026<div class="lbl" style="margin-top:12px">Purchase order</div>44-7712</div>
+<div><div class="lbl">Carrier / pro</div>Erie Valley Freight<br>7742-118-04<div class="lbl" style="margin-top:12px">Release</div>R-07 · 3 pieces, 418 lb</div>
+</div>
+<table class="t" style="margin-top:28px">
+<thead><tr><th style="width:44px">Line</th><th style="width:104px">Part</th><th>Description</th><th class="num" style="width:70px">Ordered</th><th class="num" style="width:70px">Shipped</th><th class="num" style="width:78px">Back order</th><th style="width:64px">Package</th></tr></thead>
+<tbody>
+<tr><td>01</td><td>4471-A-C</td><td>Skid frame, welded tube, 96 × 48 in, primed<br><span style="color:#767676;font-size:8.5px">Serials NM-20918-41 to 48</span></td><td class="num">8</td><td class="num">8</td><td class="num">0</td><td>Crate 1</td></tr>
+<tr><td>02</td><td>4471-G</td><td>Guard panel, perforated steel, powder coat black</td><td class="num">24</td><td class="num">24</td><td class="num">0</td><td>Crate 2</td></tr>
+<tr><td>03</td><td>4471-B-C</td><td>Mounting bracket, machined</td><td class="num">40</td><td class="num">32</td><td class="num">8</td><td>Crate 3</td></tr>
+<tr><td>04</td><td>HW-0812</td><td>Fastener kit, stainless 316, per frame</td><td class="num">8</td><td class="num">8</td><td class="num">0</td><td>Crate 3</td></tr>
+<tr><td>05</td><td>DOC-QA</td><td>Inspection record QA-2026-2087 and material certificates</td><td class="num">1</td><td class="num">1</td><td class="num">0</td><td>Envelope</td></tr>
+<tr class="gsub"><td></td><td></td><td>Lines shipped complete: 4 of 5</td><td class="num">81</td><td class="num">73</td><td class="num">8</td><td></td></tr>
+</tbody></table>
+<div style="display:flex;gap:30px;margin-top:26px">
+<div style="flex:1.2"><div class="lbl" style="margin-bottom:7px">Back order</div><div style="font-size:9.5px;line-height:1.7">Eight mounting brackets are held pending rework of the bore on the Elkhart-sourced housings. They will ship no later than 18 September 2026 at our cost, on packing slip PS-88291. No further order is required.</div></div>
+<div style="flex:1"><div class="lbl" style="margin-bottom:7px">Package detail</div>
+<table class="t" style="font-size:9px"><thead><tr><th>Piece</th><th>Contents</th><th class="num">Weight</th></tr></thead><tbody>
+<tr><td>Crate 1</td><td>Frames, 8</td><td class="num">246 lb</td></tr>
+<tr><td>Crate 2</td><td>Guard panels, 24</td><td class="num">112 lb</td></tr>
+<tr><td>Crate 3</td><td>Brackets and hardware</td><td class="num">60 lb</td></tr>
+</tbody></table></div>
+</div>
+<div class="foot"><div style="flex:1">Check the count against this slip before signing the carrier's delivery receipt. Shortages or visible damage must be noted on the receipt and reported to us within ten days.</div><div>PS-88214</div></div>
+<div class="pgnum"><span>Packing slip PS-88214 · PO 44-7712 · Release R-07</span><span>Page 1 of 1</span></div>
+</div></div></div>
+
+<div class="doc" id="3g"><div class="doclbl"><a class="docid" href="#3g">3g</a>Delivery note — signature line</div>
+<div class="spread"><div class="page">
+<div class="atop"></div>
+<div class="hd">
+<div style="display:flex;gap:14px;align-items:flex-start"><div class="mark">N</div><div><div class="wm">Northmoor</div><div class="sub" style="margin-top:4px">Delivery Note · Consignee copy</div></div></div>
+<div class="addr" style="text-align:right">2200 Lyell Avenue<br>Rochester, NY 14606<br>Form SH-03 rev. 2</div>
+</div>
+<div class="hr" style="margin-top:20px;height:2px"></div>
+<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:27px;border-bottom:1px solid #111;padding-bottom:12px">
+<div><div class="lbl" style="color:var(--ac,#7b2233);margin-bottom:10px">Shipping · copy 1 of 3, consignee</div><div class="dtitle">Delivery note</div></div>
+<div style="text-align:right"><div class="lbl" style="margin-bottom:7px">Note number</div><div style="font:400 20px/1 Georgia,'Times New Roman',serif;font-variant-numeric:tabular-nums">DN-40118</div></div>
+</div>
+<div class="meta" style="grid-template-columns:1.3fr 1.3fr 1fr 1fr">
+<div><div class="lbl">Consignee</div>Brightwater Foods LLC<br>Plant 2 — Receiving Dock 4<br>3900 Harvard Road<br>Cleveland, OH 44105</div>
+<div><div class="lbl">Consignor</div>Northmoor Industrial Group, Inc.<br>Shipping Dock 2<br>2200 Lyell Avenue<br>Rochester, NY 14606</div>
+<div><div class="lbl">Delivery date</div>09 September 2026<div class="lbl" style="margin-top:12px">Vehicle</div>Erie Valley 118 · NY DOT 44712</div>
+<div><div class="lbl">Driver</div>C. Boudreau<div class="lbl" style="margin-top:12px">Reference</div>PS-88214 · PO 44-7712</div>
+</div>
+<table class="t" style="margin-top:28px">
+<thead><tr><th style="width:44px">Line</th><th>Description</th><th class="num" style="width:80px">Quantity</th><th style="width:64px">Unit</th><th style="width:80px">Package</th><th class="num" style="width:80px">Weight</th></tr></thead>
+<tbody>
+<tr><td>01</td><td>Skid frame, welded tube, 96 × 48 in, primed</td><td class="num">8</td><td>ea</td><td>Crate 1</td><td class="num">246 lb</td></tr>
+<tr><td>02</td><td>Guard panel, perforated steel</td><td class="num">24</td><td>ea</td><td>Crate 2</td><td class="num">112 lb</td></tr>
+<tr><td>03</td><td>Mounting bracket, machined</td><td class="num">32</td><td>ea</td><td>Crate 3</td><td class="num">44 lb</td></tr>
+<tr><td>04</td><td>Fastener kit, stainless 316</td><td class="num">8</td><td>kit</td><td>Crate 3</td><td class="num">16 lb</td></tr>
+<tr class="gsub"><td></td><td>Total, three pieces</td><td class="num">72</td><td></td><td></td><td class="num">418 lb</td></tr>
+</tbody></table>
+<div class="sh">Receipt of goods</div>
+<div class="prose" style="max-width:82ch"><p>Goods received in the quantity and condition shown, subject to the exceptions noted below. Signature acknowledges receipt only and is not acceptance of the goods as conforming to the order. Concealed damage may be reported within ten days of this date.</p></div>
+<div style="display:flex;gap:20px;margin-top:16px">
+<div class="box" style="flex:1"><div class="lbl" style="margin-bottom:8px">Condition on arrival</div><div style="font-size:10px;line-height:2"><span class="ck" style="margin-right:7px"></span>Received in good order<br><span class="ck" style="margin-right:7px"></span>Packaging damaged, contents checked<br><span class="ck" style="margin-right:7px"></span>Shortage — noted below<br><span class="ck" style="margin-right:7px"></span>Refused — reason below</div></div>
+<div class="box" style="flex:1.4"><div class="lbl" style="margin-bottom:8px">Exceptions noted</div><div style="border-bottom:1px solid #dcdcdc;height:20px"></div><div style="border-bottom:1px solid #dcdcdc;height:20px"></div><div style="border-bottom:1px solid #dcdcdc;height:20px"></div><div style="border-bottom:1px solid #dcdcdc;height:20px"></div></div>
+</div>
+<div class="sig" style="margin-top:26px">
+<div class="sigbox"><div class="lbl">Received by — signature</div><div class="sigline" style="margin-top:34px">Signature</div></div>
+<div class="sigbox"><div class="lbl">Print name and title</div><div class="sigline" style="margin-top:34px">Name · title</div></div>
+<div class="sigbox" style="flex:.55"><div class="lbl">Date received</div><div class="sigline" style="margin-top:34px">Day · month · year</div></div>
+<div class="sigbox" style="flex:.55"><div class="lbl">Time received</div><div class="sigline" style="margin-top:34px">24-hour clock</div></div>
+</div>
+<div class="foot"><div style="flex:1">Copy 1 consignee · copy 2 carrier · copy 3 returned to Northmoor shipping office. Retain for twelve months.</div><div>DN-40118</div></div>
+<div class="pgnum"><span>Delivery note DN-40118 · Brightwater Foods LLC</span><span>Page 1 of 1</span></div>
+</div></div></div>
+
+<div class="doc" id="3h"><div class="doclbl"><a class="docid" href="#3h">3h</a>Certificate of completion</div>
+<div class="spread"><div class="page" style="padding:70px 84px 60px">
+<div style="position:absolute;top:0;left:0;right:0;height:6px;background:var(--ac,#7b2233)"></div>
+<div style="border:2px solid var(--ac,#7b2233);outline:1px solid var(--ac,#7b2233);outline-offset:6px;flex:1;display:flex;flex-direction:column;padding:48px 56px 40px;text-align:center">
+<div style="display:flex;justify-content:center"><div class="mark" style="width:46px;height:46px;font-size:19px;line-height:46px">N</div></div>
+<div class="wm" style="margin-top:14px;font-size:11px">Northmoor</div>
+<div class="sub" style="margin-top:4px">Industrial Group, Inc. · Rochester, New York</div>
+<div style="margin:30px auto 0;width:96px;height:2px;background:var(--ac,#7b2233)"></div>
+<div style="font:400 46px/1.06 Georgia,'Times New Roman',serif;letter-spacing:-.02em;margin-top:30px">Certificate of<br>Completion</div>
+<div class="lbl" style="color:var(--ac,#7b2233);margin-top:16px;letter-spacing:.22em">Mechanical installation and commissioning</div>
+<div style="font:400 11px/1.8 Georgia,'Times New Roman',serif;margin-top:34px">This is to certify that</div>
+<div style="font:400 30px/1.2 Georgia,'Times New Roman',serif;margin-top:14px;padding-bottom:14px;border-bottom:1.5px solid var(--ac,#7b2233);display:inline-block;align-self:center;min-width:440px">Kestrel Medical Center</div>
+<div style="font:400 11px/1.85 Georgia,'Times New Roman',serif;margin-top:22px;max-width:60ch;align-self:center">has taken beneficial occupancy of the works described below, that those works have been completed in accordance with contract 2026-CS-04 and the drawings referred to in it, and that commissioning was witnessed and passed on the date shown.</div>
+<div style="display:flex;gap:34px;margin-top:30px;text-align:left;font-size:9.5px;line-height:1.6;justify-content:center">
+<div><div class="lbl">Works</div>Central Sterile utility skid<br>replacement, two skids</div>
+<div><div class="lbl">Location</div>1465 Whitmore Parkway<br>Cleveland, Ohio</div>
+<div><div class="lbl">Commissioned</div>25 September 2026<br>Witnessed by D. Kowalczyk</div>
+<div><div class="lbl">Warranty</div>12 months from this date<br>Expires 25 September 2027</div>
+</div>
+<div class="hair" style="margin:30px 0 0"></div>
+<div style="display:flex;gap:44px;margin-top:36px;text-align:left">
+<div style="flex:1"><div style="border-top:1px solid #111;padding-top:7px" class="lbl">Robert A. Halloran · Vice President, Commercial</div></div>
+<div style="flex:1"><div style="border-top:1px solid #111;padding-top:7px" class="lbl">Priya N. Raghunathan · Quality Systems Manager</div></div>
+<div style="flex:.7"><div style="border-top:1px solid #111;padding-top:7px" class="lbl">Date of issue</div></div>
+</div>
+<div style="margin-top:auto;display:flex;justify-content:space-between;align-items:flex-end;font-size:8px;letter-spacing:.11em;text-transform:uppercase;color:#767676;padding-top:26px">
+<span>Certificate CC-2026-0044</span>
+<span>Retainage released on this certificate · Article 7</span>
+<span>Original — one of two issued</span>
+</div>
+</div>
+<div class="pgnum" style="left:88px;right:88px"><span>Certificate of completion CC-2026-0044</span><span>Page 1 of 1</span></div>
+</div></div></div>
+
+<div class="doc" id="3i"><div class="doclbl"><a class="docid" href="#3i">3i</a>Product catalog — two pages, image placeholders</div>
+<div class="spread">
+<div class="page">
+<div class="atop"></div>
+<div class="hd">
+<div style="display:flex;gap:14px;align-items:flex-start"><div class="mark">N</div><div><div class="wm">Northmoor</div><div class="sub" style="margin-top:4px">Product Catalog 2026–27</div></div></div>
+<div class="addr" style="text-align:right">Section 4 — Fabricated skids<br>Effective 01 October 2026<br>Supersedes the 2025 edition</div>
+</div>
+<div class="hr" style="margin-top:20px;height:2px"></div>
+<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:27px;border-bottom:1px solid #111;padding-bottom:12px">
+<div><div class="tab" style="margin-bottom:12px">Section 4 · fabricated skids</div><div class="dtitle">Utility skids</div></div>
+<div style="text-align:right"><div class="lbl" style="margin-bottom:7px">Pages</div><div style="font:400 20px/1 Georgia,'Times New Roman',serif;font-variant-numeric:tabular-nums">4.1 – 4.2</div></div>
+</div>
+<div class="prose" style="margin-top:20px;max-width:84ch"><p>Standard skids are built to the dimensions below and shipped primed. Any skid can be supplied in 304 or 316L stainless, powder coated to a specified colour, or fitted with the guard package; see the options table on page 4.2. Lead times assume standard finish and no first-article inspection.</p></div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:30px;margin-top:24px">
+<div>
+<div style="height:150px;background:repeating-linear-gradient(45deg,#f2f1ef 0 8px,#e6e4e0 8px 16px);border:1px solid #cfcdc8;display:flex;align-items:center;justify-content:center"><span style="font:400 8.5px/1.5 ui-monospace,Menlo,monospace;letter-spacing:.06em;color:#6b6b6b;text-align:center">product shot — skid frame SK-96<br>three-quarter view, plain ground</span></div>
+<div style="font:700 11px/1.3 Helvetica,Arial,sans-serif;margin-top:11px">SK-96 &nbsp;Standard utility skid</div>
+<div style="font-size:9.5px;line-height:1.65;color:#444;margin-top:5px">96 × 48 in welded tube frame, four lifting points, adjustable feet. Rated 4,000 lb distributed load.</div>
+<table class="t" style="font-size:9px;margin-top:10px"><tbody>
+<tr><td>SK-96-P &nbsp;primed</td><td class="num">1,485.00</td></tr>
+<tr><td>SK-96-S4 &nbsp;304 stainless</td><td class="num">2,340.00</td></tr>
+<tr><td>SK-96-S6 &nbsp;316L stainless</td><td class="num">2,880.00</td></tr>
+</tbody></table>
+</div>
+<div>
+<div style="height:150px;background:repeating-linear-gradient(45deg,#f2f1ef 0 8px,#e6e4e0 8px 16px);border:1px solid #cfcdc8;display:flex;align-items:center;justify-content:center"><span style="font:400 8.5px/1.5 ui-monospace,Menlo,monospace;letter-spacing:.06em;color:#6b6b6b;text-align:center">product shot — skid frame SK-120<br>with access platform fitted</span></div>
+<div style="font:700 11px/1.3 Helvetica,Arial,sans-serif;margin-top:11px">SK-120 &nbsp;Extended utility skid</div>
+<div style="font-size:9.5px;line-height:1.65;color:#444;margin-top:5px">120 × 48 in frame with centre cross member. Takes the AP-48 access platform without modification.</div>
+<table class="t" style="font-size:9px;margin-top:10px"><tbody>
+<tr><td>SK-120-P &nbsp;primed</td><td class="num">1,910.00</td></tr>
+<tr><td>SK-120-S4 &nbsp;304 stainless</td><td class="num">2,995.00</td></tr>
+<tr><td>SK-120-S6 &nbsp;316L stainless</td><td class="num">3,640.00</td></tr>
+</tbody></table>
+</div>
+</div>
+<div class="sh">Dimensions and lead times</div>
+<table class="t">
+<thead><tr><th style="width:80px">Model</th><th class="num" style="width:74px">Length</th><th class="num" style="width:74px">Width</th><th class="num" style="width:74px">Height</th><th class="num" style="width:84px">Load rating</th><th class="num" style="width:70px">Weight</th><th class="num">Lead time</th></tr></thead>
+<tbody>
+<tr><td>SK-72</td><td class="num">72 in</td><td class="num">48 in</td><td class="num">24 in</td><td class="num">3,000 lb</td><td class="num">218 lb</td><td class="num">3 weeks</td></tr>
+<tr><td>SK-96</td><td class="num">96 in</td><td class="num">48 in</td><td class="num">24 in</td><td class="num">4,000 lb</td><td class="num">246 lb</td><td class="num">3 weeks</td></tr>
+<tr><td>SK-120</td><td class="num">120 in</td><td class="num">48 in</td><td class="num">24 in</td><td class="num">4,800 lb</td><td class="num">312 lb</td><td class="num">4 weeks</td></tr>
+<tr><td>SK-144</td><td class="num">144 in</td><td class="num">60 in</td><td class="num">28 in</td><td class="num">6,000 lb</td><td class="num">404 lb</td><td class="num">5 weeks</td></tr>
+</tbody></table>
+<div class="cont">Continued on page 4.2 — platforms, guards and options</div>
+<div class="foot"><div style="flex:1">Prices are list, effective 1 October 2026, and are subject to our conditions of sale. Distributor discounts apply per the current schedule.</div><div>4.1</div></div>
+<div class="pgnum"><span>Northmoor product catalog 2026–27 · Section 4, utility skids</span><span>Page 4.1</span></div>
+</div>
+<div class="page">
+<div class="rhd"><b>Northmoor catalog 2026–27</b><span>Section 4 — Utility skids</span><span>Platforms, guards and options</span></div>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px">
+<div>
+<div style="height:120px;background:repeating-linear-gradient(45deg,#f2f1ef 0 8px,#e6e4e0 8px 16px);border:1px solid #cfcdc8;display:flex;align-items:center;justify-content:center"><span style="font:400 8px/1.5 ui-monospace,Menlo,monospace;color:#6b6b6b;text-align:center">product shot<br>AP-48 platform</span></div>
+<div style="font:700 10.5px/1.3 Helvetica,Arial,sans-serif;margin-top:9px">AP-48 &nbsp;Access platform</div>
+<div style="font-size:9px;line-height:1.6;color:#444;margin-top:4px">Galvanized grating, 48 in wide, with handrail and toe board. Bolts to any SK frame.</div>
+<div style="font:700 10px/1 Helvetica,Arial,sans-serif;margin-top:8px;font-variant-numeric:tabular-nums">2,240.00</div>
+</div>
+<div>
+<div style="height:120px;background:repeating-linear-gradient(45deg,#f2f1ef 0 8px,#e6e4e0 8px 16px);border:1px solid #cfcdc8;display:flex;align-items:center;justify-content:center"><span style="font:400 8px/1.5 ui-monospace,Menlo,monospace;color:#6b6b6b;text-align:center">product shot<br>GP-24 guard panel</span></div>
+<div style="font:700 10.5px/1.3 Helvetica,Arial,sans-serif;margin-top:9px">GP-24 &nbsp;Guard panel</div>
+<div style="font-size:9px;line-height:1.6;color:#444;margin-top:4px">Perforated steel, 24 in module, powder coat black. Quick-release fixings, no tools.</div>
+<div style="font:700 10px/1 Helvetica,Arial,sans-serif;margin-top:8px;font-variant-numeric:tabular-nums">318.00</div>
+</div>
+<div>
+<div style="height:120px;background:repeating-linear-gradient(45deg,#f2f1ef 0 8px,#e6e4e0 8px 16px);border:1px solid #cfcdc8;display:flex;align-items:center;justify-content:center"><span style="font:400 8px/1.5 ui-monospace,Menlo,monospace;color:#6b6b6b;text-align:center">product shot<br>CP-36 control panel</span></div>
+<div style="font:700 10.5px/1.3 Helvetica,Arial,sans-serif;margin-top:9px">CP-36 &nbsp;Control panel</div>
+<div style="font-size:9px;line-height:1.6;color:#444;margin-top:4px">NEMA 4X enclosure, 36 × 30 in, UL 508A labelled. VFDs to order.</div>
+<div style="font:700 10px/1 Helvetica,Arial,sans-serif;margin-top:8px;font-variant-numeric:tabular-nums">4,860.00</div>
+</div>
+</div>
+<div class="sh">Options and surcharges</div>
+<table class="t">
+<thead><tr><th style="width:90px">Code</th><th>Option</th><th style="width:130px">Applies to</th><th class="num" style="width:110px">Price or surcharge</th></tr></thead>
+<tbody>
+<tr class="ghead"><td colspan="4">Finish</td></tr>
+<tr><td>OPT-PC</td><td>Powder coat, single colour to RAL, over primer</td><td>All SK models</td><td class="num">+ 12% of list</td></tr>
+<tr><td>OPT-EP</td><td>Two-coat epoxy, food and pharma areas</td><td>All SK models</td><td class="num">+ 18% of list</td></tr>
+<tr><td>OPT-BE</td><td>Bead blast and passivate, stainless only</td><td>S4 and S6 models</td><td class="num">+ 340.00</td></tr>
+<tr class="ghead"><td colspan="4">Mechanical</td></tr>
+<tr><td>OPT-CS</td><td>Castors, four, two braked, 800 lb each</td><td>SK-72 to SK-120</td><td class="num">+ 486.00</td></tr>
+<tr><td>OPT-SM</td><td>Seismic anchor kit, four points, with calculations</td><td>All SK models</td><td class="num">+ 620.00</td></tr>
+<tr><td>OPT-DP</td><td>Drip pan, welded, 2 in lip with drain boss</td><td>All SK models</td><td class="num">+ 745.00</td></tr>
+<tr class="ghead"><td colspan="4">Documentation and inspection</td></tr>
+<tr><td>OPT-FA</td><td>First-article inspection with dimensional report</td><td>Any line</td><td class="num">+ 380.00</td></tr>
+<tr><td>OPT-MC</td><td>Material certificates, mill and heat traceability</td><td>Any line</td><td class="num">+ 95.00</td></tr>
+<tr><td>OPT-WQ</td><td>Welder qualification records, ASME IX</td><td>Any line</td><td class="num">No charge</td></tr>
+</tbody></table>
+<div style="display:flex;gap:30px;margin-top:26px">
+<div style="flex:1"><div class="lbl" style="margin-bottom:7px">How to order</div><div style="font-size:9.5px;line-height:1.75">Quote the model code, the finish suffix and any option codes, in that order — for example <b>SK-96-S6 / OPT-DP / OPT-FA</b>. Purchase orders should reference this catalog edition. Quantities above twenty units are quoted individually.</div></div>
+<div style="flex:1"><div class="lbl" style="margin-bottom:7px">Contact</div><div style="font-size:9.5px;line-height:1.75">Estimating, (585) 274-0180 ext. 244 · estimating@northmoorgroup.com<br>Drawings in DWG and STEP formats on request. Site surveys within 200 miles of Rochester are free of charge.</div></div>
+</div>
+<div class="foot"><div style="flex:1">Northmoor Industrial Group, Inc. · 418 Ellingham Road, Suite 300, Rochester, NY 14604 · Section 4 of 9</div><div>4.2</div></div>
+<div class="pgnum"><span>Northmoor product catalog 2026–27 · Section 4, options</span><span>Page 4.2</span></div>
+</div>
+</div></div>
+
+<div class="doc" id="3j"><div class="doclbl"><a class="docid" href="#3j">3j</a>Meeting minutes — action owners</div>
+<div class="spread"><div class="page">
+<div class="atop"></div>
+<div class="hd">
+<div style="display:flex;gap:14px;align-items:flex-start"><div class="mark">N</div><div><div class="wm">Northmoor</div><div class="sub" style="margin-top:4px">Minutes of Meeting</div></div></div>
+<div class="addr" style="text-align:right">Draft for approval at the next meeting<br>Circulated 07 September 2026<br>Ref. MIN-2026-0904</div>
+</div>
+<div class="hr" style="margin-top:20px;height:2px"></div>
+<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:27px;border-bottom:1px solid #111;padding-bottom:12px">
+<div><div class="lbl" style="color:var(--ac,#7b2233);margin-bottom:10px">Operations review · meeting 8 of 12</div><div class="dtitle">Minutes of meeting</div></div>
+<div style="text-align:right"><div class="lbl" style="margin-bottom:7px">Held</div><div style="font:400 20px/1 Georgia,'Times New Roman',serif;font-variant-numeric:tabular-nums">4 September 2026</div></div>
+</div>
+<div class="meta" style="grid-template-columns:1fr 1fr 1.4fr">
+<div><div class="lbl">Date and time</div>Friday 4 September 2026, 09:00–10:25 EDT<div class="lbl" style="margin-top:12px">Location</div>Board room, Suite 300, and by telephone</div>
+<div><div class="lbl">Chair</div>R. A. Halloran, VP Commercial<div class="lbl" style="margin-top:12px">Minutes</div>L. Nkemdirim<div class="lbl" style="margin-top:12px">Quorum</div>Met — 6 of 7 standing members</div>
+<div><div class="lbl">Present</div>R. A. Halloran (chair) · M. Okonjo · K. Alvarez · P. N. Raghunathan · H. Delacroix · E. T. Bhatt · L. Nkemdirim (minutes)<div class="lbl" style="margin-top:12px">Apologies · in attendance</div>D. Whitcomb (apologies) · J. Osei-Bonsu for item 4 only</div>
+</div>
+<div class="sh">Items discussed</div>
+<div style="display:flex;gap:14px;margin-bottom:12px;font-size:9.8px;line-height:1.62"><div style="flex:none;width:26px;font-weight:700">1</div><div><b>Minutes of 7 August and matters arising.</b> Approved without amendment; four of six carried actions are closed. The freight dispute on invoice INV-4102 is now the oldest item on the ledger at 101 days; M. Okonjo has sent the documentation and expects closure by 19 September.</div></div>
+<div style="display:flex;gap:14px;margin-bottom:12px;font-size:9.8px;line-height:1.62"><div style="flex:none;width:26px;font-weight:700">2</div><div><b>Safety.</b> Sixty-two days without a recordable injury. Two near misses in August, both lifting-related at Dock 2, closed with a revised sling inspection routine, which H. Delacroix asked be moved to the daily start-of-shift check; agreed.</div></div>
+<div style="display:flex;gap:14px;margin-bottom:12px;font-size:9.8px;line-height:1.62"><div style="flex:none;width:26px;font-weight:700">3</div><div><b>August operating result.</b> Revenue 11,204 thousand against a plan of 10,800, helped by the second Kestrel panel shipping a week early; gross margin 25.1 percent. The chair noted that the early shipment pulls revenue out of September and asked that the forecast be restated rather than left flattering.</div></div>
+<div style="display:flex;gap:14px;margin-bottom:12px;font-size:9.8px;line-height:1.62"><div style="flex:none;width:26px;font-weight:700">4</div><div><b>Scrap and the Elkhart housings.</b> Twenty-two of sixty bearing housings from Tanaka Precision required rework on the bore, taking scrap to 2.1 percent against a target of 1.6. The supplier has accepted the cost, and first-article inspection now applies to every machined line. The bore gauge recalibration, due in October, will be brought forward.</div></div>
+<div style="display:flex;gap:14px;margin-bottom:12px;font-size:9.8px;line-height:1.62"><div style="flex:none;width:26px;font-weight:700">5</div><div><b>On-time delivery.</b> 92.6 percent against a 95 percent target, fourteen late lines of 189, twelve of them tracing to the housings. Release R-07 is at risk by three days; K. Alvarez to expedite the eight back-ordered brackets at Northmoor's cost.</div></div>
+<div style="display:flex;gap:14px;margin-bottom:12px;font-size:9.8px;line-height:1.62"><div style="flex:none;width:26px;font-weight:700">6</div><div><b>Approval thresholds.</b> The two-signature threshold falls to 10,000 dollars on 1 October; the ERP change will be tested in the sandbox first and plant supervisors briefed at the Tuesday production meeting.</div></div>
+<div style="display:flex;gap:14px;margin-bottom:12px;font-size:9.8px;line-height:1.62"><div style="flex:none;width:26px;font-weight:700">7</div><div><b>Any other business.</b> None. Next meeting Friday 2 October 2026, 09:00.</div></div>
+<div class="sh">Actions</div>
+<table class="t">
+<thead><tr><th style="width:40px">No.</th><th>Action</th><th style="width:130px">Owner</th><th style="width:88px">Due</th><th style="width:72px">Status</th></tr></thead>
+<tbody>
+<tr><td>8.1</td><td>Close the freight dispute on INV-4102 and report the outcome</td><td>M. Okonjo</td><td>19 Sep 2026</td><td>Open</td></tr>
+<tr><td>8.2</td><td>Add sling inspection to the start-of-shift check, Dock 2</td><td>H. Delacroix</td><td>11 Sep 2026</td><td>Open</td></tr>
+<tr><td>8.3</td><td>Restate the September revenue forecast for the early Kestrel shipment</td><td>M. Okonjo</td><td>14 Sep 2026</td><td>Open</td></tr>
+<tr><td>8.4</td><td>Bring forward recalibration of the housing bore gauge</td><td>P. N. Raghunathan</td><td>16 Sep 2026</td><td>Open</td></tr>
+<tr><td>8.5</td><td>Expedite eight back-ordered brackets, ship on PS-88291</td><td>K. Alvarez</td><td>18 Sep 2026</td><td>Open</td></tr>
+<tr><td>8.6</td><td>Brief plant supervisors on the two-signature threshold</td><td>R. A. Halloran</td><td>29 Sep 2026</td><td>Open</td></tr>
+</tbody></table>
+<div class="foot"><div style="flex:1">Circulated to those present and to the audit file. Corrections to the minute taker within five business days.</div><div>MIN-2026-0904</div></div>
+<div class="pgnum"><span>Operations review · Minutes of 4 September 2026 · MIN-2026-0904</span><span>Page 1 of 1</span></div>
+</div></div></div>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#7b2233&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;options&quot;:[&quot;#7b2233&quot;,&quot;#5c1a1a&quot;,&quot;#1f4034&quot;,&quot;#111111&quot;]}}">
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? "#7b2233" };
+  }
+}
+</script>
+</body>
+</html>

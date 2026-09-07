@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics><meta name="design_doc_mode" content="canvas"><style>
+*{box-sizing:border-box}
+body{margin:0;background:#dcd8d1;font-family:Helvetica,Arial,sans-serif;color:#111}
+a{color:var(--ac,#7b2233)}a:hover{color:#111}
+.gal{padding:56px 48px 96px}
+.galhd{margin:0 0 46px;max-width:940px}
+.galhd h1{font:400 31px/1.14 Georgia,'Times New Roman',serif;letter-spacing:-.012em;margin:0 0 14px}
+.galhd p{font:400 11.5px/1.7 Helvetica,Arial,sans-serif;color:#514d47;margin:0 0 8px;max-width:92ch}
+.galhd em{color:var(--ac,#7b2233);font-style:normal;font-weight:700}
+.grp{margin:0 0 16px;font:700 8px/1 Helvetica,Arial,sans-serif;letter-spacing:.2em;text-transform:uppercase;color:var(--ac,#7b2233);border-bottom:1px solid #c6c2ba;padding-bottom:9px}
+.docs{display:flex;flex-wrap:wrap;gap:52px;align-items:flex-start;margin:0 0 68px}
+.doc{display:flex;flex-direction:column;gap:11px;scroll-margin-top:16px}
+.doclbl{display:flex;align-items:baseline;gap:10px;font:400 11px/1.3 Helvetica,Arial,sans-serif;color:#443f39}
+.docid{font:700 9px/1 ui-monospace,Menlo,monospace;letter-spacing:.08em;padding:4px 7px;background:#111;color:#fff;text-decoration:none}
+.doc:target .docid{background:var(--ac,#7b2233)}
+.spread{display:flex;gap:20px;align-items:flex-start}
+.page{width:816px;height:1056px;background:#fdfcfa;box-shadow:0 1px 2px rgba(0,0,0,.16),0 14px 34px rgba(0,0,0,.08);padding:70px 76px 54px;position:relative;font-size:10px;line-height:1.5;overflow:hidden;flex:none;display:flex;flex-direction:column}
+.label{width:384px;height:576px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.16),0 14px 34px rgba(0,0,0,.08);padding:16px;position:relative;font-size:9px;line-height:1.4;overflow:hidden;flex:none;display:flex;flex-direction:column;border:1px solid #111}
+.atop{position:absolute;top:0;left:0;right:0;height:4px;background:var(--ac,#7b2233)}
+.pgnum{position:absolute;left:76px;right:76px;bottom:26px;display:flex;justify-content:space-between;font-size:7.5px;letter-spacing:.14em;color:#8a857e;text-transform:uppercase}
+.mark{width:44px;height:44px;background:var(--ac,#7b2233);color:#fff;font:700 20px/44px Georgia,'Times New Roman',serif;text-align:center;flex:none}
+.wm{font:700 14px/1 Helvetica,Arial,sans-serif;letter-spacing:.26em;text-transform:uppercase}
+.sub{font:700 7px/1.4 Helvetica,Arial,sans-serif;letter-spacing:.17em;text-transform:uppercase;color:var(--ac,#7b2233)}
+.lbl{font:700 7px/1.4 Helvetica,Arial,sans-serif;letter-spacing:.17em;text-transform:uppercase;color:#8a857e}
+ .dtitle{font:400 31px/1 Georgia,'Times New Roman',serif;letter-spacing:-.013em;text-transform:none}
+.hr{height:1px;background:#111}
+.hair{height:1px;background:#e2ded7}
+.hd{display:flex;justify-content:space-between;align-items:flex-start;gap:24px}
+.addr{font-size:9px;line-height:1.7;color:#4a463f}
+.meta{display:grid;gap:20px;margin:22px 0 0;font-size:9.5px;line-height:1.62}
+.meta .lbl{margin-bottom:5px}
+table.t{width:100%;border-collapse:collapse;font-size:9.5px}
+table.t th{font:700 7px/1.3 Helvetica,Arial,sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#111;text-align:left;padding:0 10px 7px 0;border-bottom:1px solid #111;vertical-align:bottom}
+table.t td{padding:6px 10px 6px 0;border-bottom:1px solid #eae6df;vertical-align:top}
+table.t th:last-child,table.t td:last-child{padding-right:0}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.gsub td{border-top:1.5px solid var(--ac,#7b2233);border-bottom:0;font-weight:700;font-size:9.5px;padding-top:10px;color:#111}
+.ghead td{border-bottom:1px solid #cfc9c0;font:700 7.5px/1.4 Helvetica,Arial,sans-serif;letter-spacing:.17em;text-transform:uppercase;padding-top:15px;color:var(--ac,#7b2233);background:transparent}
+.tt{width:340px;margin-left:auto;border-collapse:collapse;font-size:9.5px;margin-top:20px}
+.tt td{padding:6px 0;border-bottom:1px solid #eae6df;color:#4a463f}
+.tt td.num{color:#111}
+.tt tr:last-child td{border-bottom:0;border-top:1px solid #111;font-weight:700;font-size:10.5px;padding-top:9px;color:#111}
+.due{border:0;border-top:2px solid var(--ac,#7b2233);padding:13px 0 0;display:flex;justify-content:space-between;align-items:baseline;width:340px;margin:20px 0 0 auto}
+.stamp{border:1.5px solid var(--ac,#7b2233);color:var(--ac,#7b2233);padding:7px 11px;font:700 7.5px/1 Helvetica,Arial,sans-serif;letter-spacing:.2em;text-transform:uppercase}
+.tab{display:inline-block;background:var(--ac,#7b2233);color:#fff;font:700 7px/1 Helvetica,Arial,sans-serif;letter-spacing:.19em;text-transform:uppercase;padding:7px 10px}
+.flag{color:var(--ac,#7b2233);font-weight:700}
+.foot{margin-top:auto;border-top:1px solid #e2ded7;padding-top:10px;font-size:8.5px;line-height:1.7;color:#5f5a53;display:flex;gap:34px}
+.cont{font:700 7px/1 Helvetica,Arial,sans-serif;letter-spacing:.17em;text-transform:uppercase;color:var(--ac,#7b2233);margin-top:16px}
+.rhd{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid #111;padding-bottom:8px;margin-bottom:28px;font-size:7.5px;letter-spacing:.15em;text-transform:uppercase;color:#5f5a53}
+.rhd b{font:700 7.5px/1 Helvetica,Arial,sans-serif;letter-spacing:.2em;color:var(--ac,#7b2233)}
+.prose{font:400 10.5px/1.7 Georgia,'Times New Roman',serif;color:#1a1a1a}
+.prose p{margin:0 0 11px}
+.sh{font:700 7.5px/1 Helvetica,Arial,sans-serif;letter-spacing:.2em;text-transform:uppercase;margin:21px 0 11px;padding-bottom:7px;border-bottom:1px solid #111}
+.cl{display:flex;gap:14px;margin-bottom:9px;font:400 9.9px/1.68 Georgia,'Times New Roman',serif}
+.cln{flex:none;width:36px;font:700 8.5px/1.78 Helvetica,Arial,sans-serif;letter-spacing:.02em;color:#111}
+.sig{display:flex;gap:52px;margin-top:22px}
+.sigbox{flex:1;font-size:9px;line-height:1.65}
+.sigline{border-top:1px solid #111;padding-top:7px;margin-top:32px;font:700 7px/1.4 Helvetica,Arial,sans-serif;letter-spacing:.17em;text-transform:uppercase;color:#8a857e}
+.kpi{border-top:2px solid var(--ac,#7b2233);padding-top:11px}
+.kpi .v{font:400 34px/1 Georgia,'Times New Roman',serif;letter-spacing:-.02em;font-variant-numeric:tabular-nums;margin:8px 0 6px}
+.kpi .d{font-size:8.5px;color:#5f5a53;line-height:1.55}
+.toc{display:flex;align-items:baseline;gap:9px;font:400 11px/1.4 Georgia,'Times New Roman',serif;padding:10px 0;border-bottom:1px solid #eae6df}
+.toc .dots{flex:1;border-bottom:1px dotted #bdb8b0;transform:translateY(-3px)}
+.toc .num{font:700 9.5px/1 Helvetica,Arial,sans-serif;color:var(--ac,#7b2233);font-variant-numeric:tabular-nums}
+.bar{height:36px;background:repeating-linear-gradient(90deg,#111 0 2px,#fff 2px 4px,#111 4px 7px,#fff 7px 9px,#111 9px 10px,#fff 10px 13px)}
+.box{border:1px solid #111;padding:11px 13px}
+.ck{width:11px;height:11px;border:1px solid #111;display:inline-block}
+</style></helmet>
+<div class="gal" style="--ac: {{ accent }}">
+<div class="galhd">
+<h1>Northmoor document system<br>Billing &amp; finance, ten of thirty</h1>
+<p>Two voices, held to across all thirty: <em>Georgia</em> for titles, prose and every figure that matters, <em>Helvetica</em> at 7px with 0.17em tracking for labels, table heads and anything structural. Titles set at 34px against 7px labels — a 5:1 scale, so hierarchy comes from contrast rather than from boxes and bands.</p>
+<p>One accent, oxblood, and it does a different job in each document class. In billing it owns the money: the head rule, the section subtotal keylines, and the amount due, set at 34px over a 2px rule with nothing else near it. Nothing else on the page is coloured. In grayscale the oxblood drops to a dark neutral and the hierarchy survives intact.</p>
+<p>US Letter, 816 × 1056 px, 76px margins. Continuation pages appear beside their first page.</p>
+</div>
+
+<div class="grp">Billing &amp; Finance · 01–10</div>
+<div class="docs">
+
+<div class="doc" id="1a"><div class="doclbl"><a class="docid" href="#1a">1a</a>Invoice — standard, one page</div>
+<div class="spread"><div class="page">
+<div class="atop"></div>
+<div class="hd">
+<div style="display:flex;gap:14px;align-items:flex-start"><div class="mark">N</div><div><div class="wm">Northmoor</div><div class="sub" style="margin-top:4px">Industrial Group, Inc.</div></div></div>
+<div class="addr" style="text-align:right">418 Ellingham Road, Suite 300<br>Rochester, NY 14604<br>(585) 274-0180<br>ar@northmoorgroup.com</div>
+</div>
+<div class="hr" style="margin-top:20px;height:2px"></div>
+<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:27px;border-bottom:1px solid #111;padding-bottom:12px">
+<div><div class="lbl" style="color:var(--ac,#7b2233);margin-bottom:10px">Accounts receivable</div><div class="dtitle">Invoice</div></div>
+<div style="text-align:right"><div class="lbl" style="margin-bottom:7px">Invoice number</div><div style="font:400 20px/1 Georgia,'Times New Roman',serif;font-variant-numeric:tabular-nums">INV-4417</div></div>
+</div>
+<div class="meta" style="grid-template-columns:1.3fr 1.3fr 1fr 1fr">
+<div><div class="lbl">Bill to</div>Brightwater Foods LLC<br>Accounts Payable<br>2140 Carnegie Avenue<br>Cleveland, OH 44115</div>
+<div><div class="lbl">Ship to</div>Brightwater Foods LLC<br>Plant 2 — Receiving Dock 4<br>3900 Harvard Road<br>Cleveland, OH 44105</div>
+<div><div class="lbl">Issued</div>07 September 2026<div class="lbl" style="margin-top:14px">Terms</div>Net 30 days</div>
+<div><div class="lbl">Due</div>07 October 2026<div class="lbl" style="margin-top:14px">Customer / PO</div>BW-0091 / 44-7712</div>
+</div>
+<table class="t" style="margin-top:30px">
+<thead><tr><th style="width:44px">Item</th><th>Description</th><th class="num" style="width:70px">Qty</th><th style="width:48px">Unit</th><th class="num" style="width:82px">Rate</th><th class="num" style="width:92px">Amount</th></tr></thead>
+<tbody>
+<tr><td>001</td><td>Fastener set, stainless 316, M8 × 40 mm, hex flange</td><td class="num">1,200</td><td>ea</td><td class="num">1.85</td><td class="num">2,220.00</td></tr>
+<tr><td>002</td><td>Gasket sheet, neoprene, 1/8 in × 36 in × 36 in</td><td class="num">24</td><td>sheet</td><td class="num">46.50</td><td class="num">1,116.00</td></tr>
+<tr><td>003</td><td>Conveyor belt lacing kit, No. 2 rivet, with tooling</td><td class="num">6</td><td>kit</td><td class="num">128.00</td><td class="num">768.00</td></tr>
+<tr><td>004</td><td>Outbound freight — LTL, Rochester to Cleveland</td><td class="num">1</td><td>lot</td><td class="num">214.75</td><td class="num">214.75</td></tr>
+</tbody></table>
+<table class="tt">
+<tr><td>Subtotal</td><td class="num">4,318.75</td></tr>
+<tr><td>Taxable goods 4,104.00 · NY sales tax 8.00%</td><td class="num">328.32</td></tr>
+<tr><td>Total</td><td class="num">4,647.07</td></tr>
+</table>
+<div class="due"><span class="lbl" style="color:#111">Amount due</span><span style="font:400 34px/.9 Georgia,'Times New Roman',serif;font-variant-numeric:tabular-nums;color:var(--ac,#7b2233)">$4,647.07</span></div>
+<div class="foot">
+<div style="flex:1"><div class="lbl" style="margin-bottom:4px">Remit to</div>Northmoor Industrial Group, Inc. · First Genesee Bank, Rochester NY<br>Account 8841 002937 · Routing 021304559 · Reference INV-4417</div>
+<div style="flex:1"><div class="lbl" style="margin-bottom:4px">Terms</div>Payment due within 30 days of invoice date. Balances past due accrue interest at 1.5% per month. Title passes on delivery; claims for shortage must be filed within 10 days.</div>
+</div>
+<div class="pgnum"><span>Invoice INV-4417 · Brightwater Foods LLC</span><span>Page 1 of 1</span></div>
+</div></div></div>
+
+<div class="doc" id="1b"><div class="doclbl"><a class="docid" href="#1b">1b</a>Detailed invoice — grouped line items, three pages</div>
+<div class="spread">
+<div class="page">
+<div class="atop"></div>
+<div class="hd">
+<div style="display:flex;gap:14px;align-items:flex-start"><div class="mark">N</div><div><div class="wm">Northmoor</div><div class="sub" style="margin-top:4px">Industrial Group, Inc.</div></div></div>
+<div class="addr" style="text-align:right">418 Ellingham Road, Suite 300<br>Rochester, NY 14604<br>(585) 274-0180<br>projects@northmoorgroup.com</div>
+</div>
+<div class="hr" style="margin-top:20px;height:2px"></div>
+<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:27px;border-bottom:1px solid #111;padding-bottom:12px">
+<div><div class="lbl" style="color:var(--ac,#7b2233);margin-bottom:10px">Progress billing · contract 2026-CS-04</div><div class="dtitle">Invoice</div></div>
+<div style="text-align:right"><div class="lbl" style="margin-bottom:7px">Invoice number</div><div style="font:400 20px/1 Georgia,'Times New Roman',serif;font-variant-numeric:tabular-nums">INV-4421</div></div>
+</div>
+<div class="meta" style="grid-template-columns:1.3fr 1.3fr 1fr 1fr">
+<div><div class="lbl">Bill to</div>Kestrel Medical Center<br>Facilities Contracts, Rm B-118<br>1465 Whitmore Parkway<br>Cleveland, OH 44106</div>
+<div><div class="lbl">Project</div>Central Sterile — Utility Skid Replacement<br>Contract 2026-CS-04<br>Change orders 1–3 included</div>
+<div><div class="lbl">Issued</div>07 September 2026<div class="lbl" style="margin-top:14px">Period</div>01–31 August 2026</div>
+<div><div class="lbl">Terms</div>Net 30 · Due 07 Oct 2026<div class="lbl" style="margin-top:14px">Pages</div>3 (detail follows)</div>
+</div>
+<div class="lbl" style="margin:32px 0 10px">Summary by section</div>
+<table class="t">
+<thead><tr><th style="width:40px">Sec</th><th>Section</th><th class="num" style="width:60px">Lines</th><th class="num" style="width:70px">Taxable</th><th class="num" style="width:110px">Amount</th></tr></thead>
+<tbody>
+<tr><td>A</td><td>Fabricated assemblies</td><td class="num">4</td><td class="num">Yes</td><td class="num">16,736.00</td></tr>
+<tr><td>B</td><td>Piping &amp; fittings</td><td class="num">5</td><td class="num">Yes</td><td class="num">10,422.30</td></tr>
+<tr><td>C</td><td>Electrical &amp; controls</td><td class="num">4</td><td class="num">Yes</td><td class="num">18,003.00</td></tr>
+<tr><td>D</td><td>Site labor</td><td class="num">4</td><td class="num">No</td><td class="num">34,832.00</td></tr>
+<tr><td>E</td><td>Freight, handling &amp; permits</td><td class="num">3</td><td class="num">No</td><td class="num">5,645.00</td></tr>
+<tr class="gsub"><td></td><td>Total goods and services</td><td class="num">20</td><td></td><td class="num">85,638.30</td></tr>
+</tbody></table>
+<div style="display:flex;gap:32px;margin-top:30px">
+<div style="flex:1"><div class="lbl" style="margin-bottom:6px">Scope this period</div><div style="font:400 10px/1.65 Georgia,'Times New Roman',serif">Four utility skids were fabricated, delivered and set in place; process piping was run to the tie-in points at the west wall; and the two control panels were mounted and terminated. Commissioning is scheduled for the week of 21 September and is not billed here. Retainage of five percent is withheld under Article 7 of the contract and is released on substantial completion.</div></div>
+<div style="width:260px"><div class="lbl" style="margin-bottom:6px">Contract status</div>
+<table class="t" style="font-size:9px"><tbody>
+<tr><td>Contract value</td><td class="num">142,500.00</td></tr>
+<tr><td>Change orders 1–3</td><td class="num">11,880.00</td></tr>
+<tr><td>Billed to date</td><td class="num">85,638.30</td></tr>
+<tr><td style="border-bottom:0;border-top:1px solid #111;font-weight:700">Remaining</td><td class="num" style="border-bottom:0;border-top:1px solid #111;font-weight:700">68,741.70</td></tr>
+</tbody></table></div>
+</div>
+<div class="foot"><div style="flex:1"><div class="lbl" style="margin-bottom:4px">Remit to</div>First Genesee Bank, Rochester NY · Account 8841 002937 · Routing 021304559 · Reference INV-4421</div><div style="flex:1"><div class="lbl" style="margin-bottom:4px">Detail</div>Sections A–C are itemised on page 2; sections D–E and the tax computation are on page 3. The header row repeats on every page.</div></div>
+<div class="pgnum"><span>Invoice INV-4421 · Kestrel Medical Center · Contract 2026-CS-04</span><span>Page 1 of 3</span></div>
+</div>
+<div class="page">
+<div class="rhd"><b>Northmoor · Invoice INV-4421</b><span>Kestrel Medical Center — Contract 2026-CS-04</span><span>Detail, sections A–C</span></div>
+<table class="t">
+<thead><tr><th style="width:52px">Line</th><th>Description</th><th class="num" style="width:64px">Qty</th><th style="width:40px">Unit</th><th class="num" style="width:76px">Rate</th><th class="num" style="width:86px">Amount</th></tr></thead>
+<tbody>
+<tr class="ghead"><td colspan="6">Section A — Fabricated assemblies</td></tr>
+<tr><td>A-01</td><td>Skid frame, welded tube, 96 × 48 in, primed<br><span style="color:#767676;font-size:8.5px">Drawing 4471-A rev C · shop order 20918</span></td><td class="num">4</td><td>ea</td><td class="num">1,485.00</td><td class="num">5,940.00</td></tr>
+<tr><td>A-02</td><td>Access platform, galvanized grating, with handrail</td><td class="num">2</td><td>ea</td><td class="num">2,240.00</td><td class="num">4,480.00</td></tr>
+<tr><td>A-03</td><td>Guard panel, perforated steel, powder coat black</td><td class="num">12</td><td>ea</td><td class="num">318.00</td><td class="num">3,816.00</td></tr>
+<tr><td>A-04</td><td>Mounting bracket, machined, dwg 4471-B</td><td class="num">40</td><td>ea</td><td class="num">62.50</td><td class="num">2,500.00</td></tr>
+<tr class="gsub"><td></td><td>Subtotal, section A</td><td class="num"></td><td></td><td></td><td class="num">16,736.00</td></tr>
+<tr class="ghead"><td colspan="6">Section B — Piping &amp; fittings</td></tr>
+<tr><td>B-01</td><td>Pipe, carbon steel Sch 40, 2 in, 21 ft length</td><td class="num">34</td><td>len</td><td class="num">88.20</td><td class="num">2,998.80</td></tr>
+<tr><td>B-02</td><td>Elbow, butt weld 90°, 2 in, long radius</td><td class="num">96</td><td>ea</td><td class="num">14.75</td><td class="num">1,416.00</td></tr>
+<tr><td>B-03</td><td>Ferrule, sanitary tri-clamp, 2 in, 316L</td><td class="num">120</td><td>ea</td><td class="num">9.40</td><td class="num">1,128.00</td></tr>
+<tr><td>B-04</td><td>Ball valve, 2 in full port, lockable handle</td><td class="num">18</td><td>ea</td><td class="num">214.00</td><td class="num">3,852.00</td></tr>
+<tr><td>B-05</td><td>Pipe hanger, adjustable clevis, with rod</td><td class="num">150</td><td>ea</td><td class="num">6.85</td><td class="num">1,027.50</td></tr>
+<tr class="gsub"><td></td><td>Subtotal, section B</td><td class="num"></td><td></td><td></td><td class="num">10,422.30</td></tr>
+<tr class="ghead"><td colspan="6">Section C — Electrical &amp; controls</td></tr>
+<tr><td>C-01</td><td>Control panel, NEMA 4X, 36 × 30 in, UL 508A labelled</td><td class="num">2</td><td>ea</td><td class="num">4,860.00</td><td class="num">9,720.00</td></tr>
+<tr><td>C-02</td><td>Variable frequency drive, 10 hp, 480 V</td><td class="num">4</td><td>ea</td><td class="num">1,275.00</td><td class="num">5,100.00</td></tr>
+<tr><td>C-03</td><td>Cable, 12/3 SO, in tray, per linear foot</td><td class="num">900</td><td>ft</td><td class="num">2.15</td><td class="num">1,935.00</td></tr>
+<tr><td>C-04</td><td>Junction box, cast aluminium, with gland plate</td><td class="num">16</td><td>ea</td><td class="num">78.00</td><td class="num">1,248.00</td></tr>
+<tr class="gsub"><td></td><td>Subtotal, section C</td><td class="num"></td><td></td><td></td><td class="num">18,003.00</td></tr>
+<tr><td></td><td style="font-weight:700;border-bottom:0;padding-top:14px">Carried forward to page 3</td><td></td><td></td><td></td><td class="num" style="font-weight:700;border-bottom:0;padding-top:14px">45,161.30</td></tr>
+</tbody></table>
+<div class="cont">Continued on page 3 — sections D and E</div>
+<div class="pgnum"><span>Invoice INV-4421 · Detail, sections A–C</span><span>Page 2 of 3</span></div>
+</div>
+<div class="page">
+<div class="rhd"><b>Northmoor · Invoice INV-4421</b><span>Kestrel Medical Center — Contract 2026-CS-04</span><span>Detail, sections D–E · totals</span></div>
+<table class="t">
+<thead><tr><th style="width:52px">Line</th><th>Description</th><th class="num" style="width:64px">Qty</th><th style="width:40px">Unit</th><th class="num" style="width:76px">Rate</th><th class="num" style="width:86px">Amount</th></tr></thead>
+<tbody>
+<tr><td></td><td style="color:#767676">Brought forward from page 2 — sections A–C</td><td></td><td></td><td></td><td class="num">45,161.30</td></tr>
+<tr class="ghead"><td colspan="6">Section D — Site labor (not subject to sales tax)</td></tr>
+<tr><td>D-01</td><td>Millwright, straight time<br><span style="color:#767676;font-size:8.5px">Certified payroll attached · weeks 32–35</span></td><td class="num">168</td><td>hr</td><td class="num">96.00</td><td class="num">16,128.00</td></tr>
+<tr><td>D-02</td><td>Millwright, overtime, Saturday tie-in</td><td class="num">22</td><td>hr</td><td class="num">144.00</td><td class="num">3,168.00</td></tr>
+<tr><td>D-03</td><td>Electrician, straight time</td><td class="num">104</td><td>hr</td><td class="num">104.00</td><td class="num">10,816.00</td></tr>
+<tr><td>D-04</td><td>Site supervision and coordination</td><td class="num">40</td><td>hr</td><td class="num">118.00</td><td class="num">4,720.00</td></tr>
+<tr class="gsub"><td></td><td>Subtotal, section D</td><td></td><td></td><td></td><td class="num">34,832.00</td></tr>
+<tr class="ghead"><td colspan="6">Section E — Freight, handling &amp; permits</td></tr>
+<tr><td>E-01</td><td>Flatbed freight, Rochester to Cleveland</td><td class="num">3</td><td>load</td><td class="num">1,180.00</td><td class="num">3,540.00</td></tr>
+<tr><td>E-02</td><td>Crating, blocking and export packing</td><td class="num">1</td><td>lot</td><td class="num">865.00</td><td class="num">865.00</td></tr>
+<tr><td>E-03</td><td>Municipal permit fees, billed at cost</td><td class="num">1</td><td>lot</td><td class="num">1,240.00</td><td class="num">1,240.00</td></tr>
+<tr class="gsub"><td></td><td>Subtotal, section E</td><td></td><td></td><td></td><td class="num">5,645.00</td></tr>
+</tbody></table>
+<table class="tt">
+<tr><td>Total goods and services</td><td class="num">85,638.30</td></tr>
+<tr><td>Less retainage withheld, 5% (Article 7)</td><td class="num">(4,281.92)</td></tr>
+<tr><td>Taxable base 45,161.30 · OH sales tax 8.00%</td><td class="num">3,612.90</td></tr>
+<tr><td>Less deposit received 12 Aug 2026</td><td class="num">(25,000.00)</td></tr>
+<tr><td>Balance due</td><td class="num">59,969.28</td></tr>
+</table>
+<div class="due"><span class="lbl" style="color:#111">Amount due</span><span style="font:400 34px/.9 Georgia,'Times New Roman',serif;font-variant-numeric:tabular-nums;color:var(--ac,#7b2233)">$59,969.28</span></div>
+<div class="foot"><div style="flex:1"><div class="lbl" style="margin-bottom:4px">Certification</div>The undersigned certifies that the work described has been performed and that amounts previously billed have been paid or credited.<br><br><span style="display:inline-block;border-top:1px solid #111;width:200px;padding-top:5px;font-size:8.5px">R. A. Halloran · Project Manager</span></div><div style="flex:1"><div class="lbl" style="margin-bottom:4px">Remit to</div>First Genesee Bank, Rochester NY · Account 8841 002937 · Routing 021304559 · Reference INV-4421. Retainage released on substantial completion and lien waiver.</div></div>
+<div class="pgnum"><span>Invoice INV-4421 · Detail, sections D–E · totals</span><span>Page 3 of 3</span></div>
+</div>
+</div></div>
+
+<div class="doc" id="1c"><div class="doclbl"><a class="docid" href="#1c">1c</a>Credit note</div>
+<div class="spread"><div class="page">
+<div class="atop"></div>
+<div class="hd">
+<div style="display:flex;gap:14px;align-items:flex-start"><div class="mark">N</div><div><div class="wm">Northmoor</div><div class="sub" style="margin-top:4px">Industrial Group, Inc.</div></div></div>
+<div class="addr" style="text-align:right">418 Ellingham Road, Suite 300<br>Rochester, NY 14604<br>(585) 274-0180<br>ar@northmoorgroup.com</div>
+</div>
+<div class="hr" style="margin-top:20px;height:2px"></div>
+<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:27px;border-bottom:1px solid #111;padding-bottom:12px">
+<div><div class="lbl" style="color:var(--ac,#7b2233);margin-bottom:10px">Accounts receivable · against invoice INV-4417</div><div class="dtitle">Credit note</div></div>
+<div class="stamp">Credit</div>
+</div>
+<div class="meta" style="grid-template-columns:1.4fr 1fr 1fr 1fr">
+<div><div class="lbl">Issued to</div>Brightwater Foods LLC<br>Accounts Payable<br>2140 Carnegie Avenue<br>Cleveland, OH 44115</div>
+<div><div class="lbl">Credit note no.</div>CN-0392<div class="lbl" style="margin-top:14px">Issued</div>07 September 2026</div>
+<div><div class="lbl">Against invoice</div>INV-4417, 07 Sep 2026<div class="lbl" style="margin-top:14px">Authorised by</div>M. Okonjo, Controller</div>
+<div><div class="lbl">Return authorisation</div>RMA-1188<div class="lbl" style="margin-top:14px">Goods received</div>05 September 2026</div>
+</div>
+<div style="font:400 10px/1.65 Georgia,'Times New Roman',serif;margin-top:26px;max-width:74ch">This credit note reduces the balance of invoice INV-4417. It is not a refund; the amount below is applied to your account and will appear on the next statement. Returned material was inspected at our Rochester dock and accepted in resaleable condition.</div>
+<table class="t" style="margin-top:26px">
+<thead><tr><th style="width:44px">Item</th><th>Reason and description</th><th class="num" style="width:70px">Qty</th><th style="width:48px">Unit</th><th class="num" style="width:82px">Rate</th><th class="num" style="width:92px">Credit</th></tr></thead>
+<tbody>
+<tr><td>001</td><td>Fastener set, stainless 316, M8 × 40 mm — returned, over-ordered by customer</td><td class="num">200</td><td>ea</td><td class="num">1.85</td><td class="num">370.00</td></tr>
+<tr><td>002</td><td>Gasket sheet, neoprene, 1/8 in — short shipped, four sheets not delivered</td><td class="num">4</td><td>sheet</td><td class="num">46.50</td><td class="num">186.00</td></tr>
+</tbody></table>
+<table class="tt">
+<tr><td>Subtotal credited</td><td class="num">556.00</td></tr>
+<tr><td>NY sales tax 8.00% reversed</td><td class="num">44.48</td></tr>
+<tr><td>Total credit</td><td class="num">600.48</td></tr>
+</table>
+<div class="due"><span class="lbl" style="color:#111">Applied to account</span><span style="font:400 34px/.9 Georgia,'Times New Roman',serif;font-variant-numeric:tabular-nums;color:var(--ac,#7b2233)">$600.48</span></div>
+<div class="foot"><div style="flex:1"><div class="lbl" style="margin-bottom:4px">Effect on invoice INV-4417</div>Invoice total 4,647.07 · credit 600.48 · revised balance 4,046.59, due 07 October 2026.</div><div style="flex:1"><div class="lbl" style="margin-bottom:4px">Queries</div>Accounts receivable, (585) 274-0180 ext. 214. Restocking is waived on this return. Freight on the returned carton was prepaid by Northmoor.</div></div>
+<div class="pgnum"><span>Credit note CN-0392 · Brightwater Foods LLC</span><span>Page 1 of 1</span></div>
+</div></div></div>
+
+<div class="doc" id="1d"><div class="doclbl"><a class="docid" href="#1d">1d</a>Receipt — payment applied</div>
+<div class="spread"><div class="page">
+<div class="atop"></div>
+<div class="hd">
+<div style="display:flex;gap:14px;align-items:flex-start"><div class="mark">N</div><div><div class="wm">Northmoor</div><div class="sub" style="margin-top:4px">Industrial Group, Inc.</div></div></div>
+<div class="addr" style="text-align:right">418 Ellingham Road, Suite 300<br>Rochester, NY 14604<br>(585) 274-0180<br>ar@northmoorgroup.com</div>
+</div>
+<div class="hr" style="margin-top:20px;height:2px"></div>
+<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:27px;border-bottom:1px solid #111;padding-bottom:12px">
+<div><div class="lbl" style="color:var(--ac,#7b2233);margin-bottom:10px">Accounts receivable · retain for your records</div><div class="dtitle">Receipt</div></div>
+<div class="stamp">Paid in full</div>
+</div>
+<div class="meta" style="grid-template-columns:1.4fr 1fr 1fr 1fr">
+<div><div class="lbl">Received from</div>Brightwater Foods LLC<br>2140 Carnegie Avenue<br>Cleveland, OH 44115</div>
+<div><div class="lbl">Receipt no.</div>RCT-9081<div class="lbl" style="margin-top:14px">Received</div>18 September 2026</div>
+<div><div class="lbl">Method</div>ACH credit<div class="lbl" style="margin-top:14px">Bank reference</div>8827194-03</div>
+<div><div class="lbl">Posted by</div>D. Whitcomb<div class="lbl" style="margin-top:14px">Value date</div>18 September 2026</div>
+</div>
+<table class="t" style="margin-top:30px">
+<thead><tr><th>Applied to</th><th>Reference</th><th class="num" style="width:96px">Document</th><th class="num" style="width:96px">Applied</th><th class="num" style="width:96px">Balance</th></tr></thead>
+<tbody>
+<tr><td>Invoice INV-4417</td><td>PO 44-7712</td><td class="num">4,647.07</td><td class="num">4,046.59</td><td class="num">0.00</td></tr>
+<tr><td>Credit note CN-0392</td><td>RMA-1188</td><td class="num">(600.48)</td><td class="num">(600.48)</td><td class="num">0.00</td></tr>
+</tbody></table>
+<table class="tt">
+<tr><td>Invoiced</td><td class="num">4,647.07</td></tr>
+<tr><td>Credits applied</td><td class="num">(600.48)</td></tr>
+<tr><td>Cash received</td><td class="num">4,046.59</td></tr>
+</table>
+<div class="due"><span class="lbl" style="color:#111">Remaining balance</span><span style="font:400 34px/.9 Georgia,'Times New Roman',serif;font-variant-numeric:tabular-nums;color:var(--ac,#7b2233)">$0.00</span></div>
+<div style="margin-top:34px;display:flex;gap:40px;align-items:flex-end">
+<div style="flex:1;border-top:1px solid #111;padding-top:6px" class="lbl">Authorised signature</div>
+<div style="flex:1;border-top:1px solid #111;padding-top:6px" class="lbl">Date</div>
+</div>
+<div class="foot"><div style="flex:1"><div class="lbl" style="margin-bottom:4px">Retain for your records</div>This receipt evidences payment in full of the documents listed. No further amounts are outstanding on purchase order 44-7712.</div><div style="flex:1"><div class="lbl" style="margin-bottom:4px">Tax</div>Sales tax of 328.32 was charged on invoice INV-4417 and 44.48 reversed on credit note CN-0392; net tax remitted 283.84.</div></div>
+<div class="pgnum"><span>Receipt RCT-9081 · Brightwater Foods LLC</span><span>Page 1 of 1</span></div>
+</div></div></div>
+
+<div class="doc" id="1e"><div class="doclbl"><a class="docid" href="#1e">1e</a>Quotation</div>
+<div class="spread"><div class="page">
+<div class="atop"></div>
+<div class="hd">
+<div style="display:flex;gap:14px;align-items:flex-start"><div class="mark">N</div><div><div class="wm">Northmoor</div><div class="sub" style="margin-top:4px">Industrial Group, Inc.</div></div></div>
+<div class="addr" style="text-align:right">418 Ellingham Road, Suite 300<br>Rochester, NY 14604<br>(585) 274-0180<br>estimating@northmoorgroup.com</div>
+</div>
+<div class="hr" style="margin-top:20px;height:2px"></div>
+<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:27px;border-bottom:1px solid #111;padding-bottom:12px">
+<div><div class="lbl" style="color:var(--ac,#7b2233);margin-bottom:10px">Estimating · firm for thirty days</div><div class="dtitle">Quotation</div></div>
+<div style="text-align:right"><div class="lbl" style="margin-bottom:7px">Quotation number</div><div style="font:400 20px/1 Georgia,'Times New Roman',serif;font-variant-numeric:tabular-nums">QUO-2026-118</div></div>
+</div>
+<div class="meta" style="grid-template-columns:1.4fr 1fr 1fr 1fr">
+<div><div class="lbl">Prepared for</div>Alder Creek Public Schools<br>Attn. J. Perreault, Operations<br>77 Sixth Street North<br>Alder Creek, NY 13301</div>
+<div><div class="lbl">Dated</div>07 September 2026<div class="lbl" style="margin-top:14px">Valid until</div>07 October 2026</div>
+<div><div class="lbl">Enquiry</div>RFQ 26-114, 26 Aug 2026<div class="lbl" style="margin-top:14px">Lead time</div>6–8 weeks from order</div>
+<div><div class="lbl">Prepared by</div>S. Marchetti, Estimating<div class="lbl" style="margin-top:14px">Site visited</div>02 September 2026</div>
+</div>
+<div style="font:400 10px/1.65 Georgia,'Times New Roman',serif;margin-top:26px;max-width:76ch">We are pleased to quote the supply and installation of one dust collection system for the district's technology shop, sized to the four machines listed in your enquiry with capacity for one future drop. Pricing assumes single-shift access and existing 480 V service within thirty feet of the proposed unit location.</div>
+<table class="t" style="margin-top:26px">
+<thead><tr><th style="width:44px">Item</th><th>Description</th><th class="num" style="width:64px">Qty</th><th style="width:40px">Unit</th><th class="num" style="width:82px">Rate</th><th class="num" style="width:92px">Amount</th></tr></thead>
+<tbody>
+<tr><td>001</td><td>Dust collector, 4,000 CFM, cartridge type, with rotary airlock and controls</td><td class="num">1</td><td>ea</td><td class="num">12,480.00</td><td class="num">12,480.00</td></tr>
+<tr><td>002</td><td>Ductwork, spiral galvanized 14 in, hangers and blast gates</td><td class="num">240</td><td>ft</td><td class="num">18.60</td><td class="num">4,464.00</td></tr>
+<tr><td>003</td><td>Installation labor, mechanical and electrical, two technicians</td><td class="num">88</td><td>hr</td><td class="num">96.00</td><td class="num">8,448.00</td></tr>
+</tbody></table>
+<table class="tt">
+<tr><td>Subtotal</td><td class="num">25,392.00</td></tr>
+<tr><td>Taxable materials 16,944.00 · NY sales tax 8.00%</td><td class="num">1,355.52</td></tr>
+<tr><td>Quoted total</td><td class="num">26,747.52</td></tr>
+</table>
+<div style="display:flex;gap:36px;margin-top:30px">
+<div style="flex:1"><div class="lbl" style="margin-bottom:7px">Excluded from this quotation</div><div style="font-size:9.5px;line-height:1.75">Roof penetrations and patching · fire suppression modifications · asbestos survey or abatement · permit fees, billed at cost · painting beyond factory finish · after-hours premium time</div></div>
+<div style="flex:1"><div class="lbl" style="margin-bottom:7px">Options, priced separately</div>
+<table class="t" style="font-size:9px"><tbody>
+<tr><td>Sound attenuation package</td><td class="num">1,840.00</td></tr>
+<tr><td>Spare cartridge set, six filters</td><td class="num">2,214.00</td></tr>
+<tr><td>Extended warranty, 36 months</td><td class="num">960.00</td></tr>
+</tbody></table></div>
+</div>
+<div style="margin-top:auto;display:flex;gap:40px;align-items:flex-end;padding-top:26px">
+<div style="flex:1.4;border-top:1px solid #111;padding-top:6px" class="lbl">Accepted for Alder Creek Public Schools</div>
+<div style="flex:1;border-top:1px solid #111;padding-top:6px" class="lbl">Title</div>
+<div style="flex:.7;border-top:1px solid #111;padding-top:6px" class="lbl">Date</div>
+</div>
+<div class="foot" style="margin-top:22px"><div style="flex:1"><div class="lbl" style="margin-bottom:4px">Terms of quotation</div>Prices firm for thirty days. Payment 30% with order, balance net 30 on substantial completion.</div><div style="flex:1"><div class="lbl" style="margin-bottom:4px">Acceptance</div>Return one signed copy or issue a purchase order referencing QUO-2026-118. Orders are subject to our standard conditions of sale, available on request.</div></div>
+<div class="pgnum"><span>Quotation QUO-2026-118 · Alder Creek Public Schools</span><span>Page 1 of 1</span></div>
+</div></div></div>
+
+<div class="doc" id="1f"><div class="doclbl"><a class="docid" href="#1f">1f</a>Account statement — aged buckets</div>
+<div class="spread"><div class="page">
+<div class="atop"></div>
+<div class="hd">
+<div style="display:flex;gap:14px;align-items:flex-start"><div class="mark">N</div><div><div class="wm">Northmoor</div><div class="sub" style="margin-top:4px">Industrial Group, Inc.</div></div></div>
+<div class="addr" style="text-align:right">418 Ellingham Road, Suite 300<br>Rochester, NY 14604<br>(585) 274-0180<br>ar@northmoorgroup.com</div>
+</div>
+<div class="hr" style="margin-top:20px;height:2px"></div>
+<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:27px;border-bottom:1px solid #111;padding-bottom:12px">
+<div><div class="lbl" style="color:var(--ac,#7b2233);margin-bottom:10px">Accounts receivable</div><div class="dtitle">Statement of account</div></div>
+<div style="text-align:right"><div class="lbl" style="margin-bottom:7px">As at</div><div style="font:400 20px/1 Georgia,'Times New Roman',serif;font-variant-numeric:tabular-nums">07 September 2026</div></div>
+</div>
+<div class="meta" style="grid-template-columns:1.4fr 1fr 1fr 1fr">
+<div><div class="lbl">Account</div>Brightwater Foods LLC<br>Accounts Payable<br>2140 Carnegie Avenue<br>Cleveland, OH 44115</div>
+<div><div class="lbl">Account no.</div>BW-0091<div class="lbl" style="margin-top:14px">Credit limit</div>50,000.00</div>
+<div><div class="lbl">Terms</div>Net 30 days<div class="lbl" style="margin-top:14px">Statement period</div>01 May – 07 Sep 2026</div>
+<div><div class="lbl">Contact</div>M. Okonjo, Controller<div class="lbl" style="margin-top:14px">Ext.</div>214</div>
+</div>
+<div class="lbl" style="margin:30px 0 10px">Open items</div>
+<table class="t">
+<thead><tr><th style="width:96px">Document</th><th style="width:80px">Date</th><th style="width:80px">Due</th><th>Reference</th><th class="num" style="width:56px">Days</th><th class="num" style="width:92px">Amount</th></tr></thead>
+<tbody>
+<tr><td>INV-4102</td><td>29 May 2026</td><td>28 Jun 2026</td><td>PO 44-7188 · disputed freight</td><td class="num">101</td><td class="num">3,150.00</td></tr>
+<tr><td>INV-4290</td><td>12 Jul 2026</td><td>11 Aug 2026</td><td>PO 44-7422</td><td class="num">57</td><td class="num">12,410.00</td></tr>
+<tr><td>INV-4341</td><td>03 Aug 2026</td><td>02 Sep 2026</td><td>PO 44-7561</td><td class="num">35</td><td class="num">6,880.55</td></tr>
+<tr><td>INV-4388</td><td>21 Aug 2026</td><td>20 Sep 2026</td><td>PO 44-7640</td><td class="num">17</td><td class="num">9,244.10</td></tr>
+<tr><td>INV-4417</td><td>07 Sep 2026</td><td>07 Oct 2026</td><td>PO 44-7712</td><td class="num">0</td><td class="num">4,647.07</td></tr>
+<tr><td>CN-0392</td><td>07 Sep 2026</td><td>—</td><td>RMA-1188, credit</td><td class="num">0</td><td class="num">(600.48)</td></tr>
+<tr class="gsub"><td></td><td></td><td></td><td>Total outstanding</td><td class="num"></td><td class="num">35,731.24</td></tr>
+</tbody></table>
+<div class="lbl" style="margin:30px 0 10px">Ageing</div>
+<table class="t">
+<thead><tr><th class="num">Current</th><th class="num">1–30 days</th><th class="num">31–60 days</th><th class="num">61–90 days</th><th class="num">91 days and over</th><th class="num">Total</th></tr></thead>
+<tbody><tr>
+<td class="num" style="font:400 19px/1 Georgia,'Times New Roman',serif;font-variant-numeric:tabular-nums;padding-top:12px;border-bottom:0">4,046.59</td>
+<td class="num" style="font:400 19px/1 Georgia,'Times New Roman',serif;font-variant-numeric:tabular-nums;padding-top:12px;border-bottom:0">9,244.10</td>
+<td class="num" style="font:400 19px/1 Georgia,'Times New Roman',serif;font-variant-numeric:tabular-nums;padding-top:12px;border-bottom:0">19,290.55</td>
+<td class="num" style="font:400 19px/1 Georgia,'Times New Roman',serif;font-variant-numeric:tabular-nums;padding-top:12px;border-bottom:0;color:#8a857e">0.00</td>
+<td class="num" style="font:400 19px/1 Georgia,'Times New Roman',serif;font-variant-numeric:tabular-nums;padding-top:12px;border-bottom:0;color:var(--ac,#7b2233)">3,150.00</td>
+<td class="num" style="font:400 19px/1 Georgia,'Times New Roman',serif;font-variant-numeric:tabular-nums;padding-top:12px;border-bottom:0;border-top:2px solid var(--ac,#7b2233)">35,731.24</td>
+</tr></tbody>
+</table>
+<div style="display:flex;gap:36px;margin-top:30px">
+<div style="flex:1"><div class="lbl" style="margin-bottom:7px">Activity this period</div>
+<table class="t" style="font-size:9px"><tbody>
+<tr><td>Opening balance, 01 May 2026</td><td class="num">14,880.00</td></tr>
+<tr><td>Invoiced</td><td class="num">54,061.72</td></tr>
+<tr><td>Credits issued</td><td class="num">(600.48)</td></tr>
+<tr><td>Payments received</td><td class="num">(32,610.00)</td></tr>
+<tr><td style="border-bottom:0;border-top:1px solid #111;font-weight:700">Closing balance</td><td class="num" style="border-bottom:0;border-top:1px solid #111;font-weight:700">35,731.24</td></tr>
+</tbody></table></div>
+<div style="flex:1"><div class="lbl" style="margin-bottom:7px">Action requested</div><div style="font:400 10px/1.65 Georgia,'Times New Roman',serif">Invoice INV-4102 has been outstanding for 101 days pending resolution of a freight discrepancy; our credit department expects to close this by 19 September. Please remit 19,290.55 covering INV-4290 and INV-4341, both now past due. Accounts over sixty days may be placed on order hold under our conditions of sale.</div></div>
+</div>
+<div class="foot"><div style="flex:1"><div class="lbl" style="margin-bottom:4px">Remit to</div>First Genesee Bank, Rochester NY · Account 8841 002937 · Routing 021304559</div><div style="flex:1"><div class="lbl" style="margin-bottom:4px">Note</div>This statement lists open items only. Paid documents are available on request. Amounts in US dollars.</div></div>
+<div class="pgnum"><span>Statement · Account BW-0091 · 07 September 2026</span><span>Page 1 of 1</span></div>
+</div></div></div>
+
+<div class="doc" id="1g"><div class="doclbl"><a class="docid" href="#1g">1g</a>Purchase order</div>
+<div class="spread"><div class="page">
+<div class="atop"></div>
+<div class="hd">
+<div style="display:flex;gap:14px;align-items:flex-start"><div class="mark">N</div><div><div class="wm">Northmoor</div><div class="sub" style="margin-top:4px">Purchasing Department</div></div></div>
+<div class="addr" style="text-align:right">418 Ellingham Road, Suite 300<br>Rochester, NY 14604<br>(585) 274-0180<br>purchasing@northmoorgroup.com</div>
+</div>
+<div class="hr" style="margin-top:20px;height:2px"></div>
+<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:27px;border-bottom:1px solid #111;padding-bottom:12px">
+<div><div class="lbl" style="color:var(--ac,#7b2233);margin-bottom:10px">Purchasing · quote this number on all documents</div><div class="dtitle">Purchase order</div></div>
+<div style="text-align:right"><div class="lbl" style="margin-bottom:7px">Order number</div><div style="font:400 20px/1 Georgia,'Times New Roman',serif;font-variant-numeric:tabular-nums">PO-77412</div></div>
+</div>
+<div class="meta" style="grid-template-columns:1.3fr 1.3fr 1fr 1fr">
+<div><div class="lbl">Supplier</div>Tanaka Precision Parts, Inc.<br>Attn. Order Desk<br>860 Industrial Drive<br>Elkhart, IN 46514</div>
+<div><div class="lbl">Deliver to</div>Northmoor Industrial Group<br>Fabrication Plant — Dock 4<br>2200 Lyell Avenue<br>Rochester, NY 14606</div>
+<div><div class="lbl">Order date</div>07 September 2026<div class="lbl" style="margin-top:14px">Required by</div>09 October 2026</div>
+<div><div class="lbl">Terms</div>Net 45 · FOB destination<div class="lbl" style="margin-top:14px">Buyer</div>K. Alvarez, ext. 331</div>
+</div>
+<table class="t" style="margin-top:30px">
+<thead><tr><th style="width:44px">Line</th><th>Description and specification</th><th class="num" style="width:64px">Qty</th><th style="width:40px">Unit</th><th class="num" style="width:82px">Price</th><th class="num" style="width:92px">Extended</th></tr></thead>
+<tbody>
+<tr><td>01</td><td>Bearing housing, cast iron, machined to drawing 4471-B rev C<br><span style="color:#767676;font-size:8.5px">Material certificate required · first article on line 01</span></td><td class="num">60</td><td>ea</td><td class="num">84.00</td><td class="num">5,040.00</td></tr>
+<tr><td>02</td><td>Shaft, 1045 cold drawn steel, 2 in dia × 36 in, centres both ends</td><td class="num">40</td><td>ea</td><td class="num">126.50</td><td class="num">5,060.00</td></tr>
+<tr><td>03</td><td>Key stock, 1/2 in square, 12 in lengths, zinc plated</td><td class="num">200</td><td>ea</td><td class="num">4.20</td><td class="num">840.00</td></tr>
+</tbody></table>
+<table class="tt">
+<tr><td>Goods</td><td class="num">10,940.00</td></tr>
+<tr><td>Freight — prepaid by supplier, FOB destination</td><td class="num">0.00</td></tr>
+<tr><td>Order total, not to be exceeded</td><td class="num">10,940.00</td></tr>
+</table>
+<div style="display:flex;gap:36px;margin-top:32px">
+<div style="flex:1"><div class="lbl" style="margin-bottom:7px">Conditions of purchase</div><div style="font-size:9.5px;line-height:1.8">1 &nbsp;Acceptance of this order constitutes acceptance of these conditions.<br>2 &nbsp;Quantities are firm; over-shipment above 2% will be returned at supplier expense.<br>3 &nbsp;Packing slip and certificate of conformity must accompany each shipment.<br>4 &nbsp;Invoices without this order number will be returned unpaid.<br>5 &nbsp;Northmoor may inspect at source on five business days' notice.</div></div>
+<div style="flex:.8"><div class="lbl" style="margin-bottom:7px">Internal coding</div>
+<table class="t" style="font-size:9px"><tbody>
+<tr><td>Cost centre</td><td class="num">4200 · Fabrication</td></tr>
+<tr><td>GL account</td><td class="num">5110 · Raw material</td></tr>
+<tr><td>Project</td><td class="num">2026-CS-04</td></tr>
+<tr><td>Requisition</td><td class="num">REQ-20918</td></tr>
+</tbody></table></div>
+</div>
+<div style="margin-top:auto;display:flex;gap:40px;align-items:flex-end;padding-top:26px">
+<div style="flex:1.4;border-top:1px solid #111;padding-top:6px" class="lbl">Authorised — K. Alvarez, Purchasing Manager</div>
+<div style="flex:1;border-top:1px solid #111;padding-top:6px" class="lbl">Supplier acknowledgement</div>
+<div style="flex:.7;border-top:1px solid #111;padding-top:6px" class="lbl">Date</div>
+</div>
+<div class="foot" style="margin-top:22px"><div style="flex:1"><div class="lbl" style="margin-bottom:4px">Acknowledgement</div>Return a signed copy within five business days confirming price and delivery date.</div><div style="flex:1"><div class="lbl" style="margin-bottom:4px">Invoicing</div>Email a single invoice per shipment to ap@northmoorgroup.com quoting PO-77412 and the packing slip number.</div></div>
+<div class="pgnum"><span>Purchase order PO-77412 · Tanaka Precision Parts, Inc.</span><span>Page 1 of 1</span></div>
+</div></div></div>
+
+<div class="doc" id="1h"><div class="doclbl"><a class="docid" href="#1h">1h</a>Remittance advice</div>
+<div class="spread"><div class="page">
+<div class="atop"></div>
+<div class="hd">
+<div style="display:flex;gap:14px;align-items:flex-start"><div class="mark">N</div><div><div class="wm">Northmoor</div><div class="sub" style="margin-top:4px">Accounts Payable</div></div></div>
+<div class="addr" style="text-align:right">418 Ellingham Road, Suite 300<br>Rochester, NY 14604<br>(585) 274-0180<br>ap@northmoorgroup.com</div>
+</div>
+<div class="hr" style="margin-top:20px;height:2px"></div>
+<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:27px;border-bottom:1px solid #111;padding-bottom:12px">
+<div><div class="lbl" style="color:var(--ac,#7b2233);margin-bottom:10px">Accounts payable · not a negotiable instrument</div><div class="dtitle">Remittance advice</div></div>
+<div style="text-align:right"><div class="lbl" style="margin-bottom:7px">Advice number</div><div style="font:400 20px/1 Georgia,'Times New Roman',serif;font-variant-numeric:tabular-nums">RA-20268</div></div>
+</div>
+<div class="meta" style="grid-template-columns:1.4fr 1fr 1fr 1fr">
+<div><div class="lbl">To</div>Tanaka Precision Parts, Inc.<br>Accounts Receivable<br>860 Industrial Drive<br>Elkhart, IN 46514</div>
+<div><div class="lbl">Payment date</div>15 September 2026<div class="lbl" style="margin-top:14px">Method</div>ACH credit</div>
+<div><div class="lbl">Trace number</div>021304559-100482<div class="lbl" style="margin-top:14px">Supplier no.</div>TPP-0143</div>
+<div><div class="lbl">Prepared by</div>L. Nkemdirim<div class="lbl" style="margin-top:14px">Currency</div>USD</div>
+</div>
+<div style="font:400 10px/1.65 Georgia,'Times New Roman',serif;margin-top:24px;max-width:74ch">The payment described below has been released to the bank account we hold on file. This advice is for reconciliation only and is not a negotiable instrument.</div>
+<table class="t" style="margin-top:26px">
+<thead><tr><th style="width:96px">Invoice</th><th style="width:82px">Date</th><th>Reference</th><th class="num" style="width:88px">Gross</th><th class="num" style="width:88px">Discount</th><th class="num" style="width:92px">Paid</th></tr></thead>
+<tbody>
+<tr><td>T-8841</td><td>04 Aug 2026</td><td>PO-77188 · 2% early settlement</td><td class="num">3,120.00</td><td class="num">62.40</td><td class="num">3,057.60</td></tr>
+<tr><td>T-8902</td><td>21 Aug 2026</td><td>PO-77412 line 02, partial</td><td class="num">5,060.00</td><td class="num">0.00</td><td class="num">5,060.00</td></tr>
+<tr><td>T-8930</td><td>28 Aug 2026</td><td>PO-77412 line 03</td><td class="num">840.00</td><td class="num">0.00</td><td class="num">840.00</td></tr>
+<tr><td>TC-114</td><td>29 Aug 2026</td><td>Credit memo — scrap allowance</td><td class="num">(215.00)</td><td class="num">0.00</td><td class="num">(215.00)</td></tr>
+<tr class="gsub"><td></td><td></td><td>Total remitted</td><td class="num">8,805.00</td><td class="num">62.40</td><td class="num">8,742.60</td></tr>
+</tbody></table>
+<div class="due"><span class="lbl" style="color:#111">Total paid</span><span style="font:400 34px/.9 Georgia,'Times New Roman',serif;font-variant-numeric:tabular-nums;color:var(--ac,#7b2233)">$8,742.60</span></div>
+<div style="display:flex;gap:36px;margin-top:34px">
+<div style="flex:1"><div class="lbl" style="margin-bottom:7px">Deductions and holds</div><div style="font-size:9.5px;line-height:1.75">Invoice T-8902 is paid in part; 1,240.00 remains on hold pending receipt of the material certificate required by purchase order line 02. It will be released on the next payment run, 30 September 2026.</div></div>
+<div style="flex:1"><div class="lbl" style="margin-bottom:7px">Payment runs</div>
+<table class="t" style="font-size:9px"><tbody>
+<tr><td>Current run</td><td class="num">15 Sep 2026</td></tr>
+<tr><td>Next run</td><td class="num">30 Sep 2026</td></tr>
+<tr><td>Cut-off for inclusion</td><td class="num">25 Sep 2026</td></tr>
+</tbody></table></div>
+</div>
+<div class="foot"><div style="flex:1"><div class="lbl" style="margin-bottom:4px">Queries</div>Accounts payable, (585) 274-0180 ext. 118, quoting advice RA-20268.</div><div style="flex:1"><div class="lbl" style="margin-bottom:4px">Bank details on file</div>Midwest Commerce Bank · account ending 4471. Changes to remittance details are accepted only by signed letter on supplier letterhead, verified by telephone callback.</div></div>
+<div class="pgnum"><span>Remittance advice RA-20268 · Tanaka Precision Parts, Inc.</span><span>Page 1 of 1</span></div>
+</div></div></div>
+
+<div class="doc" id="1i"><div class="doclbl"><a class="docid" href="#1i">1i</a>Expense report</div>
+<div class="spread"><div class="page">
+<div class="atop"></div>
+<div class="hd">
+<div style="display:flex;gap:14px;align-items:flex-start"><div class="mark">N</div><div><div class="wm">Northmoor</div><div class="sub" style="margin-top:4px">Finance — Travel &amp; Expense</div></div></div>
+<div class="addr" style="text-align:right">418 Ellingham Road, Suite 300<br>Rochester, NY 14604<br>Form F-22 rev. 4 · Jan 2026</div>
+</div>
+<div class="hr" style="margin-top:20px;height:2px"></div>
+<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:27px;border-bottom:1px solid #111;padding-bottom:12px">
+<div><div class="lbl" style="color:var(--ac,#7b2233);margin-bottom:10px">Travel &amp; expense · form F-22</div><div class="dtitle">Expense report</div></div>
+<div style="text-align:right"><div class="lbl" style="margin-bottom:7px">Report number</div><div style="font:400 20px/1 Georgia,'Times New Roman',serif;font-variant-numeric:tabular-nums">EXP-3308</div></div>
+</div>
+<div class="meta" style="grid-template-columns:1fr 1fr 1fr 1fr">
+<div><div class="lbl">Employee</div>Dana Whitcomb<br>Accounts Receivable<br>Employee no. 20417</div>
+<div><div class="lbl">Purpose</div>Site visit and collections meeting<br>Brightwater Foods, Cleveland OH</div>
+<div><div class="lbl">Period</div>02–04 September 2026<div class="lbl" style="margin-top:14px">Submitted</div>07 September 2026</div>
+<div><div class="lbl">Approver</div>M. Okonjo, Controller<div class="lbl" style="margin-top:14px">Cost centre</div>3100 · Finance</div>
+</div>
+<table class="t" style="margin-top:30px">
+<thead><tr><th style="width:74px">Date</th><th>Description</th><th style="width:96px">Category</th><th style="width:74px">Paid by</th><th class="num" style="width:60px">Qty</th><th class="num" style="width:88px">Amount</th></tr></thead>
+<tbody>
+<tr><td>02 Sep</td><td>Airfare, Rochester–Cleveland return, coach</td><td>Air travel</td><td>Company card</td><td class="num">1</td><td class="num">412.80</td></tr>
+<tr><td>02 Sep</td><td>Taxi, airport to plant</td><td>Ground</td><td>Personal</td><td class="num">1</td><td class="num">38.50</td></tr>
+<tr><td>02 Sep</td><td>Hotel, Ellsworth Inn, two nights at 168.00</td><td>Lodging</td><td>Company card</td><td class="num">2</td><td class="num">336.00</td></tr>
+<tr><td>03 Sep</td><td>Meals, individual, within 60.00 daily cap</td><td>Meals</td><td>Personal</td><td class="num">1</td><td class="num">46.25</td></tr>
+<tr><td>03 Sep</td><td>Parking, plant visitor lot</td><td>Ground</td><td>Personal</td><td class="num">1</td><td class="num">24.00</td></tr>
+<tr><td>03 Sep</td><td>Mileage, personal vehicle, 62 mi at 0.67</td><td>Mileage</td><td>Personal</td><td class="num">62</td><td class="num">41.54</td></tr>
+<tr><td>04 Sep</td><td>Meals, individual</td><td>Meals</td><td>Personal</td><td class="num">1</td><td class="num">51.80</td></tr>
+<tr><td>04 Sep</td><td>Client dinner — M. Reyes, T. Ault, D. Whitcomb<br><span style="color:#767676;font-size:8.5px">Business purpose: payment plan for INV-4102 · itemised receipt attached</span></td><td>Entertainment</td><td>Personal</td><td class="num">3</td><td class="num">138.90</td></tr>
+<tr class="gsub"><td></td><td>Total expenses claimed</td><td></td><td></td><td class="num">8 items</td><td class="num">1,089.79</td></tr>
+</tbody></table>
+<div style="display:flex;gap:36px;margin-top:28px">
+<div style="flex:1"><div class="lbl" style="margin-bottom:7px">Category summary</div>
+<table class="t" style="font-size:9px"><tbody>
+<tr><td>Air travel</td><td class="num">412.80</td></tr>
+<tr><td>Lodging</td><td class="num">336.00</td></tr>
+<tr><td>Meals and entertainment</td><td class="num">236.95</td></tr>
+<tr><td>Ground and mileage</td><td class="num">104.04</td></tr>
+<tr><td style="border-bottom:0;border-top:1px solid #111;font-weight:700">Total</td><td class="num" style="border-bottom:0;border-top:1px solid #111;font-weight:700">1,089.79</td></tr>
+</tbody></table></div>
+<div style="flex:1">
+<table class="tt" style="width:100%;margin-top:0">
+<tr><td>Total claimed</td><td class="num">1,089.79</td></tr>
+<tr><td>Less charged to company card</td><td class="num">(748.80)</td></tr>
+<tr><td>Less cash advance</td><td class="num">0.00</td></tr>
+<tr><td>Due to employee</td><td class="num">340.99</td></tr>
+</table></div>
+</div>
+<div style="margin-top:auto;display:flex;gap:40px;align-items:flex-end;padding-top:30px">
+<div style="flex:1;border-top:1px solid #111;padding-top:6px" class="lbl">Employee — D. Whitcomb</div>
+<div style="flex:1;border-top:1px solid #111;padding-top:6px" class="lbl">Approver — M. Okonjo</div>
+<div style="flex:.6;border-top:1px solid #111;padding-top:6px" class="lbl">Date</div>
+</div>
+<div class="foot" style="margin-top:22px"><div style="flex:1"><div class="lbl" style="margin-bottom:4px">Policy</div>Receipts are required for all items above 25.00 and for every entertainment expense regardless of amount. Alcohol is not reimbursable.</div><div style="flex:1"><div class="lbl" style="margin-bottom:4px">Payment</div>Approved amounts are paid with the next payroll run following approval. Reports submitted more than sixty days after the expense date require an officer's signature.</div></div>
+<div class="pgnum"><span>Expense report EXP-3308 · D. Whitcomb · 02–04 Sep 2026</span><span>Page 1 of 1</span></div>
+</div></div></div>
+
+<div class="doc" id="1j"><div class="doclbl"><a class="docid" href="#1j">1j</a>Payslip</div>
+<div class="spread"><div class="page">
+<div class="atop"></div>
+<div class="hd">
+<div style="display:flex;gap:14px;align-items:flex-start"><div class="mark">N</div><div><div class="wm">Northmoor</div><div class="sub" style="margin-top:4px">Payroll — Confidential</div></div></div>
+<div class="addr" style="text-align:right">418 Ellingham Road, Suite 300<br>Rochester, NY 14604<br>EIN 16-1904472</div>
+</div>
+<div class="hr" style="margin-top:20px;height:2px"></div>
+<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:27px;border-bottom:1px solid #111;padding-bottom:12px">
+<div><div class="lbl" style="color:var(--ac,#7b2233);margin-bottom:10px">Payroll · confidential</div><div class="dtitle">Statement of earnings</div></div>
+<div style="text-align:right"><div class="lbl" style="margin-bottom:7px">Pay date</div><div style="font:400 20px/1 Georgia,'Times New Roman',serif;font-variant-numeric:tabular-nums">04 September 2026</div></div>
+</div>
+<div class="meta" style="grid-template-columns:1.2fr 1fr 1fr 1fr">
+<div><div class="lbl">Employee</div>Marcus L. Vance<br>1174 Bellwood Terrace<br>Rochester, NY 14618</div>
+<div><div class="lbl">Employee no.</div>18822<div class="lbl" style="margin-top:14px">Department</div>4200 · Fabrication</div>
+<div><div class="lbl">Pay period</div>16–31 August 2026<div class="lbl" style="margin-top:14px">Frequency</div>Semi-monthly</div>
+<div><div class="lbl">Filing status</div>Single · NY resident<div class="lbl" style="margin-top:14px">Allowances</div>0 · no additional withholding</div>
+</div>
+<div style="display:flex;gap:28px;margin-top:30px">
+<div style="flex:1.25">
+<div class="lbl" style="margin-bottom:10px">Earnings</div>
+<table class="t"><thead><tr><th>Description</th><th class="num" style="width:52px">Hours</th><th class="num" style="width:58px">Rate</th><th class="num" style="width:78px">Current</th><th class="num" style="width:88px">Year to date</th></tr></thead>
+<tbody>
+<tr><td>Regular salary</td><td class="num">86.67</td><td class="num">34.62</td><td class="num">3,000.00</td><td class="num">51,000.00</td></tr>
+<tr><td>Overtime, 1.5×</td><td class="num">6.50</td><td class="num">51.93</td><td class="num">337.55</td><td class="num">5,742.35</td></tr>
+<tr><td>Shift differential</td><td class="num">—</td><td class="num">—</td><td class="num">45.00</td><td class="num">760.00</td></tr>
+<tr class="gsub"><td>Gross pay</td><td class="num">93.17</td><td class="num"></td><td class="num">3,382.55</td><td class="num">57,502.35</td></tr>
+</tbody></table>
+</div>
+<div style="flex:1">
+<div class="lbl" style="margin-bottom:10px">Deductions</div>
+<table class="t"><thead><tr><th>Description</th><th class="num" style="width:78px">Current</th><th class="num" style="width:88px">Year to date</th></tr></thead>
+<tbody>
+<tr><td>Federal income tax</td><td class="num">421.60</td><td class="num">7,167.20</td></tr>
+<tr><td>Social security, 6.20%</td><td class="num">209.72</td><td class="num">3,565.15</td></tr>
+<tr><td>Medicare, 1.45%</td><td class="num">49.05</td><td class="num">833.78</td></tr>
+<tr><td>New York state tax</td><td class="num">158.34</td><td class="num">2,691.78</td></tr>
+<tr><td>Medical, pre-tax</td><td class="num">142.50</td><td class="num">2,422.50</td></tr>
+<tr><td>401(k), 5.00%</td><td class="num">169.13</td><td class="num">2,874.37</td></tr>
+<tr class="gsub"><td>Total deductions</td><td class="num">1,150.34</td><td class="num">19,554.78</td></tr>
+</tbody></table>
+</div>
+</div>
+<div style="display:flex;gap:28px;margin-top:26px;align-items:flex-start">
+<div style="flex:1.25"><div class="lbl" style="margin-bottom:10px">Leave balances</div>
+<table class="t" style="font-size:9px"><thead><tr><th>Plan</th><th class="num">Accrued</th><th class="num">Taken</th><th class="num">Available</th></tr></thead>
+<tbody>
+<tr><td>Vacation</td><td class="num">106.67</td><td class="num">64.00</td><td class="num">42.67</td></tr>
+<tr><td>Sick</td><td class="num">40.00</td><td class="num">16.00</td><td class="num">24.00</td></tr>
+<tr><td>Personal</td><td class="num">16.00</td><td class="num">8.00</td><td class="num">8.00</td></tr>
+</tbody></table></div>
+<div style="flex:1">
+<table class="tt" style="width:100%;margin-top:0">
+<tr><td>Gross pay</td><td class="num">3,382.55</td></tr>
+<tr><td>Total deductions</td><td class="num">(1,150.34)</td></tr>
+<tr><td>Net pay — direct deposit</td><td class="num">2,232.21</td></tr>
+</table>
+<div style="font-size:8.5px;color:#5a5a5a;margin-top:8px;text-align:right">Deposited to account ending 3391 · First Genesee Bank<br>Year to date net pay 37,947.57</div>
+</div>
+</div>
+<div class="foot"><div style="flex:1"><div class="lbl" style="margin-bottom:4px">Employer contributions, not deducted from pay</div>Medical 486.00 · 401(k) match, 3% 101.48 · Social security and Medicare 258.77 · State unemployment 34.16</div><div style="flex:1"><div class="lbl" style="margin-bottom:4px">Queries</div>Payroll, (585) 274-0180 ext. 402. Keep this statement; it is required to support your annual tax return. Address changes must be filed on form F-04 before the period cut-off.</div></div>
+<div class="pgnum"><span>Statement of earnings · M. L. Vance · Advice 2026-17</span><span>Page 1 of 1</span></div>
+</div></div></div>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#7b2233&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;options&quot;:[&quot;#7b2233&quot;,&quot;#5c1a1a&quot;,&quot;#1f4034&quot;,&quot;#111111&quot;]}}">
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? "#7b2233" };
+  }
+}
+</script>
+</body>
+</html>

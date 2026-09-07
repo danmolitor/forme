@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics><meta name="design_doc_mode" content="canvas"><style>
+*{box-sizing:border-box}
+body{margin:0;background:#dcd8d1;font-family:Helvetica,Arial,sans-serif;color:#111}
+a{color:var(--ac,#7b2233)}a:hover{color:#111}
+.gal{padding:56px 48px 96px}
+.galhd{margin:0 0 46px;max-width:940px}
+.galhd h1{font:400 31px/1.14 Georgia,'Times New Roman',serif;letter-spacing:-.012em;margin:0 0 14px}
+.galhd p{font:400 11.5px/1.7 Helvetica,Arial,sans-serif;color:#514d47;margin:0 0 8px;max-width:92ch}
+.galhd em{color:var(--ac,#7b2233);font-style:normal;font-weight:700}
+.grp{margin:0 0 16px;font:700 8px/1 Helvetica,Arial,sans-serif;letter-spacing:.2em;text-transform:uppercase;color:var(--ac,#7b2233);border-bottom:1px solid #c6c2ba;padding-bottom:9px}
+.docs{display:flex;flex-wrap:wrap;gap:52px;align-items:flex-start;margin:0 0 68px}
+.doc{display:flex;flex-direction:column;gap:11px;scroll-margin-top:16px}
+.doclbl{display:flex;align-items:baseline;gap:10px;font:400 11px/1.3 Helvetica,Arial,sans-serif;color:#443f39}
+.docid{font:700 9px/1 ui-monospace,Menlo,monospace;letter-spacing:.08em;padding:4px 7px;background:#111;color:#fff;text-decoration:none}
+.doc:target .docid{background:var(--ac,#7b2233)}
+.spread{display:flex;gap:20px;align-items:flex-start}
+.page{width:816px;height:1056px;background:#fdfcfa;box-shadow:0 1px 2px rgba(0,0,0,.16),0 14px 34px rgba(0,0,0,.08);padding:70px 76px 54px;position:relative;font-size:10px;line-height:1.5;overflow:hidden;flex:none;display:flex;flex-direction:column}
+.label{width:384px;height:576px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.16),0 14px 34px rgba(0,0,0,.08);padding:16px;position:relative;font-size:9px;line-height:1.4;overflow:hidden;flex:none;display:flex;flex-direction:column;border:1px solid #111}
+.atop{position:absolute;top:0;left:0;right:0;height:4px;background:var(--ac,#7b2233)}
+.pgnum{position:absolute;left:76px;right:76px;bottom:26px;display:flex;justify-content:space-between;font-size:7.5px;letter-spacing:.14em;color:#8a857e;text-transform:uppercase}
+.mark{width:44px;height:44px;background:var(--ac,#7b2233);color:#fff;font:700 20px/44px Georgia,'Times New Roman',serif;text-align:center;flex:none}
+.wm{font:700 14px/1 Helvetica,Arial,sans-serif;letter-spacing:.26em;text-transform:uppercase}
+.sub{font:700 7px/1.4 Helvetica,Arial,sans-serif;letter-spacing:.17em;text-transform:uppercase;color:var(--ac,#7b2233)}
+.lbl{font:700 7px/1.4 Helvetica,Arial,sans-serif;letter-spacing:.17em;text-transform:uppercase;color:#8a857e}
+ .dtitle{font:400 31px/1 Georgia,'Times New Roman',serif;letter-spacing:-.013em;text-transform:none}
+.hr{height:1px;background:#111}
+.hair{height:1px;background:#e2ded7}
+.hd{display:flex;justify-content:space-between;align-items:flex-start;gap:24px}
+.addr{font-size:9px;line-height:1.7;color:#4a463f}
+.meta{display:grid;gap:20px;margin:22px 0 0;font-size:9.5px;line-height:1.62}
+.meta .lbl{margin-bottom:5px}
+table.t{width:100%;border-collapse:collapse;font-size:9.5px}
+table.t th{font:700 7px/1.3 Helvetica,Arial,sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#111;text-align:left;padding:0 10px 7px 0;border-bottom:1px solid #111;vertical-align:bottom}
+table.t td{padding:6px 10px 6px 0;border-bottom:1px solid #eae6df;vertical-align:top}
+table.t th:last-child,table.t td:last-child{padding-right:0}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.gsub td{border-top:1.5px solid var(--ac,#7b2233);border-bottom:0;font-weight:700;font-size:9.5px;padding-top:10px;color:#111}
+.ghead td{border-bottom:1px solid #cfc9c0;font:700 7.5px/1.4 Helvetica,Arial,sans-serif;letter-spacing:.17em;text-transform:uppercase;padding-top:15px;color:var(--ac,#7b2233);background:transparent}
+.tt{width:340px;margin-left:auto;border-collapse:collapse;font-size:9.5px;margin-top:20px}
+.tt td{padding:6px 0;border-bottom:1px solid #eae6df;color:#4a463f}
+.tt td.num{color:#111}
+.tt tr:last-child td{border-bottom:0;border-top:1px solid #111;font-weight:700;font-size:10.5px;padding-top:9px;color:#111}
+.due{border:0;border-top:2px solid var(--ac,#7b2233);padding:13px 0 0;display:flex;justify-content:space-between;align-items:baseline;width:340px;margin:20px 0 0 auto}
+.stamp{border:1.5px solid var(--ac,#7b2233);color:var(--ac,#7b2233);padding:7px 11px;font:700 7.5px/1 Helvetica,Arial,sans-serif;letter-spacing:.2em;text-transform:uppercase}
+.tab{display:inline-block;background:var(--ac,#7b2233);color:#fff;font:700 7px/1 Helvetica,Arial,sans-serif;letter-spacing:.19em;text-transform:uppercase;padding:7px 10px}
+.flag{color:var(--ac,#7b2233);font-weight:700}
+.foot{margin-top:auto;border-top:1px solid #e2ded7;padding-top:10px;font-size:8.5px;line-height:1.7;color:#5f5a53;display:flex;gap:34px}
+.cont{font:700 7px/1 Helvetica,Arial,sans-serif;letter-spacing:.17em;text-transform:uppercase;color:var(--ac,#7b2233);margin-top:16px}
+.rhd{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid #111;padding-bottom:8px;margin-bottom:28px;font-size:7.5px;letter-spacing:.15em;text-transform:uppercase;color:#5f5a53}
+.rhd b{font:700 7.5px/1 Helvetica,Arial,sans-serif;letter-spacing:.2em;color:var(--ac,#7b2233)}
+.prose{font:400 10.4px/1.66 Georgia,'Times New Roman',serif;color:#1a1a1a}
+.prose p{margin:0 0 11px}
+.sh{font:700 7.5px/1 Helvetica,Arial,sans-serif;letter-spacing:.2em;text-transform:uppercase;margin:16px 0 9px;padding-bottom:6px;border-bottom:1px solid #111}
+.cl{display:flex;gap:14px;margin-bottom:7px;font:400 9.9px/1.62 Georgia,'Times New Roman',serif}
+.cln{flex:none;width:36px;font:700 8.5px/1.72 Helvetica,Arial,sans-serif;letter-spacing:.02em;color:#111}
+.sig{display:flex;gap:52px;margin-top:22px}
+.sigbox{flex:1;font-size:9px;line-height:1.65}
+.sigline{border-top:1px solid #111;padding-top:7px;margin-top:24px;font:700 7px/1.4 Helvetica,Arial,sans-serif;letter-spacing:.17em;text-transform:uppercase;color:#8a857e}
+.kpi{border-top:2px solid var(--ac,#7b2233);padding-top:11px}
+.kpi .v{font:400 34px/1 Georgia,'Times New Roman',serif;letter-spacing:-.02em;font-variant-numeric:tabular-nums;margin:8px 0 6px}
+.kpi .d{font-size:8.5px;color:#5f5a53;line-height:1.55}
+.toc{display:flex;align-items:baseline;gap:9px;font:400 11px/1.4 Georgia,'Times New Roman',serif;padding:10px 0;border-bottom:1px solid #eae6df}
+.toc .dots{flex:1;border-bottom:1px dotted #bdb8b0;transform:translateY(-3px)}
+.toc .num{font:700 9.5px/1 Helvetica,Arial,sans-serif;color:var(--ac,#7b2233);font-variant-numeric:tabular-nums}
+.bar{height:36px;background:repeating-linear-gradient(90deg,#111 0 2px,#fff 2px 4px,#111 4px 7px,#fff 7px 9px,#111 9px 10px,#fff 10px 13px)}
+.box{border:1px solid #111;padding:11px 13px}
+.ck{width:11px;height:11px;border:1px solid #111;display:inline-block}
+</style></helmet>
+<div class="gal" style="--ac: {{ accent }}">
+<div class="galhd">
+<h1>Northmoor document system<br>Correspondence &amp; legal, ten of thirty</h1>
+<p>Same spine as the billing set — same masthead, same 34px Georgia titles, same 7px labels. What changes is the accent's job: here it is <em>almost silent</em>. It holds the head rule and the division line under the monogram and then stops. Contracts, NDAs and termination letters get no coloured figure, no tab, no stamp; on these documents formality is the design, and restraint is the deliberate choice rather than the absence of one.</p>
+<p>Body copy is Georgia at 10.6/18.9 measured to 78–82 characters. Numbered clauses hang on a fixed 36px column so sub-clauses align down the page; continuation pages drop the letterhead for a single running rule carrying the parties, the reference and the page counter.</p>
+</div>
+
+<div class="grp">Correspondence &amp; Legal · 11–20</div>
+<div class="docs">
+
+<div class="doc" id="2a"><div class="doclbl"><a class="docid" href="#2a">2a</a>Letterhead — clean first page, running header after</div>
+<div class="spread">
+<div class="page">
+<div class="atop"></div>
+<div class="hd">
+<div style="display:flex;gap:14px;align-items:flex-start"><div class="mark">N</div><div><div class="wm">Northmoor</div><div class="sub" style="margin-top:4px">Industrial Group, Inc.</div></div></div>
+<div class="addr" style="text-align:right">418 Ellingham Road, Suite 300<br>Rochester, NY 14604<br>(585) 274-0180<br>northmoorgroup.com</div>
+</div>
+<div class="hr" style="margin-top:20px;height:2px"></div>
+<div style="margin-top:52px;font-size:9.5px;line-height:1.6;color:#444">07 September 2026</div>
+<div style="margin-top:26px;font-size:9.5px;line-height:1.65">Ms. Teresa Ault<br>Director of Operations<br>Brightwater Foods LLC<br>2140 Carnegie Avenue<br>Cleveland, OH 44115</div>
+<div style="margin-top:32px;font:700 10.5px/1.4 Helvetica,Arial,sans-serif;letter-spacing:.02em">Re: Utility skid programme — supply continuity through Q1 2027</div>
+<div class="prose" style="margin-top:24px;max-width:78ch">
+<p>Dear Ms. Ault,</p>
+<p>Thank you for the time your team gave us at the Harvard Road plant last week. This letter sets out what we agreed on supply continuity for the coming two quarters, together with the two decisions we still need from you before the end of September.</p>
+<p>Three things have changed since our March review. First, our stainless supplier has moved from a four-week to a seven-week lead time on 316L bar, which is the driver behind the fabrication dates below. Second, we have qualified a second machining source in Elkhart, which removes the single-source risk you raised on bearing housings. Third, freight out of Rochester has settled at roughly nine percent below the spring peak, and we are passing that through rather than holding it.</p>
+<p>On the fabrication programme: we can hold current pricing on the skid frames and guard panels through 31 March 2027 provided we receive a blanket release for the full sixty units by 30 September. Below that quantity we would need to requote the frames, and the difference would be in the order of four to six percent. The piping and fittings package is quoted against published mill indices and will move with them; we will notify you in writing before any change takes effect, as we have done since 2023.</p>
+<p>On the two open decisions. The first is whether you wish us to hold safety stock of the neoprene gasket material at our Lyell Avenue plant. Holding six weeks' consumption would carry a storage charge of roughly 240 dollars a month and would remove the two-week exposure you saw in August. The second is the commissioning window for the Central Sterile installation, which we have provisionally reserved for the week of 21 September; that reservation lapses on 14 September and the next available window is 19 October.</p>
+<p>We have also enclosed the revised quality plan. The only substantive change is that first-article inspection now applies to every machined line item rather than to the first release of each part number, which we expect will slow the first shipment of any new part by two to three days and reduce the rework we both saw in the spring.</p>
+</div>
+<div class="cont">Continued overleaf</div>
+<div class="foot"><div style="flex:1">Northmoor Industrial Group, Inc. · 418 Ellingham Road, Suite 300, Rochester, NY 14604 · (585) 274-0180</div><div>Incorporated in New York · EIN 16-1904472</div></div>
+<div class="pgnum"><span></span><span>Page 1 of 2</span></div>
+</div>
+<div class="page">
+<div class="rhd"><b>Northmoor</b><span>Ms. T. Ault, Brightwater Foods LLC — 07 September 2026</span><span>Supply continuity through Q1 2027</span></div>
+<div class="prose" style="max-width:78ch">
+<p>Turning to the commercial terms. Our proposal is to leave payment terms at net thirty and to keep the two percent early-settlement discount available on invoices paid within ten days, which your treasury team has taken on eleven of the last fourteen invoices. We would ask in return that the disputed freight item on invoice INV-4102 be closed out; our credit department has the documentation and expects to have it resolved by 19 September.</p>
+<p>We propose the following schedule for the balance of the programme, subject to the blanket release described above.</p>
+</div>
+<table class="t" style="margin-top:6px">
+<thead><tr><th style="width:110px">Release</th><th>Scope</th><th style="width:120px">Ship window</th><th class="num" style="width:96px">Value</th></tr></thead>
+<tbody>
+<tr><td>R-07</td><td>Skid frames, units 41–48, with guard panels</td><td>05–16 Oct 2026</td><td class="num">14,244.00</td></tr>
+<tr><td>R-08</td><td>Piping and fittings, west wall tie-in</td><td>02–13 Nov 2026</td><td class="num">10,422.30</td></tr>
+<tr><td>R-09</td><td>Skid frames, units 49–60, with brackets</td><td>11–22 Jan 2027</td><td class="num">20,320.00</td></tr>
+<tr><td>R-10</td><td>Spares package and commissioning support</td><td>Feb–Mar 2027</td><td class="num">6,880.00</td></tr>
+<tr class="gsub"><td></td><td>Programme value, releases R-07 to R-10</td><td></td><td class="num">51,866.30</td></tr>
+</tbody></table>
+<div class="prose" style="margin-top:20px;max-width:78ch">
+<p>If the schedule and the terms above are acceptable, a purchase order referencing this letter is sufficient; no further paperwork is required from your side. I will call your office on Thursday to confirm the commissioning window either way, since that is the one item with a hard date.</p>
+<p>We are grateful for the eleven years of work and intend to keep earning it.</p>
+<p>Yours sincerely,</p>
+</div>
+<div style="margin-top:30px;font-size:9.5px;line-height:1.6">
+<div style="height:34px"></div>
+<div style="font-weight:700">Robert A. Halloran</div>
+<div style="color:#444">Vice President, Commercial<br>(585) 274-0180 ext. 208 · r.halloran@northmoorgroup.com</div>
+</div>
+<div style="margin-top:24px;font-size:9px;color:#444"><span class="lbl">Enclosures</span> &nbsp;Quality plan QP-11 rev. 3 · Release schedule R-07 to R-10 · Statement of account as at 07 Sep 2026<br><span class="lbl">Copies</span> &nbsp;M. Reyes, Brightwater Foods · K. Alvarez, Northmoor Purchasing</div>
+<div class="foot"><div style="flex:1">Northmoor Industrial Group, Inc. · 418 Ellingham Road, Suite 300, Rochester, NY 14604</div><div>Ref. COM-2026-0907-AULT</div></div>
+<div class="pgnum"><span>Northmoor · Ref. COM-2026-0907-AULT</span><span>Page 2 of 2</span></div>
+</div>
+</div></div>
+
+<div class="doc" id="2b"><div class="doclbl"><a class="docid" href="#2b">2b</a>Cover letter</div>
+<div class="spread"><div class="page">
+<div class="atop"></div>
+<div class="hd">
+<div style="display:flex;gap:14px;align-items:flex-start"><div class="mark">N</div><div><div class="wm">Northmoor</div><div class="sub" style="margin-top:4px">Estimating &amp; Proposals</div></div></div>
+<div class="addr" style="text-align:right">418 Ellingham Road, Suite 300<br>Rochester, NY 14604<br>(585) 274-0180<br>estimating@northmoorgroup.com</div>
+</div>
+<div class="hr" style="margin-top:20px;height:2px"></div>
+<div style="margin-top:44px;font-size:9.5px;color:#444">07 September 2026 · Delivered by email and courier</div>
+<div style="margin-top:24px;font-size:9.5px;line-height:1.65">Mr. Jean Perreault<br>Director of Operations<br>Alder Creek Public Schools<br>77 Sixth Street North<br>Alder Creek, NY 13301</div>
+<div style="margin-top:30px;font:700 10.5px/1.4 Helvetica,Arial,sans-serif">Re: RFQ 26-114 — dust collection system, technology shop · Quotation QUO-2026-118</div>
+<div class="prose" style="margin-top:22px;max-width:78ch">
+<p>Dear Mr. Perreault,</p>
+<p>We are pleased to submit our quotation for the dust collection system at the technology shop, following our site visit on 2 September. The enclosed quotation is firm for thirty days and totals 26,747.52 dollars including New York sales tax on materials.</p>
+<p>Three points from the site visit are worth drawing to your attention, because each one affects either cost or schedule.</p>
+<p>The existing 480 volt panel in the shop has two spare breaker positions, which is enough for the collector and the airlock without a service upgrade. That is the single largest saving against the budget figure you shared with us, and it holds only if the panel is not committed to the welding bay expansion in the meantime.</p>
+<p>The proposed unit location on the north wall requires no roof penetration, but it does place the collector within eight feet of the classroom partition. We have quoted the standard cabinet; the sound attenuation package listed as an option would bring the measured level at the partition from roughly seventy-two to sixty-four decibels. Schools in similar rooms usually take it.</p>
+<p>Finally, the six to eight week lead time runs from receipt of order. An order placed by the end of September would allow installation over the October recess, avoiding both occupied classrooms and after-hours premium time.</p>
+<p>Our references for comparable work include the Genesee Valley BOCES shop retrofit in 2024 and two collectors installed for Kestrel Medical Center's facilities group; contact details are attached and both are happy to take calls.</p>
+<p>I would be glad to walk your maintenance supervisor through the ductwork layout before you take this to the board. Please call me directly on extension 244.</p>
+<p>Yours sincerely,</p>
+</div>
+<div style="margin-top:28px;font-size:9.5px;line-height:1.6">
+<div style="height:34px"></div>
+<div style="font-weight:700">Sofia Marchetti</div>
+<div style="color:#444">Senior Estimator · (585) 274-0180 ext. 244</div>
+</div>
+<div class="foot"><div style="flex:1"><span class="lbl">Enclosures</span> &nbsp;Quotation QUO-2026-118 · Ductwork layout sketch DL-114 · Reference contacts</div><div>Ref. PRO-2026-0907-ACPS</div></div>
+<div class="pgnum"><span>Northmoor · Ref. PRO-2026-0907-ACPS</span><span>Page 1 of 1</span></div>
+</div></div></div>
+
+<div class="doc" id="2c"><div class="doclbl"><a class="docid" href="#2c">2c</a>Internal memorandum</div>
+<div class="spread"><div class="page">
+<div class="atop"></div>
+<div style="display:flex;justify-content:space-between;align-items:flex-start">
+<div style="display:flex;gap:14px;align-items:flex-start"><div class="mark">N</div><div><div class="wm">Northmoor</div><div class="sub" style="margin-top:4px">Internal Memorandum</div></div></div>
+<div class="addr" style="text-align:right;text-transform:uppercase;letter-spacing:.1em;font-size:7.5px">Internal distribution only<br>Not for release outside the company</div>
+</div>
+<div class="hr" style="margin-top:20px;height:2px"></div>
+<div style="display:grid;grid-template-columns:64px 1fr 64px 1fr;gap:9px 12px;margin-top:24px;font-size:9.5px;line-height:1.55;align-items:baseline">
+<div class="lbl">To</div><div>All department heads; plant supervisors</div>
+<div class="lbl">Date</div><div>07 September 2026</div>
+<div class="lbl">From</div><div>M. Okonjo, Controller</div>
+<div class="lbl">Ref.</div><div>MEM-2026-41</div>
+<div class="lbl">Copies</div><div>R. A. Halloran; K. Alvarez; audit file</div>
+<div class="lbl">Pages</div><div>1</div>
+</div>
+<div class="hair" style="margin-top:18px"></div>
+<div style="margin-top:22px;font:700 12px/1.35 Helvetica,Arial,sans-serif;letter-spacing:.01em;max-width:60ch">Capital request cut-off and the new two-signature threshold, effective 1 October 2026</div>
+<div class="prose" style="margin-top:16px;max-width:78ch">
+<p>Two changes to the way we approve spending take effect at the start of next month. Both come out of the July audit findings and both are simple.</p>
+<p><b>Capital requests.</b> Requests for the 2027 budget must reach Finance by Friday 25 September. Anything arriving after that date will be considered in the March supplementary round rather than at the November board meeting. The form has not changed, but the quotation attached to it must now be less than sixty days old at the point of submission — three of last year's requests were approved against stale pricing and came in over.</p>
+<p><b>Two-signature threshold.</b> The single-signature limit on purchase orders falls from 25,000 to 10,000 dollars. Orders above 10,000 need the buyer and the relevant department head; orders above 50,000 continue to need an officer. Purchasing will reject orders that arrive with one signature, and the rejection will cost you a day, so please brief anyone who raises requisitions on your behalf.</p>
+<p>Neither change affects blanket releases already in place, including the Brightwater programme, or expense reports, which stay on the existing approval route.</p>
+</div>
+<div class="sh">Actions and owners</div>
+<table class="t">
+<thead><tr><th style="width:34px">No.</th><th>Action</th><th style="width:150px">Owner</th><th style="width:100px">Due</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Circulate revised capital request form F-31 rev. 5 to department heads</td><td>L. Nkemdirim</td><td>11 Sep 2026</td></tr>
+<tr><td>2</td><td>Update purchase order approval matrix in the ERP; test in sandbox first</td><td>K. Alvarez</td><td>24 Sep 2026</td></tr>
+<tr><td>3</td><td>Submit 2027 capital requests with current quotations attached</td><td>All department heads</td><td>25 Sep 2026</td></tr>
+<tr><td>4</td><td>Brief plant supervisors at the Tuesday production meeting</td><td>R. A. Halloran</td><td>29 Sep 2026</td></tr>
+<tr><td>5</td><td>Confirm to the audit file that both changes are live</td><td>M. Okonjo</td><td>02 Oct 2026</td></tr>
+</tbody></table>
+<div class="prose" style="margin-top:22px;max-width:78ch"><p>If a request is genuinely time-critical and cannot wait for the supplementary round, bring it to me before the cut-off rather than after it. Questions to extension 214.</p></div>
+<div class="foot"><div style="flex:1">Retention: seven years, finance policy FIN-08. Superseded memoranda: MEM-2025-19 (single-signature limit).</div><div>MEM-2026-41</div></div>
+<div class="pgnum"><span>Internal memorandum MEM-2026-41 · Confidential</span><span>Page 1 of 1</span></div>
+</div></div></div>
+
+<div class="doc" id="2d"><div class="doclbl"><a class="docid" href="#2d">2d</a>Employment contract — numbered clauses, three pages</div>
+<div class="spread">
+<div class="page">
+<div class="atop"></div>
+<div class="hd">
+<div style="display:flex;gap:14px;align-items:flex-start"><div class="mark">N</div><div><div class="wm">Northmoor</div><div class="sub" style="margin-top:4px">Human Resources</div></div></div>
+<div class="addr" style="text-align:right">418 Ellingham Road, Suite 300<br>Rochester, NY 14604<br>Form HR-01 rev. 7</div>
+</div>
+<div class="hr" style="margin-top:20px;height:2px"></div>
+<div style="margin-top:34px;text-align:center">
+<div class="dtitle">Contract of Employment</div>
+<div style="font-size:9px;letter-spacing:.11em;text-transform:uppercase;color:#6b6b6b;margin-top:10px">Northmoor Industrial Group, Inc. and Priya N. Raghunathan</div>
+</div>
+<div class="hair" style="margin:26px 0 0"></div>
+<div class="meta" style="grid-template-columns:1fr 1fr 1fr">
+<div><div class="lbl">Employer</div>Northmoor Industrial Group, Inc.<br>418 Ellingham Road, Suite 300<br>Rochester, NY 14604<br>EIN 16-1904472</div>
+<div><div class="lbl">Employee</div>Priya N. Raghunathan<br>2208 Wexford Lane, Apt. 6<br>Pittsford, NY 14534</div>
+<div><div class="lbl">Particulars</div>Agreement dated 07 September 2026<br>Start date 05 October 2026<br>Reference EMP-2026-0113</div>
+</div>
+<div class="prose" style="margin-top:24px;max-width:80ch"><p>This agreement is made between the Employer and the Employee named above. It sets out the terms on which the Employee is engaged and, together with the documents it refers to, forms the entire agreement between the parties on the subject of the Employee's employment.</p></div>
+<div class="sh">1 &nbsp;Appointment and term</div>
+<div class="cl"><div class="cln">1.1</div><div>The Employee is appointed Quality Systems Manager, reporting to the Vice President, Operations. Employment begins on 5 October 2026 and continues until terminated in accordance with clause 9.</div></div>
+<div class="cl"><div class="cln">1.2</div><div>The first ninety days constitute a probationary period, during which either party may terminate on one week's written notice. The Employer may extend the probationary period once, by not more than sixty days, on written notice given before it expires.</div></div>
+<div class="cl"><div class="cln">1.3</div><div>Employment is conditional on satisfactory references, evidence of the Employee's right to work in the United States, and completion of the pre-employment screening described in schedule B.</div></div>
+<div class="sh">2 &nbsp;Duties</div>
+<div class="cl"><div class="cln">2.1</div><div>The Employee shall carry out the duties set out in the position description at schedule A, together with any other duties reasonably assigned that are consistent with the position and the Employee's skills.</div></div>
+<div class="cl"><div class="cln">2.2</div><div>The Employee shall devote substantially all working time and attention to the business of the Employer and shall not, without written consent, engage in any other employment or business that competes with the Employer or that could reasonably interfere with the performance of these duties.</div></div>
+<div class="cl"><div class="cln">2.3</div><div>The Employee's normal place of work is the Lyell Avenue plant, Rochester, New York. The Employee may be required to travel to customer and supplier sites; travel is expected to average four days a month and is reimbursed under policy FIN-22.</div></div>
+<div class="sh">3 &nbsp;Hours of work</div>
+<div class="cl"><div class="cln">3.1</div><div>Normal hours are forty per week, Monday to Friday, between 7.00 a.m. and 4.00 p.m., with an unpaid meal break of thirty minutes.</div></div>
+<div class="cl"><div class="cln">3.2</div><div>The position is exempt from overtime under applicable law. The Employee acknowledges that the duties may from time to time require hours beyond those in clause 3.1 and that no additional payment is due for them.</div></div>
+<div class="cont">Continued on page 2 — clauses 4 to 8</div>
+<div class="foot"><div style="flex:1">Contract of employment · Northmoor Industrial Group, Inc. and P. N. Raghunathan · EMP-2026-0113</div><div>Initials ________ / ________</div></div>
+<div class="pgnum"><span>EMP-2026-0113</span><span>Page 1 of 3</span></div>
+</div>
+<div class="page">
+<div class="rhd"><b>Contract of employment</b><span>Northmoor Industrial Group, Inc. and P. N. Raghunathan</span><span>EMP-2026-0113</span></div>
+<div class="sh" style="margin-top:0">4 &nbsp;Remuneration</div>
+<div class="cl"><div class="cln">4.1</div><div>The Employee's annual base salary is 96,000 dollars, payable semi-monthly in arrears by direct deposit, subject to lawful withholding and to the deductions authorised in schedule C.</div></div>
+<div class="cl"><div class="cln">4.2</div><div>Salary is reviewed each March. A review does not oblige the Employer to make any increase.</div></div>
+<div class="cl"><div class="cln">4.3</div><div>The Employee participates in the annual incentive plan with a target award of ten percent of base salary, payable in March for the preceding calendar year and conditional on the Employee being in employment and not under notice on the payment date. Awards are calculated under the plan rules in force for the year in question.</div></div>
+<div class="cl"><div class="cln">4.4</div><div>The Employer may deduct from any payment due to the Employee any sum the Employee owes it, including advances, over-payments and the cost of unreturned property, to the extent permitted by law.</div></div>
+<div class="sh">5 &nbsp;Benefits and leave</div>
+<div class="cl"><div class="cln">5.1</div><div>The Employee is eligible for the medical, dental and life insurance plans from the first of the month following the start date, and for the 401(k) plan after ninety days' service, with an Employer match of three percent of eligible earnings.</div></div>
+<div class="cl"><div class="cln">5.2</div><div>Paid vacation accrues at 6.67 hours per semi-monthly period, being twenty days a year, rising to twenty-five days after five years' service. Not more than forty hours may be carried into a following calendar year.</div></div>
+<div class="cl"><div class="cln">5.3</div><div>Sick leave accrues at the statutory rate. The Employee shall notify the immediate supervisor before the start of the shift on the first day of absence and shall provide a physician's certificate for any absence exceeding three consecutive working days.</div></div>
+<div class="cl"><div class="cln">5.4</div><div>Benefit plans are provided under documents that govern in the event of any inconsistency with this agreement, and the Employer may change or withdraw any plan on reasonable notice.</div></div>
+<div class="sh">6 &nbsp;Confidentiality</div>
+<div class="cl"><div class="cln">6.1</div><div>The Employee shall not, during employment or afterwards, use or disclose any confidential information of the Employer or of its customers and suppliers, except as required in the proper performance of duties or by law.</div></div>
+<div class="cl"><div class="cln">6.2</div><div>Confidential information includes drawings, process specifications, quality records, pricing, supplier terms, customer lists and any information marked confidential or that a reasonable person would understand to be confidential.</div></div>
+<div class="cl"><div class="cln">6.3</div><div>Nothing in this clause prevents the Employee from reporting a suspected violation of law to a government agency, from participating in an agency investigation, or from making any disclosure protected by law.</div></div>
+<div class="sh">7 &nbsp;Intellectual property</div>
+<div class="cl"><div class="cln">7.1</div><div>All inventions, drawings, software and other works made by the Employee in the course of employment and relating to the Employer's business belong to the Employer, and the Employee assigns all such rights to it.</div></div>
+<div class="cl"><div class="cln">7.2</div><div>The Employee shall promptly disclose any such work and shall sign the documents reasonably required to record or register the Employer's ownership, at the Employer's expense.</div></div>
+<div class="sh">8 &nbsp;Restrictions after employment</div>
+<div class="cl"><div class="cln">8.1</div><div>For six months after employment ends, the Employee shall not solicit the business of any customer with whom the Employee dealt materially in the final twelve months of employment, in respect of products or services competing with those the Employer supplied to that customer.</div></div>
+<div class="cl"><div class="cln">8.2</div><div>For six months after employment ends, the Employee shall not induce any employee of the Employer holding a supervisory or professional position to leave that employment.</div></div>
+<div class="cl"><div class="cln">8.3</div><div>The parties consider these restrictions reasonable and necessary to protect the Employer's legitimate interests. If any restriction is held unenforceable, it shall be treated as reduced to the extent required to make it enforceable.</div></div>
+<div class="cont">Continued on page 3 — clauses 9 to 13 and execution</div>
+<div class="foot"><div style="flex:1">Clauses 4 to 8 · Confidentiality, intellectual property and post-employment restrictions</div><div>Initials ________ / ________</div></div>
+<div class="pgnum"><span>EMP-2026-0113</span><span>Page 2 of 3</span></div>
+</div>
+<div class="page">
+<div class="rhd"><b>Contract of employment</b><span>Northmoor Industrial Group, Inc. and P. N. Raghunathan</span><span>EMP-2026-0113</span></div>
+<div class="sh" style="margin-top:0">9 &nbsp;Termination</div>
+<div class="cl"><div class="cln">9.1</div><div>After probation, either party may terminate this agreement on four weeks' written notice. The Employer may pay salary in lieu of all or part of the notice period.</div></div>
+<div class="cl"><div class="cln">9.2</div><div>The Employer may terminate without notice for gross misconduct, including dishonesty, wilful breach of safety rules, falsification of quality records, or conduct materially damaging to the Employer's reputation.</div></div>
+<div class="cl"><div class="cln">9.3</div><div>On termination the Employee shall return all property of the Employer, including documents, drawings, keys, badges, computing equipment and any copies, and shall confirm in writing that no confidential information has been retained.</div></div>
+<div class="cl"><div class="cln">9.4</div><div>The Employer may place the Employee on paid garden leave during any notice period and may require the Employee not to attend the premises or contact customers, suppliers or employees during it.</div></div>
+<div class="sh">10 &nbsp;Health, safety and policies</div>
+<div class="cl"><div class="cln">10.1</div><div>The Employee shall comply with the Employer's health and safety rules and with the policies listed in schedule D, as amended from time to time. The policies do not form part of this agreement.</div></div>
+<div class="cl"><div class="cln">10.2</div><div>The Employee shall wear the personal protective equipment required in designated areas of the plant and shall report every accident, near miss and unsafe condition on the day it occurs.</div></div>
+<div class="sh">11 &nbsp;Data</div>
+<div class="cl"><div class="cln">11.1</div><div>The Employer processes personal data about the Employee for the purposes of employment administration, payroll, benefits and legal compliance, as described in the employee privacy notice at schedule E.</div></div>
+<div class="sh">12 &nbsp;Entire agreement and variation</div>
+<div class="cl"><div class="cln">12.1</div><div>This agreement and its schedules supersede all prior agreements, offers and representations relating to the Employee's employment, including the offer letter dated 24 August 2026 except as to the particulars it records.</div></div>
+<div class="cl"><div class="cln">12.2</div><div>No variation is effective unless made in writing and signed by both parties, save that the Employer may amend the schedules on thirty days' written notice where required by law or by a change in plan terms.</div></div>
+<div class="sh">13 &nbsp;Governing law</div>
+<div class="cl"><div class="cln">13.1</div><div>This agreement is governed by the laws of the State of New York. The parties submit to the exclusive jurisdiction of the state and federal courts sitting in Monroe County, New York.</div></div>
+<div class="prose" style="margin-top:20px;max-width:80ch"><p>Executed as of the date first written above. The Employee confirms having read this agreement, having had the opportunity to take independent advice on it, and accepting its terms.</p></div>
+<div class="sig">
+<div class="sigbox"><div class="lbl">For the Employer</div><div class="sigline">Signature</div><div style="margin-top:16px;font-size:9px">Name &nbsp;Elaine T. Bhatt<br>Title &nbsp;Director, Human Resources<br>Date &nbsp;________________________</div></div>
+<div class="sigbox"><div class="lbl">The Employee</div><div class="sigline">Signature</div><div style="margin-top:16px;font-size:9px">Name &nbsp;Priya N. Raghunathan<br>Title &nbsp;Quality Systems Manager<br>Date &nbsp;________________________</div></div>
+</div>
+<div class="foot"><div style="flex:1"><span class="lbl">Schedules</span> &nbsp;A Position description · B Pre-employment screening · C Authorised deductions · D Policy list · E Privacy notice</div><div>Initials ________ / ________</div></div>
+<div class="pgnum"><span>EMP-2026-0113 · Clauses 9 to 13 and execution</span><span>Page 3 of 3</span></div>
+</div>
+</div></div>
+
+<div class="doc" id="2e"><div class="doclbl"><a class="docid" href="#2e">2e</a>Mutual non-disclosure agreement — two pages</div>
+<div class="spread">
+<div class="page">
+<div class="atop"></div>
+<div class="hd">
+<div style="display:flex;gap:14px;align-items:flex-start"><div class="mark">N</div><div><div class="wm">Northmoor</div><div class="sub" style="margin-top:4px">Legal Department</div></div></div>
+<div class="addr" style="text-align:right">418 Ellingham Road, Suite 300<br>Rochester, NY 14604<br>Form LG-04 rev. 3</div>
+</div>
+<div class="hr" style="margin-top:20px;height:2px"></div>
+<div style="margin-top:34px;text-align:center">
+<div class="dtitle">Mutual Non-Disclosure Agreement</div>
+<div style="font-size:9px;letter-spacing:.11em;text-transform:uppercase;color:#6b6b6b;margin-top:10px">Dated 07 September 2026 · Reference NDA-2026-0072</div>
+</div>
+<div class="hair" style="margin:26px 0 0"></div>
+<div class="meta" style="grid-template-columns:1fr 1fr">
+<div><div class="lbl">Party A</div>Northmoor Industrial Group, Inc., a New York corporation, of 418 Ellingham Road, Suite 300, Rochester, NY 14604</div>
+<div><div class="lbl">Party B</div>Lindqvist Instruments AB, a Swedish company (org. nr. 556712-4408), of Sjöbrinken 14, 412 63 Göteborg, Sweden</div>
+</div>
+<div class="prose" style="margin-top:22px;max-width:80ch"><p>The parties wish to explore a possible supply relationship for in-line measurement equipment (the <b>Purpose</b>). Each expects to disclose confidential information to the other. This agreement records the terms on which those disclosures are made. Each party may act as discloser or recipient.</p></div>
+<div class="sh">1 &nbsp;Confidential information</div>
+<div class="cl"><div class="cln">1.1</div><div>Confidential information means any information disclosed by one party to the other in connection with the Purpose, in any form, that is marked confidential or that a reasonable person in the recipient's position would understand to be confidential, including technical data, drawings, calibration methods, pricing, costs, customer and supplier identities, and business plans.</div></div>
+<div class="cl"><div class="cln">1.2</div><div>The existence and subject matter of the discussions between the parties are themselves confidential information.</div></div>
+<div class="cl"><div class="cln">1.3</div><div>Confidential information does not include information that: (a) is or becomes public other than by breach of this agreement; (b) the recipient already held without obligation of confidence; (c) is received from a third party free to disclose it; or (d) the recipient develops independently without use of the other party's confidential information.</div></div>
+<div class="sh">2 &nbsp;Obligations of the recipient</div>
+<div class="cl"><div class="cln">2.1</div><div>The recipient shall use confidential information only for the Purpose and shall not use it to compete with, or to secure commercial advantage over, the discloser.</div></div>
+<div class="cl"><div class="cln">2.2</div><div>The recipient shall protect confidential information with at least the care it applies to its own information of like importance, and in no event less than reasonable care.</div></div>
+<div class="cl"><div class="cln">2.3</div><div>The recipient may disclose confidential information only to those of its employees, officers and professional advisers who need it for the Purpose and who are bound by obligations of confidence no less protective than these. The recipient remains responsible for their compliance.</div></div>
+<div class="cl"><div class="cln">2.4</div><div>The recipient shall not reverse engineer, disassemble or chemically analyse any sample or article provided by the discloser except with prior written consent.</div></div>
+<div class="sh">3 &nbsp;Compelled disclosure</div>
+<div class="cl"><div class="cln">3.1</div><div>If the recipient is required by law, regulation or court order to disclose confidential information, it may do so, provided that (where lawful) it gives the discloser prompt notice and reasonable assistance to seek protective relief, and discloses only what is required.</div></div>
+<div class="cont">Continued on page 2 — clauses 4 to 9 and execution</div>
+<div class="foot"><div style="flex:1">Mutual non-disclosure agreement · Northmoor Industrial Group, Inc. and Lindqvist Instruments AB</div><div>Initials ________ / ________</div></div>
+<div class="pgnum"><span>NDA-2026-0072</span><span>Page 1 of 2</span></div>
+</div>
+<div class="page">
+<div class="rhd"><b>Mutual NDA</b><span>Northmoor Industrial Group, Inc. and Lindqvist Instruments AB</span><span>NDA-2026-0072</span></div>
+<div class="sh" style="margin-top:0">4 &nbsp;Term and survival</div>
+<div class="cl"><div class="cln">4.1</div><div>This agreement takes effect on the date first written above and continues for two years, unless terminated earlier by either party on thirty days' written notice.</div></div>
+<div class="cl"><div class="cln">4.2</div><div>The obligations in clause 2 survive for three years from the date of each disclosure, or indefinitely in respect of any information that constitutes a trade secret for so long as it remains one.</div></div>
+<div class="sh">5 &nbsp;Return and destruction</div>
+<div class="cl"><div class="cln">5.1</div><div>On written request, and in any event on termination, the recipient shall return or destroy all confidential information in its possession and confirm in writing that it has done so, save that it may retain one archival copy held by its legal function for compliance purposes and copies held in routine backups that are not readily retrievable.</div></div>
+<div class="sh">6 &nbsp;No licence, no obligation</div>
+<div class="cl"><div class="cln">6.1</div><div>No licence or other right in any intellectual property is granted by this agreement, whether expressly or by implication.</div></div>
+<div class="cl"><div class="cln">6.2</div><div>Neither party is obliged to disclose any information, to continue discussions, or to enter into any further agreement. Any supply relationship requires a separate written contract.</div></div>
+<div class="cl"><div class="cln">6.3</div><div>Confidential information is provided as is. Neither party warrants its accuracy or completeness or accepts liability arising from the other's reliance on it.</div></div>
+<div class="sh">7 &nbsp;Remedies</div>
+<div class="cl"><div class="cln">7.1</div><div>The parties agree that damages may be an inadequate remedy for breach of this agreement and that the discloser may seek injunctive relief in addition to any other remedy available, without the need to post security.</div></div>
+<div class="sh">8 &nbsp;General</div>
+<div class="cl"><div class="cln">8.1</div><div>Neither party may assign this agreement without the other's written consent, except to a successor of substantially the whole of its business.</div></div>
+<div class="cl"><div class="cln">8.2</div><div>This agreement may be executed in counterparts, including by electronic signature, each of which is an original.</div></div>
+<div class="cl"><div class="cln">8.3</div><div>No waiver of any provision is effective unless in writing, and no failure to enforce operates as a waiver.</div></div>
+<div class="sh">9 &nbsp;Governing law and jurisdiction</div>
+<div class="cl"><div class="cln">9.1</div><div>This agreement is governed by the laws of the State of New York, without regard to its conflict of laws rules, and the parties submit to the exclusive jurisdiction of the state and federal courts sitting in Monroe County, New York.</div></div>
+<div class="cl"><div class="cln">9.2</div><div>The parties agree that this agreement and all notices under it shall be in the English language.</div></div>
+<div class="prose" style="margin-top:20px;max-width:80ch"><p>Agreed by the duly authorised representatives of the parties as of the date first written above.</p></div>
+<div class="sig">
+<div class="sigbox"><div class="lbl">For Northmoor Industrial Group, Inc.</div><div class="sigline">Signature</div><div style="margin-top:16px;font-size:9px">Name &nbsp;Harold J. Speight<br>Title &nbsp;General Counsel<br>Date &nbsp;________________________</div></div>
+<div class="sigbox"><div class="lbl">For Lindqvist Instruments AB</div><div class="sigline">Signature</div><div style="margin-top:16px;font-size:9px">Name &nbsp;Anna-Karin Sjöberg<br>Title &nbsp;Managing Director<br>Date &nbsp;________________________</div></div>
+</div>
+<div class="foot"><div style="flex:1"><span class="lbl">Notices</span> &nbsp;Northmoor: legal@northmoorgroup.com, attn. General Counsel · Lindqvist: avtal@lindqvistinstrument.se, attn. Managing Director</div><div>Initials ________ / ________</div></div>
+<div class="pgnum"><span>NDA-2026-0072 · Clauses 4 to 9 and execution</span><span>Page 2 of 2</span></div>
+</div>
+</div></div>
+
+<div class="doc" id="2f"><div class="doclbl"><a class="docid" href="#2f">2f</a>Service agreement — two pages with schedule of charges</div>
+<div class="spread">
+<div class="page">
+<div class="atop"></div>
+<div class="hd">
+<div style="display:flex;gap:14px;align-items:flex-start"><div class="mark">N</div><div><div class="wm">Northmoor</div><div class="sub" style="margin-top:4px">Service &amp; Maintenance</div></div></div>
+<div class="addr" style="text-align:right">418 Ellingham Road, Suite 300<br>Rochester, NY 14604<br>Form LG-11 rev. 2</div>
+</div>
+<div class="hr" style="margin-top:20px;height:2px"></div>
+<div style="margin-top:34px;text-align:center">
+<div class="dtitle">Service Agreement</div>
+<div style="font-size:9px;letter-spacing:.11em;text-transform:uppercase;color:#6b6b6b;margin-top:10px">Planned maintenance and breakdown attendance · SVC-2026-0219</div>
+</div>
+<div class="hair" style="margin:26px 0 0"></div>
+<div class="meta" style="grid-template-columns:1fr 1fr 1fr">
+<div><div class="lbl">Provider</div>Northmoor Industrial Group, Inc.<br>418 Ellingham Road, Suite 300<br>Rochester, NY 14604</div>
+<div><div class="lbl">Customer</div>Kestrel Medical Center<br>Facilities Contracts, Rm B-118<br>1465 Whitmore Parkway<br>Cleveland, OH 44106</div>
+<div><div class="lbl">Particulars</div>Dated 07 September 2026<br>Term 01 Oct 2026 – 30 Sep 2027<br>Annual charge 28,800.00<br>Three pages and three schedules</div>
+</div>
+<div class="sh">1 &nbsp;Services</div>
+<div class="cl"><div class="cln">1.1</div><div>The Provider shall maintain the equipment listed in schedule 1 in accordance with the manufacturer's recommendations and the visit frequency in schedule 2.</div></div>
+<div class="cl"><div class="cln">1.2</div><div>Planned maintenance comprises inspection, calibration, consumable replacement, and a written report issued within five business days of each visit.</div></div>
+<div class="cl"><div class="cln">1.3</div><div>Breakdown attendance is provided during business hours, being 7.00 a.m. to 5.00 p.m. Eastern time on business days, with response times as set out in clause 3.</div></div>
+<div class="cl"><div class="cln">1.4</div><div>Work outside the scope above, including repairs arising from misuse, unauthorised modification or failure of utilities, is chargeable at the rates in schedule 3.</div></div>
+<div class="sh">2 &nbsp;Charges and payment</div>
+<div class="cl"><div class="cln">2.1</div><div>The annual charge is 28,800 dollars, invoiced monthly in advance at 2,400 dollars, exclusive of sales tax.</div></div>
+<div class="cl"><div class="cln">2.2</div><div>Invoices are payable net thirty days. Interest accrues on late payment at 1.5 percent per month or the maximum rate permitted by law, whichever is lower.</div></div>
+<div class="cl"><div class="cln">2.3</div><div>The annual charge may be adjusted once in any twelve-month period on sixty days' written notice, by not more than the increase in the Consumer Price Index for urban wage earners over the preceding year plus two percent.</div></div>
+<div class="sh">3 &nbsp;Response times and service credits</div>
+<table class="t" style="margin-top:4px">
+<thead><tr><th>Priority</th><th>Definition</th><th class="num" style="width:96px">Response</th><th class="num" style="width:96px">On site</th><th class="num" style="width:104px">Credit if missed</th></tr></thead>
+<tbody>
+<tr><td>P1</td><td>Equipment stopped; sterile processing interrupted</td><td class="num">1 hour</td><td class="num">4 hours</td><td class="num">400.00</td></tr>
+<tr><td>P2</td><td>Reduced capacity; workaround available</td><td class="num">4 hours</td><td class="num">Next day</td><td class="num">200.00</td></tr>
+<tr><td>P3</td><td>Fault with no operational effect</td><td class="num">1 day</td><td class="num">5 days</td><td class="num">100.00</td></tr>
+</tbody></table>
+<div class="cl" style="margin-top:12px"><div class="cln">3.1</div><div>Service credits are the Customer's sole financial remedy for missed response times and are applied against the following month's invoice. Total credits in any contract year shall not exceed fifteen percent of the annual charge.</div></div>
+<div class="cont">Continued on page 2 — clauses 4 to 8 and schedules 1–2</div>
+<div class="foot"><div style="flex:1">Service agreement · Northmoor Industrial Group, Inc. and Kestrel Medical Center</div><div>Initials ________ / ________</div></div>
+<div class="pgnum"><span>SVC-2026-0219</span><span>Page 1 of 3</span></div>
+</div>
+<div class="page">
+<div class="rhd"><b>Service agreement</b><span>Northmoor and Kestrel Medical Center</span><span>SVC-2026-0219</span></div>
+<div class="sh" style="margin-top:0">4 &nbsp;Customer obligations</div>
+<div class="cl"><div class="cln">4.1</div><div>The Customer shall provide safe and timely access to the equipment, a competent escort where required by its site rules, and current safety data for any process material present.</div></div>
+<div class="cl"><div class="cln">4.2</div><div>The Customer shall operate the equipment in accordance with the manuals and shall not permit anyone other than the Provider to work on it during the term.</div></div>
+<div class="sh">5 &nbsp;Liability</div>
+<div class="cl"><div class="cln">5.1</div><div>Neither party is liable for indirect or consequential loss, including loss of profit, revenue or data, however arising.</div></div>
+<div class="cl"><div class="cln">5.2</div><div>The Provider's total liability under this agreement in any contract year is limited to the charges paid in that year, save that nothing limits liability for death or personal injury caused by negligence, or for fraud.</div></div>
+<div class="cl"><div class="cln">5.3</div><div>The Provider maintains commercial general liability insurance of not less than two million dollars per occurrence and shall furnish a certificate on request.</div></div>
+<div class="sh">6 &nbsp;Term and termination</div>
+<div class="cl"><div class="cln">6.1</div><div>This agreement runs for twelve months from 1 October 2026 and renews automatically for further twelve-month terms unless either party gives sixty days' written notice before the end of the then current term.</div></div>
+<div class="cl"><div class="cln">6.2</div><div>Either party may terminate immediately if the other commits a material breach and fails to remedy it within thirty days of written notice, or becomes insolvent.</div></div>
+<div class="sh">7 &nbsp;General</div>
+<div class="cl"><div class="cln">7.1</div><div>The Provider may subcontract elements of the services but remains responsible for their performance and for the conduct of its subcontractors on site.</div></div>
+<div class="cl"><div class="cln">7.2</div><div>This agreement, its schedules and any purchase order issued under it form the entire agreement; the Customer's standard purchase conditions do not apply.</div></div>
+<div class="sh">8 &nbsp;Governing law</div>
+<div class="cl"><div class="cln">8.1</div><div>This agreement is governed by the laws of the State of Ohio and the parties submit to the exclusive jurisdiction of the courts sitting in Cuyahoga County, Ohio.</div></div>
+<div class="lbl" style="margin-top:24px;margin-bottom:9px">Schedule 1 — Equipment covered &nbsp;·&nbsp; Schedule 2 — Visit frequency</div>
+<table class="t">
+<thead><tr><th style="width:110px">Asset</th><th>Description</th><th style="width:96px">Location</th><th class="num" style="width:80px">Visits / yr</th><th class="num" style="width:88px">Allocated</th></tr></thead>
+<tbody>
+<tr><td>KMC-SK-01</td><td>Utility skid, steam and condensate, 2026 build</td><td>CS basement</td><td class="num">4</td><td class="num">9,600.00</td></tr>
+<tr><td>KMC-SK-02</td><td>Utility skid, RO water, with booster set</td><td>CS basement</td><td class="num">4</td><td class="num">9,600.00</td></tr>
+<tr><td>KMC-DC-01</td><td>Dust collector, 2,000 CFM, cartridge type</td><td>Shops, level 1</td><td class="num">2</td><td class="num">4,800.00</td></tr>
+<tr><td>KMC-CP-01</td><td>Control panels, two, NEMA 4X with VFDs</td><td>CS basement</td><td class="num">2</td><td class="num">4,800.00</td></tr>
+<tr class="gsub"><td></td><td>Annual charge, exclusive of tax</td><td></td><td class="num">12</td><td class="num">28,800.00</td></tr>
+</tbody></table>
+<div class="cont">Continued on page 3 — schedule 3 and execution</div>
+<div class="foot"><div style="flex:1">Clauses 4 to 8 · Liability, term and the schedule of covered equipment</div><div>Initials ________ / ________</div></div>
+<div class="pgnum"><span>SVC-2026-0219 · Clauses 4 to 8 and schedules 1–2</span><span>Page 2 of 3</span></div>
+</div>
+<div class="page">
+<div class="rhd"><b>Service agreement</b><span>Northmoor and Kestrel Medical Center</span><span>SVC-2026-0219</span></div>
+<div class="lbl" style="margin-bottom:9px">Schedule 3 — Chargeable rates, effective 01 October 2026</div>
+<table class="t">
+<thead><tr><th>Category</th><th class="num" style="width:110px">Business hours</th><th class="num" style="width:110px">After hours</th><th class="num" style="width:110px">Sunday, holiday</th></tr></thead>
+<tbody>
+<tr><td>Service technician, per hour</td><td class="num">118.00</td><td class="num">177.00</td><td class="num">236.00</td></tr>
+<tr><td>Controls engineer, per hour</td><td class="num">146.00</td><td class="num">219.00</td><td class="num">292.00</td></tr>
+<tr><td>Travel, per mile beyond 50 miles</td><td class="num">0.74</td><td class="num">0.74</td><td class="num">0.74</td></tr>
+<tr><td>Parts and consumables outside scope</td><td class="num">List less 10%</td><td class="num">List less 10%</td><td class="num">List</td></tr>
+<tr><td>Minimum charge per attendance</td><td class="num">2 hours</td><td class="num">4 hours</td><td class="num">4 hours</td></tr>
+</tbody></table>
+<div class="prose" style="margin-top:18px;max-width:82ch"><p>Rates are held for the first contract year and are reviewed on the same cycle as the annual charge. Chargeable work is confirmed by a signed field service report before invoicing; the Customer's copy is left on site.</p></div>
+<div class="sh">Execution</div>
+<div class="prose" style="max-width:82ch"><p>Agreed by the duly authorised representatives of the parties as of the date first written above. This agreement comprises pages 1 to 3 and schedules 1 to 3, each of which the parties have initialled.</p></div>
+<div class="sig">
+<div class="sigbox"><div class="lbl">For the Provider</div><div class="sigline">Signature</div><div style="margin-top:16px;font-size:9px">Name &nbsp;Robert A. Halloran<br>Title &nbsp;Vice President, Commercial<br>Date &nbsp;________________________</div></div>
+<div class="sigbox"><div class="lbl">For the Customer</div><div class="sigline">Signature</div><div style="margin-top:16px;font-size:9px">Name &nbsp;Dennis Kowalczyk<br>Title &nbsp;Director of Facilities<br>Date &nbsp;________________________</div></div>
+</div>
+<div class="foot"><div style="flex:1">Service desk (585) 274-0180 ext. 7, twenty-four hours, quoting agreement SVC-2026-0219 and the asset number.</div><div>Initials ________ / ________</div></div>
+<div class="pgnum"><span>SVC-2026-0219 · Schedule 3 and execution</span><span>Page 3 of 3</span></div>
+</div>
+</div></div>
+
+<div class="doc" id="2g"><div class="doclbl"><a class="docid" href="#2g">2g</a>Offer letter</div>
+<div class="spread"><div class="page">
+<div class="atop"></div>
+<div class="hd">
+<div style="display:flex;gap:14px;align-items:flex-start"><div class="mark">N</div><div><div class="wm">Northmoor</div><div class="sub" style="margin-top:4px">Human Resources</div></div></div>
+<div class="addr" style="text-align:right">418 Ellingham Road, Suite 300<br>Rochester, NY 14604<br>(585) 274-0180 ext. 402</div>
+</div>
+<div class="hr" style="margin-top:20px;height:2px"></div>
+<div style="margin-top:28px;font-size:9.5px;color:#444">24 August 2026 · Private and confidential</div>
+<div style="margin-top:22px;font-size:9.5px;line-height:1.65">Ms. Priya N. Raghunathan<br>2208 Wexford Lane, Apt. 6<br>Pittsford, NY 14534</div>
+<div style="margin-top:28px;font:700 10.5px/1.4 Helvetica,Arial,sans-serif">Re: Offer of employment — Quality Systems Manager</div>
+<div class="prose" style="margin-top:20px;max-width:78ch">
+<p>Dear Ms. Raghunathan,</p>
+<p>Following your interviews on 12 and 19 August, I am pleased to offer you the position of Quality Systems Manager at our Lyell Avenue plant. The particulars are below; the full terms are in the enclosed contract of employment.</p>
+</div>
+<table class="t" style="margin-top:14px">
+<thead><tr><th style="width:180px">Item</th><th>Particulars</th></tr></thead>
+<tbody>
+<tr><td>Position</td><td>Quality Systems Manager, reporting to the Vice President, Operations</td></tr>
+<tr><td>Start date</td><td>Monday 5 October 2026, 8.00 a.m., main reception</td></tr>
+<tr><td>Base salary</td><td>96,000.00 per year, paid semi-monthly at 4,000.00 gross</td></tr>
+<tr><td>Incentive plan</td><td>Target 10% of base salary, first eligible year 2027, paid March 2028</td></tr>
+<tr><td>Signing payment</td><td>4,000.00 with the first full pay period, repayable if you resign within twelve months</td></tr>
+<tr><td>Vacation</td><td>20 days a year, accruing from the start date; 25 days after five years' service</td></tr>
+<tr><td>Benefits</td><td>Medical, dental and life insurance from 1 November 2026; 401(k) with 3% match after 90 days</td></tr>
+</tbody></table>
+<div class="prose" style="margin-top:20px;max-width:78ch">
+<p>The offer is conditional on satisfactory references, evidence of your right to work in the United States, and completion of our pre-employment screening.</p>
+<p>Please confirm acceptance by signing and returning one copy of this letter and the contract by <b>7 September 2026</b>. To discuss any part of the offer before then, call me on extension 402.</p>
+<p>Your work on supplier qualification is exactly what the quality plan you would inherit here needs. We hope you will join us.</p>
+<p>Yours sincerely,</p>
+</div>
+<div style="margin-top:26px;font-size:9.5px;line-height:1.6">
+<div style="height:22px"></div>
+<div style="font-weight:700">Elaine T. Bhatt</div>
+<div style="color:#444">Director, Human Resources</div>
+</div>
+<div class="sig" style="margin-top:18px">
+<div class="sigbox"><div class="lbl">Accepted — signature</div><div class="sigline" style="margin-top:26px">P. N. Raghunathan</div></div>
+<div class="sigbox" style="flex:.6"><div class="lbl">Date of acceptance</div><div class="sigline" style="margin-top:26px">Date</div></div>
+</div>
+<div class="foot"><div style="flex:1"><span class="lbl">Enclosures</span> &nbsp;Contract of employment EMP-2026-0113 · Benefits summary · Screening consent form</div><div>Ref. OFF-2026-0113</div></div>
+<div class="pgnum"><span>Offer of employment · P. N. Raghunathan · OFF-2026-0113</span><span>Page 1 of 1</span></div>
+</div></div></div>
+
+<div class="doc" id="2h"><div class="doclbl"><a class="docid" href="#2h">2h</a>Termination letter</div>
+<div class="spread"><div class="page">
+<div class="atop"></div>
+<div class="hd">
+<div style="display:flex;gap:14px;align-items:flex-start"><div class="mark">N</div><div><div class="wm">Northmoor</div><div class="sub" style="margin-top:4px">Human Resources</div></div></div>
+<div class="addr" style="text-align:right">418 Ellingham Road, Suite 300<br>Rochester, NY 14604<br>(585) 274-0180 ext. 402</div>
+</div>
+<div class="hr" style="margin-top:20px;height:2px"></div>
+<div style="margin-top:28px;font-size:9.5px;color:#444">07 September 2026 · Delivered by hand · Private and confidential</div>
+<div style="margin-top:22px;font-size:9.5px;line-height:1.65">Mr. Gareth O. Simms<br>Employee no. 17204<br>4419 Ridgemont Drive<br>Greece, NY 14616</div>
+<div style="margin-top:28px;font:700 10.5px/1.4 Helvetica,Arial,sans-serif">Re: Termination of employment — position redundant</div>
+<div class="prose" style="margin-top:20px;max-width:78ch">
+<p>Dear Mr. Simms,</p>
+<p>I am writing to confirm the outcome of our meeting this morning, at which you were accompanied by your colleague T. Ostrowski. Following the closure of the second-shift finishing line announced on 18 August, your position is redundant and your employment will end on <b>5 October 2026</b>.</p>
+<p>You are not required to attend work during the notice period. You remain on full pay and benefits until the termination date, and the period counts towards continuous service for the payments below.</p>
+</div>
+<table class="t" style="margin-top:14px">
+<thead><tr><th style="width:200px">Item</th><th>Detail</th><th class="num" style="width:110px">Amount</th></tr></thead>
+<tbody>
+<tr><td>Notice — four weeks</td><td>Worked as garden leave, 08 Sep to 05 Oct 2026</td><td class="num">5,538.46</td></tr>
+<tr><td>Severance</td><td>Two weeks per year of service, 6 years</td><td class="num">16,615.38</td></tr>
+<tr><td>Accrued vacation</td><td>62.5 hours at 34.62</td><td class="num">2,163.75</td></tr>
+<tr class="gsub"><td></td><td>Gross termination payments, before withholding</td><td class="num">24,317.59</td></tr>
+</tbody></table>
+<div class="prose" style="margin-top:20px;max-width:78ch">
+<p>Payments will be made with the pay run of 9 October 2026, subject to lawful withholding. Medical coverage continues to 31 October 2026; the administrator will write to you separately with the continuation election forms and deadlines.</p>
+<p>Please return your badge, locker key, safety equipment and company tablet to the plant office by 5.00 p.m. on 5 October; personal effects can be collected by arrangement with your supervisor.</p>
+<p>You have the right to appeal. An appeal should reach me in writing within seven calendar days of this letter and will be heard by an officer who has had no part in the redundancy process.</p>
+<p>Our outplacement provider will contact you within five business days to arrange up to twelve weeks of support at our cost. A copy of the reference we would send to prospective employers is enclosed.</p>
+<p>I am sorry to be writing in these circumstances. Your work on the finishing line, particularly during the 2024 recertification, was valued here and will be missed.</p>
+<p>Yours sincerely,</p>
+</div>
+<div style="margin-top:24px;font-size:9.5px;line-height:1.6">
+<div style="height:22px"></div>
+<div style="font-weight:700">Elaine T. Bhatt</div>
+<div style="color:#444">Director, Human Resources</div>
+</div>
+<div class="foot"><div style="flex:1"><span class="lbl">Enclosures</span> &nbsp;Statement of termination payments · Continuation coverage notice · Draft reference · Appeal procedure HR-14</div><div>Ref. TRM-2026-0044</div></div>
+<div class="pgnum"><span>Termination of employment · G. O. Simms · TRM-2026-0044</span><span>Page 1 of 1</span></div>
+</div></div></div>
+
+<div class="doc" id="2i"><div class="doclbl"><a class="docid" href="#2i">2i</a>Reference letter</div>
+<div class="spread"><div class="page">
+<div class="atop"></div>
+<div class="hd">
+<div style="display:flex;gap:14px;align-items:flex-start"><div class="mark">N</div><div><div class="wm">Northmoor</div><div class="sub" style="margin-top:4px">Industrial Group, Inc.</div></div></div>
+<div class="addr" style="text-align:right">418 Ellingham Road, Suite 300<br>Rochester, NY 14604<br>(585) 274-0180</div>
+</div>
+<div class="hr" style="margin-top:20px;height:2px"></div>
+<div style="margin-top:44px;font-size:9.5px;color:#444">07 September 2026</div>
+<div style="margin-top:22px;font-size:9.5px;line-height:1.65">To whom it may concern</div>
+<div style="margin-top:26px;font:700 10.5px/1.4 Helvetica,Arial,sans-serif">Employment reference — Mr. Gareth O. Simms, Finishing Line Coordinator</div>
+<div class="prose" style="margin-top:20px;max-width:78ch">
+<p>Mr. Gareth Simms was employed by Northmoor Industrial Group, Inc. from 14 August 2020 to 5 October 2026, latterly as Finishing Line Coordinator at our Lyell Avenue plant in Rochester, New York. His employment ended because the second-shift finishing line was closed and his position was made redundant. It did not end for any reason connected with his conduct or performance.</p>
+<p>Mr. Simms was responsible for the second-shift finishing operation: a crew of nine, the powder coat line and the two blast cabinets, together with the associated quality records. He planned the shift's work against the daily release schedule, signed off first-piece inspections and maintained the process logs that support our ISO 9001 certification.</p>
+<p>He is a careful and unusually consistent record keeper. During our 2024 recertification audit, the finishing records were the only area to close with no observations, which the auditor commented on in the closing meeting. He also rebuilt the line's changeover procedure in 2023, taking the average changeover from fifty-two minutes to thirty-one, a result that has held since.</p>
+<p>He is well regarded by the crew he supervised and by the maintenance group he depended on. He raised safety concerns promptly and more than once stopped the line rather than run a doubtful batch, which is the behaviour we want and do not always get. He took two weeks' certificated absence in 2025 and his attendance was otherwise unremarkable.</p>
+<p>I would re-employ Mr. Simms without hesitation if a comparable position arose, and I recommend him to any employer needing a supervisor who can hold a process to a standard and document it properly.</p>
+<p>I am happy to speak to any prospective employer directly on the number below.</p>
+<p>Yours faithfully,</p>
+</div>
+<div style="margin-top:28px;font-size:9.5px;line-height:1.6">
+<div style="height:34px"></div>
+<div style="font-weight:700">Robert A. Halloran</div>
+<div style="color:#444">Vice President, Commercial<br>(585) 274-0180 ext. 208 · r.halloran@northmoorgroup.com</div>
+</div>
+<div class="foot"><div style="flex:1">This reference is given in good faith on the basis of the writer's knowledge and the company's records. It is provided without liability to the recipient or to any third party.</div><div>Ref. REF-2026-0031</div></div>
+<div class="pgnum"><span>Employment reference · G. O. Simms · REF-2026-0031</span><span>Page 1 of 1</span></div>
+</div></div></div>
+
+<div class="doc" id="2j"><div class="doclbl"><a class="docid" href="#2j">2j</a>Policy acknowledgement</div>
+<div class="spread"><div class="page">
+<div class="atop"></div>
+<div class="hd">
+<div style="display:flex;gap:14px;align-items:flex-start"><div class="mark">N</div><div><div class="wm">Northmoor</div><div class="sub" style="margin-top:4px">Compliance</div></div></div>
+<div class="addr" style="text-align:right">418 Ellingham Road, Suite 300<br>Rochester, NY 14604<br>Form CP-02 rev. 6 · Jan 2026</div>
+</div>
+<div class="hr" style="margin-top:20px;height:2px"></div>
+<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:27px;border-bottom:1px solid #111;padding-bottom:12px">
+<div><div class="lbl" style="color:var(--ac,#7b2233);margin-bottom:10px">Compliance · form CP-02</div><div class="dtitle">Policy acknowledgement</div></div>
+<div style="text-align:right"><div class="lbl" style="margin-bottom:7px">Return by</div><div style="font:400 20px/1 Georgia,'Times New Roman',serif;font-variant-numeric:tabular-nums">30 September 2026</div></div>
+</div>
+<div class="meta" style="grid-template-columns:1fr 1fr 1fr 1fr">
+<div><div class="lbl">Employee</div>Priya N. Raghunathan<br>Employee no. 20614</div>
+<div><div class="lbl">Department</div>4300 · Quality<div class="lbl" style="margin-top:14px">Supervisor</div>R. A. Halloran</div>
+<div><div class="lbl">Issued</div>07 September 2026<div class="lbl" style="margin-top:14px">Cycle</div>Annual, plus on hire</div>
+<div><div class="lbl">Return to</div>Compliance, Suite 300<br>or compliance@northmoorgroup.com</div>
+</div>
+<div class="prose" style="margin-top:22px;max-width:80ch"><p>Please read each policy below, initial the corresponding box to confirm that you have read and understood it, and sign the declaration at the foot of this page. Policies are available on the intranet and in printed form from your supervisor. If anything in a policy is unclear, ask before you sign; signing does not waive any right you have under law.</p></div>
+<table class="t" style="margin-top:20px">
+<thead><tr><th style="width:70px">Policy</th><th>Title and scope</th><th style="width:78px">Version</th><th style="width:78px">Pages</th><th style="width:64px">Initials</th></tr></thead>
+<tbody>
+<tr><td>HS-01</td><td>Health and safety, including personal protective equipment and lock-out procedures</td><td>rev. 9</td><td class="num">14</td><td></td></tr>
+<tr><td>HS-07</td><td>Accident, near miss and unsafe condition reporting</td><td>rev. 4</td><td class="num">6</td><td></td></tr>
+<tr><td>CP-04</td><td>Code of conduct, gifts and hospitality</td><td>rev. 7</td><td class="num">11</td><td></td></tr>
+<tr><td>CP-06</td><td>Anti-bribery and dealings with public officials</td><td>rev. 3</td><td class="num">8</td><td></td></tr>
+<tr><td>CP-09</td><td>Conflicts of interest and outside employment</td><td>rev. 5</td><td class="num">5</td><td></td></tr>
+<tr><td>CP-12</td><td>Speaking up — protected disclosures and non-retaliation</td><td>rev. 2</td><td class="num">7</td><td></td></tr>
+<tr><td>IT-03</td><td>Acceptable use of company systems and data</td><td>rev. 8</td><td class="num">12</td><td></td></tr>
+<tr><td>IT-05</td><td>Information classification and handling of drawings</td><td>rev. 3</td><td class="num">9</td><td></td></tr>
+<tr><td>HR-05</td><td>Equal opportunity, harassment and bullying</td><td>rev. 6</td><td class="num">10</td><td></td></tr>
+<tr><td>FIN-22</td><td>Travel, expenses and company cards</td><td>rev. 4</td><td class="num">8</td><td></td></tr>
+</tbody></table>
+<div class="sh">Declaration</div>
+<div class="prose" style="max-width:80ch"><p>I confirm that I have received, read and understood the policies listed above; that I have had the opportunity to ask questions about them; and that I agree to comply with them. I understand that these policies do not form part of my contract of employment, that the company may amend them, and that a failure to comply may lead to disciplinary action up to and including dismissal. I understand that nothing in these policies or in this acknowledgement prevents me from reporting a suspected violation of law to a government agency.</p></div>
+<div class="sig" style="margin-top:20px">
+<div class="sigbox"><div class="lbl">Employee signature</div><div class="sigline" style="margin-top:30px">P. N. Raghunathan</div></div>
+<div class="sigbox" style="flex:.6"><div class="lbl">Date</div><div class="sigline" style="margin-top:30px">Date</div></div>
+<div class="sigbox"><div class="lbl">Received by compliance</div><div class="sigline" style="margin-top:30px">Name and date</div></div>
+</div>
+<div class="foot"><div style="flex:1">Retention: duration of employment plus six years, policy CP-02. Filed in the employee's personnel record.</div><div>Ref. ACK-2026-20614</div></div>
+<div class="pgnum"><span>Policy acknowledgement · Annual cycle 2026 · ACK-2026-20614</span><span>Page 1 of 1</span></div>
+</div></div></div>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#7b2233&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;options&quot;:[&quot;#7b2233&quot;,&quot;#5c1a1a&quot;,&quot;#1f4034&quot;,&quot;#111111&quot;]}}">
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? "#7b2233" };
+  }
+}
+</script>
+</body>
+</html>
