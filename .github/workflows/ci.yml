@@ -82,6 +82,20 @@ jobs:
         # Needed for the worker (vitest-pool-workers) and browser (playwright)
         # checks below; the parity loop above uses only the Node target.
         run: npm install
+      # Forme Review: upload the documents the tests just rendered. The first
+      # upload establishes each document's baseline; every PR after that is
+      # compared and reported as a check and a comment. Structure only by
+      # default; the service never receives the PDF itself.
+      - uses: danmolitor/pdf-testkit/packages/action@v0.2.2
+        with:
+          service-token: ${{ secrets.PDF_TESTKIT_TOKEN }}
+          service-url: https://review-api.formepdf.com
+          documents: |
+            html/target/letterhead.pdf
+            html/target/report.pdf
+            html/target/statement.pdf
+            html/target/zebra-invoice.pdf
+            html/target/spike-invoice.pdf
       - name: HTML Node tests
         working-directory: packages/html
         run: npm test
