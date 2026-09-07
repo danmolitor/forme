@@ -82,19 +82,6 @@ jobs:
         # Needed for the worker (vitest-pool-workers) and browser (playwright)
         # checks below; the parity loop above uses only the Node target.
         run: npm install
-      # Forme Review: upload the documents the tests just rendered. The first
-      # upload establishes each document's baseline; every PR after that is
-      # compared and reported as a check and a comment. Structure only by
-      # default; the service never receives the PDF itself.
-      - uses: danmolitor/pdf-testkit/packages/action@v0.2.2
-        with:
-          service-token: ${{ secrets.PDF_TESTKIT_TOKEN }}
-          service-url: https://review-api.formepdf.com
-          documents: |
-            html/target/report.pdf
-            html/target/statement.pdf
-            html/target/zebra-invoice.pdf
-            html/target/spike-invoice.pdf
       - name: HTML Node tests
         working-directory: packages/html
         run: npm test
@@ -285,6 +272,31 @@ jobs:
         with:
           name: invoice-layout
           path: packages/core/invoice-layout.json
+      - name: Render template layouts for Forme Review
+        # The engine's own LayoutInfo for every shipped template, which the
+        # pdf-testkit CLI converts to a structural snapshot without touching a
+        # PDF. One batch per commit: the service judges document presence when
+        # the batch completes, so every document goes up from this one step.
+        working-directory: packages/core
+        run: |
+          mkdir -p ../../dist/templates
+          for t in invoice receipt report letter shipping-label; do
+            node scripts/render-template-layout.mjs "$t" "../../dist/templates/$t.json"
+          done
+      - name: Upload to Forme Review
+        # First upload establishes each template's baseline; every PR after
+        # that is compared and reported as a check and a comment. Structure
+        # only by default; nothing rendered leaves the runner.
+        uses: danmolitor/pdf-testkit/packages/action@v0.2.2
+        with:
+          service-token: ${{ secrets.PDF_TESTKIT_TOKEN }}
+          service-url: https://review-api.formepdf.com
+          documents: |
+            dist/templates/invoice.json
+            dist/templates/receipt.json
+            dist/templates/report.json
+            dist/templates/letter.json
+            dist/templates/shipping-label.json
       - name: Test React
         working-directory: packages/react
         run: npm test
