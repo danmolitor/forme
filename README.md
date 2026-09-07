@@ -389,8 +389,8 @@ Font sources can be file paths, data URIs, or `Uint8Array`. Fonts are automatica
 | CSS Grid | `display: 'grid'` with fr/auto/fixed tracks | No | Full CSS Grid |
 | Live preview | Built-in dev server | Render to file | Run script, open file |
 | Click-to-inspect | VS Code, Cursor, WebStorm | No | No |
-| Render speed (warm) | ~20ms (6-page report); slower on very large tables — [measured](https://parity.formepdf.com/#benchmarks) | ~100-500ms | ~45ms warm / ~430ms cold |
-| Cold start (→ first PDF byte) | ~60ms (Workers) / ~110ms (Node) | — | 3-10s cold serverless; can't boot on many tiers |
+| Render speed (warm) | ~20ms (6-page report) — [measured](https://parity.formepdf.com/#benchmarks) | ~100-500ms | ~54ms warm / ~370ms cold |
+| Cold start (→ first PDF byte) | ~64ms (Workers) / ~110ms (Node) | — | 3-10s cold serverless; can't boot on many tiers |
 | Memory per render | ~7MB (1p) → >1GB (500p) | ~50-100MB | ~50-200MB |
 | SVG | Basic shapes and paths | Yes | Full browser SVG |
 | Links | `href` prop on Text/View/Image/Svg | `<Link>` component | HTML `<a>` tags |

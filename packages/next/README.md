@@ -150,7 +150,7 @@ Same with a custom render function.
 
 ## No Puppeteer
 
-This runs in a standard Vercel function. The PDF engine is a ~6.4MB WASM binary (2.9MB gzipped), not a 200MB headless browser, and it cold-starts in roughly 100ms. A short invoice or report renders in about 15-25ms warm. See the measured [benchmarks](https://parity.formepdf.com/#benchmarks).
+This runs in a standard Vercel function. The PDF engine is a 6.8 MB WASM binary (3.1 MB gzipped, measured from the published package), not a 200MB headless browser, and it cold-starts in roughly 110ms on Node. A short invoice or report renders in about 15-25ms warm. See the measured [benchmarks](https://parity.formepdf.com/#benchmarks).
 
 ## Links
 

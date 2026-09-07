@@ -101,52 +101,56 @@
     ]
   },
   "whereWeLose": {
-    "method": "FORME_PROFILE phase timing (native) + examples/allocprofile.rs (counting allocator), invoice-50p and ledger-500p.",
+    "method": "FORME_PROFILE phase timing (native) + examples/allocprofile.rs (counting allocator), invoice-50p and ledger-500p. `*Before` fields are the pre-fix values; current fields are after the Sept-2026 allocation fixes (same M3 Max, Puppeteer as a stable control moved <2%).",
     "phaseBreakdown": [
       {
         "file": "invoice-50p",
         "pages": 50,
         "passes": 1,
-        "parseMs": 14.3,
-        "layoutMs": 368.3,
-        "serializeMs": 24.9,
-        "layoutMsPerPagePerPass": 7.36
+        "parseMs": 15.8,
+        "layoutMs": 92.8,
+        "serializeMs": 20.2,
+        "layoutMsPerPagePerPass": 1.86,
+        "layoutMsBefore": 368.3
       },
       {
         "file": "ledger-500p",
         "pages": 500,
         "passes": 2,
-        "parseMs": 116.9,
-        "layoutMs": 7227.9,
-        "serializeMs": 232.9,
-        "layoutMsPerPagePerPass": 7.23
+        "parseMs": 119.8,
+        "layoutMs": 1741.9,
+        "serializeMs": 227.7,
+        "layoutMsPerPagePerPass": 1.74,
+        "layoutMsBefore": 7227.9
       }
     ],
     "allocations": [
       {
         "file": "invoice-50p",
         "passes": 1,
-        "totalAllocs": 9235766,
+        "totalAllocs": 2449708,
+        "totalAllocsBefore": 9235766,
         "peakLiveMB": 64,
         "finalLiveMB": 0,
-        "allocsPerRowPerPass": 11545
+        "allocsPerRowPerPass": 3062
       },
       {
         "file": "ledger-500p",
         "passes": 2,
-        "totalAllocs": 182824737,
-        "peakLiveMB": 984,
+        "totalAllocs": 46278010,
+        "totalAllocsBefore": 182824737,
+        "peakLiveMB": 998,
         "finalLiveMB": 3,
-        "allocsPerRowPerPass": 11425
+        "allocsPerRowPerPass": 2892
       }
     ],
-    "decomposition": "The 500-page gap vs Puppeteer (~3.8×) is two linear factors multiplying: ~2× from the page-number second layout pass, and ~1.9× from per-node allocation churn (~1,100 allocations per layout node; Chrome arena-allocates its layout). Per-pass layout is flat at ~7.3 ms/page from 50 to 500 pages — there is no super-linear scaling.",
-    "memoryShape": "The full layout tree is retained until serialize (~2 MB/page), so peak memory is linear in document size and freed at exit — not a leak.",
+    "decomposition": "Forme originally trailed Puppeteer ~3.8× on ledger-500p, decomposed as two independent linear factors: ~2× from the page-number second layout pass (ledger crosses the 2→3 digit-width boundary at page 100, so it re-lays-out to widen the page-count field), and ~1.9× from per-node allocation churn. That decomposition was directionally right and quantitatively wrong in the engine's favor: fixing the allocation churn (−74% allocations, −88% bytes allocated; benchmarks/harness/dhatprofile) dropped per-pass layout from ~7.3 to ~1.8 ms/page — a ~4× per-pass gain, not the estimated ~1.9×. It isolates cleanly because parse and serialize (both untouched) didn't move. That alone flipped both large docs — ledger 9997→2284 ms, invoice 534→147 ms — from behind Puppeteer to ahead (ledger 2284 vs 2665 ms, invoice 147 vs 232 ms; same M3 Max, Puppeteer as a stable control moved <2%). The ~2× sentinel factor is NOT eliminated: ledger still runs 2 passes — it is now masked by the throughput win, i.e. forme leads while doing twice Chrome's layout work. Removing that second pass on digit-change docs is the remaining known inefficiency (scoping it to just the running element proved unsound — see the sentinel tracked-fix note) and would roughly halve ledger's layout again.",
+    "memoryShape": "The full layout tree is retained until serialize (~2 MB/page), so peak memory is linear in document size and freed at exit — not a leak. The allocation fixes did NOT move peak (ledger wasm ~890 MB before and after): they removed transient churn, not retained state — a throughput/allocator-pressure win, not a memory-ceiling one.",
     "trackedFixes": [
       {
-        "name": "Streaming (per-page/chunked) serialize-and-release",
+        "name": "Streaming layout — cap peak so large docs render in a 128MB Workers isolate",
         "target": "memory ceiling",
-        "note": "Investigated 2026-09 and set aside as mis-scoped. The ~1GB peak is NOT in the serializer — it is the retained Vec<LayoutPage> (~2MB/page) the CALLER holds while PdfWriter::write borrows it. The writer is already ~90% streaming-ready: Pass 1 consumes+compresses everything heavy per page; Pass 2 touches only scalars (width/height) and lightweight lists. So making the writer own-and-drop pages is worthless alone — layout() has already materialized the whole tree before write() runs. The real fix is a restartable STREAMING LAYOUT producer, which collides with the sentinel count pass (you need total page count before emitting page 1) and touches pagination — a much larger project. Compliance is NOT a blocker: the structure tree, link_slots, and disjoint StructParent numbering are a few MB of lightweight metadata that stay whole-document, so nothing fragments and veraPDF stays 9/9 by construction (output can be byte-identical). Projected floor after a full fix: tens of MB, dominated by compressed content objects held for xref assembly; going lower needs incremental xref (linearized PDF) — a writer rewrite."
+        "note": "Investigated 2026-09 across THREE reframings, each cheaper than the build it prevented; parked with a well-scoped next project. (1) \"Streaming serialize\" is a misnomer — the ~1GB peak is NOT the serializer, which only borrows &[LayoutPage] and is already ~90% streaming-ready (Pass 1 consumes+compresses everything heavy; Pass 2 touches only scalars + lightweight lists). It is the retained Vec<LayoutPage> (~2MB/page) the CALLER holds. (2) \"Streaming layout\" (a restartable count-then-emit producer) is SOUND — layout() is a deterministic pure function of (document, sentinel_digit_count) so a discarding count pass and an emitting pass produce identical pagination; byte-identity is achievable (only the lifetime of the heavy element vecs changes, provided font/image/gstate/shading registration still runs globally up-front in page-order); compliance is NOT a blocker (TagBuilder/link_slots/StructParents are lightweight, stay whole-document, veraPDF 9/9 by construction); PageCursor forward-state is already resumable. BUT it does nothing for the acceptance-test doc. (3) THE REAL FINDING: the peak on ledger-500p is not \"the layout Vec\" in general — it is ONE document-spanning table (8001 rows / 500 pages) whose RETROACTIVE wrapper (layout_table mod.rs:3488-3538, and the same pattern in layout_breakable_view, flex, paragraph) reaches back into every page it covered, after the table closes, to wrap each page in a border/background/tag container. For a doc-spanning table \"after it closes\" is end-of-document, so all 500 pages stay resident regardless of streaming. THE ANSWER is item 3: convert that retroactive wrap into FORWARD, at-page-finalize emission via an open-container stack on the cursor (each open container records draw_cmd + per-page start-y; on finalize it wraps the finalizing page from start-y; on new_page start-y resets to content_top; on close it wraps the current page). Feasible and byte-identical (each wrapper uses only its own page geometry), but it is 4 container types + linearizing table-overflow ordering — the hardest pagination code, highest output-correctness risk, and roughly as large as the two-pass work it enables. SEQUENCING: items 1-2 (streaming producer + writer restructure) are UNOBSERVABLE on the acceptance test until item 3 lands — do NOT start with them expecting a win. Parked because Workers-isolate 500p rendering has zero requesters (real users render invoices/reports well under the ceiling); revisit item 3 as its own byte-identical project, gated by the full corpus + a new isolate acceptance test, only if a real need appears. Peak floor after a full fix (item 3 done): ~3-5MB for ledger — 1 resident page (~1.8MB) + accumulated compressed content objects (≤1.3MB, the single-file-xref floor); going lower needs incremental xref (linearized PDF), out of scope."
       },
       {
         "name": "Reduce per-node allocation (arena / SmallVec / drop style clones)",
@@ -160,13 +164,23 @@
       }
     ]
   },
+  "artifactSizes": {
+    "htmlWasm": {
+      "rawBytes": 7660837,
+      "gzipBytes": 3407179
+    },
+    "coreWasm": {
+      "rawBytes": 6800127,
+      "gzipBytes": 3073920
+    }
+  },
   "runs": [
     {
       "environment": {
         "runner": "dev",
-        "measuredAtCommit": "61d467b6c58b25f2bfa4f7f5539b24afb9fcec23",
-        "measuredAtCommitShort": "61d467b",
-        "measuredAt": "2026-09-03T00:52:50.659Z",
+        "measuredAtCommit": "0ae8336131082cf329f12b5e217edf058da0f8ba",
+        "measuredAtCommitShort": "0ae8336",
+        "measuredAt": "2026-09-07T01:26:52.016Z",
         "label": "dev machine (clean hardware, single run)",
         "machine": "Apple M3 Max",
         "arch": "arm64",
@@ -175,27 +189,27 @@
         "os": "darwin 24.6.0",
         "node": "v24.10.0",
         "cargo": "1.98.0",
-        "chrome": "Google Chrome 152.0.7977.75"
+        "chrome": "Google Chrome 152.0.7977.82"
       },
       "node": {
-        "bootMs": 21,
+        "bootMs": 25,
         "docs": {
           "receipt": {
             "pages": 1,
             "passes": 1,
             "warm": {
               "status": "ok",
-              "medianMs": 16.1,
-              "p95Ms": 17.3,
+              "medianMs": 17.3,
+              "p95Ms": 18.2,
               "iters": 30,
-              "pdfBytes": 3577
+              "pdfBytes": 3580
             },
             "cold": {
               "status": "ok",
-              "totalWallMs": 109,
-              "instantiateMs": 9,
+              "totalWallMs": 111,
+              "instantiateMs": 10,
               "firstRenderMs": 50,
-              "nodeBootMs": 21
+              "nodeBootMs": 25
             },
             "peakRssMB": 0
           },
@@ -204,17 +218,17 @@
             "passes": 1,
             "warm": {
               "status": "ok",
-              "medianMs": 19.6,
-              "p95Ms": 20.6,
+              "medianMs": 20.5,
+              "p95Ms": 21.1,
               "iters": 30,
-              "pdfBytes": 8479
+              "pdfBytes": 8476
             },
             "cold": {
               "status": "ok",
-              "totalWallMs": 137,
+              "totalWallMs": 155,
               "instantiateMs": 10,
-              "firstRenderMs": 54,
-              "nodeBootMs": 21
+              "firstRenderMs": 57,
+              "nodeBootMs": 25
             },
             "peakRssMB": 0
           },
@@ -223,17 +237,17 @@
             "passes": 2,
             "warm": {
               "status": "ok",
-              "medianMs": 24.8,
-              "p95Ms": 25.7,
+              "medianMs": 26.7,
+              "p95Ms": 27.5,
               "iters": 30,
-              "pdfBytes": 9078
+              "pdfBytes": 9086
             },
             "cold": {
               "status": "ok",
-              "totalWallMs": 138,
-              "instantiateMs": 9,
-              "firstRenderMs": 62,
-              "nodeBootMs": 21
+              "totalWallMs": 148,
+              "instantiateMs": 10,
+              "firstRenderMs": 64,
+              "nodeBootMs": 25
             },
             "peakRssMB": 0
           },
@@ -242,55 +256,55 @@
             "passes": 1,
             "warm": {
               "status": "ok",
-              "medianMs": 16.7,
-              "p95Ms": 17.3,
+              "medianMs": 18.6,
+              "p95Ms": 20.5,
               "iters": 30,
-              "pdfBytes": 5252
+              "pdfBytes": 5011
             },
             "cold": {
               "status": "ok",
-              "totalWallMs": 134,
-              "instantiateMs": 9,
-              "firstRenderMs": 51,
-              "nodeBootMs": 21
+              "totalWallMs": 169,
+              "instantiateMs": 14,
+              "firstRenderMs": 58,
+              "nodeBootMs": 25
             },
             "peakRssMB": 0
           },
           "invoice-50p": {
-            "pages": 50,
+            "pages": 27,
             "passes": 1,
             "warm": {
               "status": "ok",
-              "medianMs": 146.7,
-              "p95Ms": 150.5,
+              "medianMs": 171.3,
+              "p95Ms": 181.8,
               "iters": 8,
-              "pdfBytes": 135584
+              "pdfBytes": 108612
             },
             "cold": {
               "status": "ok",
-              "totalWallMs": 265,
-              "instantiateMs": 9,
-              "firstRenderMs": 226,
-              "nodeBootMs": 21
+              "totalWallMs": 302,
+              "instantiateMs": 17,
+              "firstRenderMs": 263,
+              "nodeBootMs": 25
             },
             "peakRssMB": 0
           },
           "ledger-500p": {
-            "pages": 500,
+            "pages": 267,
             "passes": 2,
             "warm": {
               "status": "ok",
-              "medianMs": 2283.7,
-              "p95Ms": 2328.5,
+              "medianMs": 2735.7,
+              "p95Ms": 2736.7,
               "iters": 3,
-              "pdfBytes": 1336966
+              "pdfBytes": 1063855
             },
             "cold": {
               "status": "ok",
-              "totalWallMs": 8617,
-              "instantiateMs": 12,
-              "firstRenderMs": 8303,
-              "nodeBootMs": 21
+              "totalWallMs": 10480,
+              "instantiateMs": 14,
+              "firstRenderMs": 10606,
+              "nodeBootMs": 25
             },
             "peakRssMB": 1
           }
@@ -305,28 +319,28 @@
           },
           "report-6p": {
             "pages": 6,
-            "coldMs": 15,
+            "coldMs": 16,
             "peakRssMB": 8
           },
           "letterhead-paged": {
             "pages": 5,
-            "coldMs": 20,
+            "coldMs": 22,
             "peakRssMB": 12
           },
           "compliance": {
             "pages": 2,
-            "coldMs": 13,
+            "coldMs": 14,
             "peakRssMB": 8
           },
           "invoice-50p": {
             "pages": 50,
-            "coldMs": 132,
-            "peakRssMB": 80
+            "coldMs": 157,
+            "peakRssMB": 85
           },
           "ledger-500p": {
             "pages": 500,
-            "coldMs": 2213,
-            "peakRssMB": 1146
+            "coldMs": 2630,
+            "peakRssMB": 1094
           }
         }
       },
@@ -336,82 +350,82 @@
             "pages": 1,
             "status": "ok",
             "cold": {
-              "fetchMs": 33,
+              "fetchMs": 41,
               "compileInstantiateMs": 4,
-              "firstRenderMs": 42
+              "firstRenderMs": 46
             },
             "wasmLinearMemMB": 7,
             "passes": 1,
-            "pdfBytes": 3577
+            "pdfBytes": 3580
           },
           "report-6p": {
             "pages": 6,
             "status": "ok",
             "cold": {
-              "fetchMs": 20,
+              "fetchMs": 25,
               "compileInstantiateMs": 4,
-              "firstRenderMs": 48
+              "firstRenderMs": 49
             },
             "wasmLinearMemMB": 8,
             "passes": 1,
-            "pdfBytes": 8479
+            "pdfBytes": 8476
           },
           "letterhead-paged": {
             "pages": 5,
             "status": "ok",
             "cold": {
-              "fetchMs": 23,
+              "fetchMs": 25,
               "compileInstantiateMs": 4,
-              "firstRenderMs": 56
+              "firstRenderMs": 58
             },
             "wasmLinearMemMB": 10,
             "passes": 2,
-            "pdfBytes": 9078
+            "pdfBytes": 9086
           },
           "compliance": {
             "pages": 2,
             "status": "ok",
             "cold": {
-              "fetchMs": 19,
+              "fetchMs": 24,
               "compileInstantiateMs": 4,
-              "firstRenderMs": 45
+              "firstRenderMs": 47
             },
             "wasmLinearMemMB": 7,
             "passes": 1,
-            "pdfBytes": 5252
+            "pdfBytes": 5011
           },
           "invoice-50p": {
             "pages": 50,
             "status": "ok",
             "cold": {
-              "fetchMs": 20,
+              "fetchMs": 23,
               "compileInstantiateMs": 4,
-              "firstRenderMs": 204
+              "firstRenderMs": 221
             },
-            "wasmLinearMemMB": 62,
+            "wasmLinearMemMB": 60,
             "passes": 1,
-            "pdfBytes": 135584
+            "pdfBytes": 108612
           },
           "ledger-500p": {
             "pages": 500,
             "status": "ok",
             "cold": {
-              "fetchMs": 21,
+              "fetchMs": 30,
               "compileInstantiateMs": 4,
-              "firstRenderMs": 4183
+              "firstRenderMs": 4339
             },
-            "wasmLinearMemMB": 890,
+            "wasmLinearMemMB": 839,
             "passes": 2,
-            "pdfBytes": 1336966
+            "pdfBytes": 1063855
           }
         }
       },
       "workerd": {
         "coldStart": {
           "wallMs": 84,
-          "instantiateMs": 1,
+          "instantiateMs": 2,
           "firstRenderMs": 59,
-          "edgeEstimateMs": 65,
+          "edgeEstimateMs": 66,
           "caveat": "miniflare runs a workerd subprocess whose routing overhead the real edge does not pay; wall time OVERSTATES production cold start (true edge isolate spin-up ~5ms). Instantiate/render split is accurate. Real production cold start needs a deployment (out of scope)."
         },
         "docs": {
@@ -428,7 +442,7 @@
             "pages": 6,
             "warm": {
               "status": "ok",
-              "medianMs": 23,
+              "medianMs": 24,
               "iters": 10
             },
             "passes": 1
@@ -437,7 +451,7 @@
             "pages": 5,
             "warm": {
               "status": "ok",
-              "medianMs": 29,
+              "medianMs": 31,
               "iters": 10
             },
             "passes": 2
@@ -446,7 +460,7 @@
             "pages": 2,
             "warm": {
               "status": "ok",
-              "medianMs": 20,
+              "medianMs": 21,
               "iters": 10
             },
             "passes": 1
@@ -455,7 +469,7 @@
             "pages": 50,
             "warm": {
               "status": "ok",
-              "medianMs": 167,
+              "medianMs": 185,
               "iters": 8
             },
             "passes": 1
@@ -464,7 +478,7 @@
             "pages": 500,
             "warm": {
               "status": "ok",
-              "medianMs": 7426,
+              "medianMs": 7101,
               "iters": 1
             },
             "passes": 2
@@ -473,9 +487,9 @@
       },
       "puppeteer": {
         "coldStart": {
-          "launchMs": 281,
-          "firstRenderMs": 57,
-          "totalMs": 338,
+          "launchMs": 309,
+          "firstRenderMs": 63,
+          "totalMs": 372,
           "coldServerlessNote": "On real serverless, cold Chrome is 3-10s, and on many consumption tiers a browser cannot boot at all."
         },
         "docs": {
@@ -483,7 +497,7 @@
             "pages": 1,
             "warm": {
               "status": "ok",
-              "medianMs": 47,
+              "medianMs": 48,
               "iters": 5,
               "pdfBytes": 47153
             }
@@ -492,7 +506,7 @@
             "pages": 6,
             "warm": {
               "status": "ok",
-              "medianMs": 50,
+              "medianMs": 54,
               "iters": 5,
               "pdfBytes": 80577
             }
@@ -501,7 +515,7 @@
             "pages": 5,
             "warm": {
               "status": "ok",
-              "medianMs": 48,
+              "medianMs": 52,
               "iters": 5,
               "pdfBytes": 67527
             }
@@ -510,7 +524,7 @@
             "pages": 2,
             "warm": {
               "status": "ok",
-              "medianMs": 47,
+              "medianMs": 50,
               "iters": 5,
               "pdfBytes": 67974
             }
@@ -519,7 +533,7 @@
             "pages": 50,
             "warm": {
               "status": "ok",
-              "medianMs": 232,
+              "medianMs": 233,
               "iters": 5,
               "pdfBytes": 1992903
             }
@@ -528,7 +542,7 @@
             "pages": 500,
             "warm": {
               "status": "ok",
-              "medianMs": 2665,
+              "medianMs": 2792,
               "iters": 1,
               "pdfBytes": 20069686
             }
