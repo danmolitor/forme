@@ -91,7 +91,6 @@ jobs:
           service-token: ${{ secrets.PDF_TESTKIT_TOKEN }}
           service-url: https://review-api.formepdf.com
           documents: |
-            html/target/letterhead.pdf
             html/target/report.pdf
             html/target/statement.pdf
             html/target/zebra-invoice.pdf
