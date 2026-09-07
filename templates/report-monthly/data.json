@@ -1,0 +1,131 @@
+{
+  "reference": "OPS-2026-08",
+  "period": "August 2026",
+  "month": "month 2 of FY2027",
+  "kpis": [
+    {
+      "label": "Revenue, month",
+      "value": 11204,
+      "note": "$ thousand · plan 10,800 · +3.7% to plan"
+    },
+    {
+      "label": "Gross margin",
+      "value": "25.1%",
+      "note": "Plan 24.6% · prior month 24.4%"
+    },
+    {
+      "label": "On-time delivery",
+      "value": "92.6%",
+      "note": "Target 95.0% · 14 late lines of 189"
+    },
+    {
+      "label": "Recordable injuries",
+      "value": 0,
+      "note": "62 days without a recordable injury"
+    },
+    {
+      "label": "Order intake",
+      "value": 12880,
+      "note": "$ thousand · book to bill 1.15"
+    },
+    {
+      "label": "Backlog",
+      "value": 42.8,
+      "note": "$ million · 4.9 months' cover"
+    },
+    {
+      "label": "Scrap and rework",
+      "value": "2.1%",
+      "note": "Target 1.6% · driven by the 4471-B housings"
+    },
+    {
+      "label": "Debtor days",
+      "value": 47,
+      "note": "Target 42 · one account 101 days overdue"
+    }
+  ],
+  "performance": [
+    [
+      "Fabrication",
+      4742,
+      4600,
+      142,
+      9318,
+      9100
+    ],
+    [
+      "Piping and fittings",
+      2918,
+      2850,
+      68,
+      5704,
+      5700
+    ],
+    [
+      "Controls",
+      1986,
+      1750,
+      236,
+      3842,
+      3500
+    ],
+    [
+      "Service and maintenance",
+      1558,
+      1600,
+      -42,
+      3106,
+      3200
+    ],
+    [
+      "Revenue",
+      11204,
+      10800,
+      404,
+      21970,
+      21500
+    ],
+    [
+      "Gross profit",
+      2812,
+      2657,
+      155,
+      5438,
+      5289
+    ],
+    [
+      "Operating expenses",
+      -1806,
+      -1780,
+      -26,
+      -3588,
+      -3560
+    ],
+    [
+      "Operating income",
+      1006,
+      877,
+      129,
+      1850,
+      1729
+    ]
+  ],
+  "actions": [
+    {
+      "action": "Close freight dispute, INV-4102",
+      "owner": "M. Okonjo",
+      "due": "19 Sep"
+    },
+    {
+      "action": "Requalify housing bore gauge",
+      "owner": "P. Raghunathan",
+      "due": "16 Oct"
+    },
+    {
+      "action": "Recover two late lines, R-07",
+      "owner": "R. Halloran",
+      "due": "02 Oct"
+    }
+  ],
+  "intercompanyEliminations": 118
+}

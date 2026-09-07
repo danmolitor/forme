@@ -1,0 +1,39 @@
+/* inspection-report — final inspection checklist, form QA-16.
+ * Accent policy (operational): grouped-section header rows only. */
+@page {
+  size: Letter;
+  margin: 52.5pt 57pt 40.5pt;
+  @bottom-left {
+    content: "Final inspection · Job 20918 · QA-2026-2087";
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8A857E;
+  }
+  @bottom-right {
+    content: "Page " counter(page) " of " counter(pages);
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8A857E;
+  }
+}
+.sheet { position: relative; }
+.atop { position: absolute; top: -52.5pt; left: -57pt; right: -57pt; height: 3pt; background-color: #7B2233; }
+.meta-qa { grid-template-columns: 1fr 1fr 1fr 1fr; margin-top: 12pt; line-height: 1.5; }
+.checklist { margin-top: 18pt; }
+.checklist td { padding-top: 2.25pt; padding-bottom: 2.25pt; line-height: 1.25; }
+.checklist .ghead td { padding-top: 6.75pt; }
+.obsrow { display: flex; gap: 19.5pt; margin-top: 7.5pt; }
+.obs { width: 58%; font-size: 7.125pt; line-height: 1.65; }
+.dispo { width: 187.5pt; }
+.dispo-lines { font-size: 7.5pt; line-height: 1.6; }
+.ckline { display: flex; gap: 4.5pt; align-items: center; margin-bottom: 4.5pt; }
+.ckline .checklist .ck { width: 7.5pt; height: 7.5pt; }
+.ck-unused { flex-shrink: 0; }
+.ckpair { display: flex; gap: 15pt; }
+.sig-qa { margin-top: 9pt; }
+.sig-qa .sigline { margin-top: 12pt; }
+.foot-tight { padding-top: 6pt; }

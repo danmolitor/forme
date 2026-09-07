@@ -1,0 +1,70 @@
+{
+  "reference": "MIN-2026-0904",
+  "meeting": "Operations review · meeting 8 of 12",
+  "held": "Friday 4 September 2026, 09:00–10:25 EDT",
+  "location": "Board room, Suite 300, and by telephone",
+  "chair": "R. A. Halloran, VP Commercial",
+  "minuteTaker": "L. Nkemdirim",
+  "quorum": "Met — 6 of 7 standing members",
+  "present": [
+    "R. A. Halloran (chair)",
+    "M. Okonjo",
+    "K. Alvarez",
+    "P. N. Raghunathan",
+    "H. Delacroix",
+    "E. T. Bhatt",
+    "L. Nkemdirim (minutes)"
+  ],
+  "apologies": [
+    "D. Whitcomb"
+  ],
+  "inAttendance": [
+    "J. Osei-Bonsu for item 4 only"
+  ],
+  "items": 7,
+  "actions": [
+    {
+      "no": "8.1",
+      "action": "Close the freight dispute on INV-4102 and report the outcome",
+      "owner": "M. Okonjo",
+      "due": "19 Sep 2026",
+      "status": "Open"
+    },
+    {
+      "no": "8.2",
+      "action": "Add sling inspection to the start-of-shift check, Dock 2",
+      "owner": "H. Delacroix",
+      "due": "11 Sep 2026",
+      "status": "Open"
+    },
+    {
+      "no": "8.3",
+      "action": "Restate the September revenue forecast for the early Kestrel shipment",
+      "owner": "M. Okonjo",
+      "due": "14 Sep 2026",
+      "status": "Open"
+    },
+    {
+      "no": "8.4",
+      "action": "Bring forward recalibration of the housing bore gauge",
+      "owner": "P. N. Raghunathan",
+      "due": "16 Sep 2026",
+      "status": "Open"
+    },
+    {
+      "no": "8.5",
+      "action": "Expedite eight back-ordered brackets, ship on PS-88291",
+      "owner": "K. Alvarez",
+      "due": "18 Sep 2026",
+      "status": "Open"
+    },
+    {
+      "no": "8.6",
+      "action": "Brief plant supervisors on the two-signature threshold",
+      "owner": "R. A. Halloran",
+      "due": "29 Sep 2026",
+      "status": "Open"
+    }
+  ],
+  "nextMeeting": "Friday 2 October 2026, 09:00"
+}

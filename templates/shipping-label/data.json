@@ -1,0 +1,34 @@
+{
+  "carrier": {
+    "name": "Erie Valley Freight",
+    "pro": "7742-118-04",
+    "service": "LTL, 2 day",
+    "shipDate": "07 Sep 2026",
+    "mode": "Ground",
+    "terms": "Freight prepaid"
+  },
+  "from": {
+    "name": "Northmoor Industrial Group",
+    "dock": "Shipping Dock 2",
+    "address": "2200 Lyell Avenue, Rochester, NY 14606",
+    "phone": "(585) 274-0180"
+  },
+  "shipTo": {
+    "name": "Brightwater Foods LLC",
+    "location": "Plant 2 — Receiving Dock 4",
+    "address": "3900 Harvard Road, Cleveland, OH 44105",
+    "attn": "Receiving supervisor",
+    "phone": "(216) 441-2200",
+    "hours": "06:00–14:00"
+  },
+  "pieces": "3 of 3",
+  "weight": "418 lb",
+  "dimensions": "48×40×36 in",
+  "class": "NMFC 70",
+  "purchaseOrder": "44-7712",
+  "packingSlip": "PS-88214",
+  "release": "R-07",
+  "barcodeValue": "7742 1180 4 0003",
+  "labelNumber": "3 of 3",
+  "handling": "Do not double stack"
+}

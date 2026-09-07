@@ -1,0 +1,35 @@
+/* delivery-note — consignee copy with receipt-of-goods signature block. */
+@page {
+  size: Letter;
+  margin: 52.5pt 57pt 40.5pt;
+  @bottom-left {
+    content: "Delivery note DN-40118 · Brightwater Foods LLC";
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8A857E;
+  }
+  @bottom-right {
+    content: "Page " counter(page) " of " counter(pages);
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8A857E;
+  }
+}
+.sheet { position: relative; }
+.atop { position: absolute; top: -52.5pt; left: -57pt; right: -57pt; height: 3pt; background-color: #7B2233; }
+.meta-dn { grid-template-columns: 1.3fr 1.3fr 1fr 1fr; }
+.lines { margin-top: 21pt; }
+.recrow { display: flex; gap: 15pt; margin-top: 12pt; }
+.cond { width: 42%; }
+.cond-lines { font-size: 7.5pt; line-height: 1.65; }
+.exc { width: 58%; }
+.writein { border-bottom: 0.75pt solid #DCDCDC; height: 15pt; }
+.ckline { display: flex; gap: 5.25pt; align-items: center; margin-bottom: 5.25pt; }
+.ckline .ck { flex-shrink: 0; }
+.sig-dn { margin-top: 15pt; gap: 30pt; }
+.sig-dn .sigline { margin-top: 21pt; }
+.sig-dn .halfslot { flex-grow: 0.55; }

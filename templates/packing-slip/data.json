@@ -1,0 +1,82 @@
+{
+  "slipNumber": "PS-88214",
+  "shipDate": "07 September 2026",
+  "purchaseOrder": "44-7712",
+  "carrier": "Erie Valley Freight",
+  "pro": "7742-118-04",
+  "release": "R-07 · 3 pieces, 418 lb",
+  "soldTo": "Brightwater Foods LLC, 2140 Carnegie Avenue, Cleveland, OH 44115",
+  "shipTo": "Brightwater Foods LLC, Plant 2 — Receiving Dock 4, 3900 Harvard Road, Cleveland, OH 44105",
+  "lines": [
+    {
+      "line": "01",
+      "part": "4471-A-C",
+      "description": "Skid frame, welded tube, 96 × 48 in, primed",
+      "serials": "NM-20918-41 to 48",
+      "ordered": 8,
+      "shipped": 8,
+      "backOrder": 0,
+      "package": "Crate 1"
+    },
+    {
+      "line": "02",
+      "part": "4471-G",
+      "description": "Guard panel, perforated steel, powder coat black",
+      "ordered": 24,
+      "shipped": 24,
+      "backOrder": 0,
+      "package": "Crate 2"
+    },
+    {
+      "line": "03",
+      "part": "4471-B-C",
+      "description": "Mounting bracket, machined",
+      "ordered": 40,
+      "shipped": 32,
+      "backOrder": 8,
+      "package": "Crate 3"
+    },
+    {
+      "line": "04",
+      "part": "HW-0812",
+      "description": "Fastener kit, stainless 316, per frame",
+      "ordered": 8,
+      "shipped": 8,
+      "backOrder": 0,
+      "package": "Crate 3"
+    },
+    {
+      "line": "05",
+      "part": "DOC-QA",
+      "description": "Inspection record QA-2026-2087 and material certificates",
+      "ordered": 1,
+      "shipped": 1,
+      "backOrder": 0,
+      "package": "Envelope"
+    }
+  ],
+  "totals": {
+    "linesComplete": "4 of 5",
+    "ordered": 81,
+    "shipped": 73,
+    "backOrder": 8
+  },
+  "backOrderNote": "Eight mounting brackets are held pending rework of the bore on the Elkhart-sourced housings. They will ship no later than 18 September 2026 at our cost, on packing slip PS-88291. No further order is required.",
+  "packages": [
+    [
+      "Crate 1",
+      "Frames, 8",
+      "246 lb"
+    ],
+    [
+      "Crate 2",
+      "Guard panels, 24",
+      "112 lb"
+    ],
+    [
+      "Crate 3",
+      "Brackets and hardware",
+      "60 lb"
+    ]
+  ]
+}

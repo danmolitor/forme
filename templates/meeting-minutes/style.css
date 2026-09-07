@@ -1,0 +1,28 @@
+/* meeting-minutes — operations review with action owners. */
+@page {
+  size: Letter;
+  margin: 52.5pt 57pt 40.5pt;
+  @bottom-left {
+    content: "Operations review · Minutes of 4 September 2026 · MIN-2026-0904";
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8A857E;
+  }
+  @bottom-right {
+    content: "Page " counter(page) " of " counter(pages);
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8A857E;
+  }
+}
+.sheet { position: relative; }
+.atop { position: absolute; top: -52.5pt; left: -57pt; right: -57pt; height: 3pt; background-color: #7B2233; }
+.meta-min { grid-template-columns: 1fr 1fr 1.4fr; margin-top: 12pt; line-height: 1.5; }
+.item { display: flex; gap: 10.5pt; margin-bottom: 7.5pt; font-size: 7.35pt; line-height: 1.55; }
+.item .no { width: 19.5pt; font-weight: 700; flex-shrink: 0; }
+.small-t { font-size: 6.75pt; }
+.actions-t td { padding-top: 3.75pt; padding-bottom: 3.75pt; }
