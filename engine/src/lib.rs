@@ -155,6 +155,18 @@ fn layout_with_sentinel_passes(
     u32,
     Vec<String>,
 ) {
+    layout_with_sentinel_passes_audited(document, false)
+}
+
+fn layout_with_sentinel_passes_audited(
+    document: &Document,
+    audit: bool,
+) -> (
+    Vec<crate::layout::LayoutPage>,
+    FontContext,
+    u32,
+    Vec<String>,
+) {
     let mut font_context = FontContext::new();
     register_document_fonts(&mut font_context, &document.fonts);
     let engine = LayoutEngine::new();
@@ -173,7 +185,10 @@ fn layout_with_sentinel_passes(
             passes += 1;
         }
     }
-    let layout_warnings = engine.take_warnings();
+    let mut layout_warnings = engine.take_warnings();
+    if audit {
+        crate::layout::audit::audit_content(document, &pages, &mut layout_warnings);
+    }
     (pages, font_context, passes, layout_warnings)
 }
 
@@ -191,10 +206,31 @@ pub fn render_with_warnings(document: &Document) -> Result<(Vec<u8>, Vec<String>
     render_with_warnings_and_passes(document).map(|(pdf, warnings, _passes)| (pdf, warnings))
 }
 
+/// Opt-in per-render checks. `Default` disables everything, and every
+/// disabled check costs nothing — the flag is tested once per render.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct RenderOptions {
+    /// Post-render content audit: after layout, verify the laid-out pages
+    /// against the input document and report content that was dropped,
+    /// rendered fully off-page, painted in its background's exact colour,
+    /// or clipped to a zero-size box — through the render-defect channel
+    /// (`render defect: ...` warnings), like every other case where the
+    /// engine's output differs from what the document asked for.
+    pub audit_content: bool,
+}
+
 /// Like [`render_with_warnings`], but also returns the number of layout passes
 /// the render took — surfaced through the HTML wrapper for benchmark evidence.
 pub fn render_with_warnings_and_passes(
     document: &Document,
+) -> Result<(Vec<u8>, Vec<String>, u32), FormeError> {
+    render_with_options(document, RenderOptions::default())
+}
+
+/// Like [`render_with_warnings_and_passes`], with opt-in [`RenderOptions`].
+pub fn render_with_options(
+    document: &Document,
+    options: RenderOptions,
 ) -> Result<(Vec<u8>, Vec<String>, u32), FormeError> {
     // Coarse phase profiling behind FORME_PROFILE (native only in practice —
     // `env::var` is Err under wasm, so the timer is never constructed there and
@@ -205,7 +241,8 @@ pub fn render_with_warnings_and_passes(
     } else {
         None
     };
-    let (pages, font_context, passes, layout_warnings) = layout_with_sentinel_passes(document);
+    let (pages, font_context, passes, layout_warnings) =
+        layout_with_sentinel_passes_audited(document, options.audit_content);
     let layout_ms = t_layout.map(|t| t.elapsed().as_secs_f64() * 1000.0);
 
     let writer = PdfWriter::new();
@@ -273,7 +310,16 @@ pub fn render_with_layout(
 pub fn render_with_layout_and_passes(
     document: &Document,
 ) -> Result<(Vec<u8>, LayoutInfo, Vec<String>, u32), FormeError> {
-    let (pages, font_context, passes, layout_warnings) = layout_with_sentinel_passes(document);
+    render_with_layout_and_options(document, RenderOptions::default())
+}
+
+/// Like [`render_with_layout_and_passes`], with opt-in [`RenderOptions`].
+pub fn render_with_layout_and_options(
+    document: &Document,
+    options: RenderOptions,
+) -> Result<(Vec<u8>, LayoutInfo, Vec<String>, u32), FormeError> {
+    let (pages, font_context, passes, layout_warnings) =
+        layout_with_sentinel_passes_audited(document, options.audit_content);
     let layout_info = LayoutInfo::from_pages(&pages);
     let writer = PdfWriter::new();
     let tagged = document.tagged

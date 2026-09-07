@@ -33,6 +33,13 @@ export interface RenderHtmlOptions {
    * PDF/A and PDF/UA-1 at once (archival + accessible).
    */
   pdfA?: '2b' | '2u' | '2a' | '3b' | '3u' | '3a';
+  /**
+   * Opt-in post-render content audit: after layout, the engine verifies the
+   * pages against the input and reports dropped, fully off-page, invisible
+   * (colour == background), or clipped-to-nothing content as
+   * `render defect:` entries in `warnings`. Costs nothing when omitted.
+   */
+  auditContent?: boolean;
 }
 
 export interface RenderHtmlResult {

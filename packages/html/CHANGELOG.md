@@ -1,5 +1,11 @@
 # Changelog — @formepdf/html
 
+## [Unreleased]
+
+### Added
+
+- **Opt-in post-render content audit** (`auditContent` option / `--audit-content` on the CLI). After layout, the engine verifies the pages against the input document and reports — as `render defect:` warnings — source text that rendered nowhere, text rendered fully off-page, text painted in exactly the colour of the ground under it (or fully transparent), and content clipped to a zero-size box. Works from the engine's own layout tree (no PDF re-parsing); exclusions are designed for zero false alarms — deliberate clipping (`overflow: hidden`, the page-level body clip), requested truncation (`text-overflow`), running furniture, page-number substitution, and ligature clusters are all accounted for. Costs nothing when off; ~4% render time on a 500-page stress document when on. First run over the 15-template compat corpus: 14 templates clean, one real find (a currency symbol rendered one point past the page edge, invisible in the output).
+
 ## [0.20.1] - 2026-09-07
 
 ### Fixed

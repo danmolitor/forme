@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- **`RenderOptions` + `render_with_options()` / `render_with_layout_and_options()`** — opt-in per-render checks. First check: `audit_content`, the post-render content audit (see `layout/audit.rs`): compares the laid-out pages against the input document and reports dropped text, fully off-page text, invisible text (colour == ground, or alpha 0), and zero-size clipping boxes through the render-defect channel. Off by default; nothing changes for existing callers.
+
 ## [0.20.1] - 2026-09-07
 
 ### Added
