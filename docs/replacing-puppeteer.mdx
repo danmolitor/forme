@@ -18,7 +18,24 @@ If you are using Puppeteer (or Playwright) to generate PDFs from HTML, you have 
 
 **Docker images are huge.** Chromium adds 400MB+ to your container. Forme has no native dependencies, so your image stays the size of your Node.js base.
 
+**Fonts differ between your laptop and the server.** Chrome falls back to whatever the OS provides, so the PDF that looked right locally ships with substituted fonts in the container. Forme never reads system fonts implicitly: you pass TTFs explicitly, and the same bytes render everywhere — [native and WASM output is byte-identical in CI](https://parity.formepdf.com).
+
 **Serverless cold starts are painful.** Chrome takes 3-10 seconds to start in Lambda or similar environments — and on many consumption tiers it cannot boot at all. Forme cold-starts in roughly 64ms on a Cloudflare Workers isolate and ~110ms on Node, measured at 0.20.0 ([provenance](https://parity.formepdf.com/#benchmarks)); the 7.66 MB WASM module instantiates in 1-10ms; the rest is first-render warmup.
+
+## You may not need to rewrite anything
+
+If your Puppeteer setup renders **HTML you already have**, the shortest migration is not JSX — it is the [HTML input path](/html):
+
+```js
+import { renderHtml } from '@formepdf/html';
+
+const { pdf, warnings } = renderHtml(html, {});
+// warnings names everything outside the documented subset — read it once
+```
+
+That is the whole replacement for `launch` / `newPage` / `setContent` / `page.pdf` / `close`: one synchronous call, no browser, and a warnings list that tells you exactly which parts of your CSS the subset does not cover. Measured against 15 production templates collected from GitHub (Bootstrap grids, wkhtmltopdf-era tables, email HTML, modern CSS grid), **14 render correctly at 0.20.0, 1 degrades legibly with its cause named in warnings, 0 render broken** ([how it was measured](https://formepdf.com/blog/template-compat-endgame)).
+
+The rest of this page shows the JSX path, which is the better end state when you control the template: typed components, no string templating, and the same engine underneath.
 
 ## The Puppeteer pipeline
 
@@ -193,15 +210,15 @@ Remove any Chromium-related Dockerfile steps, browser pool management code, and 
 
 Forme is not a drop-in replacement for every Puppeteer use case. Keep Puppeteer if:
 
-1. **You are rendering existing HTML/CSS you do not control.** If you receive HTML from a CMS, email template system, or third-party API and need to convert it to PDF, Puppeteer renders arbitrary HTML. Forme requires you to rewrite the template in JSX.
+1. **You are rendering an app, not a document.** A dashboard screenshot, a page that assembles itself in JavaScript, arbitrary third-party HTML of unknown shape — that is a browser's job. Forme renders documents: HTML you (or your template author) wrote, through a [documented CSS subset](/html) that warns by name on everything outside it. If you cannot enumerate what CSS your input uses, keep the browser.
 
-2. **You need full CSS support.** Forme supports a subset of CSS (flexbox, positioning, typography, borders, backgrounds). If your templates rely on CSS Grid, CSS animations, or other advanced CSS features, Puppeteer handles all of them.
+2. **You depend on page JavaScript.** If scripts build the DOM before printing — charting libraries, client-side templating, dynamic calculations — Puppeteer executes them and Forme never will. Move that logic out of the page first, or stay.
+
+   (Two reasons that *used* to be on this list are gone: existing HTML no longer requires a JSX rewrite — see the HTML input path above — and CSS Grid is now a supported subset, not an exclusion.)
 
 3. **You need complex SVG rendering.** Forme supports basic SVG elements (`rect`, `circle`, `ellipse`, `line`, `polyline`, `polygon`, `path`), but not advanced SVG features like filters, gradients, masks, or CSS styling within SVG. If your PDFs contain complex charts from D3 or Chart.js, Puppeteer may still handle more of the SVG spec.
 
-4. **You need JavaScript execution.** If your template includes client-side JavaScript that modifies the DOM before rendering (e.g., charting libraries, dynamic calculations), Puppeteer executes it. Forme templates are static at render time.
-
-5. **You need screenshots, not PDFs.** Puppeteer captures screenshots of web pages. Forme only produces PDFs.
+4. **You need screenshots, not PDFs.** Puppeteer captures screenshots of web pages. Forme only produces PDFs.
 
 ## Common patterns
 
@@ -243,3 +260,32 @@ Header rows repeat on every page, guaranteed.
 ```
 
 Full styling control over the page number element.
+
+## Verifying the migration across your whole template set
+
+The real fear is not "will one document render" — it is "will I silently break 400 of them." That is a structural question, and [pdf-testkit](https://github.com/danmolitor/pdf-testkit) answers it by diffing PDFs structurally rather than by pixels:
+
+```bash
+npm i -g @pdf-testkit/cli && npm i -D pdfjs-dist
+
+# 1. Baseline what Puppeteer produces today, per template
+pdf-testkit snapshot puppeteer-output.pdf --out baseline.json
+
+# 2. Render the same document with Forme (either path)
+npx @formepdf/html invoice.html -o forme-output.pdf
+
+# 3. Structural diff — exit 0 clean, exit 1 regression
+pdf-testkit diff baseline.json forme-output.pdf --fail-on warn
+```
+
+Pixel diffing cannot do this across renderers. Chrome and Forme rasterize with different font engines, different anti-aliasing, different sub-pixel rounding — every page differs benignly, the diff is all noise, and you are back to opening PDFs by hand. Structural comparison checks what you actually care about: all the text is present, in the same reading order, on the same pages, in roughly the same places. It reports semantic events with confidence scores, so a loop over the whole template set produces a short list of documents worth opening instead of all of them.
+
+Once migrated, keep the same tool as your regression gate: `toMatchPDFSnapshot()` in Vitest or Jest baselines every template, and with Forme's `LayoutInfo` fast path it skips PDF parsing entirely.
+
+## The honest close
+
+**Migrate** if you are generating documents — invoices, statements, reports — from HTML or templates you control, and the browser is pure overhead: cold starts, memory, a binary to babysit, fonts that differ by environment.
+
+**Don't migrate** if you are rendering an app rather than a document, or your pages need their JavaScript to exist. Those are browser jobs and Puppeteer is good at them.
+
+**What to try first:** one real template, one command — `npx @formepdf/html your-template.html -o out.pdf` — and read the warnings. It costs a minute and tells you which of the sections above apply to you. Every performance number on this page is measured per commit and published with provenance at [parity.formepdf.com](https://parity.formepdf.com); if something renders wrong without a warning naming it, [file it](https://github.com/formepdf/forme/issues) — that is a bug on our side by contract.

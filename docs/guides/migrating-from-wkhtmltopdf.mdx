@@ -1,10 +1,20 @@
 ---
 title: Migrating from wkhtmltopdf
 sidebarTitle: From wkhtmltopdf
-description: Move wkhtmltopdf templates to Forme's HTML input path — the legacy page-break-* spellings work as-is, with no abandoned WebKit binary.
+description: Move wkhtmltopdf templates to Forme's HTML input path — the legacy page-break-* spellings work as-is, the fixed-footer idiom works, and there is a way to verify 400 templates without opening 400 PDFs.
 ---
 
-wkhtmltopdf is unmaintained and pinned to a 2012-era WebKit. Forme's [HTML input path](/html) renders the same class of documents — invoices, reports, statements — through an actively maintained Rust/WASM engine, with no native binary to install.
+wkhtmltopdf renders the same class of documents Forme does — invoices, reports, statements. If it still works for you, nothing here says you must move. This guide is for when it stops working, and for verifying the move without trusting your eyes.
+
+## Why people leave wkhtmltopdf
+
+Three reasons come up, none of them about features you are missing today:
+
+1. **The project is archived.** Development ended and the GitHub repository was archived in 2023. There will be no more releases.
+2. **Open CVEs will stay open.** Known vulnerabilities (for example CVE-2022-35583, an SSRF in how it fetches resources) have no patch coming, because nothing is coming. If you feed it any user-influenced HTML, that is your problem to mitigate now.
+3. **The engine is a patched QtWebKit from the early 2010s.** It predates flexbox as you know it, CSS grid, and a decade of CSS. Every layout trick in a wkhtmltopdf template is a workaround for that engine, which is why the templates look the way they do.
+
+Forme's [HTML input path](/html) renders the same documents through an actively maintained Rust/WASM engine — no native binary to install, and the performance is [measured and published per commit](https://parity.formepdf.com/#benchmarks), not asserted.
 
 ## The short version
 
@@ -16,20 +26,82 @@ wkhtmltopdf invoice.html invoice.pdf
 npx @formepdf/html invoice.html -o invoice.pdf
 ```
 
-Three things make this migration gentler than you'd expect:
+Run it once and read the warnings list. Everything your template uses that Forme's subset doesn't cover is named there — that list is your migration checklist, and an empty list means you are done.
 
-1. **The legacy `page-break-*` spellings work.** wkhtmltopdf-era CSS (`page-break-before`, `page-break-after`, `page-break-inside: avoid`) is honored as-is alongside the modern `break-*` forms.
+## What moves over unchanged
+
+The wkhtmltopdf-era CSS dialect is, deliberately, well inside Forme's subset:
+
+1. **The legacy `page-break-*` spellings work.** `page-break-before`, `page-break-after`, `page-break-inside: avoid` are honored as-is, alongside the modern `break-*` forms.
 2. **`<thead>` repetition is automatic** — the header-rows-on-every-page behavior wkhtmltopdf approximated is engine-native here.
-3. **Floats lay out as columns.** The wkhtmltopdf-era float layouts (left/right header pairs, floated column grids) render as real columns; the one unsupported case is text wrapping *alongside* a float, which warns and renders below.
-4. **Anything outside the subset warns by name** instead of rendering differently in silence. Run your template once and read the warnings list — that's your migration checklist.
+3. **Floats lay out as columns.** The wkhtmltopdf-era float layouts (left/right header pairs, floated column grids) render as real columns.
+4. **The cascade, as written.** Type/class/id selectors, compounds, descendant and child combinators, attribute selectors (`[class*="col"]` and friends), `!important` — the stylesheet applies the way it applies in a browser. The [selector table](/html) lists the whole set.
+5. **`@page` and real running headers/footers** — see the next section, because this is where the flags go.
 
-The claim is measured: of 15 production templates in our compat corpus — several from the wkhtmltopdf/mPDF era, custom pagination hacks included — **14 render correctly at 0.20.0, 1 degrades legibly with its cause named in warnings, 0 broken** ([how it was measured](https://formepdf.com/blog/template-compat-endgame)).
+Concretely, this is a working Forme stylesheet, and every line of it is CSS you already know:
 
-## What to check
+```css
+@page {
+  size: A4;
+  margin: 72pt 54pt;
+  @top-center { content: "ACME WIDGET CO."; }
+  @bottom-right { content: "Page " counter(page) " of " counter(pages); }
+}
+h2 { page-break-before: always; }   /* the old spelling, honored */
+tr { page-break-inside: avoid; }
+.col-left  { float: left;  width: 48%; }
+.col-right { float: right; width: 48%; }
+```
 
-- **Headers/footers**: wkhtmltopdf's `--header-html`/`--footer-html` flags become `@page` margin boxes with `counter(page)` / `counter(pages)` — see [HTML Input → Paged media](/html).
-- **The `position: fixed` footer pattern works, with these semantics**: `#footer { position: fixed; bottom: 0 }` sits flush at the bottom of the page it occurs on — fixed anchors like absolute, because a paged renderer's viewport is the page. It does **not** repeat on every page the way wkhtmltopdf repeated it; for a footer on every page, use an `@page` margin box (that's what they're for). A render-time warning names this difference whenever `position: fixed` appears.
-- **Remote assets**: Forme never fetches over the network. Inline images as data URIs or local files; pass stylesheets with `--css`.
-- **Fonts**: system-font dependence becomes explicit — pass TTFs with `--font Family=path.ttf`.
+## Replacing the flags
 
-<Note>This guide is a stub — it covers the load-bearing differences. If your template hits something unlisted, the render-time warnings will name it; issues welcome on [GitHub](https://github.com/formepdf/forme/issues).</Note>
+Most of wkhtmltopdf's command-line surface was compensating for missing print CSS. The replacements are CSS:
+
+| wkhtmltopdf | Forme |
+|---|---|
+| `--header-html header.html` | `@page { @top-center { content: ... } }` margin boxes |
+| `--footer-center "Page [page] of [topage]"` | `@bottom-center { content: "Page " counter(page) " of " counter(pages) }` |
+| `--margin-top 20mm` etc. | `@page { margin: 20mm ... }` (or `--margin` on the CLI) |
+| `-s Letter` / `--page-size` | `@page { size: Letter }` (or `--page-size` on the CLI) |
+| `--disable-javascript` | The default and only mode — see below |
+
+And the one idiom nearly every wkhtmltopdf template carries: **the `position: fixed` footer works, with these semantics.** `#footer { position: fixed; bottom: 0 }` sits flush at the bottom of the page it occurs on — fixed anchors like absolute, because a paged renderer's viewport is the page. It does **not** repeat on every page the way wkhtmltopdf repeated it; for a footer on every page, use an `@page` margin box (that is what they are for). A render-time warning names this difference whenever `position: fixed` appears.
+
+## What doesn't move, up front
+
+- **JavaScript never executes.** wkhtmltopdf ran page scripts (slowly, in an old engine); Forme does not run them at all. If your template computes totals or builds rows in `<script>`, that logic moves into whatever generates the HTML.
+- **Nothing is fetched over the network.** Remote images, stylesheets, and `@font-face` URLs are never downloaded. Inline images as data URIs or local files; pass stylesheets with `--css`; pass fonts with `--font Family=path.ttf`. System-font dependence becomes explicit instead of environmental.
+- **Text does not wrap alongside a float.** Floated siblings lay out as columns — which is what invoice templates actually use floats for — but a paragraph flowing around a floated image renders below it instead, with a warning. This is the one float behavior that is out, and it is much narrower than it used to be.
+- **The named subset gaps.** Everything else outside the subset — transforms, gradients, CSS variables, `position: sticky` — warns by name at render time rather than rendering differently in silence. The [full subset table](/html) is the reference.
+
+## Verifying 400 templates without opening 400 PDFs
+
+The real fear in this migration is not "will one document render" — you can look at one document. It is "will I silently break 400 of them." That is a structural question, and there is tooling for it: [pdf-testkit](https://github.com/danmolitor/pdf-testkit) diffs PDFs by structure, not pixels.
+
+```bash
+npm i -g @pdf-testkit/cli && npm i -D pdfjs-dist
+
+# 1. Baseline the OLD renderer's output, once per template
+wkhtmltopdf invoice.html old.pdf
+pdf-testkit snapshot old.pdf --out baseline.json
+
+# 2. Render with Forme
+npx @formepdf/html invoice.html -o new.pdf
+
+# 3. Diff structurally — exit 0 clean, exit 1 regression
+pdf-testkit diff baseline.json new.pdf --fail-on warn
+```
+
+Why not just pixel-diff the two PDFs? Because two different renderers rasterize differently everywhere — different font engines, different anti-aliasing, different sub-pixel rounding — so a pixel diff lights up on every page whether or not anything is wrong, and you are back to eyeballing. Structural comparison asks the questions you actually care about: is the text all present, in the same reading order, on the same pages, in roughly the same places. It reports semantic events ("element moved", "text missing") with confidence scores instead of a red overlay, so a loop over 400 templates gives you a short list of the ones worth opening.
+
+## The measured number
+
+This claim is measured, not promised: of 15 production templates collected from GitHub for our compat corpus — several from the wkhtmltopdf/mPDF era, custom pagination hacks included — **14 render correctly at 0.20.0, 1 degrades legibly with its cause named in warnings, 0 render broken** ([how it was measured](https://formepdf.com/blog/template-compat-endgame)). For a template population like yours, that number is the most relevant fact on this page.
+
+## Who should migrate, and who shouldn't
+
+**Migrate** if your templates are documents — invoices, statements, reports, contracts — in the CSS dialect wkhtmltopdf shaped. That is the population the subset was built against, and the corpus number above is what happened when 15 of them met it cold.
+
+**Don't migrate yet** if your templates depend on in-page JavaScript to build their content, or fetch resources at render time you cannot inline. Move that logic out first, or stay put until you can.
+
+**What to try first:** one real template, one command, read the warnings. `npx @formepdf/html your-worst-template.html -o out.pdf` costs a minute and tells you more than this page can. If something renders wrong without a warning naming it, that is a bug on our side — [file it](https://github.com/formepdf/forme/issues).
