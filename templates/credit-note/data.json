@@ -1,0 +1,61 @@
+{
+  "issuer": {
+    "name": "Northmoor Industrial Group, Inc.",
+    "address": "418 Ellingham Road, Suite 300, Rochester, NY 14604",
+    "phone": "(585) 274-0180",
+    "ein": "16-1904472",
+    "bank": {
+      "name": "First Genesee Bank, Rochester NY",
+      "account": "8841 002937",
+      "routing": "021304559"
+    },
+    "email": "ar@northmoorgroup.com"
+  },
+  "document": {
+    "type": "credit-note",
+    "number": "CN-0392",
+    "againstInvoice": "INV-4417",
+    "issued": "07 September 2026",
+    "rma": "RMA-1188",
+    "goodsReceived": "05 September 2026",
+    "authorisedBy": "M. Okonjo, Controller",
+    "stamp": "Credit"
+  },
+  "issuedTo": {
+    "name": "Brightwater Foods LLC",
+    "lines": [
+      "Accounts Payable",
+      "2140 Carnegie Avenue",
+      "Cleveland, OH 44115"
+    ]
+  },
+  "items": [
+    {
+      "item": "001",
+      "description": "Fastener set, stainless 316, M8 × 40 mm — returned, over-ordered by customer",
+      "qty": 200,
+      "unit": "ea",
+      "rate": 1.85,
+      "credit": 370.0
+    },
+    {
+      "item": "002",
+      "description": "Gasket sheet, neoprene, 1/8 in — short shipped, four sheets not delivered",
+      "qty": 4,
+      "unit": "sheet",
+      "rate": 46.5,
+      "credit": 186.0
+    }
+  ],
+  "totals": {
+    "subtotal": 556.0,
+    "taxReversed": 44.48,
+    "totalCredit": 600.48
+  },
+  "effect": {
+    "invoiceTotal": 4647.07,
+    "credit": 600.48,
+    "revisedBalance": 4046.59,
+    "due": "07 October 2026"
+  }
+}

@@ -378,3 +378,61 @@ h1.sh, h2.sh, h3.sh, .sh {
   text-align: center;
 }
 table.t th.num { text-align: right; } /* numeric headers align over their figures */
+
+/* ── batch additions (billing set) ────────────────────────────── */
+/* Georgia intro paragraph under the document head. max-width stands in
+ * for the prototype's 74ch measure (ch is outside the subset). */
+.intro {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 7.5pt;      /* 10px */
+  line-height: 1.65;
+  margin-top: 19.5pt;    /* 26px */
+  max-width: 405pt;
+}
+/* Row-label cells in small label/value tables: real <th scope="row">
+ * that reads like a body cell. Placed after table.t th so equal
+ * specificity resolves to this. */
+table.t th.rlab {
+  font-family: Helvetica, Arial, sans-serif;
+  font-weight: 400;
+  font-size: 7.125pt;
+  line-height: 1.5;
+  letter-spacing: 0;
+  text-transform: none;
+  text-align: left;
+  color: #111111;
+  padding: 4.5pt 7.5pt 4.5pt 0;
+  border-bottom: 0.75pt solid #EAE6DF;
+  vertical-align: top;
+}
+.mini { font-size: 6.75pt; } /* 9px small tables */
+/* Under border-collapse the engine gives an interior edge to the EARLIER
+ * row's bottom border, so the total rule is declared on the preceding
+ * row (.pre-total), and the total row itself is bold with no bottom. */
+tr.pre-total td, tr.pre-total th.rlab { border-bottom: 0.75pt solid #111111; }
+tr.mini-total td, tr.mini-total th.rlab {
+  border-bottom: 0;
+  font-weight: 700;
+}
+/* Aged-bucket figures: Georgia 19px, open below. */
+td.aged {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 14.25pt;
+  line-height: 1;
+  padding-top: 9pt;      /* 12px */
+  border-bottom: 0 solid #FDFCFA;
+  text-align: right;
+}
+/* Carried-forward / brought-forward rows. */
+tr.carry td {
+  font-weight: 700;
+  border-bottom: 0 solid #FDFCFA;
+  padding-top: 10.5pt;   /* 14px */
+}
+td.broughtlab { color: #767676; }
+/* Signature caption rows (flex, rules above captions). */
+.sigrow { display: flex; gap: 30pt; align-items: flex-end; padding-top: 19.5pt; }
+.sigcell { border-top: 0.75pt solid #111111; padding-top: 4.5pt; }
+.tt-flush { width: 100%; margin-top: 0; }
+.mast-divider { margin-top: 15pt; } /* 20px below masthead */
+.meta-gap { margin-top: 10.5pt; }   /* 14px stacked meta pairs */

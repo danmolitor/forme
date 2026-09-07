@@ -1,0 +1,43 @@
+/* quote — page geometry and document-specific rules.
+ * Spine comes from ../northmoor-shared.css. */
+
+@page {
+  size: Letter;
+  margin: 52.5pt 57pt 40.5pt; /* 70px 76px 54px */
+  @bottom-left {
+    content: "Quotation QUO-2026-118 · Alder Creek Public Schools";
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8A857E;
+  }
+  @bottom-right {
+    content: "Page " counter(page) " of " counter(pages);
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8A857E;
+  }
+}
+
+/* First-page 4px full-bleed accent head rule (escapes into the margin). */
+.sheet { position: relative; }
+.atop {
+  position: absolute;
+  top: -52.5pt;
+  left: -57pt;
+  right: -57pt;
+  height: 3pt;
+  background-color: #7B2233;
+}
+.meta-doc { grid-template-columns: 1.4fr 1fr 1fr 1fr; }
+.items { margin-top: 19.5pt; }
+.twocol { display: flex; gap: 27pt; margin-top: 22.5pt; } /* 36px / 30px */
+.excl { font-size: 7.125pt; line-height: 1.75; }
+.foot-after-sig { margin-top: 16.5pt; } /* 22px */
+
+/* Equal/ratio split columns: explicit widths (flex basis is not in
+ * the subset; grow alone leaves intrinsic-width columns). */
+.twocol > div { width: 47%; }

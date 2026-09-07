@@ -1,0 +1,36 @@
+/* credit-note — page geometry and document-specific rules.
+ * Spine comes from ../northmoor-shared.css. */
+
+@page {
+  size: Letter;
+  margin: 52.5pt 57pt 40.5pt; /* 70px 76px 54px */
+  @bottom-left {
+    content: "Credit note CN-0392 · Brightwater Foods LLC";
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8A857E;
+  }
+  @bottom-right {
+    content: "Page " counter(page) " of " counter(pages);
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8A857E;
+  }
+}
+
+/* First-page 4px full-bleed accent head rule (escapes into the margin). */
+.sheet { position: relative; }
+.atop {
+  position: absolute;
+  top: -52.5pt;
+  left: -57pt;
+  right: -57pt;
+  height: 3pt;
+  background-color: #7B2233;
+}
+.meta-doc { grid-template-columns: 1.4fr 1fr 1fr 1fr; }
+.items { margin-top: 19.5pt; } /* 26px */
