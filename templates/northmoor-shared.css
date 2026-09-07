@@ -436,3 +436,44 @@ td.broughtlab { color: #767676; }
 .tt-flush { width: 100%; margin-top: 0; }
 .mast-divider { margin-top: 15pt; } /* 20px below masthead */
 .meta-gap { margin-top: 10.5pt; }   /* 14px stacked meta pairs */
+
+/* ── batch additions (correspondence & legal set) ─────────────── */
+/* Keep a closing block (execution prose + signatures) on one page. */
+.keep { break-inside: avoid; }
+/* Letter furniture: date line, recipient block, subject line, sign-off. */
+.dateline { font-size: 7.125pt; color: #444444; }
+.recipient { font-size: 7.125pt; line-height: 1.65; }
+.re {
+  font-family: Helvetica, Arial, sans-serif;
+  font-weight: 700;
+  font-size: 7.875pt;   /* 10.5px */
+  line-height: 1.4;
+  letter-spacing: 0.02em;
+  margin: 0;
+}
+.signoff { font-size: 7.125pt; line-height: 1.6; }
+.signoff .name { font-weight: 700; }
+.signoff .role { color: #444444; }
+.sigspace { height: 25.5pt; } /* 34px pen room above the printed name */
+/* Centered legal title block (contract / NDA / service agreement). */
+.titlecenter { margin-top: 25.5pt; text-align: center; }
+.titlecenter .dtitle { letter-spacing: -0.013em; }
+.subline {
+  font-size: 6.75pt;    /* 9px */
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: #6B6B6B;
+  margin-top: 7.5pt;
+}
+/* Prose measure stand-ins (ch is outside the subset): Georgia body at
+ * 7.875pt, average advance ~0.5em -> 78/80/82ch. */
+.measure78 { max-width: 307pt; }
+.measure80 { max-width: 315pt; }
+.measure82 { max-width: 323pt; }
+/* Enclosures / copies line at the end of correspondence. */
+.encl { margin-top: 18pt; font-size: 6.75pt; color: #444444; line-height: 1.7; }
+/* The first-page accent head rule anchors to the HEADER (page-1-only):
+ * the engine places a spanning parent's absolute children on its LAST
+ * page fragment, so anchoring to .sheet painted the rule on the final
+ * page of multi-page documents. */
+header { position: relative; }

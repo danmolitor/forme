@@ -1,0 +1,19 @@
+{
+  "issuer": { "name": "Northmoor Industrial Group, Inc.", "department": "Compliance", "form": "CP-02 rev. 6 · Jan 2026" },
+  "document": { "type": "policy-acknowledgement", "reference": "ACK-2026-20614", "issued": "07 September 2026", "returnBy": "30 September 2026", "cycle": "Annual, plus on hire", "pages": 1 },
+  "employee": { "name": "Priya N. Raghunathan", "employeeNo": "20614", "department": "4300 · Quality", "supervisor": "R. A. Halloran" },
+  "policies": [
+    { "code": "HS-01", "title": "Health and safety, including personal protective equipment and lock-out procedures", "version": "rev. 9", "pages": 14 },
+    { "code": "HS-07", "title": "Accident, near miss and unsafe condition reporting", "version": "rev. 4", "pages": 6 },
+    { "code": "CP-04", "title": "Code of conduct, gifts and hospitality", "version": "rev. 7", "pages": 11 },
+    { "code": "CP-06", "title": "Anti-bribery and dealings with public officials", "version": "rev. 3", "pages": 8 },
+    { "code": "CP-09", "title": "Conflicts of interest and outside employment", "version": "rev. 5", "pages": 5 },
+    { "code": "CP-12", "title": "Speaking up — protected disclosures and non-retaliation", "version": "rev. 2", "pages": 7 },
+    { "code": "IT-03", "title": "Acceptable use of company systems and data", "version": "rev. 8", "pages": 12 },
+    { "code": "IT-05", "title": "Information classification and handling of drawings", "version": "rev. 3", "pages": 9 },
+    { "code": "HR-05", "title": "Equal opportunity, harassment and bullying", "version": "rev. 6", "pages": 10 },
+    { "code": "FIN-22", "title": "Travel, expenses and company cards", "version": "rev. 4", "pages": 8 }
+  ],
+  "relatedContract": "EMP-2026-0113",
+  "retention": "Duration of employment plus six years, policy CP-02"
+}

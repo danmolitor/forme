@@ -1,0 +1,26 @@
+{
+  "issuer": {
+    "name": "Northmoor Industrial Group, Inc.",
+    "department": "Estimating & Proposals",
+    "address": "418 Ellingham Road, Suite 300, Rochester, NY 14604",
+    "phone": "(585) 274-0180",
+    "email": "estimating@northmoorgroup.com"
+  },
+  "document": {
+    "type": "cover-letter",
+    "reference": "PRO-2026-0907-ACPS",
+    "date": "07 September 2026",
+    "delivery": "Delivered by email and courier",
+    "subject": "RFQ 26-114 — dust collection system, technology shop · Quotation QUO-2026-118",
+    "pages": 1
+  },
+  "recipient": {
+    "name": "Mr. Jean Perreault",
+    "title": "Director of Operations",
+    "company": "Alder Creek Public Schools",
+    "address": "77 Sixth Street North, Alder Creek, NY 13301"
+  },
+  "quotation": { "number": "QUO-2026-118", "total": 26747.52, "firmDays": 30 },
+  "signatory": { "name": "Sofia Marchetti", "title": "Senior Estimator", "contact": "(585) 274-0180 ext. 244" },
+  "enclosures": ["Quotation QUO-2026-118", "Ductwork layout sketch DL-114", "Reference contacts"]
+}
