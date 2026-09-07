@@ -344,13 +344,19 @@ async function measureRun() {
 // must say which unit (MB vs MiB) they chose.
 function artifactSizes() {
   const { gzipSync } = zlib;
+  // The same module bytes land in pkg/, pkg-node/, and pkg-web/ — CI's
+  // benchmarks job builds only the node+web targets, so probe all three
+  // and take the first that exists.
   const targets = {
-    htmlWasm: join(REPO, 'packages', 'html', 'pkg', 'forme_pdf_html_bg.wasm'),
-    coreWasm: join(REPO, 'packages', 'core', 'pkg', 'forme_bg.wasm'),
+    htmlWasm: ['pkg', 'pkg-node', 'pkg-web'].map((d) =>
+      join(REPO, 'packages', 'html', d, 'forme_pdf_html_bg.wasm')),
+    coreWasm: ['pkg', 'pkg-node', 'pkg-web'].map((d) =>
+      join(REPO, 'packages', 'core', d, 'forme_bg.wasm')),
   };
   const out = {};
-  for (const [name, p] of Object.entries(targets)) {
-    if (!existsSync(p)) {
+  for (const [name, candidates] of Object.entries(targets)) {
+    const p = candidates.find((c) => existsSync(c));
+    if (!p) {
       out[name] = null;
       continue;
     }
