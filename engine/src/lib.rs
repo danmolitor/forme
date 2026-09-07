@@ -261,7 +261,19 @@ pub fn render_with_warnings_and_passes(
 pub fn render_with_layout(
     document: &Document,
 ) -> Result<(Vec<u8>, LayoutInfo, Vec<String>), FormeError> {
-    let (pages, font_context, _passes, layout_warnings) = layout_with_sentinel_passes(document);
+    render_with_layout_and_passes(document)
+        .map(|(pdf, layout, warnings, _passes)| (pdf, layout, warnings))
+}
+
+/// Like [`render_with_layout`], but also returns the number of layout passes
+/// the render took (1 for the common case; 2-3 when a page-number sentinel's
+/// reserved width needed correction). The plain variant discarded this value,
+/// which is how `renderHtmlWithLayout` shipped without `passes` on every
+/// target while its declared type promised one.
+pub fn render_with_layout_and_passes(
+    document: &Document,
+) -> Result<(Vec<u8>, LayoutInfo, Vec<String>, u32), FormeError> {
+    let (pages, font_context, passes, layout_warnings) = layout_with_sentinel_passes(document);
     let layout_info = LayoutInfo::from_pages(&pages);
     let writer = PdfWriter::new();
     let tagged = document.tagged
@@ -292,7 +304,7 @@ pub fn render_with_layout(
         all.extend(warnings);
         all
     };
-    Ok((pdf, layout_info, warnings))
+    Ok((pdf, layout_info, warnings, passes))
 }
 
 /// Return the number of digits needed to display `n` as a decimal string.

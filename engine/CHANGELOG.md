@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- **`render_with_layout_and_passes()`** — like `render_with_layout()` but also returns the layout-pass count. The plain variant computed the count and discarded it, which is how the HTML package's layout path shipped without `passes` while its published TypeScript type promised one. `render_with_layout()` is unchanged (now a thin wrapper).
+
 ## [0.20.0] - 2026-09-05
 
 ### Added

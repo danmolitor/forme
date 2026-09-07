@@ -83,6 +83,7 @@ pub struct HtmlLayoutRenderResult {
     pdf: Vec<u8>,
     layout_json: String,
     warnings: Vec<String>,
+    passes: u32,
 }
 
 #[wasm_bindgen]
@@ -101,6 +102,13 @@ impl HtmlLayoutRenderResult {
     #[wasm_bindgen(getter)]
     pub fn warnings(&self) -> Vec<String> {
         self.warnings.clone()
+    }
+
+    /// Number of layout passes the render took — identical semantics to
+    /// [`HtmlRenderResult::passes`].
+    #[wasm_bindgen(getter)]
+    pub fn passes(&self) -> u32 {
+        self.passes
     }
 }
 
@@ -183,5 +191,6 @@ pub fn render_html_wasm_with_layout(
         pdf: out.pdf,
         layout_json,
         warnings: out.warnings,
+        passes: out.passes,
     })
 }

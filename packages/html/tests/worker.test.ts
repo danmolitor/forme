@@ -69,3 +69,30 @@ describe('@formepdf/html/worker', () => {
     expect(true).toBe(true);
   });
 });
+
+describe('declared type vs runtime shape (workerd)', () => {
+  it('renderHtml returns the full declared RenderHtmlResult, exactly', async () => {
+    const { init, renderHtml } = await import('../worker.js');
+    // @ts-expect-error -- *.wasm import shape is provided by workerd at runtime
+    const wasm = (await import('../pkg-web/forme_pdf_html_bg.wasm')).default;
+    await init(wasm);
+    const { RESULT_KEYS, assertShape } = await import('./shape.js');
+    const res = renderHtml(INVOICE, {});
+    assertShape(res, RESULT_KEYS, 'worker renderHtml');
+    expect(res.passes).toBeTypeOf('number');
+    expect(res.passes).toBeGreaterThanOrEqual(1);
+  });
+
+  it('renderHtmlWithLayout returns the full declared RenderHtmlLayoutResult, exactly', async () => {
+    const { init, renderHtmlWithLayout } = await import('../worker.js');
+    // @ts-expect-error -- *.wasm import shape is provided by workerd at runtime
+    const wasm = (await import('../pkg-web/forme_pdf_html_bg.wasm')).default;
+    await init(wasm);
+    const { LAYOUT_KEYS, assertShape } = await import('./shape.js');
+    const res = renderHtmlWithLayout(INVOICE, {});
+    assertShape(res, LAYOUT_KEYS, 'worker renderHtmlWithLayout');
+    expect(res.passes).toBeTypeOf('number');
+    expect(res.passes).toBeGreaterThanOrEqual(1);
+    expect(Array.isArray(res.layout.pages)).toBe(true);
+  });
+});

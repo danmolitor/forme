@@ -22,6 +22,7 @@ import __wbg_init, {
   render_html_wasm_with_layout,
 } from './pkg-web/forme_pdf_html.js';
 import { toWireOptions } from './wire.js';
+import { toRenderResult, toLayoutResult } from './result.js';
 
 let initPromise = null;
 
@@ -57,16 +58,11 @@ function ensureInit() {
  * Render an HTML string to PDF. Requires a prior `await init(module)`.
  * @param {string} html
  * @param {import('./index').RenderHtmlOptions} [options]
- * @returns {{pdf: Uint8Array, warnings: string[]}}
+ * @returns {import('./index').RenderHtmlResult}
  */
 export function renderHtml(html, options = {}) {
   ensureInit();
-  const result = render_html_wasm(html, JSON.stringify(toWireOptions(options)));
-  try {
-    return { pdf: result.pdf, warnings: result.warnings };
-  } finally {
-    result.free();
-  }
+  return toRenderResult(render_html_wasm(html, JSON.stringify(toWireOptions(options))));
 }
 
 /**
@@ -74,18 +70,9 @@ export function renderHtml(html, options = {}) {
  * `await init(module)`.
  * @param {string} html
  * @param {import('./index').RenderHtmlOptions} [options]
- * @returns {{pdf: Uint8Array, layout: import('./index').LayoutInfo, warnings: string[]}}
+ * @returns {import('./index').RenderHtmlLayoutResult}
  */
 export function renderHtmlWithLayout(html, options = {}) {
   ensureInit();
-  const result = render_html_wasm_with_layout(html, JSON.stringify(toWireOptions(options)));
-  try {
-    return {
-      pdf: result.pdf,
-      layout: JSON.parse(result.layout_json),
-      warnings: result.warnings,
-    };
-  } finally {
-    result.free();
-  }
+  return toLayoutResult(render_html_wasm_with_layout(html, JSON.stringify(toWireOptions(options))));
 }

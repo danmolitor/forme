@@ -1,5 +1,12 @@
 # Changelog — @formepdf/html
 
+## [Unreleased]
+
+### Fixed
+
+- **`passes` is now actually returned everywhere the type declares it.** `RenderHtmlResult.passes` was declared in `index.d.ts` but returned by only one of the six result constructions — the node `renderHtml`. The browser and worker entries, and `renderHtmlWithLayout` on **all three** targets, silently returned `undefined` (the engine computed the value and discarded it on the layout path). All six now return it, verified per target in the real runtime: plain node (`npm test`), real workerd (`npm run test:workers`), and real headless Chromium (`test/browser-verify.mjs`), each asserting the **exact** declared key set, not just the field.
+- **Result construction is shared, not repeated.** All three entries build their result objects through one `result.js` (`toRenderResult`/`toLayoutResult`) — a new field is added in exactly one place. The declared-vs-runtime agreement is compile-checked too: `tests/shape.ts` derives the expected key sets from `keyof RenderHtmlResult` (`npm run typecheck`, part of `npm test`), so a type change that the runtime doesn't match fails the build in both directions.
+
 ## [0.20.0] - 2026-09-05
 
 ### Added

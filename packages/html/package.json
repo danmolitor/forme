@@ -1,7 +1,7 @@
 {
   "name": "@formepdf/html",
   "version": "0.20.0",
-  "description": "HTML + print-CSS to PDF on the Forme engine — pagination, running headers, page counters. No headless browser.",
+  "description": "HTML + print-CSS to PDF on the Forme engine \u2014 pagination, running headers, page counters. No headless browser.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -67,6 +67,7 @@
     "browser.d.ts",
     "worker.js",
     "worker.d.ts",
+    "result.js",
     "wire.js",
     "bin/",
     "pkg/",
@@ -75,8 +76,9 @@
   ],
   "scripts": {
     "build": "./build.sh",
-    "test": "node test/smoke.js && node test/links.js",
-    "test:workers": "vitest run --config vitest.config.workers.ts"
+    "test": "npm run typecheck && node test/smoke.js && node test/links.js",
+    "test:workers": "vitest run --config vitest.config.workers.ts",
+    "typecheck": "tsc -p tsconfig.test.json"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.22.0",
