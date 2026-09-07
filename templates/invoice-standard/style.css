@@ -1,0 +1,40 @@
+/* invoice-standard — page geometry and document-specific rules.
+ * Spine (type scale, components) comes from ../northmoor-shared.css. */
+
+@page {
+  size: Letter;
+  margin: 52.5pt 57pt 40.5pt; /* 70px 76px 54px at 0.75pt/px */
+  @bottom-left {
+    content: "Invoice INV-4417 · Brightwater Foods LLC";
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8A857E;
+  }
+  @bottom-right {
+    content: "Page " counter(page) " of " counter(pages);
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8A857E;
+  }
+}
+
+/* The 4px full-bleed accent head rule: escapes the content box into the
+ * top margin with negative absolute offsets (the page has no clip). */
+.sheet { position: relative; }
+.atop {
+  position: absolute;
+  top: -52.5pt;
+  left: -57pt;
+  right: -57pt;
+  height: 3pt; /* 4px */
+  background-color: #7B2233;
+}
+
+.mast-divider { margin-top: 15pt; } /* 20px below masthead */
+.meta-invoice { grid-template-columns: 1.3fr 1.3fr 1fr 1fr; }
+.items { margin-top: 22.5pt; } /* 30px */
+.meta-gap { margin-top: 10.5pt; } /* 14px between stacked meta pairs */

@@ -1,0 +1,380 @@
+/* Northmoor document system — shared typographic spine.
+ *
+ * Ported from design_handoff_northmoor_document_system (the README is
+ * authoritative). All values are the prototype's px figures converted to
+ * points at 1px = 0.75pt, ratios kept exactly — awkward figures are
+ * deliberate (31px title = 23.25pt, 7px label = 5.25pt).
+ *
+ * ACCENT: one colour does a different job per document class. The engine
+ * subset has no CSS variables, so the accent is the literal #7B2233
+ * (oxblood) throughout. To re-skin, replace every #7B2233 in this file and
+ * in the template stylesheets — print-safe alternates from the design:
+ * #14375F ink blue, #1F4034 forest, #111111 all-black.
+ *
+ * Fonts: the two design voices, Georgia and Helvetica, with fallbacks the
+ * engine resolves deterministically (serif -> Times, sans-serif ->
+ * Helvetica base metrics; register @formepdf/fonts-standard for PDF/UA
+ * embedding).
+ *
+ * Every template links this file first, then its own style.css. Page
+ * geometry (@page, margin boxes, counters, running headers) is
+ * per-template: documents differ in class and pagination, the spine does
+ * not.
+ */
+
+body {
+  margin: 0;
+  background-color: #FDFCFA;
+  font-family: Helvetica, Arial, sans-serif;
+  font-size: 7.5pt;      /* 10px prototype base */
+  line-height: 1.5;
+  color: #111111;
+}
+
+/* ── masthead ─────────────────────────────────────────────────── */
+/* 44px accent square with a white Georgia "N" — CSS, no image. */
+.mark {
+  width: 33pt;
+  height: 33pt;
+  background-color: #7B2233;
+  color: #FFFFFF;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-weight: 700;
+  font-size: 15pt;       /* 20px */
+  line-height: 33pt;     /* vertically centers the N in the square */
+  text-align: center;
+}
+.wm {
+  font-family: Helvetica, Arial, sans-serif;
+  font-weight: 700;
+  font-size: 10.5pt;     /* 14px */
+  line-height: 1;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+}
+.sub {
+  font-family: Helvetica, Arial, sans-serif;
+  font-weight: 700;
+  font-size: 5.25pt;     /* 7px */
+  line-height: 1.4;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+  color: #7B2233;
+}
+.hd {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18pt;             /* 24px */
+}
+.mast-left { display: flex; gap: 10.5pt; align-items: flex-start; } /* 14px gap */
+
+/* ── labels, titles, rules ────────────────────────────────────── */
+.lbl {
+  font-family: Helvetica, Arial, sans-serif;
+  font-weight: 700;
+  font-size: 5.25pt;     /* 7px */
+  line-height: 1.4;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+  color: #8A857E;
+}
+.lbl-accent { color: #7B2233; }
+.dtitle {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-weight: 400;
+  font-size: 23.25pt;    /* 31px */
+  line-height: 1;
+  letter-spacing: -0.013em;
+  margin: 0;
+}
+.refnum {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-weight: 400;
+  font-size: 15pt;       /* 20px */
+  line-height: 1;
+}
+.hr   { height: 0.75pt; background-color: #111111; }
+.hr2  { height: 1.5pt;  background-color: #111111; }   /* masthead divider, 2px */
+.hair { height: 0.75pt; background-color: #E2DED7; }
+.addr {
+  font-size: 6.75pt;     /* 9px */
+  line-height: 1.7;
+  color: #4A463F;
+}
+
+/* Document head: eyebrow + title left, label + reference right, closed by
+ * a 1px ink rule. */
+.dochead {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-top: 20.25pt;   /* 27px */
+  border-bottom: 0.75pt solid #111111;
+  padding-bottom: 9pt;   /* 12px */
+}
+
+/* ── meta grid ────────────────────────────────────────────────── */
+.meta {
+  display: grid;
+  gap: 15pt;             /* 20px */
+  margin-top: 16.5pt;    /* 22px */
+  font-size: 7.125pt;    /* 9.5px */
+  line-height: 1.62;
+}
+.meta .lbl { margin-bottom: 3.75pt; } /* 5px */
+
+/* ── data table ───────────────────────────────────────────────── */
+table.t {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 7.125pt;    /* 9.5px */
+}
+table.t th {
+  font-family: Helvetica, Arial, sans-serif;
+  font-weight: 700;
+  font-size: 5.25pt;     /* 7px */
+  line-height: 1.3;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #111111;
+  text-align: left;
+  padding: 0 7.5pt 5.25pt 0;
+  border-bottom: 0.75pt solid #111111;
+  vertical-align: bottom;
+}
+table.t td {
+  padding: 4.5pt 7.5pt 4.5pt 0;
+  border-bottom: 0.75pt solid #EAE6DF;
+  vertical-align: top;
+}
+.num { text-align: right; }
+/* Grouped-section header row: accent, no fill, 1px band rule beneath. */
+.ghead td {
+  border-bottom: 0.75pt solid #CFC9C0;
+  font-family: Helvetica, Arial, sans-serif;
+  font-weight: 700;
+  font-size: 5.625pt;    /* 7.5px */
+  line-height: 1.4;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+  padding-top: 11.25pt;  /* 15px */
+  color: #7B2233;
+}
+/* Section subtotal row: 1.5px accent keyline above, no rule below. */
+.gsub td {
+  border-top: 1.125pt solid #7B2233;
+  border-bottom: 0 solid #FDFCFA;
+  font-weight: 700;
+  font-size: 7.125pt;
+  padding-top: 7.5pt;    /* 10px */
+  color: #111111;
+}
+.dim { color: #767676; font-size: 6.375pt; } /* line-item annotations */
+
+/* ── totals stack + amount due ────────────────────────────────── */
+table.tt {
+  width: 255pt;          /* 340px */
+  margin-left: auto;
+  border-collapse: collapse;
+  font-size: 7.125pt;
+  margin-top: 15pt;      /* 20px */
+}
+table.tt td {
+  padding: 4.5pt 0;
+  border-bottom: 0.75pt solid #EAE6DF;
+  color: #4A463F;
+}
+table.tt td.num { color: #111111; }
+table.tt tr.total td {
+  border-bottom: 0 solid #FDFCFA;
+  border-top: 0.75pt solid #111111;
+  font-weight: 700;
+  font-size: 7.875pt;    /* 10.5px */
+  padding-top: 6.75pt;   /* 9px */
+  color: #111111;
+}
+.due {
+  border-top: 1.5pt solid #7B2233;
+  padding-top: 9.75pt;   /* 13px */
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  width: 255pt;          /* 340px */
+  margin: 15pt 0 0 auto;
+}
+.due-figure {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-weight: 400;
+  font-size: 25.5pt;     /* 34px */
+  line-height: 0.9;
+  color: #7B2233;
+}
+
+/* ── stamps, tabs, flags ──────────────────────────────────────── */
+/* inline-block is outside the subset: stamps and tabs are blocks; give
+ * them a shrink-wrap context with a flex row (.rowend / .rowstart). */
+.rowend   { display: flex; justify-content: flex-end; }
+.rowstart { display: flex; justify-content: flex-start; }
+.stamp {
+  border: 1.125pt solid #7B2233;
+  color: #7B2233;
+  padding: 5.25pt 8.25pt;
+  font-family: Helvetica, Arial, sans-serif;
+  font-weight: 700;
+  font-size: 5.625pt;
+  line-height: 1;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+.tab {
+  background-color: #7B2233;
+  color: #FFFFFF;
+  font-family: Helvetica, Arial, sans-serif;
+  font-weight: 700;
+  font-size: 5.25pt;
+  line-height: 1;
+  letter-spacing: 0.19em;
+  text-transform: uppercase;
+  padding: 5.25pt 7.5pt;
+}
+.flag { color: #7B2233; font-weight: 700; }
+
+/* ── footer note ──────────────────────────────────────────────── */
+/* The page counter itself is a margin box (per-template @page rules); the
+ * footer note is in-flow content. Single-page documents wrap their content
+ * in .pagefill so the note sits at the foot of the page. */
+/* Letter content box: 792 − 52.5 top − 40.5 bottom = 699pt. A4 variant:
+ * 841.89 − 93 = 748.89pt (page height is the only thing that changes). */
+.pagefill { height: 699pt; display: flex; flex-direction: column; }
+.pagefill-spacer { flex-grow: 1; }
+.foot {
+  border-top: 0.75pt solid #E2DED7;
+  padding-top: 7.5pt;    /* 10px */
+  font-size: 6.375pt;    /* 8.5px */
+  line-height: 1.7;
+  color: #5F5A53;
+  display: flex;
+  gap: 25.5pt;           /* 34px */
+}
+.foot .lbl { margin-bottom: 3pt; }
+.cont {
+  font-family: Helvetica, Arial, sans-serif;
+  font-weight: 700;
+  font-size: 5.25pt;
+  line-height: 1;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+  color: #7B2233;
+  margin-top: 12pt;      /* 16px */
+}
+
+/* ── prose, section headings, clauses ─────────────────────────── */
+.prose {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 7.875pt;    /* 10.5px */
+  line-height: 1.7;
+  color: #1A1A1A;
+}
+.prose p { margin: 0 0 8.25pt; } /* 11px */
+h1.sh, h2.sh, h3.sh, .sh {
+  font-family: Helvetica, Arial, sans-serif;
+  font-weight: 700;
+  font-size: 5.625pt;    /* 7.5px */
+  line-height: 1;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #111111;
+  margin: 15.75pt 0 8.25pt; /* 21px / 11px */
+  padding-bottom: 5.25pt;   /* 7px */
+  border-bottom: 0.75pt solid #111111;
+}
+.cl {
+  display: flex;
+  gap: 10.5pt;           /* 14px */
+  margin-bottom: 6.75pt; /* 9px */
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 7.425pt;    /* 9.9px */
+  line-height: 1.68;
+}
+.cln {
+  width: 27pt;           /* 36px fixed column */
+  font-family: Helvetica, Arial, sans-serif;
+  font-weight: 700;
+  font-size: 6.375pt;    /* 8.5px */
+  line-height: 1.78;
+  letter-spacing: 0.02em;
+  color: #111111;
+}
+
+/* ── signatures, checkboxes ───────────────────────────────────── */
+.sig { display: flex; gap: 39pt; margin-top: 16.5pt; } /* 52px / 22px */
+.sigbox { flex-grow: 1; font-size: 6.75pt; line-height: 1.65; }
+.sigline {
+  border-top: 0.75pt solid #111111;
+  padding-top: 5.25pt;   /* 7px */
+  margin-top: 24pt;      /* 32px */
+  font-family: Helvetica, Arial, sans-serif;
+  font-weight: 700;
+  font-size: 5.25pt;
+  line-height: 1.4;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+  color: #8A857E;
+}
+.ckrow { display: flex; gap: 6pt; align-items: flex-start; }
+.ck {
+  width: 8.25pt;         /* 11px */
+  height: 8.25pt;
+  border: 0.75pt solid #111111;
+}
+
+/* ── KPI block, contents row ──────────────────────────────────── */
+.kpi { border-top: 1.5pt solid #7B2233; padding-top: 8.25pt; }
+.kpi .v {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 25.5pt;     /* 34px */
+  line-height: 1;
+  letter-spacing: -0.02em;
+  margin: 6pt 0 4.5pt;
+}
+.kpi .d { font-size: 6.375pt; color: #5F5A53; line-height: 1.55; }
+.toc {
+  display: flex;
+  align-items: baseline;
+  gap: 6.75pt;           /* 9px */
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 8.25pt;     /* 11px */
+  line-height: 1.4;
+  padding: 7.5pt 0;
+  border-bottom: 0.75pt solid #EAE6DF;
+}
+.toc .dots { flex-grow: 1; border-bottom: 0.75pt dotted #BDB8B0; }
+.toc .folio {
+  font-family: Helvetica, Arial, sans-serif;
+  font-weight: 700;
+  font-size: 7.125pt;
+  line-height: 1;
+  color: #7B2233;
+}
+
+/* ── boxes, placeholders ──────────────────────────────────────── */
+.box { border: 0.75pt solid #111111; padding: 8.25pt 9.75pt; }
+/* Catalogue image placeholder: the prototype's 45-degree hatch is a
+ * repeating-linear-gradient, which is outside the subset (no gradients).
+ * The placeholder keeps its bordered, captioned form on the flat light
+ * ground; real photography replaces it at build time. */
+.imgph {
+  background-color: #F2F1EF;
+  border: 0.75pt solid #CFCDC8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.imgph .cap {
+  font-family: Menlo, monospace;
+  font-size: 5.625pt;
+  color: #6B6862;
+  text-align: center;
+}
+table.t th.num { text-align: right; } /* numeric headers align over their figures */

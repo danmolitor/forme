@@ -116,6 +116,8 @@ pub struct CssStyle {
     pub background_color: Option<Color>,
     pub display: Option<CssDisplay>,
     pub flex_direction: Option<FlexDirection>,
+    pub flex_grow: Option<f64>,
+    pub flex_shrink: Option<f64>,
     pub justify_content: Option<JustifyContent>,
     pub align_items: Option<AlignItems>,
     pub gap: Option<f64>,
@@ -217,6 +219,8 @@ impl CssStyle {
             background_color,
             display,
             flex_direction,
+            flex_grow,
+            flex_shrink,
             justify_content,
             align_items,
             gap,
@@ -469,6 +473,27 @@ pub(crate) fn apply_declaration(
                         Some(CssDisplay::Block)
                     }
                 };
+            }
+        }
+        "flex-grow" => {
+            if let Ok(n) = p.expect_number() {
+                style.flex_grow = Some(n as f64);
+            }
+        }
+        "flex-shrink" => {
+            if let Ok(n) = p.expect_number() {
+                style.flex_shrink = Some(n as f64);
+            }
+        }
+        // `flex: <number>` — the ubiquitous `flex: 1`. Grow N, shrink 1,
+        // basis 0 per spec; the engine's flex distribution treats a zero
+        // basis as auto-with-grow, which matches the idiom's intent.
+        "flex" => {
+            if let Ok(n) = p.expect_number() {
+                style.flex_grow = Some(n as f64);
+                style.flex_shrink = Some(1.0);
+            } else {
+                warnings.push("unsupported flex shorthand value (use flex-grow / flex-basis longhands)".to_string());
             }
         }
         "flex-direction" => {
