@@ -287,7 +287,7 @@ jobs:
         # First upload establishes each template's baseline; every PR after
         # that is compared and reported as a check and a comment. Structure
         # only by default; nothing rendered leaves the runner.
-        uses: danmolitor/pdf-testkit/packages/action@v0.2.2
+        uses: danmolitor/pdf-testkit/packages/action@v0.2.3
         with:
           service-token: ${{ secrets.PDF_TESTKIT_TOKEN }}
           service-url: https://review-api.formepdf.com

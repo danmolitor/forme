@@ -4,9 +4,8 @@
     "packages/*"
   ],
   "devDependencies": {
-    "@pdf-testkit/cli": "^0.2.2",
+    "@pdf-testkit/cli": "^0.2.3",
     "miniflare": "4.20260730.0",
-    "pdfjs-dist": "^4.10.38",
     "puppeteer-core": "25.10.0"
   }
 }
