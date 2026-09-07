@@ -1,31 +1,136 @@
 ---
 title: Migrating from DomPDF
 sidebarTitle: From DomPDF
-description: Move DomPDF templates to Forme's HTML input path — real print CSS support, UTF-8 shaping that works, and no PHP memory-limit fights.
+description: Move DomPDF templates to Forme's HTML input path — flexbox for the first time, real print CSS, UTF-8 shaping that works. And the honest part first - you are in PHP and this is a JavaScript library.
 ---
 
-DomPDF renders a useful HTML subset but predates modern print CSS, and its text handling struggles past Latin scripts. Forme's [HTML input path](/html) covers the same document class with a page-native engine: real `@page` rules, margin boxes, OpenType shaping, and BiDi text.
+One thing first, because a guide that buries it loses your trust in the first minute: **you are in PHP, and Forme is not a PHP library.** The engine is Rust compiled to WASM, and the HTML input path runs in Node (CLI or library), the browser, and Cloudflare Workers. Migrating from DomPDF means one of:
 
-## The short version
+- **A rendering step your PHP app shells out to or calls over HTTP** — the `forme-html` CLI on the same box, or a small Node service you own.
+- **Moving PDF generation out of PHP entirely**, if your stack is heading that way anyway.
 
-```bash
-npx @formepdf/html invoice.html -o invoice.pdf
+If neither is acceptable — if it must be `composer require` and in-process — DomPDF (or mPDF/TCPDF) remains your tool, and the rest of this page is not for you. Everyone else, read on: the template itself usually moves with few or no changes, because both tools speak HTML and CSS.
+
+## Why people leave DomPDF
+
+The famous wall is **no flexbox**. DomPDF renders a useful HTML subset, but it predates modern layout: no flexbox, no grid, and partial support across much of CSS 2.1. Every DomPDF template is built from tables and floats because those are the tools that exist there. The secondary reasons are the ones you hit at 2am: UTF-8 and non-Latin scripts needing font gymnastics, PHP memory limits on long documents, and print-CSS features (`@page` margin boxes, page counters, break control) that are partially implemented or absent.
+
+None of that is a criticism of a library that has carried PHP PDF generation for fifteen years. It is why the migrations happen.
+
+## What moves over unchanged
+
+Your DomPDF template is HTML + CSS, and the dialect DomPDF taught you is inside Forme's subset:
+
+- **Tables**, including `<thead>` repeating on every page, `colspan`/`rowspan`, and `border-collapse` with Chrome-matched edge resolution. Cell overflow is preserved across page breaks.
+- **Floats lay out as columns** — the two-column address block, the `float: right` totals box, cleared sections. The one unsupported float case is text wrapping *alongside* a float (content renders below instead, with a warning naming it).
+- **The cascade as written**: type/class/id selectors, compounds, combinators, attribute selectors, `!important`.
+- **Print CSS, properly**: `@page` size and margins, `:first` variants, margin boxes with `counter(page)` / `counter(pages)`, `break-*` and the legacy `page-break-*` spellings, `orphans`/`widows`.
+- **Text you don't have to fight**: OpenType shaping (ligatures, kerning), font fallback chains, automatic hyphenation, justified text with real inter-word distribution, BiDi for RTL scripts.
+
+And the thing you have never had: **flexbox.** A DomPDF template doesn't use it, but the first template you touch after migrating can.
+
+```css
+@page {
+  size: A4;
+  margin: 20mm;
+  @bottom-center { content: "Page " counter(page) " of " counter(pages); }
+}
+.header { display: flex; justify-content: space-between; }  /* new to you */
+.addresses .left  { float: left;  width: 48%; }             /* works as-is */
+.addresses .right { float: right; width: 48%; }
+tr { page-break-inside: avoid; }
 ```
 
-Or from a PHP-adjacent stack, call the library from a small Node sidecar or use the [Python SDK](/python-sdk) — the engine is the same WASM everywhere.
+## What doesn't, up front
 
-## What improves
+- **No JavaScript execution** (DomPDF doesn't run it either, so nothing changes here).
+- **Nothing fetched over the network.** Remote images and fonts are never downloaded. Inline images as data URIs or local paths; pass fonts explicitly with `--font Family=path.ttf` — no font-directory installation dance, but also no implicit system fonts.
+- **A documented subset, not all of CSS.** Everything outside it — transforms, gradients, CSS variables — warns by name at render time instead of rendering differently in silence. The [subset table](/html) is the reference, and the warnings list from one render of your own template is the ground truth.
 
-- **Print CSS**: `@page` size/margins, `:first` variants, margin boxes with page counters, `break-*` control, `orphans`/`widows` — the features DomPDF partially implements are the core of Forme's subset.
-- **Text**: OpenType shaping (ligatures, kerning), font fallback chains, automatic hyphenation, justified text with real inter-word distribution, BiDi for RTL scripts.
-- **Tables**: `<thead>` repeats on every page; `border-collapse` is emulated with Chrome-matched edge resolution; cell overflow is preserved across breaks.
-- **Floats lay out as columns**: the DomPDF-era idioms — two-column address blocks, `float: right` totals, cleared sections — render as real columns. The one unsupported float case is text wrapping *alongside* a float (content renders below instead), and it warns by name.
-- **Measured, not promised**: of 15 production templates in our compat corpus — two of them stock Crater designs written for DomPDF — **14 render correctly at 0.20.0, 1 degrades legibly with its cause named in warnings, 0 broken** ([how it was measured](https://formepdf.com/blog/template-compat-endgame)).
+## Before and after
 
-## What to check
+**Before — DomPDF, in-process PHP:**
 
-- **The subset is documented, not guessed** — compare your template against the [subset tables](/html). Everything outside it warns by name at render time; run once and read the warnings.
-- **Remote assets**: never fetched. Inline images as data URIs/local files; pass extra CSS with `--css`.
-- **Fonts**: pass TTFs explicitly with `--font Family=path.ttf` instead of DomPDF's font directory dance.
+```php
+use Dompdf\Dompdf;
 
-<Note>This guide is a stub — it covers the load-bearing differences. If your template hits something unlisted, the render-time warnings will name it; issues welcome on [GitHub](https://github.com/formepdf/forme/issues).</Note>
+$dompdf = new Dompdf();
+$dompdf->loadHtml($html);
+$dompdf->setPaper('A4');
+$dompdf->render();
+file_put_contents('invoice.pdf', $dompdf->output());
+```
+
+**After, option 1 — the CLI, called from PHP** (simplest; the binary is `npx @formepdf/html` or a global install):
+
+```php
+file_put_contents('/tmp/invoice.html', $html);
+$exit = 0; $out = [];
+exec('forme-html /tmp/invoice.html -o /tmp/invoice.pdf 2>&1', $out, $exit);
+if ($exit !== 0) { throw new RuntimeException(implode("\n", $out)); }
+// stderr carried the warnings list — log it; it names anything outside the subset
+```
+
+**After, option 2 — a tiny Node service you own**, called from PHP over HTTP. The whole service:
+
+```js
+// service.mjs — node service.mjs (or PM2/systemd it)
+import { createServer } from 'node:http';
+import { renderHtml } from '@formepdf/html';
+
+createServer((req, res) => {
+  let body = '';
+  req.on('data', (c) => (body += c));
+  req.on('end', () => {
+    const { pdf, warnings } = renderHtml(body, {});
+    res.setHeader('content-type', 'application/pdf');
+    res.setHeader('x-forme-warnings', JSON.stringify(warnings));
+    res.end(Buffer.from(pdf));
+  });
+}).listen(3000);
+```
+
+```php
+$ch = curl_init('http://localhost:3000/');
+curl_setopt_array($ch, [
+    CURLOPT_POST => true,
+    CURLOPT_POSTFIELDS => $html,
+    CURLOPT_RETURNTRANSFER => true,
+]);
+$pdf = curl_exec($ch);
+```
+
+This gets you the warnings as structured data rather than stderr, which matters once you automate the check in the next section.
+
+The HTML itself — the part you actually maintain — is what carries over.
+
+## Verifying the whole template set
+
+The real fear is not "will one invoice render" — it is "will I silently break every invoice for one customer segment." That is a structural question, and [pdf-testkit](https://github.com/danmolitor/pdf-testkit) answers it by diffing PDFs structurally, not by pixels:
+
+```bash
+npm i -g @pdf-testkit/cli && npm i -D pdfjs-dist
+
+# 1. Baseline what DomPDF produces today, per template
+pdf-testkit snapshot dompdf-output.pdf --out baseline.json
+
+# 2. Render the same HTML with Forme
+npx @formepdf/html invoice.html -o forme-output.pdf
+
+# 3. Structural diff — exit 0 clean, exit 1 regression
+pdf-testkit diff baseline.json forme-output.pdf --fail-on warn
+```
+
+Pixel diffing cannot do this across renderers: two engines rasterize the same document with different fonts hinting, different anti-aliasing, different rounding, so every page differs benignly and the diff is all noise. Structural comparison checks what matters — the text is all present, in order, on the right pages, in roughly the right places — and reports semantic events with confidence scores. Loop it over the template set and you get a short list of documents worth opening, instead of all of them.
+
+## The measured number
+
+Of 15 production templates collected from GitHub for our compat corpus — two of them stock Crater designs written specifically for DomPDF — **14 render correctly at 0.20.0, 1 degrades legibly with its cause named in warnings, 0 render broken** ([how it was measured](https://formepdf.com/blog/template-compat-endgame)). The two DomPDF-native templates are in the 14.
+
+## Who should migrate, and who shouldn't
+
+**Migrate** if PDF generation is a service boundary you can draw — a CLI call, a container, a small endpoint — and your pain is layout (flexbox), text (UTF-8/RTL), or print CSS. The templates come with you.
+
+**Don't migrate** if in-process PHP is a hard requirement. That constraint is legitimate and this library does not meet it.
+
+**What to try first:** `npx @formepdf/html your-template.html -o out.pdf` against your gnarliest real template, then read the warnings. One minute, and you will know which page of this guide matters to you. If something renders wrong without a warning naming it, [file it](https://github.com/formepdf/forme/issues) — that is a bug on our side by contract.
