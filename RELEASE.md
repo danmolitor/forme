@@ -353,8 +353,11 @@ cd packages/tailwind && npm publish --access public
 
 ```bash
 cd packages/vscode
-npm run package    # creates forme-pdf-{version}.vsix
-npx @vscode/vsce publish
+npm run package    # creates forme-pdf-{version}.vsix (staged, clean)
+npx @vscode/vsce publish --packagePath forme-pdf-{version}.vsix
+# NEVER bare `vsce publish` here: it ignores the staged .vsix and re-packages
+# from the workspace dir, following the hoisted monorepo node_modules
+# ("../", ~116k files, ~28GB) — it hangs, and would ship garbage if it didn't.
 ```
 
 ### PyPI
