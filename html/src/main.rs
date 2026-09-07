@@ -211,6 +211,7 @@ fn main() -> ExitCode {
                     });
                 }
                 "--tagged" => options.tagged = true,
+                "--audit-content" => options.audit_content = true,
                 "--pdf-ua" => options.pdf_ua = true,
                 "--pdf-a" => options.pdf_a = Some(take_value(&mut i)?),
                 "--lang" => options.lang = Some(take_value(&mut i)?),

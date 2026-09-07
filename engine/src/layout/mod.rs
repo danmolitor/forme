@@ -31,6 +31,7 @@
 //! container and then slices, so the flex calculations are wrong on both
 //! halves. We run flex AFTER splitting.
 
+pub mod audit;
 pub mod flex;
 pub mod grid;
 pub mod page_break;

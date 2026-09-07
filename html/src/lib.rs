@@ -93,6 +93,11 @@ pub struct HtmlOptions {
     /// (`@formepdf/fonts-standard`) — the base-14 families are not embeddable.
     /// Composes with `pdf_ua`: a file can be both PDF/A and PDF/UA-1.
     pub pdf_a: Option<String>,
+    /// Opt-in post-render content audit: after layout, verify the pages
+    /// against the input and report dropped, fully off-page, invisible
+    /// (colour == background), or clipped-to-nothing content through the
+    /// render-defect warnings. Costs nothing when false.
+    pub audit_content: bool,
 }
 
 /// Rendered output: PDF bytes plus any warnings about unsupported CSS.
@@ -905,7 +910,12 @@ fn dedup_warnings(warnings: Vec<String>) -> Vec<String> {
 
 pub fn render_html(html: &str, options: &HtmlOptions) -> Result<HtmlOutput, FormeError> {
     let (doc, mut warnings) = html_to_document(html, options);
-    let (pdf, engine_warnings, passes) = forme::render_with_warnings_and_passes(&doc)?;
+    let (pdf, engine_warnings, passes) = forme::render_with_options(
+        &doc,
+        forme::RenderOptions {
+            audit_content: options.audit_content,
+        },
+    )?;
     warnings.extend(engine_warnings);
     let warnings = dedup_warnings(warnings);
     Ok(HtmlOutput {
@@ -921,7 +931,12 @@ pub fn render_html_with_layout(
     options: &HtmlOptions,
 ) -> Result<HtmlLayoutOutput, FormeError> {
     let (doc, mut warnings) = html_to_document(html, options);
-    let (pdf, layout, engine_warnings, passes) = forme::render_with_layout_and_passes(&doc)?;
+    let (pdf, layout, engine_warnings, passes) = forme::render_with_layout_and_options(
+        &doc,
+        forme::RenderOptions {
+            audit_content: options.audit_content,
+        },
+    )?;
     warnings.extend(engine_warnings);
     let warnings = dedup_warnings(warnings);
     Ok(HtmlLayoutOutput {
