@@ -44,7 +44,8 @@ node benchmarks/corpus/generate.mjs --check    # fail if on-disk drifts from the
   isolate. Puppeteer is run as a same-machine baseline on the identical HTML,
   browser reused across warm iterations, cold start reported separately.
 - **Cold start** = process/isolate start → first PDF byte, *including* module
-  instantiation (the ~6.4 MB core / ~7.1 MB html WASM is part of the cost and
+  instantiation (the 6.8 MB core / 7.66 MB html WASM — measured sizes are
+  emitted into the artifact as `benchmarks.artifactSizes` — is part of the cost and
   is reported as such).
 - **Warm render** = steady state; median + p95 over a reported iteration count.
 - **Memory:** native = max RSS; node/WASM = WASM linear-memory high-water

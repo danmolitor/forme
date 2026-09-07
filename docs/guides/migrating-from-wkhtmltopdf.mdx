@@ -20,7 +20,10 @@ Three things make this migration gentler than you'd expect:
 
 1. **The legacy `page-break-*` spellings work.** wkhtmltopdf-era CSS (`page-break-before`, `page-break-after`, `page-break-inside: avoid`) is honored as-is alongside the modern `break-*` forms.
 2. **`<thead>` repetition is automatic** — the header-rows-on-every-page behavior wkhtmltopdf approximated is engine-native here.
-3. **Anything outside the subset warns by name** instead of rendering differently in silence. Run your template once and read the warnings list — that's your migration checklist.
+3. **Floats lay out as columns.** The wkhtmltopdf-era float layouts (left/right header pairs, floated column grids) render as real columns; the one unsupported case is text wrapping *alongside* a float, which warns and renders below.
+4. **Anything outside the subset warns by name** instead of rendering differently in silence. Run your template once and read the warnings list — that's your migration checklist.
+
+The claim is measured: of 15 production templates in our compat corpus — several from the wkhtmltopdf/mPDF era, custom pagination hacks included — **14 render correctly at 0.20.0, 1 degrades legibly with its cause named in warnings, 0 broken** ([how it was measured](https://formepdf.com/blog/template-compat-endgame)).
 
 ## What to check
 

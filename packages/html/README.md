@@ -38,8 +38,8 @@ they still haven't:
 
 Measured against 15 real production templates from GitHub (Bootstrap
 2/3 grids, mPDF/wkhtmltopdf-era tables, email HTML, modern CSS grid):
-**11 of 15 render correctly, the other 4 degrade legibly with every
-cause named in `warnings`, zero render broken.**
+**14 of 15 render correctly, the one degraded case is legible with its
+cause named in `warnings`, zero render broken** (as of 0.20.0).
 
 The complete property-by-property subset table lives in the
 [repository README](https://github.com/formepdf/forme/tree/main/html) —

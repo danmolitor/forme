@@ -19,6 +19,8 @@ Or from a PHP-adjacent stack, call the library from a small Node sidecar or use 
 - **Print CSS**: `@page` size/margins, `:first` variants, margin boxes with page counters, `break-*` control, `orphans`/`widows` — the features DomPDF partially implements are the core of Forme's subset.
 - **Text**: OpenType shaping (ligatures, kerning), font fallback chains, automatic hyphenation, justified text with real inter-word distribution, BiDi for RTL scripts.
 - **Tables**: `<thead>` repeats on every page; `border-collapse` is emulated with Chrome-matched edge resolution; cell overflow is preserved across breaks.
+- **Floats lay out as columns**: the DomPDF-era idioms — two-column address blocks, `float: right` totals, cleared sections — render as real columns. The one unsupported float case is text wrapping *alongside* a float (content renders below instead), and it warns by name.
+- **Measured, not promised**: of 15 production templates in our compat corpus — two of them stock Crater designs written for DomPDF — **14 render correctly at 0.20.0, 1 degrades legibly with its cause named in warnings, 0 broken** ([how it was measured](https://formepdf.com/blog/template-compat-endgame)).
 
 ## What to check
 

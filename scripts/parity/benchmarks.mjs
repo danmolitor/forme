@@ -25,6 +25,7 @@ import { createServer } from 'node:http';
 import { extname, join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import os from 'node:os';
+import zlib from 'node:zlib';
 import { emitSection } from './lib.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -252,7 +253,8 @@ async function workerdMetrics() {
   mkdirSync(WK, { recursive: true });
   for (const f of ['forme_pdf_html.js', 'forme_pdf_html_bg.wasm']) copyFileSync(join(REPO, 'packages/html/pkg-web', f), join(WK, f));
   writeFileSync(join(WK, 'entry.mjs'), `import initWasm, { render_html_wasm } from './forme_pdf_html.js';\nimport wasm from './forme_pdf_html_bg.wasm';\nlet ready=false;\nexport default { async fetch(req){ const t0=Date.now(); if(!ready){await initWasm({module_or_path:wasm});ready=true;} const tInit=Date.now()-t0; const html=await req.text(); const t1=Date.now(); const r=render_html_wasm(html,'{}'); const tRender=Date.now()-t1; const passes=r.passes; r.free(); return new Response(JSON.stringify({tInit,tRender,passes}),{headers:{'content-type':'application/json'}}); } };\n`);
-  const mkMf = () => new Miniflare({ scriptPath: join(WK, 'entry.mjs'), modules: true, modulesRules: [{ type: 'ESModule', include: ['**/*.js', '**/*.mjs'] }, { type: 'CompiledWasm', include: ['**/*.wasm'] }], compatibilityDate: '2024-09-01' });
+  // miniflare 5 moved per-worker options into a `workers` array.
+  const mkMf = () => new Miniflare({ workers: [{ scriptPath: join(WK, 'entry.mjs'), modules: true, modulesRules: [{ type: 'ESModule', include: ['**/*.js', '**/*.mjs'] }, { type: 'CompiledWasm', include: ['**/*.wasm'] }], compatibilityDate: '2024-09-01' }] });
   let coldStart;
   try {
     const mf = mkMf(); await mf.ready;
@@ -334,9 +336,33 @@ async function measureRun() {
   return run;
 }
 
+// ── measured artifact sizes ──────────────────────────────────────────────────
+// The WASM size has been transcribed wrong in prose three times (7.1, 7.4,
+// then measured at 7.66 MB). Emit the MEASURED bytes (raw + gzip) into the
+// artifact so pages and docs can reference a number that cannot drift from
+// the build. Sizes are in bytes; consumers do their own unit formatting and
+// must say which unit (MB vs MiB) they chose.
+function artifactSizes() {
+  const { gzipSync } = zlib;
+  const targets = {
+    htmlWasm: join(REPO, 'packages', 'html', 'pkg', 'forme_pdf_html_bg.wasm'),
+    coreWasm: join(REPO, 'packages', 'core', 'pkg', 'forme_bg.wasm'),
+  };
+  const out = {};
+  for (const [name, p] of Object.entries(targets)) {
+    if (!existsSync(p)) {
+      out[name] = null;
+      continue;
+    }
+    const buf = readFileSync(p);
+    out[name] = { rawBytes: buf.length, gzipBytes: gzipSync(buf, { level: 9 }).length };
+  }
+  return out;
+}
+
 // ── assemble two-run artifact + emit ─────────────────────────────────────────
 const run = await measureRun();
-const shared = { method: METHOD, corpus: corpus(), sentinelFix: SENTINEL_FIX, whereWeLose: WHERE_WE_LOSE };
+const shared = { method: METHOD, corpus: corpus(), sentinelFix: SENTINEL_FIX, whereWeLose: WHERE_WE_LOSE, artifactSizes: artifactSizes() };
 let runs;
 if (run.environment.runner === 'dev') {
   runs = [run];

@@ -40,14 +40,19 @@ export default {
 
 const median = (a) => { const s = [...a].sort((x, y) => x - y); return s[Math.floor(s.length / 2)]; };
 const read = (d) => readFileSync(`benchmarks/corpus/${d}.html`, 'utf8');
+// miniflare 5 moved per-worker options into a `workers` array.
 const makeMf = () => new Miniflare({
-  scriptPath: `${WK}/entry.mjs`,
-  modules: true,
-  modulesRules: [
-    { type: 'ESModule', include: ['**/*.js', '**/*.mjs'] },
-    { type: 'CompiledWasm', include: ['**/*.wasm'] },
+  workers: [
+    {
+      scriptPath: `${WK}/entry.mjs`,
+      modules: true,
+      modulesRules: [
+        { type: 'ESModule', include: ['**/*.js', '**/*.mjs'] },
+        { type: 'CompiledWasm', include: ['**/*.wasm'] },
+      ],
+      compatibilityDate: '2024-09-01',
+    },
   ],
-  compatibilityDate: '2024-09-01',
 });
 
 // COLD: fresh isolate, first request (receipt)
