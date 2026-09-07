@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.20.1] - 2026-09-07
+
+### Changed
+
+- HTML input path rides `@formepdf/html` 0.20.1 (`passes` returned on the layout path)
+
 ## [0.20.0] - 2026-09-05
 
 ### Changed

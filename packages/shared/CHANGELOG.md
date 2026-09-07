@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.20.1] - 2026-09-07
+
+### Changed
+
+- Version alignment with the 0.20.1 release line; no functional changes in this package.
+
 ## [0.20.0] - 2026-09-05
 
 ### Changed

@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.20.1] - 2026-09-07
+
+### Changed
+
+- Engine 0.20.1 WASM: `renderHtmlWithLayout` (html package) result-shape fix rides along; no core API changes
+
 ## [0.20.0] - 2026-09-05
 
 ### Changed

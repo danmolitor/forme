@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.20.1] - 2026-09-07
+
+### Changed
+
+- Bundles the 0.20.1 engine + HTML WASMs (result-shape fix)
+
 ## [0.20.0] - 2026-09-05
 
 ### Changed
