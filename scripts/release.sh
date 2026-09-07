@@ -190,14 +190,25 @@ if phase_reached publish; then
     if npm view "$name@$VERSION" version >/dev/null 2>&1; then
       echo "  already published: $name@$VERSION"
     else
-      (cd "packages/$p" && npm publish --access public)
-      echo "  published: $name@$VERSION"
+      if (cd "packages/$p" && npm publish --access public); then
+        echo "  published: $name@$VERSION"
+      elif npm view "$name@$VERSION" version >/dev/null 2>&1; then
+        # Registry read lag can hide a completed publish from the pre-check
+        # (bit @formepdf/templates at 0.20.1): the publish then fails on the
+        # immutable version. Re-check after the failure instead of dying.
+        echo "  already published (pre-check registry lag): $name@$VERSION"
+      else
+        fail "npm publish $name@$VERSION"
+      fi
     fi
   done
 
   step "PUBLISH — VS Code Marketplace"
   if confirm "Package + publish the VSIX ($VERSION)?"; then
-    (cd packages/vscode && npm run package && npx @vscode/vsce publish)
+    # publish MUST take the staged .vsix via --packagePath: a bare `vsce
+    # publish` re-packages from the live workspace dir, where it follows the
+    # hoisted monorepo node_modules ("../", ~116k files, ~28GB) and hangs.
+    (cd packages/vscode && npm run package && npx @vscode/vsce publish --packagePath "forme-pdf-$VERSION.vsix")
   else
     note "skipped vsce"
   fi
