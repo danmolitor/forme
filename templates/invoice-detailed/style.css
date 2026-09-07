@@ -40,11 +40,8 @@
 .certline { border-top: 0.75pt solid #111111; width: 150pt; padding-top: 3.75pt; font-size: 6.375pt; margin-top: 9pt; }
 
 /* Continuation pages: running header via three margin boxes, suppressed
- * on the first page. Deviations from the prototype, both noted in the
- * README: the hairline under the running header does not render on
- * margin boxes, and the section label is the combined "Detail, sections
- * A–E" on both continuation pages (a per-page label via named pages
- * leaves a trailing blank page in the current engine). */
+ * on the first page; hairline rule on all three boxes (renders as one
+ * continuous line); per-page section labels via the named pages below. */
 @page {
   @top-left {
     content: "Northmoor · Invoice INV-4421";
