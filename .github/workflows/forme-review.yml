@@ -1,0 +1,81 @@
+# Forme Review — semantic document diffing for the Northmoor template set.
+#
+# Renders all thirty templates with the repo-built CLI (the set exercises
+# engine features ahead of the published package) and uploads the PDFs to
+# the review service. The service stores the baselines, posts the
+# `forme-review / semantic-diff` check and the PR comment; this job's own
+# status only reflects render+upload success — the service check is the gate.
+#
+# Dogfood note: this repo is Forme Review's first design-partner run.
+name: Forme Review
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  semantic-diff:
+    name: Render + upload (Forme Review)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Build the HTML CLI
+        working-directory: html
+        run: cargo build --release --bin forme-html
+      - name: Render the Northmoor set
+        run: |
+          set -e
+          mkdir -p out/northmoor
+          for t in invoice-standard invoice-detailed credit-note receipt quote \
+                   statement purchase-order remittance-advice expense-report payslip \
+                   letterhead cover-letter memo employment-contract nda \
+                   service-agreement offer-letter termination-letter reference-letter policy-acknowledgement \
+                   report-annual report-monthly lab-report inspection-report shipping-label \
+                   packing-slip delivery-note certificate product-catalog meeting-minutes; do
+            ./html/target/release/forme-html "templates/$t/index.html" -o "out/northmoor/$t.pdf" -q
+          done
+          ls -la out/northmoor | tail -3
+      - name: Install the pdf-testkit CLI (service mode runs it)
+        run: npm i --no-save @pdf-testkit/cli
+      - name: Upload to Forme Review
+        uses: danmolitor/pdf-testkit/packages/action@v0.2.3
+        with:
+          service-token: ${{ secrets.PDF_TESTKIT_TOKEN }}
+          service-url: https://review-api.formepdf.com
+          documents: |
+            out/northmoor/invoice-standard.pdf
+            out/northmoor/invoice-detailed.pdf
+            out/northmoor/credit-note.pdf
+            out/northmoor/receipt.pdf
+            out/northmoor/quote.pdf
+            out/northmoor/statement.pdf
+            out/northmoor/purchase-order.pdf
+            out/northmoor/remittance-advice.pdf
+            out/northmoor/expense-report.pdf
+            out/northmoor/payslip.pdf
+            out/northmoor/letterhead.pdf
+            out/northmoor/cover-letter.pdf
+            out/northmoor/memo.pdf
+            out/northmoor/employment-contract.pdf
+            out/northmoor/nda.pdf
+            out/northmoor/service-agreement.pdf
+            out/northmoor/offer-letter.pdf
+            out/northmoor/termination-letter.pdf
+            out/northmoor/reference-letter.pdf
+            out/northmoor/policy-acknowledgement.pdf
+            out/northmoor/report-annual.pdf
+            out/northmoor/report-monthly.pdf
+            out/northmoor/lab-report.pdf
+            out/northmoor/inspection-report.pdf
+            out/northmoor/shipping-label.pdf
+            out/northmoor/packing-slip.pdf
+            out/northmoor/delivery-note.pdf
+            out/northmoor/certificate.pdf
+            out/northmoor/product-catalog.pdf
+            out/northmoor/meeting-minutes.pdf
