@@ -1,0 +1,77 @@
+{
+  "issuer": {
+    "name": "Northmoor Industrial Group, Inc.",
+    "address": "418 Ellingham Road, Suite 300, Rochester, NY 14604",
+    "phone": "(585) 274-0180",
+    "ein": "16-1904472",
+    "bank": {
+      "name": "First Genesee Bank, Rochester NY",
+      "account": "8841 002937",
+      "routing": "021304559"
+    },
+    "email": "purchasing@northmoorgroup.com",
+    "department": "Purchasing Department"
+  },
+  "document": {
+    "type": "purchase-order",
+    "number": "PO-77412",
+    "orderDate": "07 September 2026",
+    "requiredBy": "09 October 2026",
+    "terms": "Net 45 · FOB destination",
+    "buyer": "K. Alvarez, ext. 331"
+  },
+  "supplier": {
+    "name": "Tanaka Precision Parts, Inc.",
+    "lines": [
+      "Attn. Order Desk",
+      "860 Industrial Drive",
+      "Elkhart, IN 46514"
+    ]
+  },
+  "deliverTo": {
+    "name": "Northmoor Industrial Group",
+    "lines": [
+      "Fabrication Plant — Dock 4",
+      "2200 Lyell Avenue",
+      "Rochester, NY 14606"
+    ]
+  },
+  "items": [
+    {
+      "line": "01",
+      "description": "Bearing housing, cast iron, machined to drawing 4471-B rev C",
+      "note": "Material certificate required · first article on line 01",
+      "qty": 60,
+      "unit": "ea",
+      "price": 84.0,
+      "extended": 5040.0
+    },
+    {
+      "line": "02",
+      "description": "Shaft, 1045 cold drawn steel, 2 in dia × 36 in, centres both ends",
+      "qty": 40,
+      "unit": "ea",
+      "price": 126.5,
+      "extended": 5060.0
+    },
+    {
+      "line": "03",
+      "description": "Key stock, 1/2 in square, 12 in lengths, zinc plated",
+      "qty": 200,
+      "unit": "ea",
+      "price": 4.2,
+      "extended": 840.0
+    }
+  ],
+  "totals": {
+    "goods": 10940.0,
+    "freight": 0.0,
+    "orderTotal": 10940.0
+  },
+  "coding": {
+    "costCentre": "4200 · Fabrication",
+    "glAccount": "5110 · Raw material",
+    "project": "2026-CS-04",
+    "requisition": "REQ-20918"
+  }
+}

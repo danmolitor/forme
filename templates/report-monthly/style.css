@@ -1,0 +1,33 @@
+/* report-monthly — page geometry and document rules.
+ * Spine: ../northmoor-shared.css. Accent policy (operational reports):
+ * KPI keylines, grouped-section headers, one flagged result only. */
+@page {
+  size: Letter;
+  margin: 52.5pt 57pt 40.5pt;
+  @bottom-left {
+    content: "Monthly operating report · August 2026";
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8A857E;
+  }
+  @bottom-right {
+    content: "Page " counter(page) " of " counter(pages);
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8A857E;
+  }
+}
+.sheet { position: relative; }
+.atop { position: absolute; top: -52.5pt; left: -57pt; right: -57pt; height: 3pt; background-color: #7B2233; }
+.kpigrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18pt; margin-top: 19.5pt; }
+.kpigrid-2 { margin-top: 18pt; }
+.perf th.num { width: 61.5pt; }
+.perf th.numw { width: 69pt; }
+.bottomcols { display: flex; gap: 25.5pt; margin-top: 19.5pt; }
+.commentary { width: 56%; }
+.actions { width: 44%; }
+.small-t { font-size: 6.75pt; }

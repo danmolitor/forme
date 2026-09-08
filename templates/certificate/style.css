@@ -1,0 +1,58 @@
+/* certificate — engraved double frame, centred setting.
+ * Accent policy (certificate): 1.5pt accent frame with a 0.75pt accent
+ * outline offset 4.5pt (nested boxes — `outline` is outside the
+ * subset), accent rule under the title, accent underline beneath the
+ * recipient name. */
+@page {
+  size: Letter;
+  margin: 52.5pt 63pt 45pt; /* 70px 84px 60px — this document's own margins */
+  @bottom-left {
+    content: "Certificate of completion CC-2026-0044";
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8A857E;
+  }
+  @bottom-right {
+    content: "Page " counter(page) " of " counter(pages);
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8A857E;
+  }
+}
+.sheet { position: relative; }
+.atop { position: absolute; top: -52.5pt; left: -63pt; right: -63pt; height: 4.5pt; background-color: #7B2233; }
+/* Content box: 792 − 52.5 − 45 = 694.5pt. */
+.certfill { height: 694.5pt; display: flex; flex-direction: column; }
+.cert-outer { border: 0.75pt solid #7B2233; padding: 4.5pt; height: 684pt; display: flex; flex-direction: column; } /* 694.5 − borders − padding (content-box heights) */
+.cert-inner {
+  border: 1.5pt solid #7B2233;
+  height: 615pt; /* 684 − borders − 66pt vertical padding */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 36pt 42pt 30pt;
+  text-align: center;
+}
+.cert-rule { width: 72pt; height: 1.5pt; background-color: #7B2233; margin-top: 22.5pt; }
+.cert-title { font-family: Georgia, 'Times New Roman', serif; font-weight: 400; font-size: 34.5pt; line-height: 1.06; letter-spacing: -0.02em; margin: 22.5pt 0 0; }
+.cert-kicker { margin-top: 12pt; letter-spacing: 0.22em; }
+.cert-lead { font-family: Georgia, 'Times New Roman', serif; font-size: 8.25pt; line-height: 1.8; margin-top: 25.5pt; }
+.cert-name {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 22.5pt;
+  line-height: 1.2;
+  margin-top: 10.5pt;
+  padding-bottom: 10.5pt;
+  border-bottom: 1.125pt solid #7B2233;
+  width: 330pt;
+}
+.cert-body { font-family: Georgia, 'Times New Roman', serif; font-size: 8.25pt; line-height: 1.85; margin-top: 16.5pt; max-width: 247.5pt; }
+.cert-meta { display: flex; gap: 25.5pt; margin-top: 22.5pt; text-align: left; font-size: 7.125pt; line-height: 1.6; justify-content: center; }
+.cert-sigs { display: flex; gap: 33pt; margin-top: 27pt; text-align: left; width: 100%; }
+.cert-sig { flex-grow: 1; border-top: 0.75pt solid #111111; padding-top: 5.25pt; }
+.cert-sig-short { flex-grow: 0.7; }
+.cert-foot { margin-top: auto; display: flex; justify-content: space-between; align-items: flex-end; font-size: 6pt; letter-spacing: 0.11em; text-transform: uppercase; color: #767676; padding-top: 19.5pt; width: 100%; }

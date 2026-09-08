@@ -12,7 +12,7 @@
 // exits 0 with a skip notice, so it is safe to run anywhere; CI installs
 // veraPDF and thus runs the full validation.
 
-import { existsSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir, homedir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -64,6 +64,53 @@ const TEMPLATES = {
 
 const HTML_FIXTURES = ['letterhead', 'dashed-borders', 'statement', 'zebra-invoice'];
 
+// The Northmoor document system: thirty production templates, every one
+// gated for PDF/UA-1 permanently. Their stylesheets are <link>ed (the CLI
+// inlines local links; the library does not), so inline them here.
+const NORTHMOOR = [
+  'invoice-standard',
+  'invoice-detailed',
+  'credit-note',
+  'receipt',
+  'quote',
+  'statement',
+  'purchase-order',
+  'remittance-advice',
+  'expense-report',
+  'payslip',
+  'letterhead',
+  'cover-letter',
+  'memo',
+  'employment-contract',
+  'nda',
+  'service-agreement',
+  'offer-letter',
+  'termination-letter',
+  'reference-letter',
+  'policy-acknowledgement',
+  'report-annual',
+  'report-monthly',
+  'lab-report',
+  'inspection-report',
+  'shipping-label',
+  'packing-slip',
+  'delivery-note',
+  'certificate',
+  'product-catalog',
+  'meeting-minutes',
+];
+
+async function renderNorthmoor(name) {
+  const dir = join(REPO, 'templates', name);
+  const shared = await readFile(join(REPO, 'templates', 'northmoor-shared.css'), 'utf8');
+  const own = await readFile(join(dir, 'style.css'), 'utf8');
+  const html = (await readFile(join(dir, 'index.html'), 'utf8'))
+    .replace('<link rel="stylesheet" href="../northmoor-shared.css">', `<style>${shared}</style>`)
+    .replace('<link rel="stylesheet" href="style.css">', `<style>${own}</style>`);
+  const { pdf, warnings } = renderHtml(html, { pdfUa: true, lang: LANG, fonts: HTML_FONTS });
+  return { pdf, warnings };
+}
+
 async function renderTemplate(name, data) {
   const doc = serialize(getTemplate(name)(data));
   doc.pdfUa = true;
@@ -86,7 +133,9 @@ function findVeraPdf() {
 }
 
 async function main() {
-  const outDir = mkdtempSync(join(tmpdir(), 'forme-pdfua-'));
+  // OUT_DIR keeps the rendered corpus where a later step can read it (CI uploads
+  // it to Forme Review); otherwise a temp dir as before.
+  const outDir = process.env.OUT_DIR ? (mkdirSync(process.env.OUT_DIR, { recursive: true }), process.env.OUT_DIR) : mkdtempSync(join(tmpdir(), 'forme-pdfua-'));
   const vera = findVeraPdf();
   const corpus = [];
 
@@ -102,6 +151,12 @@ async function main() {
     const p = join(outDir, `html-${name}.pdf`);
     writeFileSync(p, pdf);
     corpus.push({ label: `html/${name}`, path: p, warnings });
+  }
+  for (const name of NORTHMOOR) {
+    const { pdf, warnings } = await renderNorthmoor(name);
+    const p = join(outDir, `northmoor-${name}.pdf`);
+    writeFileSync(p, pdf);
+    corpus.push({ label: `northmoor/${name}`, path: p, warnings });
   }
 
   // No font warnings are expected — fonts-standard is registered everywhere.

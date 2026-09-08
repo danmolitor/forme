@@ -1,0 +1,151 @@
+/* report-annual — cover, contents, financial highlights.
+ * Accent policy (annual report): full-bleed accent field on the cover
+ * with the monogram knocked out in outline; contents folio numbers;
+ * KPI keylines. Cover text colours are the design's white-alpha values
+ * flattened over the accent (no alpha in the subset, and flat colours
+ * survive grayscale identically).
+ * The design's folios are editorial ("Page 2", "Page 3", feet 02/03) —
+ * this is a three-page excerpt of a 78-page report, so "of m" would
+ * mislead; noted in the README. */
+@page {
+  size: Letter;
+  margin: 52.5pt 57pt 40.5pt;
+  @top-left {
+    content: "Northmoor · Annual report 2026";
+    color: #7B2233;
+    font-family: Helvetica, Arial, sans-serif;
+    font-weight: 700;
+    font-size: 5.625pt;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    border-bottom: 0.75pt solid #111111;
+    padding-bottom: 6pt;
+  }
+  @top-center {
+    content: "Contents";
+    color: #5F5A53;
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    border-bottom: 0.75pt solid #111111;
+    padding-bottom: 6pt;
+  }
+  @top-right {
+    content: "Financial year ended 30 June 2026";
+    color: #5F5A53;
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    border-bottom: 0.75pt solid #111111;
+    padding-bottom: 6pt;
+  }
+  @bottom-right {
+    content: "Page " counter(page);
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8A857E;
+  }
+}
+@page cover {
+  margin: 43.5pt 57pt 39pt; /* the cover field's own 58/76/52px paddings */
+  @top-left { content: none }
+  @top-center { content: none }
+  @top-right { content: none }
+  @bottom-right { content: none }
+}
+@page contents {
+  @bottom-left {
+    content: "Annual report 2026 · Contents";
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8A857E;
+  }
+}
+@page highlights {
+  @top-center {
+    content: "Financial highlights";
+    color: #5F5A53;
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    border-bottom: 0.75pt solid #111111;
+    padding-bottom: 6pt;
+  }
+  @top-right {
+    content: "Strategic report";
+    color: #5F5A53;
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    border-bottom: 0.75pt solid #111111;
+    padding-bottom: 6pt;
+  }
+  @bottom-left {
+    content: "Annual report 2026 · Financial highlights";
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8A857E;
+  }
+}
+.cover { page: cover }
+.pg-contents { page: contents; break-before: page }
+.pg-highlights { page: highlights; break-before: page }
+
+/* Cover field: full-bleed accent behind, in-flow content on top. The
+ * field runs from the page top to 367.5pt (490px), the design's cover
+ * block. */
+.coverhead { position: relative; }
+/* The bleed is four margin strips around the in-flow field (absolute
+ * children paint over in-flow siblings, so a single full rect would
+ * cover the cover text). */
+.coverbleed-top { position: absolute; top: -43.5pt; left: -57pt; right: -57pt; height: 43.5pt; background-color: #7B2233; }
+.coverbleed-bottom { position: absolute; top: 285pt; left: -57pt; right: -57pt; height: 39pt; background-color: #7B2233; }
+.coverbleed-left { position: absolute; top: 0; left: -57pt; width: 57pt; height: 285pt; background-color: #7B2233; }
+.coverbleed-right { position: absolute; top: 0; right: -57pt; width: 57pt; height: 285pt; background-color: #7B2233; }
+.coverfield { height: 285pt; color: #FDFCFA; background-color: #7B2233; } /* 367.5 − 43.5 top − 39 bottom */
+.cover-toprow { display: flex; justify-content: space-between; align-items: flex-start; }
+.cover-mark {
+  width: 39pt;
+  height: 39pt;
+  border: 1.125pt solid #E9DBDC;
+  color: #FDFCFA;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-weight: 700;
+  font-size: 17.25pt;
+  line-height: 36.75pt;
+  text-align: center;
+}
+.cover-id { padding-top: 6.75pt; }
+.cover-sub { font-family: Helvetica, Arial, sans-serif; font-weight: 700; font-size: 5.25pt; line-height: 1.5; letter-spacing: 0.17em; text-transform: uppercase; color: #DBC3C6; margin-top: 5.25pt; }
+.cover-right { font-family: Helvetica, Arial, sans-serif; font-weight: 700; font-size: 5.25pt; line-height: 1.7; letter-spacing: 0.17em; text-transform: uppercase; color: #DBC3C6; text-align: right; }
+.cover-title { font-family: Georgia, 'Times New Roman', serif; font-weight: 400; font-size: 43.5pt; line-height: 1.02; letter-spacing: -0.026em; margin-top: 51pt; }
+.cover-yearrow { display: flex; align-items: flex-end; justify-content: space-between; gap: 30pt; margin-top: 21pt; border-top: 0.75pt solid #B27E87; padding-top: 15pt; }
+.cover-year { font-family: Georgia, 'Times New Roman', serif; font-weight: 400; font-size: 66pt; line-height: 0.8; letter-spacing: -0.035em; }
+.cover-strap { font-family: Georgia, 'Times New Roman', serif; font-size: 7.875pt; line-height: 1.72; max-width: 141.75pt; text-align: right; color: #F5EEEE; }
+.cover-lower { padding-top: 70.5pt; display: flex; flex-direction: column; height: 354pt; } /* clears the 39pt accent strip + the design's 42px gap; 709.5 − 285 − 70.5 */
+.cover-meta { display: grid; grid-template-columns: repeat(4, 1fr); gap: 21pt; font-size: 7.125pt; line-height: 1.65; }
+.cover-note { margin-top: 19.5pt; font-family: Georgia, 'Times New Roman', serif; font-size: 9pt; line-height: 1.8; max-width: 279pt; }
+.cover-foot { margin-top: auto; display: flex; justify-content: space-between; align-items: flex-end; }
+.cover-addr { font-size: 6.375pt; line-height: 1.7; color: #5F5A53; }
+
+/* Contents + highlights */
+.sectitle { font-family: Helvetica, Arial, sans-serif; font-weight: 400; font-size: 18pt; line-height: 1.1; letter-spacing: 0.01em; }
+.toc .dots { position: relative; top: -2.25pt; }
+.toc-group { margin: 19.5pt 0 3pt; }
+.toc-group-next { margin: 19.5pt 0 3pt; }
+.kpirow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 19.5pt; margin-top: 19.5pt; }
+.threecol { display: flex; gap: 25.5pt; margin-top: 19.5pt; }
+.threecol .c-wide { width: 34%; }
+.threecol .c-narrow { width: 30%; }
+.small-t { font-size: 6.75pt; }
+.foot-annual { margin-top: 15pt; }

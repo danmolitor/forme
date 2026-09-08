@@ -1,0 +1,123 @@
+{
+  "issuer": {
+    "name": "Northmoor Industrial Group, Inc.",
+    "address": "418 Ellingham Road, Suite 300, Rochester, NY 14604",
+    "phone": "(585) 274-0180",
+    "ein": "16-1904472",
+    "bank": {
+      "name": "First Genesee Bank, Rochester NY",
+      "account": "8841 002937",
+      "routing": "021304559"
+    }
+  },
+  "document": {
+    "type": "payslip",
+    "advice": "2026-17",
+    "payDate": "04 September 2026",
+    "period": "16–31 August 2026",
+    "frequency": "Semi-monthly"
+  },
+  "employee": {
+    "name": "Marcus L. Vance",
+    "address": "1174 Bellwood Terrace, Rochester, NY 14618",
+    "employeeNo": "18822",
+    "department": "4200 · Fabrication",
+    "filingStatus": "Single · NY resident",
+    "allowances": "0 · no additional withholding"
+  },
+  "earnings": [
+    {
+      "description": "Regular salary",
+      "hours": 86.67,
+      "rate": 34.62,
+      "current": 3000.0,
+      "ytd": 51000.0
+    },
+    {
+      "description": "Overtime, 1.5×",
+      "hours": 6.5,
+      "rate": 51.93,
+      "current": 337.55,
+      "ytd": 5742.35
+    },
+    {
+      "description": "Shift differential",
+      "hours": null,
+      "rate": null,
+      "current": 45.0,
+      "ytd": 760.0
+    }
+  ],
+  "grossPay": {
+    "hours": 93.17,
+    "current": 3382.55,
+    "ytd": 57502.35
+  },
+  "deductions": [
+    {
+      "description": "Federal income tax",
+      "current": 421.6,
+      "ytd": 7167.2
+    },
+    {
+      "description": "Social security, 6.20%",
+      "current": 209.72,
+      "ytd": 3565.15
+    },
+    {
+      "description": "Medicare, 1.45%",
+      "current": 49.05,
+      "ytd": 833.78
+    },
+    {
+      "description": "New York state tax",
+      "current": 158.34,
+      "ytd": 2691.78
+    },
+    {
+      "description": "Medical, pre-tax",
+      "current": 142.5,
+      "ytd": 2422.5
+    },
+    {
+      "description": "401(k), 5.00%",
+      "current": 169.13,
+      "ytd": 2874.37
+    }
+  ],
+  "totalDeductions": {
+    "current": 1150.34,
+    "ytd": 19554.78
+  },
+  "netPay": {
+    "current": 2232.21,
+    "ytdNet": 37947.57,
+    "depositAccount": "ending 3391 · First Genesee Bank"
+  },
+  "leave": [
+    {
+      "plan": "Vacation",
+      "accrued": 106.67,
+      "taken": 64.0,
+      "available": 42.67
+    },
+    {
+      "plan": "Sick",
+      "accrued": 40.0,
+      "taken": 16.0,
+      "available": 24.0
+    },
+    {
+      "plan": "Personal",
+      "accrued": 16.0,
+      "taken": 8.0,
+      "available": 8.0
+    }
+  ],
+  "employerContributions": {
+    "medical": 486.0,
+    "match401k": 101.48,
+    "ssAndMedicare": 258.77,
+    "stateUnemployment": 34.16
+  }
+}

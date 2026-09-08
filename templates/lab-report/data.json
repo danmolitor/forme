@@ -1,0 +1,110 @@
+{
+  "reportNumber": "LAB-2026-11408",
+  "status": "Final",
+  "client": {
+    "name": "Kestrel Medical Center",
+    "department": "Central Sterile Processing",
+    "address": "1465 Whitmore Parkway, Cleveland, OH 44106"
+  },
+  "sample": {
+    "description": "Reverse osmosis water, post-polish",
+    "point": "Point of use, sterilizer 3",
+    "id": "KMC-RO-0904-03",
+    "collected": "04 Sep 2026, 09:40 EDT",
+    "collectedBy": "D. Whitcomb, in duplicate",
+    "received": "04 Sep 2026, 15:12 EDT",
+    "analysis": "05–06 Sep 2026",
+    "reported": "07 Sep 2026",
+    "purchaseOrder": "KMC-PO-88214"
+  },
+  "results": [
+    {
+      "no": 1,
+      "analyte": "pH at 25 °C",
+      "method": "SM 4500-H+",
+      "result": 6.8,
+      "unit": "pH",
+      "range": "6.5 – 8.5",
+      "assessment": "Within"
+    },
+    {
+      "no": 2,
+      "analyte": "Conductivity",
+      "method": "SM 2510 B",
+      "result": 0.9,
+      "unit": "µS/cm",
+      "range": "≤ 1.3",
+      "assessment": "Within"
+    },
+    {
+      "no": 3,
+      "analyte": "Total organic carbon",
+      "method": "SM 5310 C",
+      "result": 0.31,
+      "unit": "mg/L",
+      "range": "≤ 0.50",
+      "assessment": "Within"
+    },
+    {
+      "no": 4,
+      "analyte": "Total hardness as CaCO₃",
+      "method": "SM 2340 C",
+      "result": "< 1.0",
+      "unit": "mg/L",
+      "range": "≤ 1.0",
+      "assessment": "Within"
+    },
+    {
+      "no": 5,
+      "analyte": "Chloride",
+      "method": "EPA 300.0",
+      "result": 0.42,
+      "unit": "mg/L",
+      "range": "≤ 1.00",
+      "assessment": "Within"
+    },
+    {
+      "no": 6,
+      "analyte": "Iron, total",
+      "method": "EPA 200.7",
+      "result": 0.014,
+      "unit": "mg/L",
+      "range": "≤ 0.050",
+      "assessment": "Within"
+    },
+    {
+      "no": 7,
+      "analyte": "Heterotrophic plate count, 48 h",
+      "method": "SM 9215 B",
+      "result": 138,
+      "unit": "CFU/mL",
+      "range": "≤ 100",
+      "assessment": "Exceeds",
+      "flagged": true,
+      "duplicate": 129
+    },
+    {
+      "no": 8,
+      "analyte": "Bacterial endotoxin",
+      "method": "USP <85> LAL",
+      "result": 0.06,
+      "unit": "EU/mL",
+      "range": "≤ 0.25",
+      "assessment": "Within"
+    }
+  ],
+  "signatories": [
+    {
+      "role": "Analyst",
+      "name": "J. Osei-Bonsu · Chemist"
+    },
+    {
+      "role": "Approved by",
+      "name": "P. N. Raghunathan · Laboratory Manager"
+    },
+    {
+      "role": "Date of issue",
+      "name": "07 September 2026"
+    }
+  ]
+}

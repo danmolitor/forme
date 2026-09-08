@@ -1,0 +1,56 @@
+/* memo — internal memorandum, single page. Spine from ../northmoor-shared.css. */
+@page {
+  size: Letter;
+  margin: 52.5pt 57pt 40.5pt;
+  @bottom-left {
+    content: "Internal memorandum MEM-2026-41 · Confidential";
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8A857E;
+  }
+  @bottom-right {
+    content: "Page " counter(page) " of " counter(pages);
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8A857E;
+  }
+}
+.sheet { position: relative; }
+.atop {
+  position: absolute;
+  top: -52.5pt;
+  left: -57pt;
+  right: -57pt;
+  height: 3pt;
+  background-color: #7B2233;
+}
+.mast-divider { margin-top: 15pt; }
+.distrib {
+  text-align: right;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 5.625pt;
+  color: #4A463F;
+  line-height: 1.7;
+}
+.memogrid {
+  display: grid;
+  grid-template-columns: 48pt 1fr 48pt 1fr;
+  gap: 6.75pt 9pt;
+  margin-top: 18pt;
+  font-size: 7.125pt;
+  line-height: 1.55;
+}
+.subject {
+  font-family: Helvetica, Arial, sans-serif;
+  font-weight: 700;
+  font-size: 9pt;       /* 12px */
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+  margin: 16.5pt 0 0;
+  max-width: 315pt;
+}

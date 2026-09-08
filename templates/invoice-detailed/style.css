@@ -1,0 +1,111 @@
+/* invoice-detailed — page geometry and document-specific rules.
+ * Spine comes from ../northmoor-shared.css. */
+
+@page {
+  size: Letter;
+  margin: 52.5pt 57pt 40.5pt; /* 70px 76px 54px */
+  @bottom-left {
+    content: "Invoice INV-4421 · Kestrel Medical Center · Contract 2026-CS-04";
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8A857E;
+  }
+  @bottom-right {
+    content: "Page " counter(page) " of " counter(pages);
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8A857E;
+  }
+}
+
+/* First-page 4px full-bleed accent head rule (escapes into the margin). */
+.sheet { position: relative; }
+.atop {
+  position: absolute;
+  top: -52.5pt;
+  left: -57pt;
+  right: -57pt;
+  height: 3pt;
+  background-color: #7B2233;
+}
+.meta-doc { grid-template-columns: 1.3fr 1.3fr 1fr 1fr; }
+.sect-label { margin: 24pt 0 7.5pt; } /* 32px / 10px */
+.twocol { display: flex; gap: 24pt; margin-top: 22.5pt; } /* 32px / 30px */
+.scope { font-family: Georgia, 'Times New Roman', serif; font-size: 7.5pt; line-height: 1.65; }
+.status { width: 195pt; } /* 260px */
+.certline { border-top: 0.75pt solid #111111; width: 150pt; padding-top: 3.75pt; font-size: 6.375pt; margin-top: 9pt; }
+
+/* Continuation pages: running header via three margin boxes, suppressed
+ * on the first page; hairline rule on all three boxes (renders as one
+ * continuous line); per-page section labels via the named pages below. */
+@page {
+  @top-left {
+    content: "Northmoor · Invoice INV-4421";
+    color: #7B2233;
+    font-family: Helvetica, Arial, sans-serif;
+    font-weight: 700;
+    font-size: 5.625pt;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    border-bottom: 0.75pt solid #111111;
+    padding-bottom: 6pt;
+  }
+  @top-center {
+    content: "Kestrel Medical Center — Contract 2026-CS-04";
+    color: #5F5A53;
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    border-bottom: 0.75pt solid #111111;
+    padding-bottom: 6pt;
+  }
+  @top-right {
+    content: "Detail, sections A–E";
+    color: #5F5A53;
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    border-bottom: 0.75pt solid #111111;
+    padding-bottom: 6pt;
+  }
+}
+@page :first {
+  @top-left { content: none }
+  @top-center { content: none }
+  @top-right { content: none }
+}
+.p2 { page: detail-ac }
+.p3 { break-before: page; page: detail-de }
+
+/* Per-page section labels (the design's page-2/page-3 running headers).
+ * Named pages carry the base geometry; only the @top-right band differs. */
+@page detail-ac {
+  @top-right {
+    content: "Detail, sections A–C";
+    color: #5F5A53;
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    border-bottom: 0.75pt solid #111111;
+    padding-bottom: 6pt;
+  }
+}
+@page detail-de {
+  @top-right {
+    content: "Detail, sections D–E and tax";
+    color: #5F5A53;
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    border-bottom: 0.75pt solid #111111;
+    padding-bottom: 6pt;
+  }
+}

@@ -1,0 +1,37 @@
+/* policy-acknowledgement — single page, dochead + policy table with
+ * initials boxes + declaration + three signature slots.
+ * Spine from ../northmoor-shared.css. */
+@page {
+  size: Letter;
+  margin: 52.5pt 57pt 40.5pt;
+  @bottom-left {
+    content: "Policy acknowledgement · Annual cycle 2026 · ACK-2026-20614";
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8A857E;
+  }
+  @bottom-right {
+    content: "Page " counter(page) " of " counter(pages);
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8A857E;
+  }
+}
+.sheet { position: relative; }
+.atop {
+  position: absolute;
+  top: -52.5pt;
+  left: -57pt;
+  right: -57pt;
+  height: 3pt;
+  background-color: #7B2233;
+}
+.mast-divider { margin-top: 15pt; }
+.meta-ack { grid-template-columns: 1fr 1fr 1fr 1fr; }
+.sig-ack { margin-top: 15pt; }
+.sig-ack .sigline { margin-top: 16.5pt; } /* 30px design; pen room absorbs 6pt of engine/prototype metric drift so the form stays one page */
+.datebox { flex-grow: 0.6; }

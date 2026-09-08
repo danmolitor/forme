@@ -1,0 +1,23 @@
+{
+  "issuer": { "name": "Northmoor Industrial Group, Inc.", "unit": "Internal Memorandum" },
+  "document": {
+    "type": "memo",
+    "reference": "MEM-2026-41",
+    "date": "07 September 2026",
+    "subject": "Capital request cut-off and the new two-signature threshold, effective 1 October 2026",
+    "classification": "Internal distribution only",
+    "pages": 1
+  },
+  "to": "All department heads; plant supervisors",
+  "from": "M. Okonjo, Controller",
+  "copies": ["R. A. Halloran", "K. Alvarez", "audit file"],
+  "actions": [
+    { "no": 1, "action": "Circulate revised capital request form F-31 rev. 5 to department heads", "owner": "L. Nkemdirim", "due": "11 Sep 2026" },
+    { "no": 2, "action": "Update purchase order approval matrix in the ERP; test in sandbox first", "owner": "K. Alvarez", "due": "24 Sep 2026" },
+    { "no": 3, "action": "Submit 2027 capital requests with current quotations attached", "owner": "All department heads", "due": "25 Sep 2026" },
+    { "no": 4, "action": "Brief plant supervisors at the Tuesday production meeting", "owner": "R. A. Halloran", "due": "29 Sep 2026" },
+    { "no": 5, "action": "Confirm to the audit file that both changes are live", "owner": "M. Okonjo", "due": "02 Oct 2026" }
+  ],
+  "retention": "Seven years, finance policy FIN-08",
+  "supersedes": "MEM-2025-19 (single-signature limit)"
+}

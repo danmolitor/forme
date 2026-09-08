@@ -63,6 +63,8 @@ pub struct Computed {
 
     pub display: CssDisplay,
     pub flex_direction: Option<FlexDirection>,
+    pub flex_grow: Option<f64>,
+    pub flex_shrink: Option<f64>,
     pub justify_content: Option<JustifyContent>,
     pub align_items: Option<AlignItems>,
     pub gap: Option<f64>,
@@ -278,6 +280,8 @@ pub fn resolve(css: &CssStyle, parent_font_size: f64, warnings: &mut Vec<String>
             }
         },
         flex_direction: css.flex_direction,
+        flex_grow: css.flex_grow,
+        flex_shrink: css.flex_shrink,
         justify_content: css.justify_content,
         align_items: css.align_items,
         gap: css.gap,

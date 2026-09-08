@@ -1,0 +1,108 @@
+{
+  "issuer": {
+    "name": "Northmoor Industrial Group, Inc.",
+    "address": "418 Ellingham Road, Suite 300, Rochester, NY 14604",
+    "phone": "(585) 274-0180",
+    "ein": "16-1904472",
+    "bank": {
+      "name": "First Genesee Bank, Rochester NY",
+      "account": "8841 002937",
+      "routing": "021304559"
+    },
+    "form": "F-22 rev. 4 · Jan 2026"
+  },
+  "document": {
+    "type": "expense-report",
+    "number": "EXP-3308",
+    "period": "02–04 September 2026",
+    "submitted": "07 September 2026",
+    "approver": "M. Okonjo, Controller",
+    "costCentre": "3100 · Finance"
+  },
+  "employee": {
+    "name": "Dana Whitcomb",
+    "departmentLine": "Accounts Receivable",
+    "employeeNo": "20417"
+  },
+  "purpose": "Site visit and collections meeting — Brightwater Foods, Cleveland OH",
+  "items": [
+    {
+      "date": "02 Sep",
+      "description": "Airfare, Rochester–Cleveland return, coach",
+      "category": "Air travel",
+      "paidBy": "Company card",
+      "qty": 1,
+      "amount": 412.8
+    },
+    {
+      "date": "02 Sep",
+      "description": "Taxi, airport to plant",
+      "category": "Ground",
+      "paidBy": "Personal",
+      "qty": 1,
+      "amount": 38.5
+    },
+    {
+      "date": "02 Sep",
+      "description": "Hotel, Ellsworth Inn, two nights at 168.00",
+      "category": "Lodging",
+      "paidBy": "Company card",
+      "qty": 2,
+      "amount": 336.0
+    },
+    {
+      "date": "03 Sep",
+      "description": "Meals, individual, within 60.00 daily cap",
+      "category": "Meals",
+      "paidBy": "Personal",
+      "qty": 1,
+      "amount": 46.25
+    },
+    {
+      "date": "03 Sep",
+      "description": "Parking, plant visitor lot",
+      "category": "Ground",
+      "paidBy": "Personal",
+      "qty": 1,
+      "amount": 24.0
+    },
+    {
+      "date": "03 Sep",
+      "description": "Mileage, personal vehicle, 62 mi at 0.67",
+      "category": "Mileage",
+      "paidBy": "Personal",
+      "qty": 62,
+      "amount": 41.54
+    },
+    {
+      "date": "04 Sep",
+      "description": "Meals, individual",
+      "category": "Meals",
+      "paidBy": "Personal",
+      "qty": 1,
+      "amount": 51.8
+    },
+    {
+      "date": "04 Sep",
+      "description": "Client dinner — M. Reyes, T. Ault, D. Whitcomb",
+      "note": "Business purpose: payment plan for INV-4102 · itemised receipt attached",
+      "category": "Entertainment",
+      "paidBy": "Personal",
+      "qty": 3,
+      "amount": 138.9
+    }
+  ],
+  "categorySummary": {
+    "airTravel": 412.8,
+    "lodging": 336.0,
+    "mealsAndEntertainment": 236.95,
+    "groundAndMileage": 104.04,
+    "total": 1089.79
+  },
+  "settlement": {
+    "totalClaimed": 1089.79,
+    "companyCard": -748.8,
+    "cashAdvance": 0.0,
+    "dueToEmployee": 340.99
+  }
+}

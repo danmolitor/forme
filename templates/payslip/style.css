@@ -1,0 +1,46 @@
+/* payslip — page geometry and document-specific rules.
+ * Spine comes from ../northmoor-shared.css. */
+
+@page {
+  size: Letter;
+  margin: 52.5pt 57pt 40.5pt; /* 70px 76px 54px */
+  @bottom-left {
+    content: "Statement of earnings · M. L. Vance · Advice 2026-17";
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8A857E;
+  }
+  @bottom-right {
+    content: "Page " counter(page) " of " counter(pages);
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8A857E;
+  }
+}
+
+/* First-page 4px full-bleed accent head rule (escapes into the margin). */
+.sheet { position: relative; }
+.atop {
+  position: absolute;
+  top: -52.5pt;
+  left: -57pt;
+  right: -57pt;
+  height: 3pt;
+  background-color: #7B2233;
+}
+.meta-doc { grid-template-columns: 1.2fr 1fr 1fr 1fr; }
+.cols { display: flex; gap: 21pt; margin-top: 22.5pt; } /* 28px / 30px */
+.cols2 { display: flex; gap: 21pt; margin-top: 19.5pt; align-items: flex-start; } /* 26px */
+.lbl-table { margin-bottom: 7.5pt; }
+.deposit { font-size: 6.375pt; color: #5A5A5A; margin-top: 6pt; text-align: right; }
+
+/* Equal/ratio split columns: explicit widths (flex basis is not in
+ * the subset; grow alone leaves intrinsic-width columns). */
+.cols > div.earncol { width: 53%; }
+.cols > div.dedcol { width: 42%; }
+.cols2 > div.leavecol { width: 53%; }
+.cols2 > div.netcol { width: 42%; }

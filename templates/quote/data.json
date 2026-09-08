@@ -1,0 +1,79 @@
+{
+  "issuer": {
+    "name": "Northmoor Industrial Group, Inc.",
+    "address": "418 Ellingham Road, Suite 300, Rochester, NY 14604",
+    "phone": "(585) 274-0180",
+    "ein": "16-1904472",
+    "bank": {
+      "name": "First Genesee Bank, Rochester NY",
+      "account": "8841 002937",
+      "routing": "021304559"
+    },
+    "email": "estimating@northmoorgroup.com"
+  },
+  "document": {
+    "type": "quotation",
+    "number": "QUO-2026-118",
+    "dated": "07 September 2026",
+    "validUntil": "07 October 2026",
+    "enquiry": "RFQ 26-114, 26 Aug 2026",
+    "leadTime": "6–8 weeks from order",
+    "preparedBy": "S. Marchetti, Estimating",
+    "siteVisited": "02 September 2026"
+  },
+  "preparedFor": {
+    "name": "Alder Creek Public Schools",
+    "lines": [
+      "Attn. J. Perreault, Operations",
+      "77 Sixth Street North",
+      "Alder Creek, NY 13301"
+    ]
+  },
+  "items": [
+    {
+      "item": "001",
+      "description": "Dust collector, 4,000 CFM, cartridge type, with rotary airlock and controls",
+      "qty": 1,
+      "unit": "ea",
+      "rate": 12480.0,
+      "amount": 12480.0
+    },
+    {
+      "item": "002",
+      "description": "Ductwork, spiral galvanized 14 in, hangers and blast gates",
+      "qty": 240,
+      "unit": "ft",
+      "rate": 18.6,
+      "amount": 4464.0
+    },
+    {
+      "item": "003",
+      "description": "Installation labor, mechanical and electrical, two technicians",
+      "qty": 88,
+      "unit": "hr",
+      "rate": 96.0,
+      "amount": 8448.0
+    }
+  ],
+  "totals": {
+    "subtotal": 25392.0,
+    "taxableMaterials": 16944.0,
+    "taxRate": 0.08,
+    "tax": 1355.52,
+    "quotedTotal": 26747.52
+  },
+  "options": [
+    {
+      "name": "Sound attenuation package",
+      "price": 1840.0
+    },
+    {
+      "name": "Spare cartridge set, six filters",
+      "price": 2214.0
+    },
+    {
+      "name": "Extended warranty, 36 months",
+      "price": 960.0
+    }
+  ]
+}

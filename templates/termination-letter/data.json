@@ -1,0 +1,14 @@
+{
+  "issuer": { "name": "Northmoor Industrial Group, Inc.", "department": "Human Resources", "phone": "(585) 274-0180 ext. 402" },
+  "document": { "type": "termination-letter", "reference": "TRM-2026-0044", "date": "07 September 2026", "delivery": "Delivered by hand · Private and confidential", "pages": 1 },
+  "employee": { "name": "Mr. Gareth O. Simms", "employeeNo": "17204", "address": "4419 Ridgemont Drive, Greece, NY 14616", "terminationDate": "5 October 2026", "reason": "position redundant — closure of the second-shift finishing line" },
+  "payments": [
+    { "item": "Notice — four weeks", "detail": "Worked as garden leave, 08 Sep to 05 Oct 2026", "amount": 5538.46 },
+    { "item": "Severance", "detail": "Two weeks per year of service, 6 years", "amount": 16615.38 },
+    { "item": "Accrued vacation", "detail": "62.5 hours at 34.62", "amount": 2163.75 }
+  ],
+  "grossTotal": 24317.59,
+  "signatory": { "name": "Elaine T. Bhatt", "title": "Director, Human Resources" },
+  "enclosures": ["Statement of termination payments", "Continuation coverage notice", "Draft reference", "Appeal procedure HR-14"],
+  "relatedReference": "REF-2026-0031"
+}

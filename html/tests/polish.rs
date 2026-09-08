@@ -442,3 +442,23 @@ fn first_text_color(nodes: &[Node]) -> Option<forme::style::Color> {
     }
     None
 }
+
+#[test]
+fn flex_grow_spacer_pushes_footer_to_page_bottom() {
+    // The print-footer idiom the Northmoor templates use: a fixed-height
+    // flex column with a flex-grow spacer between content and footer.
+    let (_, warnings) = html_to_document(
+        "<html><head><style>\
+         .fill { height: 600pt; display: flex; flex-direction: column }\
+         .sp { flex-grow: 1 } .half { flex: 1 }\
+         </style></head><body><div class=\"fill\">\
+         <p>content</p><div class=\"sp\"></div>\
+         <div style=\"display:flex\"><div class=\"half\"><p>a</p></div><div class=\"half\"><p>b</p></div></div>\
+         </div></body></html>",
+        &HtmlOptions::default(),
+    );
+    assert!(
+        !warnings.iter().any(|w| w.contains("flex")),
+        "flex-grow and flex:<n> are in-subset: {warnings:?}"
+    );
+}

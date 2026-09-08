@@ -1,0 +1,61 @@
+{
+  "noteNumber": "DN-40118",
+  "copy": "1 of 3, consignee",
+  "deliveryDate": "09 September 2026",
+  "vehicle": "Erie Valley 118 · NY DOT 44712",
+  "driver": "C. Boudreau",
+  "reference": "PS-88214 · PO 44-7712",
+  "consignee": "Brightwater Foods LLC, Plant 2 — Receiving Dock 4, 3900 Harvard Road, Cleveland, OH 44105",
+  "consignor": "Northmoor Industrial Group, Inc., Shipping Dock 2, 2200 Lyell Avenue, Rochester, NY 14606",
+  "lines": [
+    {
+      "line": "01",
+      "description": "Skid frame, welded tube, 96 × 48 in, primed",
+      "quantity": 8,
+      "unit": "ea",
+      "package": "Crate 1",
+      "weight": "246 lb"
+    },
+    {
+      "line": "02",
+      "description": "Guard panel, perforated steel",
+      "quantity": 24,
+      "unit": "ea",
+      "package": "Crate 2",
+      "weight": "112 lb"
+    },
+    {
+      "line": "03",
+      "description": "Mounting bracket, machined",
+      "quantity": 32,
+      "unit": "ea",
+      "package": "Crate 3",
+      "weight": "44 lb"
+    },
+    {
+      "line": "04",
+      "description": "Fastener kit, stainless 316",
+      "quantity": 8,
+      "unit": "kit",
+      "package": "Crate 3",
+      "weight": "16 lb"
+    }
+  ],
+  "totals": {
+    "pieces": 3,
+    "quantity": 72,
+    "weight": "418 lb"
+  },
+  "conditions": [
+    "Received in good order",
+    "Packaging damaged, contents checked",
+    "Shortage — noted below",
+    "Refused — reason below"
+  ],
+  "signatureSlots": [
+    "Received by — signature",
+    "Print name and title",
+    "Date received",
+    "Time received"
+  ]
+}

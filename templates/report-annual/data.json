@@ -1,0 +1,110 @@
+{
+  "documentTitle": "Annual Report and Accounts",
+  "year": 2026,
+  "issuer": "Northmoor Industrial Group, Inc.",
+  "coverStrap": "Revenue of 128.4 million dollars, an operating margin of 8.8 per cent, and sixty-two days at the year end without a recordable injury.",
+  "meta": {
+    "financialYearEnded": "30 June 2026",
+    "incorporated": "New York, 1978",
+    "registeredNo": "NY 214-88-0031",
+    "published": "07 September 2026"
+  },
+  "kpis": [
+    {
+      "label": "Revenue",
+      "value": 128.4,
+      "note": "$ million, up 7.1% on 2025 (119.9)"
+    },
+    {
+      "label": "Operating income",
+      "value": 11.3,
+      "note": "$ million, margin 8.8% (2025: 8.1%)"
+    },
+    {
+      "label": "Net income",
+      "value": 7.9,
+      "note": "$ million, up 13.6% on 2025 (7.0)"
+    },
+    {
+      "label": "Order backlog",
+      "value": 41.2,
+      "note": "$ million at 30 June, 4.9 months' cover"
+    }
+  ],
+  "incomeStatement": {
+    "revenue": 128412,
+    "costOfSales": -96670,
+    "grossProfit": 31742,
+    "sga": -20456,
+    "operatingIncome": 11286,
+    "interest": -1204,
+    "tax": -2164,
+    "netIncome": 7918,
+    "prior": {
+      "revenue": 119904,
+      "costOfSales": -91032,
+      "grossProfit": 28872,
+      "sga": -19178,
+      "operatingIncome": 9694,
+      "interest": -1318,
+      "tax": -1405,
+      "netIncome": 6971
+    }
+  },
+  "revenueBySegment": [
+    [
+      "Fabrication",
+      54208,
+      "42.2%"
+    ],
+    [
+      "Piping and fittings",
+      33714,
+      "26.3%"
+    ],
+    [
+      "Controls",
+      21896,
+      "17.0%"
+    ],
+    [
+      "Service and maintenance",
+      18594,
+      "14.5%"
+    ]
+  ],
+  "fiveYear": [
+    [
+      2022,
+      94180,
+      "6.4%"
+    ],
+    [
+      2023,
+      103662,
+      "7.0%"
+    ],
+    [
+      2024,
+      112418,
+      "7.6%"
+    ],
+    [
+      2025,
+      119904,
+      "8.1%"
+    ],
+    [
+      2026,
+      128412,
+      "8.8%"
+    ]
+  ],
+  "nonFinancial": {
+    "employees": 412,
+    "recordableInjuryRate": 1.12,
+    "onTimeDelivery": "94.2%",
+    "scrapAndRework": "1.8%",
+    "customersBilled": 318
+  }
+}

@@ -1,0 +1,72 @@
+/* nda — mutual non-disclosure agreement, two pages, clauses 1–3 / 4–9 +
+ * execution. Spine from ../northmoor-shared.css. */
+@page {
+  size: Letter;
+  margin: 52.5pt 57pt 40.5pt;
+  @bottom-left {
+    content: "NDA-2026-0072";
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8A857E;
+  }
+  @bottom-right {
+    content: "Page " counter(page) " of " counter(pages);
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8A857E;
+  }
+  @top-left {
+    content: "Mutual NDA";
+    color: #7B2233;
+    font-family: Helvetica, Arial, sans-serif;
+    font-weight: 700;
+    font-size: 5.625pt;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    border-bottom: 0.75pt solid #111111;
+    padding-bottom: 6pt;
+  }
+  @top-center {
+    content: "Northmoor Industrial Group, Inc. and Lindqvist Instruments AB";
+    color: #5F5A53;
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    border-bottom: 0.75pt solid #111111;
+    padding-bottom: 6pt;
+  }
+  @top-right {
+    content: "NDA-2026-0072";
+    color: #5F5A53;
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    border-bottom: 0.75pt solid #111111;
+    padding-bottom: 6pt;
+  }
+}
+@page :first {
+  @top-left { content: none }
+  @top-center { content: none }
+  @top-right { content: none }
+}
+.sheet { position: relative; }
+.atop {
+  position: absolute;
+  top: -52.5pt;
+  left: -57pt;
+  right: -57pt;
+  height: 3pt;
+  background-color: #7B2233;
+}
+.mast-divider { margin-top: 15pt; }
+.meta-legal { grid-template-columns: 1fr 1fr; }
+.pgbreak { break-before: page; }
+h2.first { margin-top: 0; }
+.namelines { margin-top: 12pt; font-size: 6.75pt; }

@@ -350,3 +350,38 @@ fn out_of_scope_paged_features_warn_by_name() {
     warned(&out, "running");
     warned(&out, "string(");
 }
+
+#[test]
+fn leading_named_block_claims_page_one_no_blank() {
+    // A document that OPENS with a named block must not emit a blank
+    // default page first: whitespace-only y-advance (the UA body margin)
+    // is not content. Found porting the Northmoor set.
+    let out = render(
+        "<html><head><style>@page { size: Letter; margin: 54pt } @page cover { margin: 54pt }
+         .cover { page: cover }</style></head>
+         <body><div class=\"cover\"><p>COVER</p></div><p>after</p></body></html>",
+    );
+    assert_eq!(
+        out.layout.pages.len(),
+        2,
+        "cover page + content page, no leading blank"
+    );
+}
+
+#[test]
+fn trailing_named_block_leaves_no_blank_page() {
+    // A named run at the END of the document must not leave a trailing
+    // blank: the restore switch creates a page that only ever receives
+    // an invisible fragment wrapper. Found by Northmoor batch 1, which
+    // had to route around it with break-before.
+    let out = render(
+        "<html><head><style>@page { size: Letter; margin: 54pt } @page annex { margin: 54pt }
+         .ax { page: annex }</style></head>
+         <body><p>body</p><div class=\"ax\"><p>ANNEX</p></div></body></html>",
+    );
+    assert_eq!(
+        out.layout.pages.len(),
+        2,
+        "body page + annex page, no trailing blank"
+    );
+}

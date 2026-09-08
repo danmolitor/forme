@@ -1,0 +1,46 @@
+/* shipping-label — 4 × 6 in thermal label. NO accent anywhere: pure
+ * black, per the design's accent policy (it comes off a thermal
+ * printer). The die-cut edge is a full-size 0.75pt ink border. */
+@page {
+  size: 288pt 432pt; /* 4 × 6 in */
+  margin: 0;
+}
+.labelframe {
+  height: 430.5pt; /* 432 minus the border × 2 */
+  border: 0.75pt solid #111111;
+  padding: 12pt; /* 16px */
+  display: flex;
+  flex-direction: column;
+  font-size: 6.75pt; /* 9px label base */
+  line-height: 1.4;
+}
+.lhead { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 0.75pt solid #111111; padding-bottom: 6.75pt; }
+.lmark { width: 19.5pt; height: 19.5pt; font-size: 8.25pt; line-height: 19.5pt; }
+.lwm { font-size: 6.75pt; }
+.lsub { font-size: 4.5pt; margin-top: 1.5pt; }
+.lmode { text-align: right; font-family: Helvetica, Arial, sans-serif; font-weight: 700; font-size: 5.25pt; line-height: 1.3; letter-spacing: 0.1em; text-transform: uppercase; }
+.lrow { display: flex; gap: 7.5pt; border-bottom: 0.75pt solid #111111; padding: 6.75pt 0; }
+.lcol { width: 50%; }
+.llbl { font-size: 4.875pt; }
+.lval { font-size: 6pt; line-height: 1.45; margin-top: 2.25pt; }
+.shipto { padding: 8.25pt 0 6.75pt; border-bottom: 1.5pt solid #111111; }
+.shipto-name { font-family: Helvetica, Arial, sans-serif; font-weight: 700; font-size: 12pt; line-height: 1.28; margin-top: 3.75pt; }
+.shipto-attn { font-size: 6pt; margin-top: 4.5pt; color: #444444; }
+.factrow { display: flex; gap: 7.5pt; padding: 6.75pt 0; border-bottom: 0.75pt solid #111111; }
+.fact { font-family: Helvetica, Arial, sans-serif; font-weight: 700; font-size: 9.75pt; line-height: 1.2; margin-top: 2.25pt; }
+.f1 { width: 22%; } .f2 { width: 22%; } .f3 { width: 31%; } .f4 { width: 25%; }
+.refrow { display: flex; gap: 7.5pt; padding: 6.75pt 0; border-bottom: 0.75pt solid #111111; font-size: 6pt; line-height: 1.5; }
+.refrow .lcol3 { width: 33.3%; }
+.barwrap { padding-top: 7.5pt; }
+/* Code 128 placeholder: the engine's barcode support is not reachable
+ * from the HTML path — a bordered box stands in; see README. */
+.barph {
+  height: 27pt;
+  border: 0.75pt solid #111111;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.barph span { font-family: Menlo, monospace; font-size: 5.25pt; letter-spacing: 0.1em; color: #444444; text-transform: uppercase; }
+.pro { font-family: Menlo, monospace; font-weight: 700; font-size: 8.25pt; line-height: 1; letter-spacing: 0.14em; text-align: center; margin-top: 4.5pt; }
+.lfoot { display: flex; justify-content: space-between; font-size: 4.875pt; letter-spacing: 0.1em; text-transform: uppercase; color: #444444; margin-top: 6pt; border-top: 0.75pt solid #111111; padding-top: 3.75pt; }

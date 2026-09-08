@@ -1,0 +1,29 @@
+/* packing-slip — shipping document, no prices shown. */
+@page {
+  size: Letter;
+  margin: 52.5pt 57pt 40.5pt;
+  @bottom-left {
+    content: "Packing slip PS-88214 · PO 44-7712 · Release R-07";
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8A857E;
+  }
+  @bottom-right {
+    content: "Page " counter(page) " of " counter(pages);
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8A857E;
+  }
+}
+.sheet { position: relative; }
+.atop { position: absolute; top: -52.5pt; left: -57pt; right: -57pt; height: 3pt; background-color: #7B2233; }
+.meta-ps { grid-template-columns: 1.3fr 1.3fr 1fr 1fr; }
+.lines { margin-top: 21pt; }
+.bocols { display: flex; gap: 22.5pt; margin-top: 19.5pt; }
+.bo { width: 55%; font-size: 7.125pt; line-height: 1.7; }
+.pkg { width: 45%; }
+.small-t { font-size: 6.75pt; }

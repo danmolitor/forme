@@ -12414,3 +12414,33 @@ fn clip_content_x_wraps_page_content_in_a_clip_path() {
         "no clip path without clipContentX"
     );
 }
+
+#[test]
+fn border_or_background_on_text_node_reports_render_defect() {
+    // Text nodes paint glyphs only; a border or background declared on
+    // one is silently unpaintable, which is the defect channel's exact
+    // question. Found live: @page margin-box styles landed on the band's
+    // text node and the running header's rule vanished without a word.
+    let json = r#"{
+        "children": [
+            { "kind": { "type": "Text", "content": "ruled" },
+              "style": { "borderWidth": { "top": 0, "right": 0, "bottom": 1, "left": 0 },
+                          "backgroundColor": { "r": 1, "g": 0, "b": 0, "a": 1 } },
+              "children": [] }
+        ]
+    }"#;
+    let doc: forme::Document = serde_json::from_str(json).expect("parse");
+    let (_, warnings) = forme::render_with_warnings(&doc).expect("render");
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.contains("render defect") && w.contains("border on a text node")),
+        "border defect must be reported: {warnings:?}"
+    );
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.contains("render defect") && w.contains("background on a text node")),
+        "background defect must be reported: {warnings:?}"
+    );
+}

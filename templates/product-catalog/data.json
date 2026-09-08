@@ -1,0 +1,173 @@
+{
+  "section": "4 — Fabricated skids",
+  "pages": "4.1 – 4.2",
+  "effective": "01 October 2026",
+  "products": [
+    {
+      "code": "SK-96",
+      "name": "Standard utility skid",
+      "description": "96 × 48 in welded tube frame, four lifting points, adjustable feet. Rated 4,000 lb distributed load.",
+      "prices": [
+        [
+          "SK-96-P primed",
+          "1,485.00"
+        ],
+        [
+          "SK-96-S4 304 stainless",
+          "2,340.00"
+        ],
+        [
+          "SK-96-S6 316L stainless",
+          "2,880.00"
+        ]
+      ],
+      "imagePlaceholder": "product shot — skid frame SK-96, three-quarter view, plain ground"
+    },
+    {
+      "code": "SK-120",
+      "name": "Extended utility skid",
+      "description": "120 × 48 in frame with centre cross member. Takes the AP-48 access platform without modification.",
+      "prices": [
+        [
+          "SK-120-P primed",
+          "1,910.00"
+        ],
+        [
+          "SK-120-S4 304 stainless",
+          "2,995.00"
+        ],
+        [
+          "SK-120-S6 316L stainless",
+          "3,640.00"
+        ]
+      ],
+      "imagePlaceholder": "product shot — skid frame SK-120, with access platform fitted"
+    }
+  ],
+  "accessories": [
+    {
+      "code": "AP-48",
+      "name": "Access platform",
+      "price": "2,240.00"
+    },
+    {
+      "code": "GP-24",
+      "name": "Guard panel",
+      "price": "318.00"
+    },
+    {
+      "code": "CP-36",
+      "name": "Control panel",
+      "price": "4,860.00"
+    }
+  ],
+  "dimensions": [
+    [
+      "SK-72",
+      "72 in",
+      "48 in",
+      "24 in",
+      "3,000 lb",
+      "218 lb",
+      "3 weeks"
+    ],
+    [
+      "SK-96",
+      "96 in",
+      "48 in",
+      "24 in",
+      "4,000 lb",
+      "246 lb",
+      "3 weeks"
+    ],
+    [
+      "SK-120",
+      "120 in",
+      "48 in",
+      "24 in",
+      "4,800 lb",
+      "312 lb",
+      "4 weeks"
+    ],
+    [
+      "SK-144",
+      "144 in",
+      "60 in",
+      "28 in",
+      "6,000 lb",
+      "404 lb",
+      "5 weeks"
+    ]
+  ],
+  "optionGroups": [
+    {
+      "group": "Finish",
+      "options": [
+        [
+          "OPT-PC",
+          "Powder coat, single colour to RAL, over primer",
+          "All SK models",
+          "+ 12% of list"
+        ],
+        [
+          "OPT-EP",
+          "Two-coat epoxy, food and pharma areas",
+          "All SK models",
+          "+ 18% of list"
+        ],
+        [
+          "OPT-BE",
+          "Bead blast and passivate, stainless only",
+          "S4 and S6 models",
+          "+ 340.00"
+        ]
+      ]
+    },
+    {
+      "group": "Mechanical",
+      "options": [
+        [
+          "OPT-CS",
+          "Castors, four, two braked, 800 lb each",
+          "SK-72 to SK-120",
+          "+ 486.00"
+        ],
+        [
+          "OPT-SM",
+          "Seismic anchor kit, four points, with calculations",
+          "All SK models",
+          "+ 620.00"
+        ],
+        [
+          "OPT-DP",
+          "Drip pan, welded, 2 in lip with drain boss",
+          "All SK models",
+          "+ 745.00"
+        ]
+      ]
+    },
+    {
+      "group": "Documentation and inspection",
+      "options": [
+        [
+          "OPT-FA",
+          "First-article inspection with dimensional report",
+          "Any line",
+          "+ 380.00"
+        ],
+        [
+          "OPT-MC",
+          "Material certificates, mill and heat traceability",
+          "Any line",
+          "+ 95.00"
+        ],
+        [
+          "OPT-WQ",
+          "Welder qualification records, ASME IX",
+          "Any line",
+          "No charge"
+        ]
+      ]
+    }
+  ]
+}

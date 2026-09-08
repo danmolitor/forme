@@ -1,0 +1,45 @@
+/* statement — page geometry and document-specific rules.
+ * Spine comes from ../northmoor-shared.css. */
+
+@page {
+  size: Letter;
+  margin: 52.5pt 57pt 40.5pt; /* 70px 76px 54px */
+  @bottom-left {
+    content: "Statement · Account BW-0091 · 07 September 2026";
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8A857E;
+  }
+  @bottom-right {
+    content: "Page " counter(page) " of " counter(pages);
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8A857E;
+  }
+}
+
+/* First-page 4px full-bleed accent head rule (escapes into the margin). */
+.sheet { position: relative; }
+.atop {
+  position: absolute;
+  top: -52.5pt;
+  left: -57pt;
+  right: -57pt;
+  height: 3pt;
+  background-color: #7B2233;
+}
+.meta-doc { grid-template-columns: 1.4fr 1fr 1fr 1fr; }
+.sect { margin: 22.5pt 0 7.5pt; } /* 30px / 10px */
+.twocol { display: flex; gap: 27pt; margin-top: 22.5pt; }
+td.aged-dim { color: #8A857E; }
+td.aged-accent { color: #7B2233; }
+td.aged-total { border-top: 1.5pt solid #7B2233; }
+.action { font-family: Georgia, 'Times New Roman', serif; font-size: 7.5pt; line-height: 1.65; }
+
+/* Equal/ratio split columns: explicit widths (flex basis is not in
+ * the subset; grow alone leaves intrinsic-width columns). */
+.twocol > div { width: 47%; }

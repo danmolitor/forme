@@ -1,0 +1,70 @@
+/* letterhead — clean first page, running header after.
+ * Spine comes from ../northmoor-shared.css. */
+@page {
+  size: Letter;
+  margin: 52.5pt 57pt 40.5pt;
+  @bottom-left {
+    content: "Northmoor · Ref. COM-2026-0907-AULT";
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8A857E;
+  }
+  @bottom-right {
+    content: "Page " counter(page) " of " counter(pages);
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8A857E;
+  }
+  @top-left {
+    content: "Northmoor";
+    color: #7B2233;
+    font-family: Helvetica, Arial, sans-serif;
+    font-weight: 700;
+    font-size: 5.625pt;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    border-bottom: 0.75pt solid #111111;
+    padding-bottom: 6pt;
+  }
+  @top-center {
+    content: "Ms. T. Ault, Brightwater Foods LLC — 07 September 2026";
+    color: #5F5A53;
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    border-bottom: 0.75pt solid #111111;
+    padding-bottom: 6pt;
+  }
+  @top-right {
+    content: "Supply continuity through Q1 2027";
+    color: #5F5A53;
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    border-bottom: 0.75pt solid #111111;
+    padding-bottom: 6pt;
+  }
+}
+@page :first {
+  @top-left { content: none }
+  @top-center { content: none }
+  @top-right { content: none }
+}
+.sheet { position: relative; }
+.atop {
+  position: absolute;
+  top: -52.5pt;
+  left: -57pt;
+  right: -57pt;
+  height: 3pt;
+  background-color: #7B2233;
+}
+.mast-divider { margin-top: 15pt; }
+.p2 { break-before: page; }
+.sched { margin-top: 4.5pt; } /* 6px above the release table */

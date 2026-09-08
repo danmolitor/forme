@@ -1,0 +1,17 @@
+{
+  "issuer": { "name": "Northmoor Industrial Group, Inc.", "department": "Human Resources", "phone": "(585) 274-0180 ext. 402" },
+  "document": { "type": "offer-letter", "reference": "OFF-2026-0113", "date": "24 August 2026", "relatedContract": "EMP-2026-0113", "pages": 1 },
+  "candidate": { "name": "Ms. Priya N. Raghunathan", "address": "2208 Wexford Lane, Apt. 6, Pittsford, NY 14534" },
+  "offer": {
+    "position": "Quality Systems Manager, reporting to the Vice President, Operations",
+    "startDate": "Monday 5 October 2026, 8.00 a.m., main reception",
+    "baseSalary": 96000.00,
+    "semiMonthlyGross": 4000.00,
+    "incentiveTargetPct": 10,
+    "signingPayment": 4000.00,
+    "vacationDays": 20,
+    "acceptBy": "7 September 2026"
+  },
+  "signatory": { "name": "Elaine T. Bhatt", "title": "Director, Human Resources" },
+  "enclosures": ["Contract of employment EMP-2026-0113", "Benefits summary", "Screening consent form"]
+}

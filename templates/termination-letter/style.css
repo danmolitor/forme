@@ -1,0 +1,41 @@
+/* termination-letter — single page. Accent policy: head rule and masthead
+ * only. Spine from ../northmoor-shared.css. */
+@page {
+  size: Letter;
+  margin: 52.5pt 57pt 40.5pt;
+  @bottom-left {
+    content: "Termination of employment · G. O. Simms · TRM-2026-0044";
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8A857E;
+  }
+  @bottom-right {
+    content: "Page " counter(page) " of " counter(pages);
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 5.625pt;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8A857E;
+  }
+}
+.sheet { position: relative; }
+.atop {
+  position: absolute;
+  top: -52.5pt;
+  left: -57pt;
+  right: -57pt;
+  height: 3pt;
+  background-color: #7B2233;
+}
+.mast-divider { margin-top: 15pt; }
+/* Accent restraint: the payments subtotal keyline stays ink here. */
+tr.gsub-ink td {
+  border-top: 1.125pt solid #111111;
+  border-bottom: 0 solid #FDFCFA;
+  font-weight: 700;
+  font-size: 7.125pt;
+  padding-top: 7.5pt;
+  color: #111111;
+}
