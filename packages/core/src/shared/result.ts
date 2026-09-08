@@ -7,7 +7,7 @@
 // where a field added to the declared type reached one construction out
 // of six. Agreement by construction: every entry funnels through this
 // function, so a new field is added exactly here.
-import type { LayoutInfo } from '../index';
+import type { LayoutInfo } from '../index.js';
 
 export interface RawLayoutResult {
   pdf: Uint8Array;

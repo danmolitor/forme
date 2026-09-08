@@ -1,4 +1,4 @@
-import { toRenderWithLayoutResult, encodeRenderOptions, type RawLayoutResult } from './shared/result';
+import { toRenderWithLayoutResult, encodeRenderOptions, type RawLayoutResult } from './shared/result.js';
 /**
  * Browser / edge entry point for @formepdf/core.
  *

@@ -5,7 +5,7 @@ import { render_pdf as wasmRenderPdf } from '../pkg-node/forme.js';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import type { ReactElement } from 'react';
-import { toRenderWithLayoutResult, encodeRenderOptions, type RawLayoutResult } from './shared/result';
+import { toRenderWithLayoutResult, encodeRenderOptions, type RawLayoutResult } from './shared/result.js';
 import { applyAttachmentOptions, type AttachmentOptions, type FacturXOptions } from './attachments.js';
 
 // ── Layout metadata types ──────────────────────────────────────────

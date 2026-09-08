@@ -1,4 +1,4 @@
-import { toRenderWithLayoutResult, encodeRenderOptions, type RawLayoutResult } from './shared/result';
+import { toRenderWithLayoutResult, encodeRenderOptions, type RawLayoutResult } from './shared/result.js';
 /**
  * Cloudflare Workers / edge entry point for @formepdf/core.
  *
