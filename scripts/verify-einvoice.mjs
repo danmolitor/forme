@@ -18,7 +18,7 @@
 // PARITY_DIR: also emit the structured evidence section.
 
 import { execFileSync } from 'node:child_process';
-import { emitSection } from './parity/lib.mjs';
+import { emitSection, keepReport, mustangToConformance, veraValidate } from './parity/lib.mjs';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -51,16 +51,6 @@ function invoiceDoc() {
 function findTool(env, fallback) {
   const c = process.env[env] || fallback;
   return existsSync(c) ? c : null;
-}
-
-function veraCompliant(vera, pdfPath, flavour) {
-  try {
-    const out = execFileSync(vera, ['-f', flavour, pdfPath], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
-    return out.includes('isCompliant="true"');
-  } catch (e) {
-    // veraPDF exits non-zero on non-compliance but still prints the report
-    return String(e.stdout || '').includes('isCompliant="true"');
-  }
 }
 
 /** veraPDF verdict, with the raw report kept for Forme Review. */
