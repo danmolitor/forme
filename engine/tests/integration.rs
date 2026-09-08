@@ -12446,6 +12446,58 @@ fn border_or_background_on_text_node_reports_render_defect() {
 }
 
 #[test]
+fn wrap_row_relocating_lines_at_the_boundary_is_not_a_sequential_split() {
+    // False-positive pin for the sequential-split defect: a breakable
+    // WRAPPING flex row taller than the page relocates whole lines at
+    // the boundary — the page list grows during the row's layout, which
+    // tripped the removed path-based check — but every line's items
+    // stay side by side, so the precise check must remain silent. (An
+    // ITEM breaking mid-line stays a true positive.) Engine-level
+    // because the html css subset does not map flex-wrap.
+    let pairs: String = (1..=4)
+        .map(|i| {
+            format!(
+                r#"{{ "kind": {{ "type": "View" }}, "style": {{ "width": {{ "Percent": 40 }}, "height": {{ "Pt": 100 }} }},
+                     "children": [ {{ "kind": {{ "type": "Text", "content": "pair{i} cell" }}, "style": {{}}, "children": [] }} ] }},"#
+            )
+        })
+        .collect();
+    let pairs = pairs.trim_end_matches(',');
+    let json = format!(
+        r#"{{
+        "children": [
+            {{ "kind": {{ "type": "View" }}, "style": {{ "height": {{ "Pt": 560 }} }}, "children": [] }},
+            {{ "kind": {{ "type": "View" }}, "style": {{ "flexDirection": "Row", "flexWrap": "Wrap" }},
+               "children": [ {pairs} ] }}
+        ],
+        "metadata": {{}}
+    }}"#
+    );
+    let (_pdf, layout, warnings) = forme::render_json_with_layout(&json).expect("wrap row renders");
+    fn page_of(layout: &forme::layout::LayoutInfo, needle: &str) -> Option<usize> {
+        fn has(els: &[forme::layout::ElementInfo], needle: &str) -> bool {
+            els.iter().any(|e| {
+                e.text_content
+                    .as_deref()
+                    .is_some_and(|t| t.contains(needle))
+                    || has(&e.children, needle)
+            })
+        }
+        layout.pages.iter().position(|p| has(&p.elements, needle))
+    }
+    assert!(layout.pages.len() > 1, "the row must cross the boundary");
+    assert_ne!(
+        page_of(&layout, "pair1 cell"),
+        page_of(&layout, "pair4 cell"),
+        "wrap lines must land on different pages"
+    );
+    assert!(
+        !warnings.iter().any(|w| w.contains("sequentially")),
+        "line-by-line wrap relocation is not a sequential split: {warnings:?}"
+    );
+}
+
+#[test]
 fn absolute_child_anchors_to_the_first_fragment_of_a_split_parent() {
     // CSS conformance: an absolutely positioned element anchors to its
     // containing block's FIRST fragment when the block spans pages. It

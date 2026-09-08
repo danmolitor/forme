@@ -479,5 +479,6 @@ td.broughtlab { color: #767676; }
 header { position: relative; }
 /* The design's own rule: signature blocks never split from the text they
  * execute — and never split internally. (A signature row falling across a
- * page boundary moves whole to the next page.) */
-.sig { break-inside: avoid; }
+ * page boundary moves whole to the next page.) Every signature CONTAINER
+ * class carries it; scripts/northmoor-sig-hygiene.mjs is the gate. */
+.sig, .sigrow, .signoff { break-inside: avoid; }
