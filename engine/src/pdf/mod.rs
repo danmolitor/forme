@@ -142,6 +142,14 @@ struct PdfBuilder {
     /// embeddable font). Returned to the caller so every render surface can
     /// show them, never silently dropped.
     warnings: Vec<String>,
+    /// Characters replaced by "?" because no available font covers them —
+    /// not WinAnsi, not the bundled Noto, not a registered font. RefCell
+    /// because the substitution sites run under `&self` (write_element is
+    /// recursive; chart labels render through a free fn holding `&PdfBuilder`).
+    /// Drained into one warning per distinct character at the end of the
+    /// write: a silently wrong glyph is a render defect (decision 2026-09-08 —
+    /// keep the bundled font, make the register-a-font path discoverable).
+    missing_glyphs: std::cell::RefCell<std::collections::BTreeSet<char>>,
 }
 
 pub(crate) struct PdfObject {
@@ -272,6 +280,7 @@ impl PdfWriter {
             ext_gstate_map: HashMap::new(),
             shading_map: HashMap::new(),
             warnings: Vec::new(),
+            missing_glyphs: Default::default(),
         };
 
         // Reserve object IDs:
@@ -1320,7 +1329,18 @@ impl PdfWriter {
         };
 
         let pdf = self.serialize(&builder, info_obj_id);
-        Ok((pdf, builder.warnings))
+        // One warning per distinct substituted character (BTreeSet order is
+        // deterministic). Page sentinels never reach the encoders, and a
+        // literal "?" maps through WinAnsi — only genuinely uncovered
+        // characters land here.
+        let mut warnings = builder.warnings;
+        for ch in builder.missing_glyphs.into_inner() {
+            warnings.push(format!(
+                "render defect: \"{ch}\" (U+{:04X}) is not covered by any available font and was rendered as \"?\" — register a font containing it (Font.register, the Document fonts prop, or @font-face on the HTML path)",
+                ch as u32
+            ));
+        }
+        Ok((pdf, warnings))
     }
 
     /// Build the PDF content stream for a single page.
@@ -1793,7 +1813,10 @@ impl PdfWriter {
                                 .replace(&tp, &total_pages.to_string());
                             let mut text_str = String::new();
                             for ch in text_after.chars() {
-                                let b = Self::unicode_to_winansi(ch).unwrap_or(b'?');
+                                let b = Self::unicode_to_winansi(ch).unwrap_or_else(|| {
+                                    builder.missing_glyphs.borrow_mut().insert(ch);
+                                    b'?'
+                                });
                                 match b {
                                     b'\\' => text_str.push_str("\\\\"),
                                     b'(' => text_str.push_str("\\("),
@@ -2355,7 +2378,7 @@ impl PdfWriter {
                                         if ly < pdf_y {
                                             break;
                                         }
-                                        let esc = Self::encode_winansi_text(line_text);
+                                        let esc = Self::encode_winansi_text(builder, line_text);
                                         let _ = writeln!(
                                             stream,
                                             "BT /F{} {:.1} Tf 0 g {:.2} {:.2} Td ({}) Tj ET",
@@ -2367,7 +2390,7 @@ impl PdfWriter {
                                         );
                                     }
                                 } else {
-                                    let escaped = Self::encode_winansi_text(&display_text);
+                                    let escaped = Self::encode_winansi_text(builder, &display_text);
                                     let text_y = pdf_y + (h - font_size) / 2.0;
                                     let _ = writeln!(
                                         stream,
@@ -2393,7 +2416,7 @@ impl PdfWriter {
                                         })
                                         .map(|(i, _)| i)
                                         .unwrap_or(0);
-                                    let escaped = Self::encode_winansi_text(ph);
+                                    let escaped = Self::encode_winansi_text(builder, ph);
                                     let text_y = pdf_y + (h - font_size) / 2.0;
                                     let _ = writeln!(
                                         stream,
@@ -2432,7 +2455,7 @@ impl PdfWriter {
                                         })
                                         .map(|(i, _)| i)
                                         .unwrap_or(0);
-                                    let escaped = Self::encode_winansi_text(val);
+                                    let escaped = Self::encode_winansi_text(builder, val);
                                     let text_y = pdf_y + (h - font_size) / 2.0;
                                     let _ = writeln!(
                                         stream,
@@ -4185,11 +4208,15 @@ impl PdfWriter {
     }
 
     /// Encode a string for use in a PDF content stream with WinAnsi encoding.
-    /// Characters outside WinAnsi range are replaced with '?'.
-    fn encode_winansi_text(s: &str) -> String {
+    /// Characters outside WinAnsi range are replaced with '?' and recorded
+    /// for the missing-glyph render defect.
+    fn encode_winansi_text(builder: &PdfBuilder, s: &str) -> String {
         let mut result = String::with_capacity(s.len());
         for ch in s.chars() {
-            let b = Self::unicode_to_winansi(ch).unwrap_or(b'?');
+            let b = Self::unicode_to_winansi(ch).unwrap_or_else(|| {
+                builder.missing_glyphs.borrow_mut().insert(ch);
+                b'?'
+            });
             match b {
                 b'\\' => result.push_str("\\\\"),
                 b'(' => result.push_str("\\("),
@@ -4466,6 +4493,7 @@ fn write_chart_primitive(
                     } else if (ch as u32) >= 32 && (ch as u32) <= 255 {
                         ch
                     } else {
+                        builder.missing_glyphs.borrow_mut().insert(ch);
                         '?'
                     }
                 })

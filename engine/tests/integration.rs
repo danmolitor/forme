@@ -12579,3 +12579,55 @@ fn multi_style_runs_fall_back_to_builtin_noto_like_single_style_text() {
         "the runs path must embed builtin Noto Sans for a non-WinAnsi char"
     );
 }
+
+#[test]
+fn unmapped_glyph_reports_a_render_defect_naming_the_character() {
+    // "≤" has no WinAnsi byte and is not in the bundled Noto Sans either
+    // (v2.015 maps one char of the U+2200–22FF math block) — so it
+    // renders as "?" on every path. That substitution was SILENT: the
+    // reader sees a wrong character and nothing says so. The decision
+    // (2026-09-08) is to keep the bundled font as-is — the documented
+    // path for out-of-coverage glyphs is registering a font — and make
+    // that path discoverable: the substitution reports through the
+    // render-defect channel, naming the character.
+    let json = r#"{
+        "children": [
+            { "kind": { "type": "Text", "content": "x ≤ 5" }, "style": {}, "children": [] }
+        ],
+        "metadata": {}
+    }"#;
+    let (_pdf, warnings) = {
+        let doc: forme::Document = serde_json::from_str(json).expect("parse");
+        forme::render_with_warnings(&doc).expect("render")
+    };
+    let defect = warnings
+        .iter()
+        .find(|w| w.starts_with("render defect:") && w.contains("U+2264"));
+    assert!(
+        defect.is_some(),
+        "the '?' substitution must report itself: {warnings:?}"
+    );
+    assert!(
+        defect.unwrap().contains("register a font"),
+        "the message must point at the fix: {}",
+        defect.unwrap()
+    );
+}
+
+#[test]
+fn covered_text_reports_no_missing_glyph_defect() {
+    // ASCII (WinAnsi) and Cyrillic (bundled Noto) both have real glyph
+    // sources — no substitution, no warning.
+    let json = r#"{
+        "children": [
+            { "kind": { "type": "Text", "content": "plain Жук text" }, "style": {}, "children": [] }
+        ],
+        "metadata": {}
+    }"#;
+    let doc: forme::Document = serde_json::from_str(json).expect("parse");
+    let (_pdf, warnings) = forme::render_with_warnings(&doc).expect("render");
+    assert!(
+        !warnings.iter().any(|w| w.contains("rendered as \"?\"")),
+        "covered text must not warn: {warnings:?}"
+    );
+}
