@@ -190,3 +190,59 @@ fn page_tall_column_row_reports_the_sequential_split_defect() {
         out.warnings
     );
 }
+
+#[test]
+fn row_that_relocates_whole_does_not_report_sequential_split() {
+    // The false positive that closed a correct PR: a short flex row pushed
+    // past a page boundary moves WHOLE to the next page — every child
+    // starts on the same page, side by side. The old warning fired on any
+    // page growth during the row's layout; the precise one must stay
+    // silent here.
+    let filler: String = (0..80).map(|i| format!("<p>line {i}</p>")).collect();
+    let html = format!(
+        "<html><body>{filler}\
+         <div style=\"display: flex\">\
+           <div style=\"width: 50%\"><p>left cell</p></div>\
+           <div style=\"width: 50%\"><p>right cell</p></div>\
+         </div></body></html>"
+    );
+    let out = render(&html);
+    assert!(
+        out.layout.pages.len() > 1,
+        "the row must actually be pushed across"
+    );
+    assert!(
+        !out.warnings.iter().any(|w| w.contains("sequentially")),
+        "a relocated-whole row is not a sequential split: {:?}",
+        out.warnings
+    );
+}
+
+#[test]
+fn sequential_split_defect_names_the_offending_row() {
+    // Diagnosing the false positive required rect-dumping because the
+    // deduped message carried no element identification. It now names the
+    // row by its first text content.
+    let tall: String = (0..120)
+        .map(|i| format!("<p>content line {i}</p>"))
+        .collect();
+    let html = format!(
+        "<html><head><style>.t {{ display: table }} .c {{ display: table-cell }}\
+         .a {{ width: 33% }} .b {{ width: 67% }}</style></head><body><div class=\"t\">\
+         <div class=\"c a\"><p>sidebar heading</p></div>\
+         <div class=\"c b\">{tall}</div>\
+         </div></body></html>"
+    );
+    let out = render(&html);
+    let defect = out.warnings.iter().find(|w| w.contains("sequentially"));
+    assert!(
+        defect.is_some(),
+        "true positive must still fire: {:?}",
+        out.warnings
+    );
+    assert!(
+        defect.unwrap().contains("sidebar heading"),
+        "the defect must name the row: {}",
+        defect.unwrap()
+    );
+}
