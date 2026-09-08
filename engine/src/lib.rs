@@ -208,7 +208,11 @@ pub fn render_with_warnings(document: &Document) -> Result<(Vec<u8>, Vec<String>
 
 /// Opt-in per-render checks. `Default` disables everything, and every
 /// disabled check costs nothing — the flag is tested once per render.
-#[derive(Debug, Clone, Copy, Default)]
+/// Deserializes from the camelCase JSON the JS wrappers send
+/// (`{"auditContent": true}`), unknown fields ignored so older engines
+/// tolerate newer wrappers.
+#[derive(Debug, Clone, Copy, Default, serde::Deserialize)]
+#[serde(default, rename_all = "camelCase")]
 pub struct RenderOptions {
     /// Post-render content audit: after layout, verify the laid-out pages
     /// against the input document and report content that was dropped,
@@ -400,6 +404,18 @@ pub fn render_json_with_layout(
 ) -> Result<(Vec<u8>, LayoutInfo, Vec<String>), FormeError> {
     let document: Document = serde_json::from_str(json)?;
     render_with_layout(&document)
+}
+
+/// Like [`render_json_with_layout`], with opt-in [`RenderOptions`] — the
+/// JSON-input mirror of [`render_with_layout_and_options`], used by the
+/// WASM bindings so `@formepdf/core` callers can opt into the content
+/// audit the way the HTML path already can.
+pub fn render_json_with_layout_and_options(
+    json: &str,
+    options: RenderOptions,
+) -> Result<(Vec<u8>, LayoutInfo, Vec<String>, u32), FormeError> {
+    let document: Document = serde_json::from_str(json)?;
+    render_with_layout_and_options(&document, options)
 }
 
 /// Render a template with data to PDF bytes.
