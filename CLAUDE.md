@@ -412,14 +412,19 @@ Auto-placement currently uses row-major order and never backtracks. Dense packin
 A flex row that splits across pages lays its children out sequentially —
 each into the space that remains — not as parallel columns continuing
 side by side on every page the way Chrome fragments them. A render
-defect reports every multi-child row split (`layout_breakable_view`).
-Finding attached (template-compat 09, 2026-09-05): the equal-height
-CSS-table idiom (`display: table` + `table-cell` divs) wrapping a whole
-document is the shape that hits this; the corpus's last DEGRADED grade
-is exactly this gap. Would need per-page parallel child cursors in the
-breakable-row path — genuine layout-engine work. Deliberately parked at
-14/1/0 (Dan, 2026-09-05): one narrow-idiom template is not a buyer;
-scope it when a real document with a page-spanning column row shows up.
+defect reports the genuinely sequential outcome — an item's own layout
+breaking the page while siblings share its flex line (`layout_flex_row`
+item loop, naming the row by its first text; a row relocating whole
+stays silent — the earlier path-based check false-positived on that and
+closed a correct PR, 2026-09-07). Finding attached (template-compat 09,
+2026-09-05): the equal-height CSS-table idiom (`display: table` +
+`table-cell` divs) wrapping a whole document is the shape that hits
+this; the corpus's last DEGRADED grade is exactly this gap. Would need
+per-page parallel child cursors in the breakable-row path — genuine
+layout-engine work. Parked three times (Dan: 2026-09-05, and twice
+2026-09-07 — Phase 0 blast-radius scoping found exposure = corpus 09
+only): one narrow-idiom template is not a buyer; scope it when a real
+document with a page-spanning column row shows up.
 
 **Variable font support** (High effort, typography value)
 Would allow a single `.ttf` file to serve multiple weights/widths via `fvar` axis values. Needs: parse `fvar` table in `font/mod.rs`, interpolate glyph outlines (or use `rustybuzz` variation support), and adjust the registration model so a single font file maps to multiple `FontKey` entries. The subsetter would also need to preserve variation tables.
