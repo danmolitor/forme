@@ -14,11 +14,11 @@
 
 import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir, homedir } from 'node:os';
-import { join, dirname } from 'node:path';
+import { basename, join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readFile } from 'node:fs/promises';
 
-import { emitSection, veraValidate, veraVersion } from './parity/lib.mjs';
+import { emitSection, keepReport, veraValidate, veraVersion } from './parity/lib.mjs';
 
 import { serialize } from '@formepdf/react';
 import { getTemplate } from '@formepdf/templates';
@@ -193,7 +193,8 @@ async function main() {
     render: 'pdfUa + tagged + fonts-standard',
     corpus: corpus.map((c) => c.label),
     results: corpus.map((c) => {
-      const { pass, failedClauses } = veraValidate(vera, 'ua1', c.path);
+      const { pass, failedClauses, xml } = veraValidate(vera, 'ua1', c.path);
+      keepReport(`${basename(c.path, '.pdf')}.ua1.xml`, xml); // for Forme Review's --conformance
       return { fixture: c.label, profile: 'ua1', pass, failedClauses };
     }),
   };

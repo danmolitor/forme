@@ -19,7 +19,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { emitSection } from './parity/lib.mjs';
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -63,6 +63,13 @@ function veraCompliant(vera, pdfPath, flavour) {
   }
 }
 
+/** veraPDF verdict, with the raw report kept for Forme Review. */
+function veraKept(vera, pdfPath, flavour) {
+  const { pass, xml } = veraValidate(vera, flavour, pdfPath);
+  keepReport(`facturx-en16931.${flavour}.xml`, xml);
+  return pass;
+}
+
 function mustangValid(jar, pdfPath) {
   try {
     const out = execFileSync(
@@ -88,15 +95,18 @@ async function main() {
 
   const xml = readFileSync(XML_PATH);
   const pdf = await renderDocument(invoiceDoc(), { facturX: { xml, profile: 'EN 16931' } });
-  const outDir = mkdtempSync(join(tmpdir(), 'forme-einvoice-gate-'));
+  // With OUT_DIR the invoice joins the Forme Review corpus and its verdicts ride along.
+  const outDir = process.env.OUT_DIR ? (mkdirSync(process.env.OUT_DIR, { recursive: true }), process.env.OUT_DIR) : mkdtempSync(join(tmpdir(), 'forme-einvoice-gate-'));
   const pdfPath = join(outDir, 'facturx-en16931.pdf');
   writeFileSync(pdfPath, pdf);
 
   const checks = [
-    { id: 'verapdf-3b', label: 'veraPDF PDF/A-3b', pass: veraCompliant(vera, pdfPath, '3b') },
-    { id: 'verapdf-ua1', label: 'veraPDF PDF/UA-1', pass: veraCompliant(vera, pdfPath, 'ua1') },
+    { id: 'verapdf-3b', label: 'veraPDF PDF/A-3b', pass: veraKept(vera, pdfPath, '3b') },
+    { id: 'verapdf-ua1', label: 'veraPDF PDF/UA-1', pass: veraKept(vera, pdfPath, 'ua1') },
   ];
   const mustang = mustangValid(jar, pdfPath);
+  // Mustang goes through the documented JSON shape: Forme Review parses veraPDF and nothing else.
+  keepReport('facturx-en16931.mustang.json', JSON.stringify(mustangToConformance(mustang.report, { documentPath: pdfPath, jarPath: jar, file: 'reports/facturx-en16931.mustang.json' }), null, 2));
   checks.push({ id: 'mustang', label: 'Mustang (ZUGFeRD/Factur-X reference validator)', pass: mustang.valid });
 
   // Evidence first (the JSON section is the source; console is a render).
