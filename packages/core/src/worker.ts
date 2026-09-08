@@ -1,3 +1,4 @@
+import { toRenderWithLayoutResult, encodeRenderOptions, type RawLayoutResult } from './shared/result.js';
 /**
  * Cloudflare Workers / edge entry point for @formepdf/core.
  *
@@ -108,11 +109,12 @@ export async function renderPdf(json: string): Promise<Uint8Array> {
   return wasmRenderPdf(json);
 }
 
-export async function renderPdfWithLayout(json: string): Promise<RenderWithLayoutResult> {
+export async function renderPdfWithLayout(json: string, options?: RenderDocumentOptions): Promise<RenderWithLayoutResult> {
   ensureInit();
   await initPromise;
-  const result = wasmRenderPdfWithLayout(json) as { pdf: Uint8Array; layout: LayoutInfo; warnings?: string[] };
-  return { ...result, warnings: result.warnings ?? [] };
+  return toRenderWithLayoutResult(
+    wasmRenderPdfWithLayout(json, encodeRenderOptions(options)) as RawLayoutResult,
+  );
 }
 
 export async function renderDocument(
@@ -146,7 +148,7 @@ export async function renderDocumentWithLayout(
   }
   applyAttachmentOptions(doc, options);
   await Promise.all([resolveFonts(doc), resolveImages(doc)]);
-  return renderPdfWithLayout(JSON.stringify(doc));
+  return renderPdfWithLayout(JSON.stringify(doc), options);
 }
 
 // ── Serialized document rendering ────────────────────────────────────
@@ -178,7 +180,7 @@ export async function renderSerializedDocWithLayout(
   }
   applyAttachmentOptions(doc, options);
   await Promise.all([resolveFonts(doc), resolveImages(doc)]);
-  return renderPdfWithLayout(JSON.stringify(doc));
+  return renderPdfWithLayout(JSON.stringify(doc), options);
 }
 
 // ── Template rendering ──────────────────────────────────────────────

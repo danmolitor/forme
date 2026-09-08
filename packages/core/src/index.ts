@@ -5,6 +5,7 @@ import { render_pdf as wasmRenderPdf } from '../pkg-node/forme.js';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import type { ReactElement } from 'react';
+import { toRenderWithLayoutResult, encodeRenderOptions, type RawLayoutResult } from './shared/result.js';
 import { applyAttachmentOptions, type AttachmentOptions, type FacturXOptions } from './attachments.js';
 
 // ── Layout metadata types ──────────────────────────────────────────
@@ -363,10 +364,11 @@ export async function renderPdf(json: string): Promise<Uint8Array> {
   return wasmRenderPdf(json);
 }
 
-export async function renderPdfWithLayout(json: string): Promise<RenderWithLayoutResult> {
+export async function renderPdfWithLayout(json: string, options?: RenderDocumentOptions): Promise<RenderWithLayoutResult> {
   const { render_pdf_with_layout } = await import('../pkg-node/forme.js');
-  const result = render_pdf_with_layout(json) as { pdf: Uint8Array; layout: LayoutInfo; warnings?: string[] };
-  return { ...result, warnings: result.warnings ?? [] };
+  return toRenderWithLayoutResult(
+    render_pdf_with_layout(json, encodeRenderOptions(options)) as RawLayoutResult,
+  );
 }
 
 export interface CertificationConfig {
@@ -404,6 +406,20 @@ export interface RenderDocumentOptions {
    * `<Document>`. Forme does not generate or validate the XML itself.
    */
   facturX?: FacturXOptions;
+  /**
+   * Opt-in post-render content audit (mirrors the HTML path's
+   * `auditContent`): after layout, the engine verifies the laid-out
+   * pages against the input document and reports content that was
+   * dropped, rendered fully off-page, painted in exactly its
+   * background's colour, or clipped to a zero-size box — as
+   * `render defect:` entries in the result's `warnings`. Findings need
+   * a warnings channel, so the flag is honored by
+   * `renderDocumentWithLayout` / `renderSerializedDocWithLayout`
+   * (`renderDocument` returns bare bytes and has nowhere to report).
+   * Off by default; when off the render takes the exact historical
+   * code path and output is byte-identical.
+   */
+  auditContent?: boolean;
 }
 
 export async function renderDocument(element: ReactElement, options?: RenderDocumentOptions): Promise<Uint8Array> {
@@ -461,7 +477,7 @@ export async function renderSerializedDocWithLayout(
   }
   applyAttachmentOptions(doc, options);
   await Promise.all([resolveFonts(doc), resolveImages(doc)]);
-  return renderPdfWithLayout(JSON.stringify(doc));
+  return renderPdfWithLayout(JSON.stringify(doc), options);
 }
 
 // ── Template rendering ──────────────────────────────────────────────
@@ -473,8 +489,9 @@ export async function renderTemplate(templateJson: string, dataJson: string): Pr
 
 export async function renderTemplateWithLayout(templateJson: string, dataJson: string): Promise<RenderWithLayoutResult> {
   const { render_template_pdf_with_layout } = await import('../pkg-node/forme.js');
-  const result = render_template_pdf_with_layout(templateJson, dataJson) as { pdf: Uint8Array; layout: LayoutInfo; warnings?: string[] };
-  return { ...result, warnings: result.warnings ?? [] };
+  return toRenderWithLayoutResult(
+    render_template_pdf_with_layout(templateJson, dataJson) as RawLayoutResult,
+  );
 }
 
 // ── PDF certification ────────────────────────────────────────────────

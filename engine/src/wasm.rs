@@ -67,9 +67,21 @@ pub fn redact_text(pdf_bytes: &[u8], patterns_json: &str) -> Result<Vec<u8>, JsV
 }
 
 #[wasm_bindgen]
-pub fn render_pdf_with_layout(json: &str) -> Result<JsValue, JsValue> {
-    let (pdf_bytes, layout_info, warnings) =
-        crate::render_json_with_layout(json).map_err(|e| JsValue::from_str(&e.to_string()))?;
+pub fn render_pdf_with_layout(
+    json: &str,
+    options_json: Option<String>,
+) -> Result<JsValue, JsValue> {
+    // Optional trailing parameter — existing single-argument callers get
+    // `RenderOptions::default()`, the exact code path this function always
+    // took (a disabled check costs nothing; byte-identity is gated).
+    let options: crate::RenderOptions = match options_json.as_deref() {
+        Some(s) => serde_json::from_str(s)
+            .map_err(|e| JsValue::from_str(&format!("Invalid render options: {}", e)))?,
+        None => crate::RenderOptions::default(),
+    };
+    let (pdf_bytes, layout_info, warnings, _passes) =
+        crate::render_json_with_layout_and_options(json, options)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
     let result = js_sys::Object::new();
     let pdf_array = js_sys::Uint8Array::from(pdf_bytes.as_slice());
