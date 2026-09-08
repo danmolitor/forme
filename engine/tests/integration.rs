@@ -12444,3 +12444,32 @@ fn border_or_background_on_text_node_reports_render_defect() {
         "background defect must be reported: {warnings:?}"
     );
 }
+
+#[test]
+fn multi_style_runs_fall_back_to_builtin_noto_like_single_style_text() {
+    // A non-WinAnsi char in a multi-style RUN rendered as "?" while the
+    // identical char in single-style Text reached builtin Noto Sans: the
+    // runs path pre-resolved per-char fonts only for comma chains, so
+    // measurement (char_width, which falls back per-char) and rendering
+    // disagreed about which font the char takes. Both paths must apply
+    // the same rule: primary family when it covers the char, per-char
+    // resolution when it does not. Cyrillic is the probe because the
+    // bundled Noto Sans covers it ("≤" — the case that surfaced this —
+    // is NOT in the bundled font at all; that coverage gap is a separate
+    // finding the fallback machinery cannot fix).
+    let json = r#"{
+        "children": [
+            { "kind": { "type": "Text", "content": "", "runs": [
+                  { "content": "x " },
+                  { "content": "Жук", "font_weight": 700 }
+              ] }, "style": {}, "children": [] }
+        ],
+        "metadata": {}
+    }"#;
+    let bytes = forme::render_json(json).expect("runs with non-WinAnsi char render");
+    let pdf_str = String::from_utf8_lossy(&bytes);
+    assert!(
+        pdf_str.contains("NotoSans"),
+        "the runs path must embed builtin Noto Sans for a non-WinAnsi char"
+    );
+}

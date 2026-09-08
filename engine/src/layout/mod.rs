@@ -5023,23 +5023,38 @@ impl LayoutEngine {
             return vec![];
         }
 
-        // Pre-resolve per-char font families from comma chains.
-        // This produces a vec of resolved single family names, one per char.
+        // Pre-resolve per-char font families — the same rule as
+        // segment_by_font (the single-style path) and char_width
+        // (measurement): the declared family when it covers the char,
+        // per-char resolution otherwise. This path used to skip per-char
+        // resolution entirely for comma-less families, so a non-WinAnsi
+        // char in a TextRun rendered "?" on the base-14 path while the
+        // identical char in single-style Text reached builtin Noto Sans —
+        // measurement and rendering disagreeing about the char's font.
         let resolved_families: Vec<String> = chars
             .iter()
             .map(|sc| {
+                let italic = matches!(sc.font_style, FontStyle::Italic | FontStyle::Oblique);
                 if !sc.font_family.contains(',') {
-                    sc.font_family.clone()
-                } else {
-                    let italic = matches!(sc.font_style, FontStyle::Italic | FontStyle::Oblique);
-                    let (_, family) = font_context.registry().resolve_for_char(
-                        &sc.font_family,
-                        sc.ch,
-                        sc.font_weight,
-                        italic,
-                    );
-                    family
+                    let primary =
+                        font_context
+                            .registry()
+                            .resolve(&sc.font_family, sc.font_weight, italic);
+                    if sc.ch.is_whitespace()
+                        || sc.ch == PAGE_NUMBER_SENTINEL
+                        || sc.ch == TOTAL_PAGES_SENTINEL
+                        || primary.has_char(sc.ch)
+                    {
+                        return sc.font_family.clone();
+                    }
                 }
+                let (_, family) = font_context.registry().resolve_for_char(
+                    &sc.font_family,
+                    sc.ch,
+                    sc.font_weight,
+                    italic,
+                );
+                family
             })
             .collect();
 
