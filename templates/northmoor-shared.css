@@ -477,3 +477,7 @@ td.broughtlab { color: #767676; }
  * page fragment, so anchoring to .sheet painted the rule on the final
  * page of multi-page documents. */
 header { position: relative; }
+/* The design's own rule: signature blocks never split from the text they
+ * execute — and never split internally. (A signature row falling across a
+ * page boundary moves whole to the next page.) */
+.sig { break-inside: avoid; }

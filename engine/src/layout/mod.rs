@@ -2312,25 +2312,6 @@ impl LayoutEngine {
 
         cursor.continuation_top_offset = prev_continuation_offset;
 
-        // A flex ROW that splits across pages lays its children out
-        // sequentially (each into the space that remains), not as
-        // parallel columns continuing side by side on every page. For
-        // short rows the difference is invisible; for column layouts
-        // taller than a page it is a real divergence from the browser
-        // rendering — say so through the defect channel rather than
-        // degrading silently.
-        if pages.len() > initial_page_count
-            && node.children.len() > 1
-            && matches!(
-                style.flex_direction,
-                FlexDirection::Row | FlexDirection::RowReverse
-            )
-        {
-            self.defect(
-                "render defect: a flex row split across pages lays its children sequentially — columns taller than a page do not continue side by side".to_string(),
-            );
-        }
-
         // Check if this view has any visual styling worth wrapping
         let has_visual = style.background_color.is_some()
             || style.border_width.top > 0.0
@@ -3098,6 +3079,18 @@ impl LayoutEngine {
             let line_elem_start = cursor.elements.len();
             let mut x = content_x + start_offset;
 
+            // Sequential-split detection, precise form: the genuinely
+            // sequential outcome is an ITEM's own layout breaking the
+            // page while siblings share its line — the siblings don't
+            // continue beside it on the next page, so columns serialize.
+            // The signature is page growth DURING the item loop. A row
+            // that merely relocated whole broke in the line-fit check
+            // ABOVE, before this count is taken, and stays silent (the
+            // old check fired on any page growth during the row's whole
+            // layout and closed a correct PR — a warning that cries
+            // wolf is worse than none).
+            let line_start_pages = pages.len();
+
             for (j, item) in line_items.iter().enumerate() {
                 if j > 0 {
                     x += column_gap + between_extra;
@@ -3176,6 +3169,16 @@ impl LayoutEngine {
                 x += fw;
             }
 
+            if line_items.len() > 1 && pages.len() > line_start_pages {
+                let near = line_items
+                    .iter()
+                    .find_map(|it| first_text_snippet(it.node))
+                    .map(|t| format!(" (row beginning \"{t}\")"))
+                    .unwrap_or_default();
+                self.defect(format!(
+                    "render defect: a flex row crossing a page boundary lays its children sequentially — a column taller than the page does not continue side by side{near}"
+                ));
+            }
             cursor.y = row_start_y + line_height;
             line_infos.push((line_elem_start, cursor.elements.len(), line_height));
         }
@@ -7355,6 +7358,32 @@ struct FlexItem<'a> {
     style: ResolvedStyle,
     base_width: f64,
     min_content_width: f64,
+}
+
+/// First bit of text content under a node, for naming elements in
+/// render-defect messages (the engine's Node has no id/class).
+fn first_text_snippet(node: &Node) -> Option<String> {
+    fn walk(n: &Node) -> Option<&str> {
+        match &n.kind {
+            NodeKind::Text { content, runs, .. } | NodeKind::Heading { content, runs, .. } => {
+                if !content.trim().is_empty() {
+                    return Some(content.trim());
+                }
+                if let Some(r) = runs.iter().find(|r| !r.content.trim().is_empty()) {
+                    return Some(r.content.trim());
+                }
+                None
+            }
+            _ => n.children.iter().find_map(walk),
+        }
+    }
+    walk(node).map(|t| {
+        let mut s: String = t.chars().take(32).collect();
+        if t.chars().count() > 32 {
+            s.push('…');
+        }
+        s
+    })
 }
 
 #[cfg(test)]
