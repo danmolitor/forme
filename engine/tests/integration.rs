@@ -12444,3 +12444,57 @@ fn border_or_background_on_text_node_reports_render_defect() {
         "background defect must be reported: {warnings:?}"
     );
 }
+
+#[test]
+fn absolute_child_anchors_to_the_first_fragment_of_a_split_parent() {
+    // CSS conformance: an absolutely positioned element anchors to its
+    // containing block's FIRST fragment when the block spans pages. It
+    // anchored to the LAST fragment (the absolute pass emitted into the
+    // post-break cursor while cb coordinates came from the first page) —
+    // the parked finding that made the Northmoor templates move page-1
+    // furniture into <header>.
+    let filler = r#"
+        { "kind": { "type": "Text", "content": "A" }, "style": {}, "children": [] },
+        { "kind": { "type": "View" }, "style": { "height": { "Pt": 700 } }, "children": [] },
+        { "kind": { "type": "Text", "content": "B" }, "style": {}, "children": [] },
+        { "kind": { "type": "View" }, "style": { "height": { "Pt": 700 } }, "children": [] },
+        { "kind": { "type": "Text", "content": "C" }, "style": {}, "children": [] }
+    "#;
+    let json = format!(
+        r#"{{
+        "children": [
+            {{ "kind": {{ "type": "View" }}, "style": {{ "position": "Relative" }},
+               "children": [
+                    {{ "kind": {{ "type": "View" }},
+                       "style": {{ "position": "Absolute", "top": 0, "left": 0, "width": {{ "Pt": 80 }} }},
+                       "children": [ {{ "kind": {{ "type": "Text", "content": "anchor badge" }}, "style": {{}}, "children": [] }} ] }},
+                    {filler}
+               ] }}
+        ],
+        "metadata": {{}}
+    }}"#
+    );
+    let (_pdf, layout, _warnings) =
+        forme::render_json_with_layout(&json).expect("split positioned parent renders");
+    fn page_of(layout: &forme::layout::LayoutInfo, needle: &str) -> Option<usize> {
+        fn has(els: &[forme::layout::ElementInfo], needle: &str) -> bool {
+            els.iter().any(|e| {
+                e.text_content
+                    .as_deref()
+                    .is_some_and(|t| t.contains(needle))
+                    || has(&e.children, needle)
+            })
+        }
+        layout.pages.iter().position(|p| has(&p.elements, needle))
+    }
+    assert!(
+        layout.pages.len() > 1,
+        "the positioned parent must span pages, got {}",
+        layout.pages.len()
+    );
+    assert_eq!(
+        page_of(&layout, "anchor badge"),
+        Some(0),
+        "top-anchored absolute belongs to the FIRST fragment"
+    );
+}
