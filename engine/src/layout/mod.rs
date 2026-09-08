@@ -2474,6 +2474,10 @@ impl LayoutEngine {
         // Save parent content box position for absolute children
         let parent_box_y = cursor.content_y + cursor.y;
         let parent_box_x = content_x;
+        // The page the parent box STARTS on. When flow layout breaks pages,
+        // absolute children must anchor to (and render on) this FIRST
+        // fragment per CSS — parent_box_x/y are coordinates on this page.
+        let entry_page_index = pages.len();
 
         // If this container is *explicitly* positioned it becomes the
         // containing block for its absolute descendants. Update the cursor's
@@ -2805,6 +2809,15 @@ impl LayoutEngine {
         // nearest positioned ancestor / page carried on the cursor. This is the
         // v0-divergence retirement — an absolute inside an *unpositioned* parent
         // now escapes to its nearest positioned ancestor, matching browsers.
+        // Did the parent fragment across pages during flow layout? Its
+        // absolutes then anchor to the FIRST fragment (CSS): coordinates
+        // are already first-page coordinates (parent_box_x/y), the auto
+        // height is the first fragment's extent (down to that page's
+        // content bottom — the fragment ran to the page end), and the
+        // elements are emitted onto that page rather than the post-break
+        // cursor. Emitting into the cursor was the last-fragment bug: the
+        // badge drawn from first-page coordinates landed on the last page.
+        let parent_fragmented = parent_positioned && pages.len() > entry_page_index;
         let (cb_x, cb_y, cb_w, cb_h) = if parent_positioned {
             let ph = parent_style
                 .and_then(|ps| match ps.height {
@@ -2813,7 +2826,14 @@ impl LayoutEngine {
                     }
                     SizeConstraint::Auto => None,
                 })
-                .unwrap_or(cursor.content_y + cursor.y - parent_box_y);
+                .unwrap_or_else(|| {
+                    if parent_fragmented {
+                        let first = &pages[entry_page_index];
+                        (first.height - first.config.margin.bottom) - parent_box_y
+                    } else {
+                        cursor.content_y + cursor.y - parent_box_y
+                    }
+                });
             (parent_box_x, parent_box_y, available_width, ph)
         } else {
             cursor.containing_block
@@ -2885,8 +2905,14 @@ impl LayoutEngine {
                 None,
             );
 
-            // Add absolute elements to the current cursor (renders on top)
-            cursor.elements.extend(abs_cursor.elements);
+            // Add absolute elements to the page the containing block starts
+            // on: the finalized first fragment when the parent broke across
+            // pages, else the current cursor (renders on top either way).
+            if parent_fragmented {
+                pages[entry_page_index].elements.extend(abs_cursor.elements);
+            } else {
+                cursor.elements.extend(abs_cursor.elements);
+            }
         }
 
         // Restore the containing block for the caller's remaining siblings.

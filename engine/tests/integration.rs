@@ -12446,6 +12446,112 @@ fn border_or_background_on_text_node_reports_render_defect() {
 }
 
 #[test]
+fn wrap_row_relocating_lines_at_the_boundary_is_not_a_sequential_split() {
+    // False-positive pin for the sequential-split defect: a breakable
+    // WRAPPING flex row taller than the page relocates whole lines at
+    // the boundary — the page list grows during the row's layout, which
+    // tripped the removed path-based check — but every line's items
+    // stay side by side, so the precise check must remain silent. (An
+    // ITEM breaking mid-line stays a true positive.) Engine-level
+    // because the html css subset does not map flex-wrap.
+    let pairs: String = (1..=4)
+        .map(|i| {
+            format!(
+                r#"{{ "kind": {{ "type": "View" }}, "style": {{ "width": {{ "Percent": 40 }}, "height": {{ "Pt": 100 }} }},
+                     "children": [ {{ "kind": {{ "type": "Text", "content": "pair{i} cell" }}, "style": {{}}, "children": [] }} ] }},"#
+            )
+        })
+        .collect();
+    let pairs = pairs.trim_end_matches(',');
+    let json = format!(
+        r#"{{
+        "children": [
+            {{ "kind": {{ "type": "View" }}, "style": {{ "height": {{ "Pt": 560 }} }}, "children": [] }},
+            {{ "kind": {{ "type": "View" }}, "style": {{ "flexDirection": "Row", "flexWrap": "Wrap" }},
+               "children": [ {pairs} ] }}
+        ],
+        "metadata": {{}}
+    }}"#
+    );
+    let (_pdf, layout, warnings) = forme::render_json_with_layout(&json).expect("wrap row renders");
+    fn page_of(layout: &forme::layout::LayoutInfo, needle: &str) -> Option<usize> {
+        fn has(els: &[forme::layout::ElementInfo], needle: &str) -> bool {
+            els.iter().any(|e| {
+                e.text_content
+                    .as_deref()
+                    .is_some_and(|t| t.contains(needle))
+                    || has(&e.children, needle)
+            })
+        }
+        layout.pages.iter().position(|p| has(&p.elements, needle))
+    }
+    assert!(layout.pages.len() > 1, "the row must cross the boundary");
+    assert_ne!(
+        page_of(&layout, "pair1 cell"),
+        page_of(&layout, "pair4 cell"),
+        "wrap lines must land on different pages"
+    );
+    assert!(
+        !warnings.iter().any(|w| w.contains("sequentially")),
+        "line-by-line wrap relocation is not a sequential split: {warnings:?}"
+    );
+}
+
+#[test]
+fn absolute_child_anchors_to_the_first_fragment_of_a_split_parent() {
+    // CSS conformance: an absolutely positioned element anchors to its
+    // containing block's FIRST fragment when the block spans pages. It
+    // anchored to the LAST fragment (the absolute pass emitted into the
+    // post-break cursor while cb coordinates came from the first page) —
+    // the parked finding that made the Northmoor templates move page-1
+    // furniture into <header>.
+    let filler = r#"
+        { "kind": { "type": "Text", "content": "A" }, "style": {}, "children": [] },
+        { "kind": { "type": "View" }, "style": { "height": { "Pt": 700 } }, "children": [] },
+        { "kind": { "type": "Text", "content": "B" }, "style": {}, "children": [] },
+        { "kind": { "type": "View" }, "style": { "height": { "Pt": 700 } }, "children": [] },
+        { "kind": { "type": "Text", "content": "C" }, "style": {}, "children": [] }
+    "#;
+    let json = format!(
+        r#"{{
+        "children": [
+            {{ "kind": {{ "type": "View" }}, "style": {{ "position": "Relative" }},
+               "children": [
+                    {{ "kind": {{ "type": "View" }},
+                       "style": {{ "position": "Absolute", "top": 0, "left": 0, "width": {{ "Pt": 80 }} }},
+                       "children": [ {{ "kind": {{ "type": "Text", "content": "anchor badge" }}, "style": {{}}, "children": [] }} ] }},
+                    {filler}
+               ] }}
+        ],
+        "metadata": {{}}
+    }}"#
+    );
+    let (_pdf, layout, _warnings) =
+        forme::render_json_with_layout(&json).expect("split positioned parent renders");
+    fn page_of(layout: &forme::layout::LayoutInfo, needle: &str) -> Option<usize> {
+        fn has(els: &[forme::layout::ElementInfo], needle: &str) -> bool {
+            els.iter().any(|e| {
+                e.text_content
+                    .as_deref()
+                    .is_some_and(|t| t.contains(needle))
+                    || has(&e.children, needle)
+            })
+        }
+        layout.pages.iter().position(|p| has(&p.elements, needle))
+    }
+    assert!(
+        layout.pages.len() > 1,
+        "the positioned parent must span pages, got {}",
+        layout.pages.len()
+    );
+    assert_eq!(
+        page_of(&layout, "anchor badge"),
+        Some(0),
+        "top-anchored absolute belongs to the FIRST fragment"
+    );
+}
+
+#[test]
 fn multi_style_runs_fall_back_to_builtin_noto_like_single_style_text() {
     // A non-WinAnsi char in a multi-style RUN rendered as "?" while the
     // identical char in single-style Text reached builtin Noto Sans: the
