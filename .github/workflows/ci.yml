@@ -90,6 +90,12 @@ jobs:
         # target across the fixture corpus. The three targets embed the same
         # wasm (asserted by hash here); this proves the JS glue matches too.
         run: node packages/html/test/targets-determinism.mjs
+      - name: Northmoor signature hygiene (break-inside on sig containers)
+        # The design rule "signature blocks never split" as a gate — every
+        # signature container class used in template markup must resolve
+        # break-inside: avoid (it was applied to contracts and missed on
+        # letters, receipts, and the certificate).
+        run: node scripts/northmoor-sig-hygiene.mjs
       - name: HTML worker entry under workerd
         # Real Cloudflare WASM-as-ESM semantics via @cloudflare/vitest-pool-workers,
         # exactly as the core worker entry is gated. Catches the bundler-target
