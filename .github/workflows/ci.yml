@@ -576,10 +576,24 @@ jobs:
         # gate must validate, never silently skip. VERAPDF (exported above)
         # points the script at the headless install. PARITY_DIR makes the
         # script ALSO emit its structured evidence section for the parity page.
+        # OUT_DIR keeps the rendered corpus for the Forme Review upload below.
         env:
           REQUIRE_VERAPDF: '1'
           PARITY_DIR: ${{ github.workspace }}/parity-partials
+          OUT_DIR: ${{ github.workspace }}/dist/review
         run: node scripts/verify-pdfua.mjs
+      - name: Upload the corpus to Forme Review
+        # The same 39 documents the conformance gate just rendered — five shipped
+        # templates, four HTML fixtures, thirty Northmoor documents on one shared
+        # stylesheet — uploaded as one batch. The first upload establishes each
+        # document's baseline; every PR after that is compared and reported as a
+        # check and a comment. Structure only by default; the PDFs stay here.
+        # One batch per commit: the service judges document presence when a
+        # batch completes, so nothing else in this workflow uploads.
+        env:
+          PDF_TESTKIT_SERVICE_URL: https://review-api.formepdf.com
+          PDF_TESTKIT_TOKEN: ${{ secrets.PDF_TESTKIT_TOKEN }}
+        run: npx --no-install pdf-testkit upload dist/review/*.pdf --require-service
       - name: Validate the PDF/A + PDF/UA-1 corpus
         # The same corpus rendered as BOTH PDF/A and PDF/UA-1, validated against
         # veraPDF's PDF/A-2b and PDF/A-2a profiles AND its PDF/UA-1 profile — the

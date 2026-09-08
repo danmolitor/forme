@@ -12,7 +12,7 @@
 // exits 0 with a skip notice, so it is safe to run anywhere; CI installs
 // veraPDF and thus runs the full validation.
 
-import { existsSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir, homedir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -133,7 +133,9 @@ function findVeraPdf() {
 }
 
 async function main() {
-  const outDir = mkdtempSync(join(tmpdir(), 'forme-pdfua-'));
+  // OUT_DIR keeps the rendered corpus where a later step can read it (CI uploads
+  // it to Forme Review); otherwise a temp dir as before.
+  const outDir = process.env.OUT_DIR ? (mkdirSync(process.env.OUT_DIR, { recursive: true }), process.env.OUT_DIR) : mkdtempSync(join(tmpdir(), 'forme-pdfua-'));
   const vera = findVeraPdf();
   const corpus = [];
 
