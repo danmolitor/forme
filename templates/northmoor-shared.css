@@ -26,8 +26,8 @@ body {
   margin: 0;
   background-color: #FDFCFA;
   font-family: Helvetica, Arial, sans-serif;
-  font-size: 7.5pt;      /* 10px prototype base */
-  line-height: 1.5;
+  font-size: 8.25pt;     /* 11px prototype base — one step up the scale */
+  line-height: 1.6;
   color: #111111;
 }
 
