@@ -17,7 +17,7 @@ import { tmpdir, homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { emitSection, veraValidate, veraVersion } from './parity/lib.mjs';
+import { emitSection, veraValidateBatch, veraVersion } from './parity/lib.mjs';
 
 import { serialize } from '@formepdf/react';
 import { getTemplate } from '@formepdf/templates';
@@ -102,10 +102,12 @@ async function main() {
       const p = join(outDir, `${level}-html-${name}.pdf`); writeFileSync(p, pdf);
       corpus.push({ label: `html/${name}`, path: p });
     }
-    for (const c of corpus) {
-      for (const profile of [level, 'ua1']) {
-        const { pass, failedClauses } = veraValidate(vera, profile, c.path);
-        section.results.push({ fixture: c.label, configuration: `a${level}`, profile, pass, failedClauses });
+    // One JVM per profile over the whole corpus (was one per file*profile).
+    for (const profile of [level, 'ua1']) {
+      const batch = veraValidateBatch(vera, profile, corpus.map((c) => c.path));
+      for (const c of corpus) {
+        const r = batch.get(c.path) ?? { pass: false, failedClauses: [] };
+        section.results.push({ fixture: c.label, configuration: `a${level}`, profile, pass: r.pass, failedClauses: r.failedClauses });
       }
     }
   }

@@ -63,6 +63,50 @@ export function veraValidate(vera, flavour, pdfPath) {
 }
 
 /**
+ * Validate MANY files with one veraPDF invocation (one JVM). The CI corpus
+ * is ~39 documents; per-file invocation spent ~15s of JVM startup each —
+ * most of the conformance job's wall clock. veraPDF's multi-file report
+ * carries one <job> per input naming it by <item ...><name>; this splits
+ * the combined XML on job boundaries and reuses the single-file clause
+ * parsing per slice. Returns a Map from ABSOLUTE input path to
+ * { pass, failedClauses, xml } with the same shape as veraValidate.
+ */
+export function veraValidateBatch(vera, flavour, pdfPaths) {
+  if (pdfPaths.length === 0) return new Map();
+  let xml;
+  try {
+    xml = execFileSync(vera, ['-f', flavour, ...pdfPaths], {
+      encoding: 'utf8',
+      maxBuffer: 256 * 1024 * 1024,
+    });
+  } catch (err) {
+    xml = (err.stdout ?? '').toString();
+  }
+  const out = new Map();
+  const jobs = xml.split(/<job>/).slice(1);
+  for (const slice of jobs) {
+    const nameM = slice.match(/<name>([^<]+)<\/name>/);
+    if (!nameM) continue;
+    const jobXml = '<job>' + slice;
+    const pass = /isCompliant="true"/.test(jobXml);
+    const failedClauses = [];
+    const re =
+      /<rule\b[^>]*\bclause="([^"]+)"[^>]*\btestNumber="([^"]+)"[^>]*\bstatus="failed"[^>]*\bfailedChecks="([^"]+)"[^>]*>\s*<description>([^<]*)<\/description>/g;
+    let m;
+    while ((m = re.exec(jobXml)) !== null) {
+      failedClauses.push({
+        clause: m[1],
+        test: Number(m[2]),
+        failedChecks: Number(m[3]),
+        description: m[4],
+      });
+    }
+    out.set(nameM[1], { pass, failedClauses, xml: jobXml });
+  }
+  return out;
+}
+
+/**
  * Keep a validator's raw report where Forme Review's upload step can attach
  * it (`--conformance`). No-op unless OUT_DIR is set. The report names the PDF
  * by its path under OUT_DIR, which is also the path the upload names it by.
