@@ -36,7 +36,6 @@ body {
 .mark {
   width: 33pt;
   height: 33pt;
-  flex-shrink: 0;        /* the design's flex:none — the square must not give up width */
   background-color: #7B2233;
   color: #FFFFFF;
   font-family: Georgia, 'Times New Roman', serif;
@@ -300,7 +299,6 @@ h1.sh, h2.sh, h3.sh, .sh {
 }
 .cln {
   width: 27pt;           /* 36px fixed column */
-  flex-shrink: 0;        /* the design's flex:none — clause numbers keep their column */
   font-family: Helvetica, Arial, sans-serif;
   font-weight: 700;
   font-size: 6.375pt;    /* 8.5px */
