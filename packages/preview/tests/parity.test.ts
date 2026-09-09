@@ -17,7 +17,7 @@ import { renderHtml as renderServer } from '@formepdf/html';
 import { init as initBrowserProxy, renderHtml as renderBrowserProxy } from '@formepdf/html/worker';
 
 // The unit under test — does not exist yet (this is the fails-first import).
-import { renderForPreview, fontFingerprint, standardFonts } from '../src/render.js';
+import { renderForPreview, fontFingerprint, fontsMatch, standardFonts } from '../src/render.js';
 
 const require = createRequire(import.meta.url);
 const WASM = require.resolve('@formepdf/html/pkg-web/forme_pdf_html_bg.wasm');
@@ -89,5 +89,20 @@ describe('font fingerprint — converts the silent case to a loud one', () => {
   it('treats undefined and empty font sets identically and stably', () => {
     expect(fontFingerprint(undefined)).toBe(fontFingerprint([]));
     expect(fontFingerprint([])).toBe(fontFingerprint([]));
+  });
+});
+
+describe('fontsMatch — the mismatch banner decision', () => {
+  it('fires (returns false) when the preview fonts differ from the server print', () => {
+    const server = standardFonts();
+    const serverPrint = fontFingerprint(server);
+    const previewMissingOne = server.slice(0, server.length - 1);
+    expect(fontsMatch(previewMissingOne, serverPrint)).toBe(false); // banner shows
+    expect(fontsMatch(server, serverPrint)).toBe(true); // banner hidden
+  });
+
+  it('no expected fingerprint means no expectation → always matches', () => {
+    expect(fontsMatch(undefined, undefined)).toBe(true);
+    expect(fontsMatch(standardFonts(), undefined)).toBe(true);
   });
 });
