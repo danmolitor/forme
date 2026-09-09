@@ -31,4 +31,4 @@
 .mast-divider { margin-top: 15pt; }
 .accept { margin-top: 13.5pt; }
 .accept .sigline { margin-top: 19.5pt; }
-.datebox { flex-grow: 0.6; }
+.datebox { flex: 0.6; }

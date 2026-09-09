@@ -32,4 +32,4 @@
 .ckline .ck { flex-shrink: 0; }
 .sig-dn { margin-top: 15pt; gap: 30pt; }
 .sig-dn .sigline { margin-top: 21pt; }
-.sig-dn .halfslot { flex-grow: 0.55; }
+.sig-dn .halfslot { flex: 0.55; }

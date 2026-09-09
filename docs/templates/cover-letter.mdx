@@ -11,7 +11,7 @@ description: "A one-page quotation cover letter on the estimating masthead, with
 
 A one-page quotation cover letter on the estimating masthead, with the quoted total and decision points carried in prose rather than tables. Change the recipient, subject line and quotation reference first; the quoted total in data.json should match the quotation it covers (QUO-2026-118 in the quote template). The footer note carries the enclosures line, and the page counter reads Page 1 of 1 by design.
 
-**Engine features exercised:** @page margin boxes, page counters, fixed-height page fill with flex-grow spacer, flex masthead.
+**Engine features exercised:** @page margin boxes, page counters, fixed-height page fill with a flex: 1 spacer, flex masthead.
 
 Render it:
 
@@ -70,7 +70,7 @@ npx @formepdf/html templates/cover-letter/index.html -o cover-letter.pdf
 </div>
 <div class="pagefill-spacer"></div>
 <footer class="foot">
-  <div style="flex-grow: 1"><span class="lbl">Enclosures</span> &nbsp;Quotation QUO-2026-118 · Ductwork layout sketch DL-114 · Reference contacts</div>
+  <div style="flex: 1"><span class="lbl">Enclosures</span> &nbsp;Quotation QUO-2026-118 · Ductwork layout sketch DL-114 · Reference contacts</div>
   <div>Ref. PRO-2026-0907-ACPS</div>
 </footer>
 </div>
