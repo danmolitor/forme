@@ -90,6 +90,13 @@ jobs:
         # target across the fixture corpus. The three targets embed the same
         # wasm (asserted by hash here); this proves the JS glue matches too.
         run: node packages/html/test/targets-determinism.mjs
+      - name: Docs template gallery freshness
+        # docs.formepdf.com/templates is generated from templates/ — this
+        # verifies the committed MDX and image manifest match the current
+        # template sources (input-hash check, no re-rasterization: Linux and
+        # macOS poppler AA diverge, so images are validated by the hash of
+        # what produced them). Regenerate: node scripts/docs-templates.mjs
+        run: node scripts/docs-templates.mjs --check
       - name: Northmoor signature hygiene (break-inside on sig containers)
         # The design rule "signature blocks never split" as a gate — every
         # signature container class used in template markup must resolve

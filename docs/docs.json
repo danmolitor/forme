@@ -36,6 +36,57 @@
         ]
       },
       {
+        "group": "Template Library",
+        "pages": [
+          "templates",
+          {
+            "group": "Billing & Finance",
+            "pages": [
+              "templates/invoice-standard",
+              "templates/invoice-detailed",
+              "templates/credit-note",
+              "templates/receipt",
+              "templates/quote",
+              "templates/statement",
+              "templates/purchase-order",
+              "templates/remittance-advice",
+              "templates/expense-report",
+              "templates/payslip"
+            ]
+          },
+          {
+            "group": "Correspondence & Legal",
+            "pages": [
+              "templates/letterhead",
+              "templates/cover-letter",
+              "templates/memo",
+              "templates/employment-contract",
+              "templates/nda",
+              "templates/service-agreement",
+              "templates/offer-letter",
+              "templates/termination-letter",
+              "templates/reference-letter",
+              "templates/policy-acknowledgement"
+            ]
+          },
+          {
+            "group": "Reports, Logistics & Certificates",
+            "pages": [
+              "templates/report-annual",
+              "templates/report-monthly",
+              "templates/lab-report",
+              "templates/inspection-report",
+              "templates/shipping-label",
+              "templates/packing-slip",
+              "templates/delivery-note",
+              "templates/certificate",
+              "templates/product-catalog",
+              "templates/meeting-minutes"
+            ]
+          }
+        ]
+      },
+      {
         "group": "Reference",
         "pages": [
           "components",
@@ -45,7 +96,7 @@
           "page-breaks",
           "charts",
           "layout",
-          "templates",
+          "template-mode",
           "embedded-data",
           "self-hosting"
         ]
