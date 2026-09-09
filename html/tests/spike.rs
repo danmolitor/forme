@@ -291,3 +291,88 @@ fn flex_container_bare_text_runs_are_their_own_items() {
     }
     assert_eq!(lines.len(), 2, "bare-text item + element item: {lines:?}");
 }
+
+#[test]
+fn nested_flex_row_intrinsic_width_includes_its_gaps() {
+    // measure_intrinsic_width read the raw `gap` field, but the HTML
+    // path folds `gap:` into column_gap (the field layout reads) — so
+    // every CSS-gapped flex row measured gapless. A nested row then
+    // under-reported its intrinsic width by (n-1)*gap, was handed
+    // exactly that width by its parent, went over-full, and SHRANK its
+    // own fixed-width children: the masthead square that rendered
+    // 25.9pt wide with `width: 33pt` declared.
+    let html = r#"<html><body>
+      <div style="display: flex">
+        <div style="display: flex; gap: 12pt">
+          <div style="width: 33pt; height: 33pt; background-color: #7B2233"></div>
+          <div style="width: 60pt"><p>beside</p></div>
+        </div>
+        <div><p>filler that takes the rest of the outer row</p></div>
+      </div>
+    </body></html>"#;
+    let out = render_html_with_layout(html, &HtmlOptions::default()).expect("must render");
+    let mut squares: Vec<(f64, f64)> = Vec::new();
+    for p in &out.layout.pages {
+        walk(&p.elements, &mut |e| {
+            if e.height > 30.0 && e.height < 36.0 && e.width < 40.0 && e.node_type == "View" {
+                squares.push((e.width, e.height));
+            }
+        });
+    }
+    let sq = squares
+        .iter()
+        .find(|(w, h)| (*h - 33.0).abs() < 0.01 && *w > 20.0)
+        .unwrap_or_else(|| panic!("no candidate square found: {squares:?}"));
+    assert!(
+        (sq.0 - 33.0).abs() < 0.01,
+        "a declared 33pt square must render 33pt wide, got {}x{}",
+        sq.0,
+        sq.1
+    );
+}
+
+#[test]
+fn tracked_uppercase_text_measures_at_its_styled_width() {
+    // split_box_and_text_style dropped letter_spacing and text_transform
+    // from the node's text style, so tracked/uppercased text measured at
+    // its untracked lowercase width — under-sizing every shrink-wrapped
+    // container around styled text. A shrink-to-fit flex item around a
+    // tracked uppercase paragraph must be at least as wide as the
+    // untracked text PLUS the tracking.
+    let html = r#"<html><body>
+      <div style="display: flex">
+        <div style="background-color: #eee">
+          <p style="letter-spacing: 2pt; text-transform: uppercase; font-size: 10pt; margin: 0">northmoor</p>
+        </div>
+        <div><p>filler taking the remaining width of the row</p></div>
+      </div>
+    </body></html>"#;
+    let out = render_html_with_layout(html, &HtmlOptions::default()).expect("must render");
+    let mut line_w = 0.0f64;
+    let mut box_w = 0.0f64;
+    for p in &out.layout.pages {
+        walk(&p.elements, &mut |e| {
+            if let Some(t) = &e.text_content {
+                if t.contains("NORTHMOOR") {
+                    line_w = e.width;
+                }
+            }
+            if e.node_type == "View"
+                && e.width > 0.0
+                && e.width < 200.0
+                && e.x < 100.0
+                && box_w == 0.0
+            {
+                box_w = e.width;
+            }
+        });
+    }
+    assert!(line_w > 0.0, "the tracked line must render (uppercased)");
+    // "NORTHMOOR" at 10pt Helvetica untracked is ~61pt; with 2pt tracking
+    // across 9 glyphs the line is ~79pt. The container must hold the
+    // tracked width — not clip ~18pt of tracking away.
+    assert!(
+        box_w + 0.5 >= line_w,
+        "shrink-wrapped box ({box_w}) must be at least the tracked line width ({line_w})"
+    );
+}

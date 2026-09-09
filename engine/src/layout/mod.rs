@@ -6539,12 +6539,36 @@ impl LayoutEngine {
             }
             NodeKind::Watermark { .. } => 0.0, // Watermarks take zero width
             _ => {
+                // An explicit width IS the intrinsic width (content-box:
+                // padding and border sit on top, margins outside). The
+                // children-based measure below ignored it, so an empty
+                // width:33pt div measured 0 and the masthead mark measured
+                // as the width of its letter "N" (~10.8pt) — its flex row
+                // then went over-full by exactly the difference and shrank
+                // the mark to 25.9pt.
+                if let SizeConstraint::Fixed(w) = style.width {
+                    return w
+                        + style.padding.horizontal()
+                        + style.border_width.horizontal()
+                        + style.margin.horizontal();
+                }
                 // Recursively measure children's intrinsic widths
                 if node.children.is_empty() {
                     style.padding.horizontal() + style.margin.horizontal()
                 } else {
                     let direction = style.flex_direction;
-                    let gap = style.gap;
+                    // The resolved authority for a row's inter-item gap is
+                    // column_gap — resolve() folds the `gap` shorthand into
+                    // it, and layout_flex_row reads column_gap. Reading the
+                    // raw `gap` field measured every CSS `gap:`/`column-gap:`
+                    // flex row as gapless: a nested row under-reported its
+                    // intrinsic width by (n-1)*gap, was handed exactly that
+                    // width, went over-full, and shrank its own fixed-width
+                    // children (the masthead square that rendered 25.9pt
+                    // wide with width: 33pt declared). JSX callers are
+                    // unaffected: their `gap` folds into column_gap at
+                    // resolve time, so the two fields agree there.
+                    let gap = style.column_gap;
                     let mut total = 0.0f64;
                     for (i, child) in node.children.iter().enumerate() {
                         let child_style = child.style.resolve(Some(style), 0.0);
