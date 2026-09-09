@@ -11,7 +11,7 @@ description: "A one-page standard invoice in the Northmoor document system: mast
 
 A one-page standard invoice in the Northmoor document system: masthead, four-column meta grid, itemised table, totals stack and an accent amount-due block. Change the parties, line items and totals in index.html first (data.json mirrors every field). The footer is pushed to the page foot by a fixed-height flex column sized to Letter's content box; switch to A4 by changing @page size and the .pagefill height only.
 
-**Engine features exercised:** @page margin boxes with counter(page)/counter(pages), border-collapse tables, flexbox with flex-grow, absolute positioning for the full-bleed head rule.
+**Engine features exercised:** @page margin boxes with counter(page)/counter(pages), border-collapse tables, flexbox with flex: 1 columns, absolute positioning for the full-bleed head rule.
 
 Render it:
 
@@ -102,8 +102,8 @@ npx @formepdf/html templates/invoice-standard/index.html -o invoice-standard.pdf
 <div class="pagefill-spacer"></div>
 
 <footer class="foot">
-  <div style="flex-grow: 1"><div class="lbl">Remit to</div>Northmoor Industrial Group, Inc. · First Genesee Bank, Rochester NY<br>Account 8841 002937 · Routing 021304559 · Reference INV-4417</div>
-  <div style="flex-grow: 1"><div class="lbl">Terms</div>Payment due within 30 days of invoice date. Balances past due accrue interest at 1.5% per month. Title passes on delivery; claims for shortage must be filed within 10 days.</div>
+  <div style="flex: 1"><div class="lbl">Remit to</div>Northmoor Industrial Group, Inc. · First Genesee Bank, Rochester NY<br>Account 8841 002937 · Routing 021304559 · Reference INV-4417</div>
+  <div style="flex: 1"><div class="lbl">Terms</div>Payment due within 30 days of invoice date. Balances past due accrue interest at 1.5% per month. Title passes on delivery; claims for shortage must be filed within 10 days.</div>
 </footer>
 
 </div>

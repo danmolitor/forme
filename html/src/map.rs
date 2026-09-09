@@ -1651,6 +1651,7 @@ fn to_engine_style(c: &Computed) -> Style {
     s.letter_spacing = c.letter_spacing;
     s.flex_grow = c.flex_grow;
     s.flex_shrink = c.flex_shrink;
+    s.flex_basis = c.flex_basis.map(forme::style::Dimension::Pt);
 
     if c.position_absolute {
         s.position = Some(forme::model::Position::Absolute);

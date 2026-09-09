@@ -99,6 +99,29 @@ const sha = (buf) => createHash('sha256').update(buf).digest('hex');
 const sharedCss = readFileSync(join(T, 'northmoor-shared.css'), 'utf8');
 const selfHash = sha(readFileSync(fileURLToPath(import.meta.url)));
 
+// The RENDERER's source is an input too: an engine or mapper change that
+// moves template renders must stale the committed images, or the gallery
+// silently drifts from what the engine produces (this gate originally
+// hashed only template files — an engine fix squared the masthead mark
+// and nothing failed). Hash the render-affecting source trees, not build
+// artifacts: wasm bytes differ between local and CI toolchains, source
+// bytes don't.
+function treeHash(dir) {
+  const h = createHash('sha256');
+  const walkDir = (d) => {
+    for (const ent of readdirSync(d, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+      const p = join(d, ent.name);
+      if (ent.isDirectory()) walkDir(p);
+      else if (ent.name.endsWith('.rs')) { h.update(p.slice(REPO.length)); h.update(readFileSync(p)); }
+    }
+  };
+  walkDir(dir);
+  return h.digest('hex');
+}
+const engineHash = sha(
+  Buffer.from(treeHash(join(REPO, 'engine', 'src')) + treeHash(join(REPO, 'html', 'src')))
+);
+
 /** Parse a template README: h1 title, description paragraph,
  *  "Engine features:" line, "Render:" line. The format is the contract —
  *  fail loudly rather than emit a half-empty page. */
@@ -125,6 +148,7 @@ function inputHash(slug) {
   const h = createHash('sha256');
   h.update(sharedCss);
   h.update(selfHash); // generator changes invalidate everything
+  h.update(engineHash); // renderer-source changes invalidate everything
   for (const f of files) {
     const p = join(T, slug, f);
     if (existsSync(p)) h.update(readFileSync(p));

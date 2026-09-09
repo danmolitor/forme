@@ -291,3 +291,201 @@ fn flex_container_bare_text_runs_are_their_own_items() {
     }
     assert_eq!(lines.len(), 2, "bare-text item + element item: {lines:?}");
 }
+
+#[test]
+fn nested_flex_row_intrinsic_width_includes_its_gaps() {
+    // measure_intrinsic_width read the raw `gap` field, but the HTML
+    // path folds `gap:` into column_gap (the field layout reads) — so
+    // every CSS-gapped flex row measured gapless. A nested row then
+    // under-reported its intrinsic width by (n-1)*gap, was handed
+    // exactly that width by its parent, went over-full, and SHRANK its
+    // own fixed-width children: the masthead square that rendered
+    // 25.9pt wide with `width: 33pt` declared.
+    let html = r#"<html><body>
+      <div style="display: flex">
+        <div style="display: flex; gap: 12pt">
+          <div style="width: 33pt; height: 33pt; background-color: #7B2233"></div>
+          <div style="width: 60pt"><p>beside</p></div>
+        </div>
+        <div><p>filler that takes the rest of the outer row</p></div>
+      </div>
+    </body></html>"#;
+    let out = render_html_with_layout(html, &HtmlOptions::default()).expect("must render");
+    let mut squares: Vec<(f64, f64)> = Vec::new();
+    for p in &out.layout.pages {
+        walk(&p.elements, &mut |e| {
+            if e.height > 30.0 && e.height < 36.0 && e.width < 40.0 && e.node_type == "View" {
+                squares.push((e.width, e.height));
+            }
+        });
+    }
+    let sq = squares
+        .iter()
+        .find(|(w, h)| (*h - 33.0).abs() < 0.01 && *w > 20.0)
+        .unwrap_or_else(|| panic!("no candidate square found: {squares:?}"));
+    assert!(
+        (sq.0 - 33.0).abs() < 0.01,
+        "a declared 33pt square must render 33pt wide, got {}x{}",
+        sq.0,
+        sq.1
+    );
+}
+
+#[test]
+fn tracked_uppercase_text_measures_at_its_styled_width() {
+    // split_box_and_text_style dropped letter_spacing and text_transform
+    // from the node's text style, so tracked/uppercased text measured at
+    // its untracked lowercase width — under-sizing every shrink-wrapped
+    // container around styled text. A shrink-to-fit flex item around a
+    // tracked uppercase paragraph must be at least as wide as the
+    // untracked text PLUS the tracking.
+    let html = r#"<html><body>
+      <div style="display: flex">
+        <div style="background-color: #eee">
+          <p style="letter-spacing: 2pt; text-transform: uppercase; font-size: 10pt; margin: 0">northmoor</p>
+        </div>
+        <div><p>filler taking the remaining width of the row</p></div>
+      </div>
+    </body></html>"#;
+    let out = render_html_with_layout(html, &HtmlOptions::default()).expect("must render");
+    let mut line_w = 0.0f64;
+    let mut box_w = 0.0f64;
+    for p in &out.layout.pages {
+        walk(&p.elements, &mut |e| {
+            if let Some(t) = &e.text_content {
+                if t.contains("NORTHMOOR") {
+                    line_w = e.width;
+                }
+            }
+            if e.node_type == "View"
+                && e.width > 0.0
+                && e.width < 200.0
+                && e.x < 100.0
+                && box_w == 0.0
+            {
+                box_w = e.width;
+            }
+        });
+    }
+    assert!(line_w > 0.0, "the tracked line must render (uppercased)");
+    // "NORTHMOOR" at 10pt Helvetica untracked is ~61pt; with 2pt tracking
+    // across 9 glyphs the line is ~79pt. The container must hold the
+    // tracked width — not clip ~18pt of tracking away.
+    assert!(
+        box_w + 0.5 >= line_w,
+        "shrink-wrapped box ({box_w}) must be at least the tracked line width ({line_w})"
+    );
+}
+
+#[test]
+fn letter_and_word_spacing_inherit_to_descendant_text() {
+    // CSS: letter-spacing and word-spacing are inherited properties. The
+    // engine resolved both with unwrap_or(0.0) — no parent fallback —
+    // while text-transform beside them inherits correctly. The mapper
+    // relies on engine inheritance for anything it doesn't set per node
+    // ("the engine's own inheritance does the rest"), so tracking on a
+    // container silently vanished from descendant text: the Northmoor
+    // wordmark rendered untracked, and measured that way too.
+    // (word-spacing inherits engine-side too now, but the CSS subset
+    // does not parse the property yet — letter-spacing carries the pin.)
+    let spaced = r#"<html><body>
+      <div style="letter-spacing: 2pt"><p style="margin: 0">north moor group</p></div>
+    </body></html>"#;
+    let plain = r#"<html><body>
+      <div><p style="margin: 0">north moor group</p></div>
+    </body></html>"#;
+    let width_of = |html: &str| {
+        let out = render_html_with_layout(html, &HtmlOptions::default()).expect("must render");
+        let mut w = 0.0f64;
+        for p in &out.layout.pages {
+            walk(&p.elements, &mut |e| {
+                if e.text_content.as_deref() == Some("north moor group") {
+                    w = e.width;
+                }
+            });
+        }
+        assert!(w > 0.0, "line must render");
+        w
+    };
+    let ws = width_of(spaced);
+    let wp = width_of(plain);
+    // 16 chars => 15 inter-glyph gaps * 2pt tracking = 30pt.
+    assert!(
+        ws - wp > 29.5,
+        "inherited tracking must widen the line: spaced {ws} vs plain {wp}"
+    );
+}
+
+#[test]
+fn baseline_alignment_shares_one_baseline_across_font_sizes() {
+    // align-items: baseline — the documented engine gap (parsed, treated
+    // as flex-start) — implemented for flex rows. In the engine's
+    // baseline model a line's baseline sits at half-leading + font_size
+    // from the line top, so for label (6pt, lh 1.5 => d = 7.5) beside
+    // figure (25.5pt, lh 0.9 => d = 24.225) the label must be shoved
+    // down by exactly d_fig - d_label = 16.725pt. Failed before the
+    // engine change: both items sat at the same y (flex-start).
+    let html = r#"<html><body>
+      <div style="display: flex; justify-content: space-between; align-items: baseline; width: 255pt; line-height: 1.5">
+        <span style="font-size: 6pt">AMOUNT DUE</span>
+        <span style="font-size: 25.5pt; line-height: 0.9">$4,647.07</span>
+      </div>
+    </body></html>"#;
+    let out = render_html_with_layout(html, &HtmlOptions::default()).expect("must render");
+    let mut lines: Vec<(String, f64)> = Vec::new();
+    for p in &out.layout.pages {
+        walk(&p.elements, &mut |e| {
+            if let Some(t) = &e.text_content {
+                if !t.trim().is_empty() {
+                    lines.push((t.clone(), e.y));
+                }
+            }
+        });
+    }
+    let label = lines
+        .iter()
+        .find(|l| l.0.contains("AMOUNT"))
+        .expect("label");
+    let figure = lines
+        .iter()
+        .find(|l| l.0.contains("4,647"))
+        .expect("figure");
+    let shove = label.1 - figure.1;
+    assert!(
+        (shove - 16.725).abs() < 0.05,
+        "label must sit d_fig - d_label = 16.725pt below the figure's top, got {shove}"
+    );
+}
+
+#[test]
+fn flex_n_shorthand_sets_basis_zero_per_spec() {
+    // CSS: `flex: 1` is `1 1 0` — grow 1, shrink 1, BASIS ZERO. The
+    // subset's shorthand set grow and shrink but left basis auto, so a
+    // flexible text column contributed its full unwrapped line width at
+    // distribution time; beside a fixed-width sibling the row went
+    // over-full and shrink crushed the sibling below its declared width
+    // (invoice-detailed's contract-status table, 8.7pt past the page
+    // margin). With basis 0 the row is never over-full: the fixed
+    // sibling keeps its width exactly and the text column takes the
+    // remainder.
+    let html = r#"<html><body>
+      <div style="display: flex; gap: 24pt">
+        <div style="flex: 1"><p style="margin: 0">a long paragraph of scope text that would measure far wider than the row if taken at its unwrapped intrinsic width, which is the bug</p></div>
+        <div style="width: 195pt"><p style="margin: 0">status</p></div>
+      </div>
+    </body></html>"#;
+    let out = render_html_with_layout(html, &HtmlOptions::default()).expect("must render");
+    let mut status_box = None;
+    for p in &out.layout.pages {
+        walk(&p.elements, &mut |e| {
+            if e.node_type == "View" && e.width > 100.0 && e.x > 200.0 && status_box.is_none() {
+                status_box = Some((e.x, e.width));
+            }
+        });
+    }
+    let (x, w) = status_box.expect("status box");
+    assert!(
+        (w - 195.0).abs() < 0.01,
+        "the fixed sibling must keep its 195pt, got {w} at x {x}"
+    );
+}

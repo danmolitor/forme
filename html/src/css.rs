@@ -118,6 +118,7 @@ pub struct CssStyle {
     pub flex_direction: Option<FlexDirection>,
     pub flex_grow: Option<f64>,
     pub flex_shrink: Option<f64>,
+    pub flex_basis: Option<Length>,
     pub justify_content: Option<JustifyContent>,
     pub align_items: Option<AlignItems>,
     pub gap: Option<f64>,
@@ -221,6 +222,7 @@ impl CssStyle {
             flex_direction,
             flex_grow,
             flex_shrink,
+            flex_basis,
             justify_content,
             align_items,
             gap,
@@ -490,8 +492,13 @@ pub(crate) fn apply_declaration(
         // basis as auto-with-grow, which matches the idiom's intent.
         "flex" => {
             if let Ok(n) = p.expect_number() {
+                // Per CSS, `flex: <n>` is `<n> 1 0` — basis ZERO, not
+                // auto. Leaving basis auto made a `flex: 1` text column
+                // contribute its full unwrapped width at distribution
+                // time, over-filling rows beside fixed-width siblings.
                 style.flex_grow = Some(n as f64);
                 style.flex_shrink = Some(1.0);
+                style.flex_basis = Some(crate::css::Length::Pt(0.0));
             } else {
                 warnings.push(
                     "unsupported flex shorthand value (use flex-grow / flex-basis longhands)"
