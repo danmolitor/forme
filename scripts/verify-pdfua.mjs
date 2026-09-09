@@ -18,7 +18,7 @@ import { basename, join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readFile } from 'node:fs/promises';
 
-import { emitSection, keepLayout, keepReport, veraValidate, veraVersion } from './parity/lib.mjs';
+import { emitSection, keepLayout, keepReport, veraValidateBatch, veraVersion } from './parity/lib.mjs';
 
 import { serialize } from '@formepdf/react';
 import { getTemplate } from '@formepdf/templates';
@@ -195,11 +195,16 @@ async function main() {
     label: 'PDF/UA-1',
     render: 'pdfUa + tagged + fonts-standard',
     corpus: corpus.map((c) => c.label),
-    results: corpus.map((c) => {
-      const { pass, failedClauses, xml } = veraValidate(vera, 'ua1', c.path);
-      keepReport(`${basename(c.path, '.pdf')}.ua1.xml`, xml); // for Forme Review's --conformance
-      return { fixture: c.label, profile: 'ua1', pass, failedClauses };
-    }),
+    // One veraPDF invocation (one JVM) for the whole corpus — per-file
+    // startup dominated this job's wall clock at ~39 documents.
+    results: (() => {
+      const batch = veraValidateBatch(vera, 'ua1', corpus.map((c) => c.path));
+      return corpus.map((c) => {
+        const r = batch.get(c.path) ?? { pass: false, failedClauses: [], xml: '' };
+        keepReport(`${basename(c.path, '.pdf')}.ua1.xml`, r.xml); // for Forme Review's --conformance
+        return { fixture: c.label, profile: 'ua1', pass: r.pass, failedClauses: r.failedClauses };
+      });
+    })(),
   };
   emitSection('conformance-ua', section);
 

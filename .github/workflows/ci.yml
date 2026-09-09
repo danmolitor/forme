@@ -120,6 +120,11 @@ jobs:
         # top-level-init crash the web entry is designed to avoid.
         working-directory: packages/html
         run: npm run test:workers
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}
       - name: Real-browser render (headless Chromium)
         # Loads the web build in a real browser and renders a fixture — the
         # headline "runs in the browser" claim, verified not declared.
