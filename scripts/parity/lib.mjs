@@ -83,11 +83,21 @@ export function veraValidateBatch(vera, flavour, pdfPaths) {
     xml = (err.stdout ?? '').toString();
   }
   const out = new Map();
+  // Reconstruct a VALID standalone veraPDF report per file: the batch
+  // report's envelope (prolog + <report> head before the first job, tail
+  // after the last) wrapped around each single <job>. Consumers
+  // (pdf-testkit's conformance parser) require a well-formed report
+  // document, not a bare job fragment.
+  const firstJob = xml.indexOf('<job>');
+  const lastJobEnd = xml.lastIndexOf('</job>') + '</job>'.length;
+  const head = firstJob >= 0 ? xml.slice(0, firstJob) : '';
+  const tail = lastJobEnd > 0 ? xml.slice(lastJobEnd) : '';
   const jobs = xml.split(/<job>/).slice(1);
   for (const slice of jobs) {
     const nameM = slice.match(/<name>([^<]+)<\/name>/);
     if (!nameM) continue;
-    const jobXml = '<job>' + slice;
+    const jobBody = '<job>' + slice.slice(0, slice.indexOf('</job>') + '</job>'.length);
+    const jobXml = head + jobBody + tail;
     const pass = /isCompliant="true"/.test(jobXml);
     const failedClauses = [];
     const re =
