@@ -211,3 +211,83 @@ fn stylesheet_block_is_ignored_not_rendered() {
         "stylesheet text must not render"
     );
 }
+
+#[test]
+fn flex_container_inline_children_become_separate_items() {
+    // CSS Flexbox: each in-flow child ELEMENT of a flex container is its
+    // own flex item — inline or not — and each contiguous run of bare
+    // text wraps in an anonymous item. The mapper merged consecutive
+    // inline children into ONE Text node (correct for block containers,
+    // wrong here), so <div style="display:flex; justify-content:
+    // space-between"><span>Label</span><span>$1,234</span></div> — the
+    // label/figure row in any document — silently fused: no spread, no
+    // independent alignment, the line box sized by whichever font came
+    // first (the Northmoor amount-due row: a 25.5pt figure inside an
+    // 11.25pt line).
+    let html = r#"<html><body>
+      <div style="display: flex; justify-content: space-between; width: 255pt">
+        <span style="font-size: 6pt">AMOUNT DUE</span>
+        <span style="font-size: 25.5pt">$4,647.07</span>
+      </div>
+    </body></html>"#;
+    let out = render_html_with_layout(html, &HtmlOptions::default()).expect("must render");
+    let mut lines: Vec<(String, f64, f64, f64)> = Vec::new();
+    for p in &out.layout.pages {
+        walk(&p.elements, &mut |e| {
+            if let Some(t) = &e.text_content {
+                if !t.trim().is_empty() {
+                    lines.push((t.clone(), e.x, e.width, e.height));
+                }
+            }
+        });
+    }
+    assert_eq!(
+        lines.len(),
+        2,
+        "two separate flex items, not one merged line: {lines:?}"
+    );
+    let label = lines
+        .iter()
+        .find(|l| l.0.contains("AMOUNT"))
+        .expect("label");
+    let figure = lines
+        .iter()
+        .find(|l| l.0.contains("4,647"))
+        .expect("figure");
+    // space-between: label at the container's left edge, figure's right
+    // edge at the container's right edge (x starts at the page margin).
+    let left = label.1;
+    let right = figure.1 + figure.2;
+    assert!(
+        (right - left - 255.0).abs() < 2.0,
+        "space-between must spread items to the box edges: left {left}, right {right}"
+    );
+    // The figure's line box is sized by its OWN font, not the label's.
+    assert!(
+        figure.3 > 20.0,
+        "a 25.5pt run needs its own line box, got height {}",
+        figure.3
+    );
+}
+
+#[test]
+fn flex_container_bare_text_runs_are_their_own_items() {
+    // Contiguous bare text wraps in one anonymous item; an element
+    // sibling is a separate item. Whitespace-only text between items
+    // produces no item at all.
+    let html = r#"<html><body>
+      <div style="display: flex; gap: 12pt">plain run <b>bold item</b></div>
+    </body></html>"#;
+    let out = render_html_with_layout(html, &HtmlOptions::default()).expect("must render");
+    let mut lines: Vec<String> = Vec::new();
+    for p in &out.layout.pages {
+        walk(&p.elements, &mut |e| {
+            if let Some(t) = &e.text_content {
+                if !t.trim().is_empty() {
+                    lines.push(t.clone());
+                }
+            }
+        });
+    }
+    assert_eq!(lines.len(), 2, "bare-text item + element item: {lines:?}");
+}
