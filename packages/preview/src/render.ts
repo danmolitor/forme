@@ -44,6 +44,10 @@ export async function renderForPreview(
   options: RenderHtmlOptions | undefined,
   renderHtml: RenderHtmlFn,
 ): Promise<RenderHtmlResult> {
+  // The guarantee is the ABSENCE of transforms. Do NOT add a preview-specific
+  // default, option, or mutation here — any divergence from what the server
+  // passes to renderHtml silently breaks preview↔output parity. The CI parity
+  // gate (browser bytes === server bytes across the corpus) exists to catch it.
   return await renderHtml(html, options);
 }
 

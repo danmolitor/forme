@@ -41,6 +41,44 @@ const HTML = `<!doctype html><html lang="en"><head><style>
   </table>
 </body></html>`;
 
+// A hermetic corpus of diverse shapes, inline so the gate needs no external
+// fixtures (a fresh CI checkout has everything). Rendering the WHOLE set — not
+// one doc — is what makes this a gate rather than an anecdote: any
+// preview-introduced divergence on any shape trips it. `page-counters` is the
+// important one: `counter(page)`/`counter(pages)` drive the 2–3 pass
+// sentinel-width path, the trickiest to keep byte-identical.
+const LONG_ROWS = Array.from({ length: 60 }, (_, i) => `<tr><td>Row ${i + 1}</td><td>€${i}.00</td></tr>`).join('');
+const CORPUS: Array<[string, string]> = [
+  ['invoice-table', HTML],
+  [
+    'multipage',
+    `<!doctype html><html lang="en"><head><style>
+       body { font-family: 'Liberation Sans', sans-serif; font-size: 11pt; margin: 20pt; }
+       table { width: 100%; border-collapse: collapse; }
+       td { border-bottom: 1px solid #ccc; padding: 3pt; }
+     </style></head><body><table><tbody>${LONG_ROWS}</tbody></table></body></html>`,
+  ],
+  [
+    'page-counters',
+    `<!doctype html><html lang="en"><head><style>
+       @page { margin: 40pt; @bottom-center { content: "Page " counter(page) " of " counter(pages); } }
+       body { font-family: 'Liberation Serif', serif; font-size: 11pt; }
+       p { margin: 0 0 8pt; }
+     </style></head><body>${Array.from({ length: 40 }, (_, i) => `<p>Paragraph ${i + 1}. The quick brown fox jumps over the lazy dog, repeatedly, to fill the page and force breaks.</p>`).join('')}</body></html>`,
+  ],
+  [
+    'borders-backgrounds',
+    `<!doctype html><html lang="en"><head><style>
+       body { font-family: 'Liberation Sans', sans-serif; margin: 24pt; }
+       .card { background: #eef2ff; border: 2px solid #6366f1; border-radius: 6px; padding: 12pt; margin-bottom: 10pt; }
+       .muted { color: #6b7280; }
+     </style></head><body>
+       <div class="card"><strong>Statement</strong><p class="muted">Balance carried forward.</p></div>
+       <div class="card">Line item — rendering seat.</div>
+     </body></html>`,
+  ],
+];
+
 beforeAll(async () => {
   await initBrowserProxy(readFileSync(WASM));
 });
@@ -58,6 +96,16 @@ describe('preview ↔ server parity', () => {
     expect(preview.pdf.length).toBe(server.pdf.length);
     expect(Buffer.from(preview.pdf).equals(Buffer.from(server.pdf))).toBe(true);
   });
+
+  // The gate: every corpus doc, preview bytes === server bytes.
+  for (const [name, html] of CORPUS) {
+    it(`corpus parity: ${name} — preview bytes === server bytes`, async () => {
+      const options = { fonts: standardFonts() };
+      const server = await renderServer(html, options);
+      const preview = await renderForPreview(html, options, renderBrowserProxy);
+      expect(Buffer.from(preview.pdf).equals(Buffer.from(server.pdf))).toBe(true);
+    });
+  }
 
   it('renderForPreview does not mutate or default the options object', async () => {
     const options = { fonts: standardFonts() };
