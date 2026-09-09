@@ -114,6 +114,13 @@ jobs:
         # headline "runs in the browser" claim, verified not declared.
         run: |
           npm i --no-save playwright
+          # `--with-deps` runs apt-get update, which refreshes every source the
+          # runner image ships, including Google's Chrome repository. That
+          # repository is briefly inconsistent while Google rolls it (a
+          # "Hash Sum mismatch" on its Packages index failed main on
+          # 2026-09-09), and Playwright's own Chromium never needed it.
+          # Drop it before installing the system libraries.
+          sudo rm -f /etc/apt/sources.list.d/google-chrome*.list
           npx playwright install --with-deps chromium
           node packages/html/test/browser-verify.mjs
       - name: Emit parity evidence (determinism)
