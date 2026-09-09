@@ -26,7 +26,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - name: Install poppler (pdftoppm for visual regression)
-        run: sudo apt-get update -q && sudo apt-get install -y -q poppler-utils
+        # Google's Chrome apt source ships in the runner image and is briefly
+        # inconsistent while Google rolls it ("Hash Sum mismatch", main,
+        # 2026-09-09). Nothing here needs it; drop it before updating.
+        run: sudo rm -f /etc/apt/sources.list.d/google-chrome*.list && sudo apt-get update -q && sudo apt-get install -y -q poppler-utils
       - name: Run tests
         working-directory: engine
         # --features visual-tests: the visual-regression suite is part of
