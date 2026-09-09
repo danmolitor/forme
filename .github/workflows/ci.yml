@@ -588,18 +588,6 @@ jobs:
           PARITY_DIR: ${{ github.workspace }}/parity-partials
           OUT_DIR: ${{ github.workspace }}/dist/review
         run: node scripts/verify-pdfua.mjs
-      - name: Upload the corpus to Forme Review
-        # The same 39 documents the conformance gate just rendered — five shipped
-        # templates, four HTML fixtures, thirty Northmoor documents on one shared
-        # stylesheet — uploaded as one batch. The first upload establishes each
-        # document's baseline; every PR after that is compared and reported as a
-        # check and a comment. Structure only by default; the PDFs stay here.
-        # One batch per commit: the service judges document presence when a
-        # batch completes, so nothing else in this workflow uploads.
-        env:
-          PDF_TESTKIT_SERVICE_URL: https://review-api.formepdf.com
-          PDF_TESTKIT_TOKEN: ${{ secrets.PDF_TESTKIT_TOKEN }}
-        run: npx --no-install pdf-testkit upload dist/review/*.pdf --require-service
       - name: Validate the PDF/A + PDF/UA-1 corpus
         # The same corpus rendered as BOTH PDF/A and PDF/UA-1, validated against
         # veraPDF's PDF/A-2b and PDF/A-2a profiles AND its PDF/UA-1 profile — the
@@ -623,7 +611,22 @@ jobs:
         env:
           REQUIRE_VALIDATORS: '1'
           PARITY_DIR: ${{ github.workspace }}/parity-partials
+          OUT_DIR: ${{ github.workspace }}/dist/review
         run: node scripts/verify-einvoice.mjs
+      - name: Upload the corpus to Forme Review
+        # The 39 documents the conformance gate rendered plus the Factur-X invoice,
+        # with every validator's report attached: veraPDF's for PDF/UA-1 (and
+        # PDF/A-3b on the invoice), Mustang's for EN 16931 through the documented
+        # JSON. Forme Review records the verdicts attributed to each validator; it
+        # never validates. One batch per commit. The first upload establishes each
+        # document's baseline; every PR after that is compared and reported as a
+        # check and a comment. Structure only by default; the PDFs stay here.
+        # One batch per commit: the service judges document presence when a
+        # batch completes, so nothing else in this workflow uploads.
+        env:
+          PDF_TESTKIT_SERVICE_URL: https://review-api.formepdf.com
+          PDF_TESTKIT_TOKEN: ${{ secrets.PDF_TESTKIT_TOKEN }}
+        run: npx --no-install pdf-testkit upload dist/review/*.pdf --conformance dist/review/reports/*.xml dist/review/reports/*.json --require-service
       - name: Upload parity evidence (conformance)
         uses: actions/upload-artifact@v4
         with:

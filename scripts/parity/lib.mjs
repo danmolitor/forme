@@ -57,5 +57,58 @@ export function veraValidate(vera, flavour, pdfPath) {
       description: m[4],
     });
   }
-  return { pass, failedClauses };
+  return { pass, failedClauses, xml };
+}
+
+/**
+ * Keep a validator's raw report where Forme Review's upload step can attach
+ * it (`--conformance`). No-op unless OUT_DIR is set. The report names the PDF
+ * by its path under OUT_DIR, which is also the path the upload names it by.
+ */
+export function keepReport(name, text) {
+  const dir = process.env.OUT_DIR;
+  if (!dir) return null;
+  const reports = join(dir, 'reports');
+  mkdirSync(reports, { recursive: true });
+  const p = join(reports, name);
+  writeFileSync(p, text);
+  return p;
+}
+
+/**
+ * Mustang's validation report → the documented `forme-review-conformance/1`
+ * shape. Forme Review parses veraPDF and nothing else by policy; every other
+ * validator, including this one that we run ourselves, goes through this JSON.
+ * The verdict is Mustang's summary; each typed error or exception becomes a
+ * failure with the type as its clause. Attributed to Mustang by version.
+ */
+export function mustangToConformance(reportXml, { documentPath, jarPath, file = null }) {
+  const status = (reportXml.match(/<summary status="([a-z]+)"\/>\s*<\/validation>/) ?? reportXml.match(/<summary status="([a-z]+)"\/>/))?.[1] ?? null;
+  const verdict = status === 'valid' ? 'pass' : status === 'invalid' ? 'fail' : 'error';
+  const failures = [];
+  for (const m of reportXml.matchAll(/<(error|exception|criterion)\b([^>]*)>([^<]*)<\/\1>/g)) {
+    const type = m[2].match(/type="([^"]+)"/)?.[1] ?? m[1];
+    failures.push({ clause: `${m[1]}/${type}`, test: null, count: 1, description: m[3].trim().slice(0, 300) });
+  }
+  const ranAt = reportXml.match(/datetime="([^"]+)"/)?.[1];
+  const result = {
+    profile: 'Factur-X EN 16931',
+    verdict,
+    tool: { name: 'Mustang', version: mustangVersion(jarPath) },
+    ran_at: ranAt ? new Date(ranAt.replace(' ', 'T') + 'Z').toISOString() : null,
+    source: { format: 'mustang-report-xml', file },
+    failure_count: failures.length,
+    failures: failures.slice(0, 200),
+  };
+  return { format: 'forme-review-conformance/1', documents: { [documentPath]: [result] } };
+}
+
+export function mustangVersion(jarPath) {
+  if (process.env.MUSTANG_VERSION) return process.env.MUSTANG_VERSION;
+  try {
+    const manifest = execFileSync('unzip', ['-p', jarPath, 'META-INF/MANIFEST.MF'], { encoding: 'utf8' });
+    return manifest.match(/Implementation-Version:\s*([^\s]+)/)?.[1] ?? 'unknown';
+  } catch {
+    return 'unknown';
+  }
 }

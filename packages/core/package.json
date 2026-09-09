@@ -73,7 +73,7 @@
     "@cloudflare/vitest-pool-workers": "^0.22.0",
     "@formepdf/templates": "0.20.1",
     "@formepdf/html": "^0.20.1",
-    "@pdf-testkit/vitest": "^0.1.6",
+    "@pdf-testkit/vitest": "^0.3.0",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "react": "^19.0.0",
