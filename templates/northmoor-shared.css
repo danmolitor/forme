@@ -42,7 +42,14 @@ body {
   font-family: Georgia, 'Times New Roman', serif;
   font-weight: 700;
   font-size: 15pt;       /* 20px */
-  line-height: 33pt;     /* vertically centers the N in the square */
+  /* Optical centering under the engine's baseline model. The engine
+   * places the baseline at half-leading + font-size (font-size stands
+   * in for the ascent), which sits the N ~2.3pt low in a 33pt line —
+   * the browser centers on real ascent/descent. 27.7pt (empirically pixel-measured) puts the cap-to-
+   * baseline ink block in the middle of the 33pt box: baseline lands at
+   * the measured ink-center of the box. Revisit when the
+   * engine gains font-metric baselines. */
+  line-height: 27.7pt;
   text-align: center;
 }
 .wm {
