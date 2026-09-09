@@ -442,8 +442,14 @@ fn baseline_alignment_shares_one_baseline_across_font_sizes() {
             }
         });
     }
-    let label = lines.iter().find(|l| l.0.contains("AMOUNT")).expect("label");
-    let figure = lines.iter().find(|l| l.0.contains("4,647")).expect("figure");
+    let label = lines
+        .iter()
+        .find(|l| l.0.contains("AMOUNT"))
+        .expect("label");
+    let figure = lines
+        .iter()
+        .find(|l| l.0.contains("4,647"))
+        .expect("figure");
     let shove = label.1 - figure.1;
     assert!(
         (shove - 16.725).abs() < 0.05,
