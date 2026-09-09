@@ -795,8 +795,17 @@ impl Style {
                     }
                 })
             },
-            letter_spacing: self.letter_spacing.unwrap_or(0.0),
-            word_spacing: self.word_spacing.unwrap_or(0.0),
+            // Both inherit per CSS (like text_transform below) — the
+            // unwrap_or(0.0) form silently dropped a container's tracking
+            // from descendant text at measure AND render time; the HTML
+            // mapper explicitly relies on engine inheritance for
+            // properties it doesn't set per node.
+            letter_spacing: self
+                .letter_spacing
+                .unwrap_or(parent.map(|p| p.letter_spacing).unwrap_or(0.0)),
+            word_spacing: self
+                .word_spacing
+                .unwrap_or(parent.map(|p| p.word_spacing).unwrap_or(0.0)),
             text_decoration: self
                 .text_decoration
                 .unwrap_or(parent.map(|p| p.text_decoration).unwrap_or_default()),

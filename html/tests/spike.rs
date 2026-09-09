@@ -376,3 +376,42 @@ fn tracked_uppercase_text_measures_at_its_styled_width() {
         "shrink-wrapped box ({box_w}) must be at least the tracked line width ({line_w})"
     );
 }
+
+#[test]
+fn letter_and_word_spacing_inherit_to_descendant_text() {
+    // CSS: letter-spacing and word-spacing are inherited properties. The
+    // engine resolved both with unwrap_or(0.0) — no parent fallback —
+    // while text-transform beside them inherits correctly. The mapper
+    // relies on engine inheritance for anything it doesn't set per node
+    // ("the engine's own inheritance does the rest"), so tracking on a
+    // container silently vanished from descendant text: the Northmoor
+    // wordmark rendered untracked, and measured that way too.
+    // (word-spacing inherits engine-side too now, but the CSS subset
+    // does not parse the property yet — letter-spacing carries the pin.)
+    let spaced = r#"<html><body>
+      <div style="letter-spacing: 2pt"><p style="margin: 0">north moor group</p></div>
+    </body></html>"#;
+    let plain = r#"<html><body>
+      <div><p style="margin: 0">north moor group</p></div>
+    </body></html>"#;
+    let width_of = |html: &str| {
+        let out = render_html_with_layout(html, &HtmlOptions::default()).expect("must render");
+        let mut w = 0.0f64;
+        for p in &out.layout.pages {
+            walk(&p.elements, &mut |e| {
+                if e.text_content.as_deref() == Some("north moor group") {
+                    w = e.width;
+                }
+            });
+        }
+        assert!(w > 0.0, "line must render");
+        w
+    };
+    let ws = width_of(spaced);
+    let wp = width_of(plain);
+    // 16 chars => 15 inter-glyph gaps * 2pt tracking = 30pt.
+    assert!(
+        ws - wp > 29.5,
+        "inherited tracking must widen the line: spaced {ws} vs plain {wp}"
+    );
+}
