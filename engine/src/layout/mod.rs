@@ -3040,6 +3040,40 @@ impl LayoutEngine {
                 })
                 .fold(0.0f64, f64::max);
 
+            // align-items/align-self: baseline — the line's baseline is the
+            // max first-baseline distance across its baseline items; each
+            // baseline item is shoved down by (line_baseline − its own),
+            // and a shoved item may extend past the tallest natural item,
+            // so the line grows to hold it rather than overlap the next.
+            let parent_align = parent_style.map(|s| s.align_items).unwrap_or_default();
+            let baseline_ds: Vec<Option<f64>> = line_items
+                .iter()
+                .enumerate()
+                .map(|(j, item)| {
+                    let align = item.style.align_self.unwrap_or(parent_align);
+                    if matches!(align, AlignItems::Baseline) {
+                        let fw = final_widths[line.start + j];
+                        Some(self.flex_item_baseline_distance(item.node, &item.style, fw))
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+            let line_baseline = baseline_ds
+                .iter()
+                .flatten()
+                .fold(None, |m: Option<f64>, &d| Some(m.map_or(d, |x| x.max(d))));
+            if let Some(bl) = line_baseline {
+                for (j, item) in line_items.iter().enumerate() {
+                    if let Some(d) = baseline_ds[j] {
+                        let fw = final_widths[line.start + j];
+                        let h = self.measure_node_height(item.node, fw, &item.style, font_context)
+                            + item.style.margin.vertical();
+                        line_height = line_height.max(bl - d + h);
+                    }
+                }
+            }
+
             // CSS 9.4.8: a single-line (nowrap) flex container with a
             // definite cross size gives its one flex line the CONTAINER'S
             // inner cross size, not the tallest item's. Without this,
@@ -3155,7 +3189,10 @@ impl LayoutEngine {
                             (line_height - item_height - item.style.margin.vertical()) / 2.0
                         }
                         AlignItems::Stretch => 0.0,
-                        AlignItems::Baseline => 0.0,
+                        AlignItems::Baseline => match (line_baseline, baseline_ds[j]) {
+                            (Some(bl), Some(d)) => bl - d,
+                            _ => 0.0,
+                        },
                     }
                 };
 
@@ -6687,6 +6724,23 @@ impl LayoutEngine {
                 }
             }
         }
+    }
+
+    /// Distance from a flex ITEM's margin-box top to its first text baseline,
+    /// in the engine's baseline model (half-leading + font_size — exactly
+    /// where layout_text places glyphs; see `cell_first_baseline_in_line`).
+    /// A Text/Heading item uses its own style; a container walks to its
+    /// first text-producing descendant; an item with no text at all
+    /// synthesizes from its own font style.
+    fn flex_item_baseline_distance(&self, item: &Node, style: &ResolvedStyle, w: f64) -> f64 {
+        let first_line = match &item.kind {
+            NodeKind::Text { .. } | NodeKind::Heading { .. } => {
+                let fs = style.font_size;
+                (fs * style.line_height - fs) / 2.0 + fs
+            }
+            _ => self.cell_first_baseline_in_line(item, style, w),
+        };
+        style.margin.to_edges().top + style.padding.top + style.border_width.top + first_line
     }
 
     /// The first-baseline offset of a cell's first text line from its line-box
