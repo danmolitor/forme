@@ -339,6 +339,17 @@ jobs:
       - name: Test Renderer
         working-directory: packages/renderer
         run: npm test
+      - name: Test Preview (parity gate)
+        # @formepdf/preview's promise is that what the browser shows equals what
+        # the server produces. This runs its parity suite — renderForPreview
+        # through the /worker (browser-proxy) entry vs the Node entry, asserted
+        # BYTE-IDENTICAL across an inline corpus incl. the 2-pass page-counter
+        # path. Divergence here would be silent in production (the preview would
+        # just start disagreeing with output), so it must fail the build. Needs
+        # only the HTML WASM (built above, all three targets) and
+        # @formepdf/fonts-standard (built above).
+        working-directory: packages/preview
+        run: npm test
       - name: Test CLI
         working-directory: packages/cli
         run: npm test

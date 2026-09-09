@@ -1,0 +1,37 @@
+{
+  "name": "@formepdf/preview",
+  "version": "0.21.0",
+  "description": "In-browser PDF preview for Forme — renders HTML through the same engine as the server and shows the actual PDF, so preview and output agree by construction.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@formepdf/fonts-standard": "^0.21.0",
+    "@formepdf/html": "^0.21.0"
+  },
+  "peerDependencies": {
+    "react": "^18 || ^19"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "react": "^19.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.0"
+  }
+}
