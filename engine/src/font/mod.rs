@@ -581,6 +581,30 @@ impl FontContext {
         }
     }
 
+    /// Typographic ascent and descent for a font, as fractions of an em —
+    /// the glyph block the CSS line box model centers inside a line
+    /// (content area = (ascent + descent) * font_size; half-leading is
+    /// what remains, split evenly; the baseline sits ascent below the
+    /// content-area top). Custom fonts report their hhea values (already
+    /// parsed into CustomFontMetrics, previously unused for baselines);
+    /// standard fonts use the typographic metrics of their metric-
+    /// compatible faces (Arial for Helvetica, Liberation Serif for
+    /// Times, Liberation Mono for Courier), which is what browsers use
+    /// when these families render. Descent is returned POSITIVE.
+    pub fn baseline_metrics(&self, family: &str, weight: u32, italic: bool) -> (f64, f64) {
+        let font_data = self.registry.resolve(family, weight, italic);
+        match font_data {
+            FontData::Custom {
+                metrics: Some(m), ..
+            } if m.units_per_em > 0 && m.ascender > 0 => (
+                m.ascender as f64 / m.units_per_em as f64,
+                (-(m.descender as f64)).max(0.0) / m.units_per_em as f64,
+            ),
+            FontData::Standard(sf) => standard_baseline_metrics(sf),
+            _ => (0.9053, 0.2119), // Arial-class fallback
+        }
+    }
+
     /// Get the units-per-em for a font. Returns 1000 for standard fonts.
     pub fn units_per_em(&self, family: &str, weight: u32, italic: bool) -> u16 {
         let font_data = self.registry.resolve(family, weight, italic);
@@ -591,6 +615,29 @@ impl FontContext {
             FontData::Custom { metrics: None, .. } => 1000,
             FontData::Standard(_) => 1000,
         }
+    }
+}
+
+/// hhea ascent/descent (em fractions, descent positive) of the metric-
+/// compatible substitutes for the base-14 families — Arial 1854/434 of
+/// 2048, Liberation Serif 1825/443, Liberation Mono 1705/615. Symbol and
+/// ZapfDingbats have no text substitute; Arial-class values keep their
+/// (rare, decorative) lines stable.
+fn standard_baseline_metrics(sf: &StandardFont) -> (f64, f64) {
+    match sf {
+        StandardFont::Helvetica
+        | StandardFont::HelveticaBold
+        | StandardFont::HelveticaOblique
+        | StandardFont::HelveticaBoldOblique => (1854.0 / 2048.0, 434.0 / 2048.0),
+        StandardFont::TimesRoman
+        | StandardFont::TimesBold
+        | StandardFont::TimesItalic
+        | StandardFont::TimesBoldItalic => (1825.0 / 2048.0, 443.0 / 2048.0),
+        StandardFont::Courier
+        | StandardFont::CourierBold
+        | StandardFont::CourierOblique
+        | StandardFont::CourierBoldOblique => (1705.0 / 2048.0, 615.0 / 2048.0),
+        _ => (1854.0 / 2048.0, 434.0 / 2048.0),
     }
 }
 

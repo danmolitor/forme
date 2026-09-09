@@ -3053,7 +3053,12 @@ impl LayoutEngine {
                     let align = item.style.align_self.unwrap_or(parent_align);
                     if matches!(align, AlignItems::Baseline) {
                         let fw = final_widths[line.start + j];
-                        Some(self.flex_item_baseline_distance(item.node, &item.style, fw))
+                        Some(self.flex_item_baseline_distance(
+                            item.node,
+                            &item.style,
+                            fw,
+                            font_context,
+                        ))
                     } else {
                         None
                     }
@@ -3913,7 +3918,7 @@ impl LayoutEngine {
 
         let row_height =
             self.measure_table_row_height(row, col_widths, col_offsets, parent_style, font_context);
-        let row_bl = self.row_baseline(row, &row_style, col_widths, col_offsets);
+        let row_bl = self.row_baseline(row, &row_style, col_widths, col_offsets, font_context);
         let row_y = cursor.content_y + cursor.y;
         let total_width: f64 = col_widths.iter().sum();
 
@@ -3985,7 +3990,12 @@ impl LayoutEngine {
                     // row to fit this, so it never clips.
                     crate::style::VerticalAlign::Baseline => row_bl
                         .map(|b| {
-                            let d = self.cell_baseline_distance(cell, &cell_style, inner_width);
+                            let d = self.cell_baseline_distance(
+                                cell,
+                                &cell_style,
+                                inner_width,
+                                font_context,
+                            );
                             (b - d).max(0.0)
                         })
                         .unwrap_or(0.0),
@@ -4413,8 +4423,15 @@ impl LayoutEngine {
                 // (line-height matched to a box height) actually center.
                 y: cursor.content_y
                     + cursor.y
-                    + (line_height - style.font_size) / 2.0
-                    + style.font_size,
+                    + baseline_in_line(
+                        line_height,
+                        style.font_size,
+                        font_context.baseline_metrics(
+                            &style.font_family,
+                            style.font_weight,
+                            matches!(style.font_style, FontStyle::Italic | FontStyle::Oblique),
+                        ),
+                    ),
                 glyphs,
                 width: justified_width,
                 height: line_height,
@@ -4684,8 +4701,15 @@ impl LayoutEngine {
                 // (line-height matched to a box height) actually center.
                 y: cursor.content_y
                     + cursor.y
-                    + (line_height - style.font_size) / 2.0
-                    + style.font_size,
+                    + baseline_in_line(
+                        line_height,
+                        style.font_size,
+                        font_context.baseline_metrics(
+                            &style.font_family,
+                            style.font_weight,
+                            matches!(style.font_style, FontStyle::Italic | FontStyle::Oblique),
+                        ),
+                    ),
                 glyphs,
                 width: justified_width,
                 height: line_height,
@@ -6732,30 +6756,49 @@ impl LayoutEngine {
     /// A Text/Heading item uses its own style; a container walks to its
     /// first text-producing descendant; an item with no text at all
     /// synthesizes from its own font style.
-    fn flex_item_baseline_distance(&self, item: &Node, style: &ResolvedStyle, w: f64) -> f64 {
+    fn flex_item_baseline_distance(
+        &self,
+        item: &Node,
+        style: &ResolvedStyle,
+        w: f64,
+        font_context: &FontContext,
+    ) -> f64 {
         let first_line = match &item.kind {
             NodeKind::Text { .. } | NodeKind::Heading { .. } => {
-                let fs = style.font_size;
-                (fs * style.line_height - fs) / 2.0 + fs
+                let metrics = font_context.baseline_metrics(
+                    &style.font_family,
+                    style.font_weight,
+                    matches!(style.font_style, FontStyle::Italic | FontStyle::Oblique),
+                );
+                baseline_in_line(
+                    style.font_size * style.line_height,
+                    style.font_size,
+                    metrics,
+                )
             }
-            _ => self.cell_first_baseline_in_line(item, style, w),
+            _ => self.cell_first_baseline_in_line(item, style, w, font_context),
         };
         style.margin.to_edges().top + style.padding.top + style.border_width.top + first_line
     }
 
     /// The first-baseline offset of a cell's first text line from its line-box
-    /// top: half-leading plus font size (the engine's baseline model — there is
-    /// no font-ascent metric, `font_size` stands in for the glyph block).
-    /// Walks to the first text-producing descendant; falls back to the cell's
-    /// own style when there is none.
-    fn cell_first_baseline_in_line(&self, cell: &Node, cell_style: &ResolvedStyle, w: f64) -> f64 {
-        fn first(node: &Node, parent: &ResolvedStyle, w: f64) -> Option<(f64, f64)> {
+    /// top, in the same real-metric model as glyph placement (see
+    /// `baseline_in_line`) — the two must agree or baseline alignment
+    /// shoves drift from where the ink actually sits. Walks to the first
+    /// text-producing descendant; falls back to the cell's own style when
+    /// there is none.
+    fn cell_first_baseline_in_line(
+        &self,
+        cell: &Node,
+        cell_style: &ResolvedStyle,
+        w: f64,
+        font_context: &FontContext,
+    ) -> f64 {
+        fn first(node: &Node, parent: &ResolvedStyle, w: f64) -> Option<ResolvedStyle> {
             for ch in &node.children {
                 let s = ch.style.resolve(Some(parent), w);
                 match &ch.kind {
-                    NodeKind::Text { .. } | NodeKind::Heading { .. } => {
-                        return Some((s.font_size, s.line_height))
-                    }
+                    NodeKind::Text { .. } | NodeKind::Heading { .. } => return Some(s),
                     _ => {
                         if let Some(f) = first(ch, &s, w) {
                             return Some(f);
@@ -6765,9 +6808,13 @@ impl LayoutEngine {
             }
             None
         }
-        let (fs, lh) =
-            first(cell, cell_style, w).unwrap_or((cell_style.font_size, cell_style.line_height));
-        (fs * lh - fs) / 2.0 + fs
+        let s = first(cell, cell_style, w).unwrap_or_else(|| cell_style.clone());
+        let metrics = font_context.baseline_metrics(
+            &s.font_family,
+            s.font_weight,
+            matches!(s.font_style, FontStyle::Italic | FontStyle::Oblique),
+        );
+        baseline_in_line(s.font_size * s.line_height, s.font_size, metrics)
     }
 
     /// Distance from a cell's border-box top to its first text baseline:
@@ -6779,10 +6826,11 @@ impl LayoutEngine {
         cell: &Node,
         cell_style: &ResolvedStyle,
         inner_width: f64,
+        font_context: &FontContext,
     ) -> f64 {
         cell_style.padding.top
             + cell_style.border_width.top
-            + self.cell_first_baseline_in_line(cell, cell_style, inner_width)
+            + self.cell_first_baseline_in_line(cell, cell_style, inner_width, font_context)
     }
 
     /// The row baseline: the max first-baseline distance across the row's
@@ -6793,6 +6841,7 @@ impl LayoutEngine {
         row_style: &ResolvedStyle,
         col_widths: &[f64],
         col_offsets: &[usize],
+        font_context: &FontContext,
     ) -> Option<f64> {
         let mut b: Option<f64> = None;
         for (cell_i, cell) in row.children.iter().enumerate() {
@@ -6807,7 +6856,7 @@ impl LayoutEngine {
                 let iw = col_width
                     - cell_style.padding.horizontal()
                     - cell_style.border_width.horizontal();
-                let d = self.cell_baseline_distance(cell, &cell_style, iw);
+                let d = self.cell_baseline_distance(cell, &cell_style, iw, font_context);
                 b = Some(b.map_or(d, |m: f64| m.max(d)));
             }
         }
@@ -6828,7 +6877,7 @@ impl LayoutEngine {
         let mut max_height: f64 = 0.0;
         // Precompute the row baseline so a baseline-shoved cell can grow the row
         // rather than clip (the risk site).
-        let row_bl = self.row_baseline(row, &row_style, col_widths, col_offsets);
+        let row_bl = self.row_baseline(row, &row_style, col_widths, col_offsets, font_context);
 
         for (cell_i, cell) in row.children.iter().enumerate() {
             let span = match &cell.kind {
@@ -6856,7 +6905,8 @@ impl LayoutEngine {
             // cell content clips.
             if matches!(cell_style.vertical_align, VerticalAlign::Baseline) {
                 if let Some(b) = row_bl {
-                    let d = self.cell_baseline_distance(cell, &cell_style, inner_width);
+                    let d =
+                        self.cell_baseline_distance(cell, &cell_style, inner_width, font_context);
                     total += (b - d).max(0.0);
                 }
             }
@@ -7503,6 +7553,19 @@ fn first_text_snippet(node: &Node) -> Option<String> {
         }
         s
     })
+}
+
+/// The baseline's offset from a line box's top, in the CSS line box
+/// model with real font metrics: the glyph block is (ascent + descent)
+/// times font_size tall, the remaining leading splits evenly above and
+/// below (half-leading), and the baseline sits ascent below the block
+/// top. The previous model used font_size as a stand-in for the whole
+/// block with the baseline at its bottom — every baseline sat
+/// fs(1 - ascent + descent)/2 lower than a browser puts it (~0.15em
+/// for Arial-class metrics), which is why single glyphs centered in
+/// boxes by the line-height idiom rode visibly low.
+fn baseline_in_line(line_height: f64, font_size: f64, (ascent, descent): (f64, f64)) -> f64 {
+    (line_height - (ascent + descent) * font_size) / 2.0 + ascent * font_size
 }
 
 #[cfg(test)]

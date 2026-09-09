@@ -418,13 +418,13 @@ fn letter_and_word_spacing_inherit_to_descendant_text() {
 
 #[test]
 fn baseline_alignment_shares_one_baseline_across_font_sizes() {
-    // align-items: baseline — the documented engine gap (parsed, treated
-    // as flex-start) — implemented for flex rows. In the engine's
-    // baseline model a line's baseline sits at half-leading + font_size
-    // from the line top, so for label (6pt, lh 1.5 => d = 7.5) beside
-    // figure (25.5pt, lh 0.9 => d = 24.225) the label must be shoved
-    // down by exactly d_fig - d_label = 16.725pt. Failed before the
-    // engine change: both items sat at the same y (flex-start).
+    // align-items: baseline with real font metrics: the glyph block is
+    // (ascent + descent) * fs, half-leading splits the rest, baseline
+    // sits ascent below the block top. Both spans are Helvetica (Arial
+    // metrics 1854/434 of 2048): label 6pt lh 1.5 => d = (9 - 6*1.11719)
+    // / 2 + 6*0.90527 = 6.580; figure 25.5pt lh 0.9 => d = (22.95 -
+    // 25.5*1.11719)/2 + 25.5*0.90527 = 20.315. Shove = 13.735pt.
+    // (Was 16.725 under the font-size-as-ascent model.)
     let html = r#"<html><body>
       <div style="display: flex; justify-content: space-between; align-items: baseline; width: 255pt; line-height: 1.5">
         <span style="font-size: 6pt">AMOUNT DUE</span>
@@ -452,8 +452,8 @@ fn baseline_alignment_shares_one_baseline_across_font_sizes() {
         .expect("figure");
     let shove = label.1 - figure.1;
     assert!(
-        (shove - 16.725).abs() < 0.05,
-        "label must sit d_fig - d_label = 16.725pt below the figure's top, got {shove}"
+        (shove - 13.735).abs() < 0.05,
+        "label must sit d_fig - d_label = 13.735pt below the figure's top, got {shove}"
     );
 }
 
