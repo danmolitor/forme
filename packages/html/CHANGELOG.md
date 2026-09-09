@@ -4,6 +4,8 @@
 
 ### Added
 
+- **Flex containers item-ize their inline children.** `<div style="display:flex; justify-content:space-between"><span>Label</span><span>$1,234</span></div>` — the label/figure row in any document — used to fuse into one merged text line (no spread, no independent alignment, the line box sized by whichever font came first). Each inline element child of a flex parent is now its own flex item carrying its own computed style, per CSS; contiguous bare text still groups into one anonymous item. Eleven of the thirty repo templates render differently (correctly) under this.
+
 - **`flex-grow`, `flex-shrink`, and the single-number `flex: <n>` shorthand** join the CSS subset.
 - **Thirty document templates** (`templates/` in the repo — invoices, contracts, reports, labels, built as one system) with a generated gallery at docs.formepdf.com/templates. Copy the HTML and CSS; every template renders warning-free and passes PDF/UA-1 validation in CI.
 

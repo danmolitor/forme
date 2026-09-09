@@ -323,6 +323,14 @@ for (const slug of ALL_SLUGS) {
       totalBytes += readFileSync(card).length;
     }
   }
+  // Prune stale page images beyond the current count (a template that
+  // shrinks leaves an orphan otherwise — found the hard way when a
+  // 2-page regression was fixed and its page-2.webp lingered).
+  for (let stale = pages.length + 1; ; stale++) {
+    const p = join(dir, `page-${stale}.webp`);
+    if (!existsSync(p)) break;
+    rmSync(p);
+  }
   manifest[slug] = { hash: inputHash(slug), pages: pages.length };
   writeFileSync(join(MDX_DIR, `${slug}.mdx`), detailMdx(slug, meta[slug], pages.length));
   rmSync(work, { recursive: true, force: true });
