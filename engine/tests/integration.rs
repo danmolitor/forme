@@ -8003,7 +8003,10 @@ fn test_certify_preserves_acroform_metadata() {
         "NeedAppearances is deprecated (PDF 2.0) and redundant: every widget carries /AP"
     );
     assert!(text_before.contains("/DA"), "Original PDF must have /DA");
-    assert!(text_before.contains("/AP"), "widgets must carry authored appearance streams");
+    assert!(
+        text_before.contains("/AP"),
+        "widgets must carry authored appearance streams"
+    );
 
     // Sign it
     let (cert_pem, key_pem) = generate_test_cert_and_key();
