@@ -21,7 +21,7 @@ jobs:
         # Google's Chrome apt source ships in the runner image and is briefly
         # inconsistent while Google rolls it ("Hash Sum mismatch", main,
         # 2026-09-09). Nothing here needs it; drop it before updating.
-        run: sudo rm -f /etc/apt/sources.list.d/google-chrome*.list && sudo apt-get update -q && sudo apt-get install -y -q poppler-utils
+        run: sudo grep -rl 'dl.google.com' /etc/apt/sources.list.d/ | xargs -r sudo rm -f && sudo apt-get update -q && sudo apt-get install -y -q poppler-utils
       - name: Run tests
         working-directory: engine
         # --features visual-tests: the visual-regression suite is part of
@@ -123,7 +123,7 @@ jobs:
           # "Hash Sum mismatch" on its Packages index failed main on
           # 2026-09-09), and Playwright's own Chromium never needed it.
           # Drop it before installing the system libraries.
-          sudo rm -f /etc/apt/sources.list.d/google-chrome*.list
+          sudo grep -rl 'dl.google.com' /etc/apt/sources.list.d/ | xargs -r sudo rm -f
           npx playwright install --with-deps chromium
           node packages/html/test/browser-verify.mjs
       - name: Emit parity evidence (determinism)
