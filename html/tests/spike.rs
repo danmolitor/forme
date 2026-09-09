@@ -450,3 +450,36 @@ fn baseline_alignment_shares_one_baseline_across_font_sizes() {
         "label must sit d_fig - d_label = 16.725pt below the figure's top, got {shove}"
     );
 }
+
+#[test]
+fn flex_n_shorthand_sets_basis_zero_per_spec() {
+    // CSS: `flex: 1` is `1 1 0` — grow 1, shrink 1, BASIS ZERO. The
+    // subset's shorthand set grow and shrink but left basis auto, so a
+    // flexible text column contributed its full unwrapped line width at
+    // distribution time; beside a fixed-width sibling the row went
+    // over-full and shrink crushed the sibling below its declared width
+    // (invoice-detailed's contract-status table, 8.7pt past the page
+    // margin). With basis 0 the row is never over-full: the fixed
+    // sibling keeps its width exactly and the text column takes the
+    // remainder.
+    let html = r#"<html><body>
+      <div style="display: flex; gap: 24pt">
+        <div style="flex: 1"><p style="margin: 0">a long paragraph of scope text that would measure far wider than the row if taken at its unwrapped intrinsic width, which is the bug</p></div>
+        <div style="width: 195pt"><p style="margin: 0">status</p></div>
+      </div>
+    </body></html>"#;
+    let out = render_html_with_layout(html, &HtmlOptions::default()).expect("must render");
+    let mut status_box = None;
+    for p in &out.layout.pages {
+        walk(&p.elements, &mut |e| {
+            if e.node_type == "View" && e.width > 100.0 && e.x > 200.0 && status_box.is_none() {
+                status_box = Some((e.x, e.width));
+            }
+        });
+    }
+    let (x, w) = status_box.expect("status box");
+    assert!(
+        (w - 195.0).abs() < 0.01,
+        "the fixed sibling must keep its 195pt, got {w} at x {x}"
+    );
+}
