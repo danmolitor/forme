@@ -1,7 +1,7 @@
 {
   "version": 1,
   "producer": "formepdf",
-  "createdAt": "2026-09-02T01:54:52.708Z",
+  "createdAt": "2026-09-09T12:25:16.605Z",
   "pageCount": 1,
   "pages": [
     {
@@ -71,17 +71,17 @@
         "0:container:27",
         "0:container:28",
         "0:container:29",
-        "0:text:22",
         "0:container:30",
+        "0:text:22",
         "0:container:31",
-        "0:text:23",
         "0:container:32",
-        "0:text:24",
+        "0:text:23",
         "0:container:33",
-        "0:text:25",
         "0:container:34",
+        "0:text:24",
         "0:container:35",
         "0:container:36",
+        "0:text:25",
         "0:container:37",
         "0:container:38",
         "0:container:39",
@@ -663,7 +663,7 @@
         "x": 40,
         "y": 221.4,
         "width": 532,
-        "height": 204.2
+        "height": 195.8
       },
       "order": 23,
       "parentId": null,
@@ -687,7 +687,7 @@
         "x": 40,
         "y": 221.4,
         "width": 258,
-        "height": 204.2
+        "height": 195.8
       },
       "order": 24,
       "parentId": "0:container:8",
@@ -1407,7 +1407,7 @@
         "x": 57,
         "y": 391.8,
         "width": 224,
-        "height": 16.8
+        "height": 8.4
       },
       "order": 54,
       "parentId": "0:container:9",
@@ -1428,13 +1428,37 @@
       "role": "container",
       "pageIndex": 0,
       "bbox": {
-        "x": 91,
+        "x": 79,
         "y": 391.8,
-        "width": 41.3,
-        "height": 16.8
+        "width": 47.3,
+        "height": 8.4
       },
       "order": 55,
       "parentId": "0:container:28",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:30",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 79,
+        "y": 393,
+        "width": 6,
+        "height": 6
+      },
+      "order": 56,
+      "parentId": "0:container:29",
       "text": null,
       "normText": null,
       "font": {
@@ -1452,12 +1476,12 @@
       "role": "text",
       "pageIndex": 0,
       "bbox": {
-        "x": 99.2,
+        "x": 88,
         "y": 391.8,
-        "width": 33.2,
-        "height": 16.8
+        "width": 38.3,
+        "height": 8.4
       },
-      "order": 56,
+      "order": 57,
       "parentId": "0:container:29",
       "text": "North America",
       "normText": "north america",
@@ -1472,16 +1496,16 @@
       "confidence": 1
     },
     {
-      "id": "0:container:30",
+      "id": "0:container:31",
       "role": "container",
       "pageIndex": 0,
       "bbox": {
-        "x": 140.3,
+        "x": 134.3,
         "y": 391.8,
-        "width": 22.4,
-        "height": 16.8
+        "width": 28.4,
+        "height": 8.4
       },
-      "order": 57,
+      "order": 58,
       "parentId": "0:container:28",
       "text": null,
       "normText": null,
@@ -1496,17 +1520,17 @@
       "confidence": 1
     },
     {
-      "id": "0:container:31",
+      "id": "0:container:32",
       "role": "container",
       "pageIndex": 0,
       "bbox": {
-        "x": 140.3,
+        "x": 134.3,
         "y": 393,
-        "width": 4.6,
+        "width": 6,
         "height": 6
       },
-      "order": 58,
-      "parentId": "0:container:30",
+      "order": 59,
+      "parentId": "0:container:31",
       "text": null,
       "normText": null,
       "font": {
@@ -1524,13 +1548,13 @@
       "role": "text",
       "pageIndex": 0,
       "bbox": {
-        "x": 147.9,
+        "x": 143.3,
         "y": 391.8,
-        "width": 19.3,
+        "width": 19.4,
         "height": 8.4
       },
-      "order": 59,
-      "parentId": "0:container:30",
+      "order": 60,
+      "parentId": "0:container:31",
       "text": "Europe",
       "normText": "europe",
       "font": {
@@ -1544,17 +1568,41 @@
       "confidence": 1
     },
     {
-      "id": "0:container:32",
+      "id": "0:container:33",
       "role": "container",
       "pageIndex": 0,
       "bbox": {
         "x": 170.7,
         "y": 391.8,
-        "width": 34,
-        "height": 16.8
+        "width": 40,
+        "height": 8.4
       },
-      "order": 60,
+      "order": 61,
       "parentId": "0:container:28",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:container:34",
+      "role": "container",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 170.7,
+        "y": 393,
+        "width": 6,
+        "height": 6
+      },
+      "order": 62,
+      "parentId": "0:container:33",
       "text": null,
       "normText": null,
       "font": {
@@ -1572,13 +1620,13 @@
       "role": "text",
       "pageIndex": 0,
       "bbox": {
-        "x": 178.7,
+        "x": 179.7,
         "y": 391.8,
-        "width": 26,
-        "height": 16.8
+        "width": 31,
+        "height": 8.4
       },
-      "order": 61,
-      "parentId": "0:container:32",
+      "order": 63,
+      "parentId": "0:container:33",
       "text": "Asia Pacific",
       "normText": "asia pacific",
       "font": {
@@ -1592,89 +1640,17 @@
       "confidence": 1
     },
     {
-      "id": "0:container:33",
-      "role": "container",
-      "pageIndex": 0,
-      "bbox": {
-        "x": 212.7,
-        "y": 391.8,
-        "width": 34.4,
-        "height": 16.8
-      },
-      "order": 62,
-      "parentId": "0:container:28",
-      "text": null,
-      "normText": null,
-      "font": {
-        "size": 12,
-        "weight": 400,
-        "family": "Helvetica",
-        "italic": false
-      },
-      "headingLevel": null,
-      "overflow": null,
-      "confidence": 1
-    },
-    {
-      "id": "0:text:25",
-      "role": "text",
-      "pageIndex": 0,
-      "bbox": {
-        "x": 220.7,
-        "y": 391.8,
-        "width": 26.3,
-        "height": 16.8
-      },
-      "order": 63,
-      "parentId": "0:container:33",
-      "text": "Middle East",
-      "normText": "middle east",
-      "font": {
-        "size": 6,
-        "weight": 400,
-        "family": "Helvetica",
-        "italic": false
-      },
-      "headingLevel": null,
-      "overflow": null,
-      "confidence": 1
-    },
-    {
-      "id": "0:container:34",
-      "role": "container",
-      "pageIndex": 0,
-      "bbox": {
-        "x": 91,
-        "y": 397.2,
-        "width": 5.2,
-        "height": 6
-      },
-      "order": 64,
-      "parentId": "0:container:29",
-      "text": null,
-      "normText": null,
-      "font": {
-        "size": 12,
-        "weight": 400,
-        "family": "Helvetica",
-        "italic": false
-      },
-      "headingLevel": null,
-      "overflow": null,
-      "confidence": 1
-    },
-    {
       "id": "0:container:35",
       "role": "container",
       "pageIndex": 0,
       "bbox": {
-        "x": 170.7,
-        "y": 397.2,
-        "width": 5,
-        "height": 6
+        "x": 218.7,
+        "y": 391.8,
+        "width": 40.4,
+        "height": 8.4
       },
-      "order": 65,
-      "parentId": "0:container:32",
+      "order": 64,
+      "parentId": "0:container:28",
       "text": null,
       "normText": null,
       "font": {
@@ -1692,17 +1668,41 @@
       "role": "container",
       "pageIndex": 0,
       "bbox": {
-        "x": 212.7,
-        "y": 397.2,
-        "width": 5,
+        "x": 218.7,
+        "y": 393,
+        "width": 6,
         "height": 6
       },
-      "order": 66,
-      "parentId": "0:container:33",
+      "order": 65,
+      "parentId": "0:container:35",
       "text": null,
       "normText": null,
       "font": {
         "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "0:text:25",
+      "role": "text",
+      "pageIndex": 0,
+      "bbox": {
+        "x": 227.7,
+        "y": 391.8,
+        "width": 31.4,
+        "height": 8.4
+      },
+      "order": 66,
+      "parentId": "0:container:35",
+      "text": "Middle East",
+      "normText": "middle east",
+      "font": {
+        "size": 6,
         "weight": 400,
         "family": "Helvetica",
         "italic": false
@@ -1717,7 +1717,7 @@
       "pageIndex": 0,
       "bbox": {
         "x": 40,
-        "y": 445.6,
+        "y": 437.2,
         "width": 532,
         "height": 246
       },
@@ -1741,7 +1741,7 @@
       "pageIndex": 0,
       "bbox": {
         "x": 40,
-        "y": 445.6,
+        "y": 437.2,
         "width": 259,
         "height": 110
       },
@@ -1765,7 +1765,7 @@
       "pageIndex": 0,
       "bbox": {
         "x": 313,
-        "y": 445.6,
+        "y": 437.2,
         "width": 259,
         "height": 110
       },
@@ -1789,7 +1789,7 @@
       "pageIndex": 0,
       "bbox": {
         "x": 55,
-        "y": 460.6,
+        "y": 452.2,
         "width": 229,
         "height": 14
       },
@@ -1813,7 +1813,7 @@
       "pageIndex": 0,
       "bbox": {
         "x": 328,
-        "y": 460.6,
+        "y": 452.2,
         "width": 229,
         "height": 14
       },
@@ -1837,7 +1837,7 @@
       "pageIndex": 0,
       "bbox": {
         "x": 55,
-        "y": 480.6,
+        "y": 472.2,
         "width": 229,
         "height": 60
       },
@@ -1861,7 +1861,7 @@
       "pageIndex": 0,
       "bbox": {
         "x": 328,
-        "y": 480.6,
+        "y": 472.2,
         "width": 229,
         "height": 60
       },
@@ -1885,7 +1885,7 @@
       "pageIndex": 0,
       "bbox": {
         "x": 40,
-        "y": 569.6,
+        "y": 561.2,
         "width": 259,
         "height": 122
       },
@@ -1909,7 +1909,7 @@
       "pageIndex": 0,
       "bbox": {
         "x": 313,
-        "y": 569.6,
+        "y": 561.2,
         "width": 259,
         "height": 122
       },
@@ -1933,7 +1933,7 @@
       "pageIndex": 0,
       "bbox": {
         "x": 55,
-        "y": 584.6,
+        "y": 576.2,
         "width": 229,
         "height": 14
       },
@@ -1957,7 +1957,7 @@
       "pageIndex": 0,
       "bbox": {
         "x": 328,
-        "y": 584.6,
+        "y": 576.2,
         "width": 229,
         "height": 14
       },
@@ -1981,7 +1981,7 @@
       "pageIndex": 0,
       "bbox": {
         "x": 55,
-        "y": 604.6,
+        "y": 596.2,
         "width": 229,
         "height": 72
       },
@@ -2005,7 +2005,7 @@
       "pageIndex": 0,
       "bbox": {
         "x": 328,
-        "y": 604.6,
+        "y": 596.2,
         "width": 229,
         "height": 72
       },
@@ -2120,5 +2120,5 @@
       "confidence": 1
     }
   ],
-  "contentHash": "sha256:e51d6af09e7c0f047f0fb82cd1bcfe9ac46093f3f48d08f0b9f320621aa54cf6"
+  "contentHash": "sha256:be0bf35e5a490ba0c1d708bdb2923a7b3b71eca1e7316a855b7369e6a36e4b52"
 }
