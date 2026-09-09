@@ -1,6 +1,6 @@
 {
   "name": "@formepdf/core",
-  "version": "0.20.1",
+  "version": "0.21.0",
   "description": "WASM-powered PDF rendering engine for Forme",
   "type": "module",
   "main": "./dist/index.js",
@@ -64,22 +64,22 @@
     "prepublishOnly": "npm run build && ./scripts/assert-tarball.sh"
   },
   "dependencies": {
-    "@formepdf/react": "0.20.1"
+    "@formepdf/react": "0.21.0"
   },
   "peerDependencies": {
     "react": "^18 || ^19"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.22.0",
-    "@formepdf/templates": "0.20.1",
-    "@formepdf/html": "^0.20.1",
+    "@formepdf/templates": "0.21.0",
+    "@formepdf/html": "^0.21.0",
     "@pdf-testkit/vitest": "^0.3.0",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "react": "^19.0.0",
     "typescript": "^5.7.0",
     "vitest": "^4.1.0",
-    "@formepdf/fonts-standard": "0.20.1"
+    "@formepdf/fonts-standard": "0.21.0"
   },
   "files": [
     "dist/",

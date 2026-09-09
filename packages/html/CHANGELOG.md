@@ -1,8 +1,20 @@
 # Changelog — @formepdf/html
 
-## [Unreleased]
+## [0.21.0] - 2026-09-08
 
 ### Added
+
+- **Flex containers item-ize their inline children.** `<div style="display:flex; justify-content:space-between"><span>Label</span><span>$1,234</span></div>` — the label/figure row in any document — used to fuse into one merged text line (no spread, no independent alignment, the line box sized by whichever font came first). Each inline element child of a flex parent is now its own flex item carrying its own computed style, per CSS; contiguous bare text still groups into one anonymous item. Eleven of the thirty repo templates render differently (correctly) under this.
+
+- **`flex-grow`, `flex-shrink`, and the single-number `flex: <n>` shorthand** join the CSS subset.
+- **Thirty document templates** (`templates/` in the repo — invoices, contracts, reports, labels, built as one system) with a generated gallery at docs.formepdf.com/templates. Copy the HTML and CSS; every template renders warning-free and passes PDF/UA-1 validation in CI.
+
+### Changed (engine behavior visible through the HTML path — see the engine changelog for detail)
+
+- Absolutely positioned children of a page-spanning positioned parent anchor to the first fragment (was: last).
+- Non-WinAnsi characters in styled runs now reach the builtin Noto fallback instead of rendering "?"; characters no font covers report a `render defect:` warning naming them.
+- The sequential-split warning fires only on genuinely sequential outcomes and names the offending row (fewer warnings, changed text).
+- Named-page documents no longer emit trailing blank pages; margin-box borders/backgrounds render seamlessly.
 
 - **Opt-in post-render content audit** (`auditContent` option / `--audit-content` on the CLI). After layout, the engine verifies the pages against the input document and reports — as `render defect:` warnings — source text that rendered nowhere, text rendered fully off-page, text painted in exactly the colour of the ground under it (or fully transparent), and content clipped to a zero-size box. Works from the engine's own layout tree (no PDF re-parsing); exclusions are designed for zero false alarms — deliberate clipping (`overflow: hidden`, the page-level body clip), requested truncation (`text-overflow`), running furniture, page-number substitution, and ligature clusters are all accounted for. Costs nothing when off; ~4% render time on a 500-page stress document when on. First run over the 15-template compat corpus: 14 templates clean, one real find (a currency symbol rendered one point past the page edge, invisible in the output).
 

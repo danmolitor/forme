@@ -54,3 +54,4 @@ packages/html/pkg-web/
 packages/html/pkg-node/
 packages/html/.wrangler/
 packages/html/*.tgz
+.claude/
