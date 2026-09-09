@@ -45,16 +45,18 @@ const PAGE: &str = r#""metadata": {}, "defaultPage": { "size": "A4", "margin": {
 
 #[test]
 fn default_line_height_splits_leading_around_the_glyphs() {
-    // 12pt font, 1.4 line-height → 16.8pt line box, 4.8pt leading.
-    // Baseline = content top + half-leading + font_size = 54 + 2.4 + 12.
+    // 12pt font, 1.4 line-height → 16.8pt line box. Real-metric model
+    // (Helvetica = Arial 1854/434 of 2048): glyph block 12*1.11719 =
+    // 13.406, half-leading (16.8-13.406)/2 = 1.697, baseline = 54 +
+    // 1.697 + 12*0.90527 = 66.56.
     let pages = layout(&format!(
         r#"{{ "children": [ {{ "kind": {{ "type": "Text", "content": "hello" }}, "style": {{ "fontSize": 12 }} }} ], {PAGE} }}"#
     ));
     let b = baselines(&pages);
     assert_eq!(b.len(), 1);
     assert!(
-        (b[0] - (54.0 + 2.4 + 12.0)).abs() < 0.05,
-        "baseline {:.2}, expected 68.40 (top + half-leading + font size)",
+        (b[0] - 66.56).abs() < 0.05,
+        "baseline {:.2}, expected 66.56 (top + half-leading + ascent)",
         b[0]
     );
 }
@@ -62,15 +64,16 @@ fn default_line_height_splits_leading_around_the_glyphs() {
 #[test]
 fn line_height_equal_to_box_height_centers_the_glyphs() {
     // The pre-flexbox centering idiom: 14pt text, 36pt line box.
-    // Baseline = 54 + (36 − 14)/2 + 14 = 79.
+    // Real metrics: 54 + (36 − 14*1.11719)/2 + 14*0.90527 = 76.85 —
+    // and the INK now actually centers, which the old 79.0 did not.
     let pages = layout(&format!(
         r#"{{ "children": [ {{ "kind": {{ "type": "Text", "content": "ND" }}, "style": {{ "fontSize": 14, "lineHeight": {lh} }} }} ], {PAGE} }}"#,
         lh = 36.0 / 14.0
     ));
     let b = baselines(&pages);
     assert!(
-        (b[0] - 79.0).abs() < 0.05,
-        "baseline {:.2}, expected 79.00 (centered in the 36pt line box)",
+        (b[0] - 76.85).abs() < 0.05,
+        "baseline {:.2}, expected 76.85 (centered in the 36pt line box)",
         b[0]
     );
 }
@@ -102,8 +105,8 @@ fn runs_text_gets_the_same_half_leading() {
     let b = baselines(&pages);
     assert_eq!(b.len(), 1);
     assert!(
-        (b[0] - 68.4).abs() < 0.05,
-        "runs baseline {:.2}, expected 68.40",
+        (b[0] - 66.56).abs() < 0.05,
+        "runs baseline {:.2}, expected 66.56",
         b[0]
     );
 }
