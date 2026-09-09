@@ -10,6 +10,14 @@ on:
   # stays main+push only).
   workflow_dispatch:
 
+# A newer commit on the same branch or pull request cancels the run still in
+# progress for the older one: its result would be superseded the moment it
+# landed, and Forme Review already supersedes the older commit's review runs.
+# Main is exempt, so every landed commit gets its full run and its upload.
+concurrency:
+  group: ci-${{ github.event.pull_request.number && format('pr-{0}', github.event.pull_request.number) || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
   engine:
     name: Rust Engine
