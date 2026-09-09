@@ -544,11 +544,55 @@ impl Mapper {
         let mut float_run: Vec<(Node, crate::css::FloatVal)> = Vec::new();
         let floats_active = self.uses_floats && parent.display != CssDisplay::Flex;
 
+        // CSS Flexbox: each in-flow child ELEMENT of a flex container is
+        // its own flex item — inline or not — and only contiguous runs of
+        // BARE TEXT wrap together in one anonymous item. Merging inline
+        // siblings (the block-container rule below) here silently fused
+        // <span>label</span><span>figure</span> rows into one line: no
+        // justify-content spread, no independent alignment, the line box
+        // sized by whichever font came first.
+        let flex_items = parent.display == CssDisplay::Flex;
+
         for child in children {
             let is_inline_item = match child {
                 DomNode::Text(_) => true,
                 DomNode::Element(e) => is_inline(&e.tag) || e.tag == "br",
             };
+            if flex_items && is_inline_item {
+                if let DomNode::Element(e) = child {
+                    if e.tag != "br" {
+                        // Inline ELEMENT child of a flex container: flush
+                        // any pending bare-text item, then emit this
+                        // element as its own item CARRYING ITS OWN
+                        // computed style — the node-level font size is
+                        // what sizes the item's line box, so a run-level
+                        // size alone leaves a 25.5pt figure inside a
+                        // default-sized line. <br> stays with the text
+                        // run it breaks.
+                        self.flush_inline_group(&mut inline_buf, parent, &mut out);
+                        let computed = self.computed_for(e, parent.font_size);
+                        let mut flattener = InlineFlattener::new();
+                        let base = RunStyle::default();
+                        let href = if e.tag == "a" { e.attr("href") } else { None };
+                        let inner = base.apply(&computed, href);
+                        self.stack.push(elem_key(e));
+                        for gc in &e.children {
+                            self.flatten_item(gc, &inner, computed.font_size, &mut flattener);
+                        }
+                        self.stack.pop();
+                        let runs = flattener.finish();
+                        if !runs.is_empty() {
+                            let (_box_style, text_style) = split_box_and_text_style(&computed);
+                            out.push(text_node_from_runs(
+                                runs,
+                                text_style,
+                                href.map(String::from),
+                            ));
+                        }
+                        continue;
+                    }
+                }
+            }
             if is_inline_item {
                 // Whitespace between floats is structural noise; real
                 // inline content beside floats is the unsupported
