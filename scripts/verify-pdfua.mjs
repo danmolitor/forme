@@ -18,7 +18,7 @@ import { basename, join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readFile } from 'node:fs/promises';
 
-import { emitSection, keepReport, veraValidate, veraVersion } from './parity/lib.mjs';
+import { emitSection, keepLayout, keepReport, veraValidate, veraVersion } from './parity/lib.mjs';
 
 import { serialize } from '@formepdf/react';
 import { getTemplate } from '@formepdf/templates';
@@ -31,7 +31,7 @@ import {
 } from '@formepdf/templates/schemas';
 import { standardFonts } from '@formepdf/fonts-standard';
 import { renderPdfWithLayout } from '@formepdf/core';
-import { renderHtml } from '@formepdf/html';
+import { renderHtmlWithLayout } from '@formepdf/html';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, '..');
@@ -107,8 +107,8 @@ async function renderNorthmoor(name) {
   const html = (await readFile(join(dir, 'index.html'), 'utf8'))
     .replace('<link rel="stylesheet" href="../northmoor-shared.css">', `<style>${shared}</style>`)
     .replace('<link rel="stylesheet" href="style.css">', `<style>${own}</style>`);
-  const { pdf, warnings } = renderHtml(html, { pdfUa: true, lang: LANG, fonts: HTML_FONTS });
-  return { pdf, warnings };
+  const { pdf, warnings, layout } = renderHtmlWithLayout(html, { pdfUa: true, lang: LANG, fonts: HTML_FONTS });
+  return { pdf, warnings, layout, producer: '@formepdf/html' };
 }
 
 async function renderTemplate(name, data) {
@@ -117,14 +117,14 @@ async function renderTemplate(name, data) {
   doc.tagged = true;
   doc.metadata = { ...(doc.metadata ?? {}), lang: LANG };
   doc.fonts = CORE_FONTS;
-  const { pdf, warnings } = await renderPdfWithLayout(JSON.stringify(doc));
-  return { pdf, warnings };
+  const { pdf, warnings, layout } = await renderPdfWithLayout(JSON.stringify(doc));
+  return { pdf, warnings, layout, producer: '@formepdf/core' };
 }
 
 async function renderFixture(name) {
   const html = await readFile(join(FIXTURES, `${name}.html`), 'utf8');
-  const { pdf, warnings } = renderHtml(html, { pdfUa: true, lang: LANG, fonts: HTML_FONTS });
-  return { pdf, warnings };
+  const { pdf, warnings, layout } = renderHtmlWithLayout(html, { pdfUa: true, lang: LANG, fonts: HTML_FONTS });
+  return { pdf, warnings, layout, producer: '@formepdf/html' };
 }
 
 function findVeraPdf() {
@@ -141,21 +141,24 @@ async function main() {
 
   console.log('Rendering PDF/UA-1 corpus…');
   for (const [name, data] of Object.entries(TEMPLATES)) {
-    const { pdf, warnings } = await renderTemplate(name, data);
+    const { pdf, warnings, layout, producer } = await renderTemplate(name, data);
     const p = join(outDir, `template-${name}.pdf`);
     writeFileSync(p, pdf);
+    keepLayout(p, pdf, layout, producer);
     corpus.push({ label: `template/${name}`, path: p, warnings });
   }
   for (const name of HTML_FIXTURES) {
-    const { pdf, warnings } = await renderFixture(name);
+    const { pdf, warnings, layout, producer } = await renderFixture(name);
     const p = join(outDir, `html-${name}.pdf`);
     writeFileSync(p, pdf);
+    keepLayout(p, pdf, layout, producer);
     corpus.push({ label: `html/${name}`, path: p, warnings });
   }
   for (const name of NORTHMOOR) {
-    const { pdf, warnings } = await renderNorthmoor(name);
+    const { pdf, warnings, layout, producer } = await renderNorthmoor(name);
     const p = join(outDir, `northmoor-${name}.pdf`);
     writeFileSync(p, pdf);
+    keepLayout(p, pdf, layout, producer);
     corpus.push({ label: `northmoor/${name}`, path: p, warnings });
   }
 

@@ -5,8 +5,10 @@
 // and renders its human console output FROM that same object — never a parallel
 // print path that could disagree with the emitted evidence.
 
-import { writeFileSync, mkdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { createHash } from 'node:crypto';
+import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 
 /** Write a partial section `<PARITY_DIR>/<name>.json` when PARITY_DIR is set. */
@@ -65,6 +67,30 @@ export function veraValidate(vera, flavour, pdfPath) {
  * it (`--conformance`). No-op unless OUT_DIR is set. The report names the PDF
  * by its path under OUT_DIR, which is also the path the upload names it by.
  */
+/**
+ * Write the layout Forme returned with a PDF beside it as
+ * `<file>.pdf.layout.json`, the sidecar pdf-testkit's upload reads to take
+ * structure from the layout (confidence 1) instead of inferring it from the
+ * PDF with pdfjs. Carries the PDF's sha256 so a stale sidecar is refused.
+ * No-op unless OUT_DIR is set, like `keepReport`.
+ */
+export function keepLayout(pdfPath, pdf, layout, producer) {
+  if (!process.env.OUT_DIR) return null;
+  const p = `${pdfPath}.layout.json`;
+  writeFileSync(p, JSON.stringify({ format: 'forme-layout/1', pdf_sha256: createHash('sha256').update(pdf).digest('hex'), producer: { name: producer, version: formeVersion(producer) }, layout }));
+  return p;
+}
+
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
+/** The version of a workspace package, for the sidecar's producer stamp. */
+export function formeVersion(pkg) {
+  try {
+    return JSON.parse(readFileSync(resolve(REPO_ROOT, 'packages', pkg.replace(/^@formepdf\//, ''), 'package.json'), 'utf8')).version;
+  } catch {
+    return 'unknown';
+  }
+}
+
 export function keepReport(name, text) {
   const dir = process.env.OUT_DIR;
   if (!dir) return null;
