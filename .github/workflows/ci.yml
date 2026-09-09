@@ -38,17 +38,7 @@ jobs:
         # ICC profile and the measure/layout divergence: a check that
         # exists but doesn't run catches nothing. The suite FAILS (not
         # skips) in CI when pdftoppm is missing.
-        # TEMP (font-metric baselines): FORME_UPDATE_REFERENCES=1 — every
-        # baseline moves by the model's predicted delta, so the Linux-
-        # canonical refs must be regenerated ON CI. The artifact below
-        # carries the new refs back for committing; this env var and the
-        # upload step are removed in the same PR once refs are committed.
-        run: FORME_UPDATE_REFERENCES=1 cargo test --features visual-tests
-      - name: Upload regenerated visual references (TEMP)
-        uses: actions/upload-artifact@v4
-        with:
-          name: visual-references
-          path: engine/tests/references
+        run: cargo test --features visual-tests
       - name: Check formatting
         working-directory: engine
         run: cargo fmt --check
