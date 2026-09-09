@@ -18,7 +18,7 @@
 // PARITY_DIR: also emit the structured evidence section.
 
 import { execFileSync } from 'node:child_process';
-import { emitSection, keepReport, mustangToConformance, veraValidate } from './parity/lib.mjs';
+import { emitSection, keepLayout, keepReport, mustangToConformance, veraValidate } from './parity/lib.mjs';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -26,7 +26,7 @@ import { fileURLToPath } from 'node:url';
 import React from 'react';
 import { Document, Page, View, Text, Font } from '@formepdf/react';
 import { standardFonts } from '@formepdf/fonts-standard';
-import { renderDocument } from '@formepdf/core';
+import { renderDocumentWithLayout } from '@formepdf/core';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const XML_PATH = join(HERE, '..', 'engine', 'tests', 'fixtures', 'einvoice', 'EN16931_Einfach.cii.xml');
@@ -84,11 +84,12 @@ async function main() {
   }
 
   const xml = readFileSync(XML_PATH);
-  const pdf = await renderDocument(invoiceDoc(), { facturX: { xml, profile: 'EN 16931' } });
+  const { pdf, layout } = await renderDocumentWithLayout(invoiceDoc(), { facturX: { xml, profile: 'EN 16931' } });
   // With OUT_DIR the invoice joins the Forme Review corpus and its verdicts ride along.
   const outDir = process.env.OUT_DIR ? (mkdirSync(process.env.OUT_DIR, { recursive: true }), process.env.OUT_DIR) : mkdtempSync(join(tmpdir(), 'forme-einvoice-gate-'));
   const pdfPath = join(outDir, 'facturx-en16931.pdf');
   writeFileSync(pdfPath, pdf);
+  keepLayout(pdfPath, pdf, layout, '@formepdf/core');
 
   const checks = [
     { id: 'verapdf-3b', label: 'veraPDF PDF/A-3b', pass: veraKept(vera, pdfPath, '3b') },
