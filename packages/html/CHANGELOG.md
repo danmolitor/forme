@@ -1,5 +1,11 @@
 # Changelog — @formepdf/html
 
+## [Unreleased]
+
+### Changed (engine behavior visible through the HTML path)
+
+- **Baselines use real font metrics** (see the engine changelog): every text baseline rises by `fs*(1 - ascent + descent)/2` for its font (~0.15em for Helvetica-class faces); line boxes, wrapping, and page breaks are unchanged. The line-height box-centering idiom (`line-height` equal to a box height) now centers glyphs the way a browser does — the repo templates' optical-centering workarounds were removed in the same change.
+
 ## [0.21.0] - 2026-09-08
 
 ### Added

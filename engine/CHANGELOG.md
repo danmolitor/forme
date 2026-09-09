@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed (behavior — all text ink moves; line boxes and page breaks do not)
+
+- **Baselines use real font metrics.** The glyph block inside a line box is now `(ascent + descent) * font_size` (hhea metrics for custom fonts, the metric-compatible faces' values for the base-14 families), with half-leading splitting the remainder and the baseline sitting `ascent` below the block top — the CSS line box model as browsers implement it. The previous model used `font_size` as a stand-in for the whole block, which sat every baseline `fs*(1 - ascent + descent)/2` lower than a browser (~0.15em for Arial-class metrics) and made single glyphs centered by the line-height idiom ride visibly low. Line boxes, element geometry, page breaks, and page counts are unchanged — only ink position within each line moves, by exactly the per-font predicted delta; baseline-alignment shoves (flex `align-items: baseline`, table-cell `vertical-align: baseline`) are recomputed under the same model and now match glyph placement exactly.
+
 ## [0.21.0] - 2026-09-08
 
 ### Added
