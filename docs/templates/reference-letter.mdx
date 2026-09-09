@@ -11,7 +11,7 @@ description: "A one-page employment reference in pure prose: dates of service, r
 
 A one-page employment reference in pure prose: dates of service, responsibilities, two concrete achievements, and an unqualified re-employment statement, closed by a good-faith disclaimer in the footer. Change the subject block and prose first; the dates and position must stay consistent with the termination-letter template (data.json links it). Addressed "To whom it may concern" with no recipient block by design.
 
-**Engine features exercised:** @page margin boxes, page counters, fixed-height page fill with flex-grow spacer, prose measure.
+**Engine features exercised:** @page margin boxes, page counters, fixed-height page fill with a flex: 1 spacer, prose measure.
 
 Render it:
 
@@ -68,7 +68,7 @@ npx @formepdf/html templates/reference-letter/index.html -o reference-letter.pdf
 </div>
 <div class="pagefill-spacer"></div>
 <footer class="foot">
-  <div style="flex-grow: 1">This reference is given in good faith on the basis of the writer's knowledge and the company's records. It is provided without liability to the recipient or to any third party.</div>
+  <div style="flex: 1">This reference is given in good faith on the basis of the writer's knowledge and the company's records. It is provided without liability to the recipient or to any third party.</div>
   <div>Ref. REF-2026-0031</div>
 </footer>
 </div>

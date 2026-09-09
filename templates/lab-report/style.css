@@ -28,4 +28,4 @@
 .flagval { font-family: Georgia, 'Times New Roman', serif; font-weight: 400; font-size: 11.25pt; line-height: 1; }
 .sig-tight { margin-top: 16.5pt; }
 .sig-tight .sigline { margin-top: 10.5pt; }
-.sig-narrow { flex-grow: 0.6; }
+.sig-narrow { flex: 0.6; }

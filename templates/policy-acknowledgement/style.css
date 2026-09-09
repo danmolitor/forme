@@ -34,4 +34,4 @@
 .meta-ack { grid-template-columns: 1fr 1fr 1fr 1fr; }
 .sig-ack { margin-top: 15pt; }
 .sig-ack .sigline { margin-top: 16.5pt; } /* 30px design; pen room absorbs 6pt of engine/prototype metric drift so the form stays one page */
-.datebox { flex-grow: 0.6; }
+.datebox { flex: 0.6; }
