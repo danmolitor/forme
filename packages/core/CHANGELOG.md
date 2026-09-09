@@ -1,5 +1,16 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- **`auditContent` render option** — the HTML path's opt-in post-render content audit, now reachable from JSX callers. Pass `{ auditContent: true }` to `renderDocumentWithLayout` / `renderSerializedDocWithLayout`; findings arrive as `render defect:` entries in the result's `warnings` (the byte-only `renderDocument` has no warnings channel and ignores the flag). Off by default; when off the render takes the exact historical code path and output is byte-identical.
+
+### Changed
+
+- **Result construction is shared, not repeated.** The node, browser, and worker entries (and the template path) each hand-built the layout result object; all four now funnel through one `shared/result.ts`, so a future field is added in exactly one place — the html package's `passes` lesson applied here before it struck.
+
+
 ## [0.20.1] - 2026-09-07
 
 ### Changed

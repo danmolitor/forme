@@ -5,6 +5,16 @@
 ### Added
 
 - **`RenderOptions` + `render_with_options()` / `render_with_layout_and_options()`** — opt-in per-render checks. First check: `audit_content`, the post-render content audit (see `layout/audit.rs`): compares the laid-out pages against the input document and reports dropped text, fully off-page text, invisible text (colour == ground, or alpha 0), and zero-size clipping boxes through the render-defect channel. Off by default; nothing changes for existing callers.
+- **Render defect: uncovered glyphs report themselves.** A character with no glyph source anywhere — not WinAnsi, not the bundled Noto Sans, not a registered font — used to render as "?" silently, at three sites (body text, AcroForm field text, chart labels). It now reports one warning per distinct character, naming the character and the remedy (register a font containing it). Its first run caught two shipped templates printing "?" for "≤".
+- **Render defect: border/background on a text node.** Styling that the engine does not paint on `Text` nodes reports itself instead of disappearing.
+
+### Fixed (behavior — output may change where the old behavior was wrong)
+
+- **Absolutely positioned children anchor to the FIRST fragment of a split containing block** (CSS conformance; previously the last). A `top: 0` badge inside a positioned parent that breaks across pages now lands on the page the parent starts on. Blast radius was surveyed before landing: zero movement across the fixture wall, the 15-template compat corpus, and all thirty repo templates — every existing surface had worked around the bug.
+- **Multi-style text runs take the same per-character font fallback as single-style text.** A non-WinAnsi character in a `TextRun` under a single-family font skipped coverage checking and rendered "?" while the identical character in plain text reached the builtin Noto Sans fallback; both paths now apply the same rule, so such characters render via Noto where it covers them.
+- **The sequential-split render defect fires on the outcome, not the path — and names the row.** The old check fired whenever a breakable flex row's layout grew the page list, which includes a short row correctly relocating whole to the next page (a false positive that blocked a real PR through a zero-warnings gate). It now fires only when an item's own layout breaks the page while siblings share its flex line, and the message names the row by its first text content. Expect strictly fewer of these warnings, with changed message text.
+- **Named-page documents no longer emit trailing blank pages.** Page-content detection now asks whether a page has rendered elements with visible ink, not whether the cursor advanced; an empty document still produces zero pages.
+- **Margin-box borders, backgrounds, and padding hoist to the band cell views**, so a bordered margin box renders as one seamless box instead of dropping its decoration.
 
 ## [0.20.1] - 2026-09-07
 
