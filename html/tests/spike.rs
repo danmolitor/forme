@@ -415,3 +415,38 @@ fn letter_and_word_spacing_inherit_to_descendant_text() {
         "inherited tracking must widen the line: spaced {ws} vs plain {wp}"
     );
 }
+
+#[test]
+fn baseline_alignment_shares_one_baseline_across_font_sizes() {
+    // align-items: baseline — the documented engine gap (parsed, treated
+    // as flex-start) — implemented for flex rows. In the engine's
+    // baseline model a line's baseline sits at half-leading + font_size
+    // from the line top, so for label (6pt, lh 1.5 => d = 7.5) beside
+    // figure (25.5pt, lh 0.9 => d = 24.225) the label must be shoved
+    // down by exactly d_fig - d_label = 16.725pt. Failed before the
+    // engine change: both items sat at the same y (flex-start).
+    let html = r#"<html><body>
+      <div style="display: flex; justify-content: space-between; align-items: baseline; width: 255pt; line-height: 1.5">
+        <span style="font-size: 6pt">AMOUNT DUE</span>
+        <span style="font-size: 25.5pt; line-height: 0.9">$4,647.07</span>
+      </div>
+    </body></html>"#;
+    let out = render_html_with_layout(html, &HtmlOptions::default()).expect("must render");
+    let mut lines: Vec<(String, f64)> = Vec::new();
+    for p in &out.layout.pages {
+        walk(&p.elements, &mut |e| {
+            if let Some(t) = &e.text_content {
+                if !t.trim().is_empty() {
+                    lines.push((t.clone(), e.y));
+                }
+            }
+        });
+    }
+    let label = lines.iter().find(|l| l.0.contains("AMOUNT")).expect("label");
+    let figure = lines.iter().find(|l| l.0.contains("4,647")).expect("figure");
+    let shove = label.1 - figure.1;
+    assert!(
+        (shove - 16.725).abs() < 0.05,
+        "label must sit d_fig - d_label = 16.725pt below the figure's top, got {shove}"
+    );
+}
