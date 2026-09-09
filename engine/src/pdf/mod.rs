@@ -150,6 +150,9 @@ struct PdfBuilder {
     /// write: a silently wrong glyph is a render defect (decision 2026-09-08 —
     /// keep the bundled font, make the register-a-font path discoverable).
     missing_glyphs: std::cell::RefCell<std::collections::BTreeSet<char>>,
+    /// Output version — read by serialize() for the header; every other
+    /// 2.0 behavior is decided in write() before objects are built.
+    pdf_version: crate::model::PdfVersion,
 }
 
 pub(crate) struct PdfObject {
@@ -203,6 +206,7 @@ impl PdfWriter {
         attachments: &[Attachment],
         zugferd: Option<&ZugferdMeta>,
         flatten_forms: bool,
+        pdf_version: crate::model::PdfVersion,
     ) -> Result<(Vec<u8>, Vec<String>), FormeError> {
         // ── Attachment / e-invoice validation (before any emission) ──
         //
@@ -281,6 +285,7 @@ impl PdfWriter {
             shading_map: HashMap::new(),
             warnings: Vec::new(),
             missing_glyphs: Default::default(),
+            pdf_version: Default::default(),
         };
 
         // Reserve object IDs:
@@ -302,7 +307,8 @@ impl PdfWriter {
         });
 
         // Register the fonts actually used across all pages
-        self.register_fonts(&mut builder, pages, font_context, pdf_ua)?;
+        builder.pdf_version = pdf_version;
+        self.register_fonts(&mut builder, pages, font_context, pdf_ua, pdf_version)?;
 
         // PDF/A: validate that all fonts are embedded. A font counts as
         // embedded if the caller registered custom bytes for it OR it's a
@@ -539,27 +545,31 @@ impl PdfWriter {
             None
         };
 
-        // PDF/A and/or PDF/UA: write XMP metadata stream and ICC output intent
-        let xmp_metadata_id = if pdfa.is_some() || pdf_ua {
-            let xmp_xml = xmp::generate_xmp(metadata, pdfa, pdf_ua, zugferd);
-            let xmp_bytes = xmp_xml.as_bytes();
-            let xmp_obj_id = builder.objects.len();
-            // XMP metadata stream must NOT be compressed (PDF/A requirement)
-            let xmp_data = format!(
-                "<< /Type /Metadata /Subtype /XML /Length {} >>\nstream\n",
-                xmp_bytes.len()
-            );
-            let mut xmp_obj_data: Vec<u8> = xmp_data.into_bytes();
-            xmp_obj_data.extend_from_slice(xmp_bytes);
-            xmp_obj_data.extend_from_slice(b"\nendstream");
-            builder.objects.push(PdfObject {
-                id: xmp_obj_id,
-                data: xmp_obj_data,
-            });
-            Some(xmp_obj_id)
-        } else {
-            None
-        };
+        // PDF/A and/or PDF/UA — and ALWAYS under PDF 2.0, where document
+        // metadata lives in XMP (the trailer /Info entries are deprecated
+        // in ISO 32000-2 and the key itself is forbidden by veraPDF's
+        // PDF/A-4 profile): write the XMP metadata stream.
+        let xmp_metadata_id =
+            if pdfa.is_some() || pdf_ua || pdf_version == crate::model::PdfVersion::V2_0 {
+                let xmp_xml = xmp::generate_xmp(metadata, pdfa, pdf_ua, zugferd);
+                let xmp_bytes = xmp_xml.as_bytes();
+                let xmp_obj_id = builder.objects.len();
+                // XMP metadata stream must NOT be compressed (PDF/A requirement)
+                let xmp_data = format!(
+                    "<< /Type /Metadata /Subtype /XML /Length {} >>\nstream\n",
+                    xmp_bytes.len()
+                );
+                let mut xmp_obj_data: Vec<u8> = xmp_data.into_bytes();
+                xmp_obj_data.extend_from_slice(xmp_bytes);
+                xmp_obj_data.extend_from_slice(b"\nendstream");
+                builder.objects.push(PdfObject {
+                    id: xmp_obj_id,
+                    data: xmp_obj_data,
+                });
+                Some(xmp_obj_id)
+            } else {
+                None
+            };
 
         let output_intent_id = if pdfa.is_some() {
             // Embed sRGB ICC profile
@@ -1306,7 +1316,15 @@ impl PdfWriter {
         .into_bytes();
 
         // Info dictionary (metadata)
-        let info_obj_id = if metadata.title.is_some() || metadata.author.is_some() {
+        // No trailer /Info under PDF 2.0: its entries are deprecated in
+        // ISO 32000-2 and veraPDF's PDF/A-4 profile forbids the key
+        // ("The Info key shall not be present in the trailer dictionary …
+        // unless there exists a PieceInfo entry", which we never emit).
+        // Document metadata lives in the XMP stream, emitted above
+        // unconditionally for 2.0.
+        let info_obj_id = if pdf_version == crate::model::PdfVersion::V1_7
+            && (metadata.title.is_some() || metadata.author.is_some())
+        {
             let id = builder.objects.len();
             let mut info = String::from("<< ");
             if let Some(ref title) = metadata.title {
@@ -2824,6 +2842,7 @@ impl PdfWriter {
         pages: &[LayoutPage],
         font_context: &FontContext,
         pdf_ua: bool,
+        pdf_version: crate::model::PdfVersion,
     ) -> Result<(), FormeError> {
         // Collect font usage: glyph IDs, chars, and glyph→char mapping per font
         let mut font_usage_map: HashMap<FontKey, FontUsage> = HashMap::new();
@@ -2867,7 +2886,7 @@ impl PdfWriter {
                     // WinAnsiEncoding — the content stream is untouched (same
                     // `(text) Tj` WinAnsi path, same positions), only the font
                     // dictionary gains an embedded program.
-                    if pdf_ua {
+                    if pdf_ua || pdf_version == crate::model::PdfVersion::V2_0 {
                         if Self::emit_pdfua_embedded_standard(
                             builder,
                             key,
@@ -2876,6 +2895,25 @@ impl PdfWriter {
                             font_context,
                         ) {
                             continue;
+                        }
+                        // PDF 2.0 removes the standard-14 provision —
+                        // conforming readers need not ship these fonts, so
+                        // non-embedded base-14 output is a bet on reader
+                        // goodwill. Hard error by name, with the remedy,
+                        // exactly like the pdfA contract.
+                        if pdf_version == crate::model::PdfVersion::V2_0 {
+                            let remedy = match std_font.liberation_family() {
+                                Some(lib) => format!(
+                                    "install @formepdf/fonts-standard and register its fonts (`for (const f of standardFonts()) Font.register(f)`) — Forme will embed the metric-compatible {lib} in its place"
+                                ),
+                                None => "register an embeddable TrueType font for this text                                          (Symbol/ZapfDingbats have no metric-compatible substitute)"
+                                    .to_string(),
+                            };
+                            return Err(FormeError::FontError(format!(
+                                "pdfVersion \"2.0\": font '{}' is not embedded. ISO 32000-2 removes the standard-14 provision, so every font must be embedded — {}.",
+                                std_font.pdf_name(),
+                                remedy,
+                            )));
                         }
                         // Substitution didn't happen. If a metric-compatible
                         // substitute exists but wasn't registered, say so by
@@ -4241,7 +4279,10 @@ impl PdfWriter {
         let mut offsets: Vec<usize> = vec![0; builder.objects.len()];
 
         // Header
-        output.extend_from_slice(b"%PDF-1.7\n");
+        output.extend_from_slice(match builder.pdf_version {
+            crate::model::PdfVersion::V1_7 => b"%PDF-1.7\n".as_slice(),
+            crate::model::PdfVersion::V2_0 => b"%PDF-2.0\n".as_slice(),
+        });
         output.extend_from_slice(b"%\xe2\xe3\xcf\xd3\n");
 
         for (i, obj) in builder.objects.iter().enumerate().skip(1) {
@@ -4653,6 +4694,7 @@ mod tests {
                 &[],
                 None,
                 false,
+                crate::model::PdfVersion::V1_7,
             )
             .unwrap();
 
@@ -4695,6 +4737,7 @@ mod tests {
                 &[],
                 None,
                 false,
+                crate::model::PdfVersion::V1_7,
             )
             .unwrap();
         let text = String::from_utf8_lossy(&bytes);
@@ -4824,6 +4867,7 @@ mod tests {
                 &[],
                 None,
                 false,
+                crate::model::PdfVersion::V1_7,
             )
             .unwrap();
         let text = String::from_utf8_lossy(&bytes);
@@ -4995,6 +5039,7 @@ mod tests {
                 &[],
                 None,
                 false,
+                crate::model::PdfVersion::V1_7,
             )
             .unwrap();
         let text = String::from_utf8_lossy(&bytes);

@@ -452,6 +452,7 @@ mod tests {
             zugferd: None,
             flatten_forms: false,
             certification: None,
+            pdf_version: Default::default(),
         }
     }
 
