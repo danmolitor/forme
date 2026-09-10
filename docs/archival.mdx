@@ -62,6 +62,33 @@ const pdf = await renderDocument(<Document pdfa="3b">...</Document>, {
 
 Attachments under PDF/A-**2** are refused with a named error — part 2 permits only PDF/A attachments, which the engine cannot verify; the error tells you to use `"3b"`. The main use case, Factur-X/ZUGFeRD e-invoice containers, has [its own guide](/einvoicing).
 
+### PDF/A-4 (`4`, `4f`) — the PDF 2.0 archival standard
+
+ISO 19005-4:2020 is defined over **PDF 2.0** (ISO 32000-2). Claiming it implies `pdfVersion: "2.0"` — the header, XMP-only document metadata (no trailer Info dictionary), and one consequence worth reading twice:
+
+<Warning>
+**Every font must be embedded under PDF 2.0.** ISO 32000-2 removes the special provision for the standard-14 fonts, so Forme's non-embedded Helvetica/Times/Courier defaults hard-error under `pdfa="4"` (and under plain `pdfVersion: "2.0"`). Register [@formepdf/fonts-standard](https://www.npmjs.com/package/@formepdf/fonts-standard) or your own fonts — the same requirement the 1.7 PDF/A levels already carry, now triggered by the version itself.
+</Warning>
+
+<Warning>
+**PDF/A-4 is not an accessibility claim.** Part 4 drops the a/b/u split entirely — there is no Level A, and no tagging requirement. Accessibility moved wholly to **PDF/UA-2**, which Forme does not yet produce. If "archival AND accessible" is the goal today, that combination is `pdfa="2a"` (or `"3a"`) + `pdfUa` on PDF 1.7. "PDF/A-4 verified" says the file will open identically in thirty years; it says nothing about screen readers.
+</Warning>
+
+```tsx
+// Plain A-4 — no attachments permitted beyond other PDF/A files
+const pdf = await renderDocument(<Document pdfa="4">...</Document>);
+
+// A-4f — arbitrary embedded files, and AT LEAST ONE IS REQUIRED:
+// an A-4f file with an empty EmbeddedFiles tree is itself
+// non-conformant (ISO 19005-4 Annex A; veraPDF clause 6.9-t5), so
+// Forme refuses a "4f" claim with nothing attached.
+const pdf4f = await renderDocument(<Document pdfa="4f">...</Document>, {
+  attachments: [{ name: 'data.csv', data: csvBytes, mimeType: 'text/csv' }],
+});
+```
+
+Both levels are veraPDF-validated in CI over the same corpus as the 1.7 levels. The 1.7-based claims (`pdfa` 2x/3x, `pdfUa`) are contradictions under `pdfVersion: "2.0"` and error by name. The HTML path accepts `pdf_a: "4"`; `"4f"` there is refused until the HTML path grows an attachments option.
+
 ---
 
 ## What Forme Handles

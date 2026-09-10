@@ -163,6 +163,16 @@ pub enum PdfAConformance {
     /// PDF/A-3u: like 2u, plus arbitrary embedded files.
     #[serde(rename = "3u")]
     A3u,
+    /// PDF/A-4 (ISO 19005-4:2020): the PDF 2.0 archival standard. No
+    /// a/b/u conformance split — and NO accessibility requirement:
+    /// tagging levels moved wholly to PDF/UA-2. Implies pdfVersion 2.0.
+    /// Attachments are restricted to other PDF/A files (unverifiable
+    /// here, so refused — the A-2 rationale).
+    #[serde(rename = "4")]
+    A4,
+    /// PDF/A-4f: A-4 plus arbitrary embedded files (pdfaid:conformance F).
+    #[serde(rename = "4f")]
+    A4f,
 }
 
 impl PdfAConformance {
@@ -170,7 +180,7 @@ impl PdfAConformance {
     /// other PDF/A files (veraPDF rule 6.8-5), which the engine cannot
     /// verify — so attachments under a 2x level are refused.
     pub fn allows_attachments(&self) -> bool {
-        matches!(self, Self::A3a | Self::A3b | Self::A3u)
+        matches!(self, Self::A3a | Self::A3b | Self::A3u | Self::A4f)
     }
 }
 

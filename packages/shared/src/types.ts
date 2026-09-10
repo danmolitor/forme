@@ -335,7 +335,23 @@ export interface FormeDocument {
   defaultStyle?: FormeStyle;
   fonts?: FormeFont[];
   tagged?: boolean;
-  pdfa?: '2a' | '2b' | '2u' | '3a' | '3b' | '3u';
+  /**
+   * PDF/A archival conformance. 2x/3x are the PDF 1.7 (ISO 32000-1)
+   * levels; '4' and '4f' are ISO 19005-4:2020 over PDF 2.0 — claiming
+   * them implies pdfVersion "2.0" and requires every font embedded.
+   * NOTE: PDF/A-4 is NOT an accessibility claim — the a/b/u split is
+   * gone and tagging requirements moved wholly to PDF/UA-2.
+   */
+  pdfa?: '2a' | '2b' | '2u' | '3a' | '3b' | '3u' | '4' | '4f';
+  /**
+   * Output PDF version, default "1.7" (today's writer, byte-for-byte).
+   * "2.0" writes ISO 32000-2: XMP metadata always, no trailer /Info,
+   * and EVERY FONT MUST BE EMBEDDED — PDF 2.0 removes the standard-14
+   * provision, so the base-14 defaults (Helvetica etc.) hard-error
+   * unless @formepdf/fonts-standard (or your own fonts) are registered.
+   * 1.7-based claims (pdfa 2x/3x, pdfUa) are errors under "2.0".
+   */
+  pdfVersion?: '1.7' | '2.0';
   pdfUa?: boolean;
   flattenForms?: boolean;
   certification?: CertificationConfig;

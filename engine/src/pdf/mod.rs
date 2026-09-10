@@ -217,11 +217,33 @@ impl PdfWriter {
         // embedded files.
         if let Some(level) = pdfa {
             if !level.allows_attachments() && (embedded_data.is_some() || !attachments.is_empty()) {
+                use crate::model::PdfAConformance as L;
+                let (family, clause, remedy) = match level {
+                    L::A4 => ("PDF/A-4", "ISO 19005-4", "pdfa: \"4f\""),
+                    _ => (
+                        "PDF/A-2",
+                        "ISO 19005-2, 6.8",
+                        "a PDF/A-3 level — e.g. pdfa: \"3b\"",
+                    ),
+                };
+                return Err(FormeError::RenderError(format!(
+                    "{family} forbids embedded files that are not themselves PDF/A \
+                     ({clause}), which the engine cannot verify. Use {remedy}, which \
+                     permits arbitrary attachments, or remove the attachment / embedData."
+                )));
+            }
+            // The inverse rule, from veraPDF's PDFA-4F profile verbatim
+            // (6.9-t5): "A PDF/A-4f conforming file shall contain an
+            // EmbeddedFiles key" — an A-4f claim with NOTHING embedded is
+            // itself non-conformant.
+            if matches!(level, crate::model::PdfAConformance::A4f)
+                && embedded_data.is_none()
+                && attachments.is_empty()
+            {
                 return Err(FormeError::RenderError(
-                    "PDF/A-2 forbids embedded files that are not themselves PDF/A \
-                     (ISO 19005-2, 6.8). Use a PDF/A-3 level — e.g. pdfa: \"3b\" — \
-                     which permits arbitrary attachments, or remove the attachment / \
-                     embedData."
+                    "pdfa: \"4f\" requires at least one embedded file (ISO 19005-4, \
+                     Annex A; veraPDF 6.9-t5 — the EmbeddedFiles name tree must exist). \
+                     Add an attachment or embedData, or claim pdfa: \"4\" instead."
                         .to_string(),
                 ));
             }

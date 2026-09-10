@@ -12781,3 +12781,83 @@ fn pdf17_output_is_byte_identical_with_the_version_field_present() {
     assert_eq!(a, b, "explicit 1.7 must be byte-identical to the default");
     assert!(a.starts_with(b"%PDF-1.7"));
 }
+
+// ── PDF/A-4 (ISO 19005-4:2020) ──────────────────────────────────────────
+
+fn doca4(level: &str, extra: &str) -> String {
+    format!(
+        r#"{{ "children": [ {{ "kind": {{ "type": "Text", "content": "archival 2.0" }}, "style": {{ "fontFamily": "Noto Sans" }}, "children": [] }} ],
+            "metadata": {{ "title": "A4 Doc" }}, "pdfa": "{level}"{extra} }}"#
+    )
+}
+
+#[test]
+fn pdfa4_identification_and_implied_version() {
+    // veraPDF's PDFA-4 rules, read verbatim: pdfaid:part 4, REQUIRED
+    // pdfaid:rev "2020", and base A-4 "shall not provide any
+    // pdfaid:conformance". Claiming A-4 implies the 2.0 header — a 1.7
+    // header would falsify the claim.
+    let bytes = forme::render_json(&doca4("4", "")).expect("A-4 doc renders");
+    assert!(bytes.starts_with(b"%PDF-2.0"), "A-4 implies the 2.0 header");
+    let text = String::from_utf8_lossy(&bytes);
+    assert!(text.contains("<pdfaid:part>4</pdfaid:part>"));
+    assert!(text.contains("<pdfaid:rev>2020</pdfaid:rev>"));
+    assert!(
+        !text.contains("pdfaid:conformance"),
+        "base A-4 must not provide a conformance property"
+    );
+    assert!(!text.contains("/Info "), "no trailer /Info under A-4");
+    assert!(
+        text.contains("/OutputIntent"),
+        "device color needs an output intent"
+    );
+}
+
+#[test]
+fn pdfa4f_conformance_f_and_attachments() {
+    // A-4f: pdfaid:conformance F, arbitrary embedded files allowed.
+    let bytes = forme::render_json(&doca4(
+        "4f",
+        r#", "attachments": [ { "name": "data.csv", "src": "YSxiCjEsMg==", "mimeType": "text/csv", "relationship": "Supplement" } ]"#,
+    ))
+    .expect("A-4f doc with attachment renders");
+    let text = String::from_utf8_lossy(&bytes);
+    assert!(text.contains("<pdfaid:part>4</pdfaid:part>"));
+    assert!(text.contains("<pdfaid:conformance>F</pdfaid:conformance>"));
+    assert!(text.contains("<pdfaid:rev>2020</pdfaid:rev>"));
+    assert!(
+        text.contains("/EmbeddedFiles"),
+        "4f requires the EmbeddedFiles name tree"
+    );
+    assert!(text.contains("/AFRelationship"));
+}
+
+#[test]
+fn pdfa4_base_refuses_attachments_by_name() {
+    // Base A-4 allows only PDF/A-compliant embedded files — which the
+    // engine cannot verify, so it refuses with the remedy (the A-2
+    // rationale, extended).
+    let e = forme::render_json(&doca4(
+        "4",
+        r#", "attachments": [ { "name": "data.csv", "src": "YSxiCjEsMg==", "mimeType": "text/csv", "relationship": "Supplement" } ]"#,
+    ))
+    .unwrap_err();
+    let msg = e.to_string();
+    assert!(
+        msg.contains("4f"),
+        "the refusal must point at the 4f remedy: {msg}"
+    );
+}
+
+#[test]
+fn pdfa4f_without_files_is_refused() {
+    // veraPDF PDFA-4F 6.9-t5, verbatim: "A PDF/A-4f conforming file shall
+    // contain an EmbeddedFiles key" — the claim with nothing embedded is
+    // itself non-conformant, so the engine refuses with the remedy.
+    let e = forme::render_json(&doca4("4f", "")).unwrap_err();
+    let msg = e.to_string();
+    assert!(
+        msg.contains("at least one embedded file") && msg.contains("\"4\""),
+        "must explain and point at plain A-4: {msg}"
+    );
+}

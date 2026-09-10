@@ -235,6 +235,18 @@ pub fn render_with_warnings_and_passes(
 /// PDF 2.0 contradicts every ISO 32000-1 (PDF 1.7) based conformance
 /// claim: PDF/A-2 and A-3 are defined over 1.7, as is PDF/UA-1. Error by
 /// name rather than emit a file whose header falsifies its own claim.
+/// PDF/A-4 is defined over ISO 32000-2: claiming it IMPLIES PDF 2.0
+/// output, whatever pdfVersion says (the serde default cannot be told
+/// apart from an explicit "1.7", so the claim wins — the alternative is
+/// a file whose header falsifies its own conformance).
+fn effective_pdf_version(document: &Document) -> crate::model::PdfVersion {
+    use crate::model::{PdfAConformance, PdfVersion};
+    match &document.pdfa {
+        Some(PdfAConformance::A4 | PdfAConformance::A4f) => PdfVersion::V2_0,
+        _ => document.pdf_version,
+    }
+}
+
 fn validate_pdf_version(document: &Document) -> Result<(), FormeError> {
     use crate::model::{PdfAConformance, PdfVersion};
     if document.pdf_version != PdfVersion::V2_0 {
@@ -244,6 +256,9 @@ fn validate_pdf_version(document: &Document) -> Result<(), FormeError> {
         let family = match level {
             PdfAConformance::A2a | PdfAConformance::A2b | PdfAConformance::A2u => "PDF/A-2",
             PdfAConformance::A3a | PdfAConformance::A3b | PdfAConformance::A3u => "PDF/A-3",
+            // A-4 is the 2.0-based standard: no contradiction — it
+            // IMPLIES pdfVersion 2.0 (applied at render time below).
+            PdfAConformance::A4 | PdfAConformance::A4f => return Ok(()),
         };
         return Err(FormeError::RenderError(format!(
             "pdfVersion \"2.0\" contradicts pdfa: {family} is defined over ISO 32000-1              (PDF 1.7). Drop the pdfa claim, or keep pdfVersion \"1.7\" (the default).              PDF/A-4 is the 2.0-based archival standard."
@@ -299,7 +314,7 @@ pub fn render_with_options(
         &document.attachments,
         document.zugferd.as_ref(),
         document.flatten_forms,
-        document.pdf_version,
+        effective_pdf_version(document),
     )?;
     let warnings = {
         let mut all = layout_warnings;
@@ -372,7 +387,7 @@ pub fn render_with_layout_and_options(
         &document.attachments,
         document.zugferd.as_ref(),
         document.flatten_forms,
-        document.pdf_version,
+        effective_pdf_version(document),
     )?;
     let pdf = if let Some(ref sig_config) = document.certification {
         pdf::certify::certify_pdf(&pdf, sig_config)?
