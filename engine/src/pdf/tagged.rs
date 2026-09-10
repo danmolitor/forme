@@ -148,6 +148,7 @@ impl TagBuilder {
     /// then mark the element's own drawing as an /Artifact instead of
     /// tagging it. Call `end_element` after the content is written either
     /// way.
+    #[allow(clippy::too_many_arguments)]
     pub fn begin_element(
         &mut self,
         node_type: &str,

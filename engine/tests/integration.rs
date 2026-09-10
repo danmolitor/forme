@@ -12916,3 +12916,162 @@ fn pdfa4f_without_files_is_refused() {
         "must explain and point at plain A-4: {msg}"
     );
 }
+
+// ── PDF/UA-2 (ISO 14289-2:2024) ─────────────────────────────────────────
+
+/// A document exercising every UA-2 structure family: headings, a link,
+/// an ordered list (Lbl + LBody + ListNumbering), a table with a header
+/// row and a colspan, and a QR figure with alt text.
+fn docua2(claims: &str) -> String {
+    format!(
+        r##"{{ "children": [
+            {{ "kind": {{ "type": "Heading", "content": "Report", "level": 1 }}, "style": {{ "fontFamily": "Noto Sans" }}, "children": [] }},
+            {{ "kind": {{ "type": "Text", "content": "See the appendix.", "href": "https://example.com" }}, "style": {{ "fontFamily": "Noto Sans" }}, "children": [] }},
+            {{ "kind": {{ "type": "List", "ordered": true, "marker_type": "decimal" }}, "style": {{ "fontFamily": "Noto Sans" }}, "children": [
+                {{ "kind": {{ "type": "ListItem" }}, "style": {{}}, "children": [ {{ "kind": {{ "type": "Text", "content": "First" }}, "style": {{}}, "children": [] }} ] }}
+            ] }},
+            {{ "kind": {{ "type": "Table", "columns": [] }}, "style": {{ "fontFamily": "Noto Sans" }}, "children": [
+                {{ "kind": {{ "type": "TableRow", "is_header": true }}, "style": {{ "backgroundColor": {{ "r": 0.93, "g": 0.93, "b": 0.93, "a": 1.0 }} }}, "children": [
+                    {{ "kind": {{ "type": "TableCell" }}, "style": {{}}, "children": [ {{ "kind": {{ "type": "Text", "content": "Item" }}, "style": {{}}, "children": [] }} ] }},
+                    {{ "kind": {{ "type": "TableCell" }}, "style": {{}}, "children": [ {{ "kind": {{ "type": "Text", "content": "Value" }}, "style": {{}}, "children": [] }} ] }}
+                ] }},
+                {{ "kind": {{ "type": "TableRow" }}, "style": {{}}, "children": [
+                    {{ "kind": {{ "type": "TableCell", "col_span": 2 }}, "style": {{}}, "children": [ {{ "kind": {{ "type": "Text", "content": "Total" }}, "style": {{}}, "children": [] }} ] }}
+                ] }}
+            ] }},
+            {{ "kind": {{ "type": "QrCode", "data": "https://example.com", "size": 60 }}, "alt": "QR link", "style": {{}}, "children": [] }}
+        ], "metadata": {{ "title": "UA2 Doc", "lang": "en-US" }}{claims} }}"##
+    )
+}
+
+/// Slice one structure element's object body out of the (uncompressed
+/// object dictionary) PDF text: from the `/S /<role> ` marker to the next
+/// `endobj`. Panics if the role isn't present.
+fn struct_elem_body<'a>(text: &'a str, role_marker: &str) -> &'a str {
+    let start = text
+        .find(role_marker)
+        .unwrap_or_else(|| panic!("no {role_marker} element in output"));
+    let rest = &text[start..];
+    let end = rest.find("endobj").expect("dict runs to endobj");
+    &rest[..end]
+}
+
+#[test]
+fn pdfua2_identification_and_implied_version() {
+    // veraPDF's PDFUA-2 rules, read verbatim: pdfuaid:part 2 with
+    // pdfuaid:rev 2024, and ViewerPreferences /DisplayDocTitle true
+    // (clause 8.11.2). UA-2 is a PDF 2.0 standard — claiming it implies
+    // the 2.0 header, XMP-always, and no trailer /Info.
+    let bytes = forme::render_json(&docua2(r#", "pdfUa2": true"#)).expect("UA-2 doc renders");
+    assert!(
+        bytes.starts_with(b"%PDF-2.0"),
+        "UA-2 implies the 2.0 header"
+    );
+    let text = String::from_utf8_lossy(&bytes);
+    assert!(text.contains("<pdfuaid:part>2</pdfuaid:part>"));
+    assert!(text.contains("<pdfuaid:rev>2024</pdfuaid:rev>"));
+    assert!(text.contains("/ViewerPreferences << /DisplayDocTitle true >>"));
+    assert!(!text.contains("/Info "), "no trailer /Info under 2.0");
+}
+
+#[test]
+fn pdfua2_single_document_root_in_20_namespace() {
+    // ISO 32005: the StructTreeRoot contains a single Document structure
+    // element in the PDF 2.0 namespace as its only child — the 1.7
+    // writer's fused root is exactly what UA-2 forbids.
+    let bytes = forme::render_json(&docua2(r#", "pdfUa2": true"#)).unwrap();
+    let text = String::from_utf8_lossy(&bytes);
+    assert!(
+        text.contains("(http://iso.org/pdf2/ssn)"),
+        "2.0 namespace object"
+    );
+    assert!(text.contains("/Namespaces ["), "root carries /Namespaces");
+    let doc = struct_elem_body(&text, "/S /Document ");
+    assert!(doc.contains("/NS "), "Document element is in a namespace");
+    assert!(
+        !doc.contains("/MCR"),
+        "<Document> shall not contain content items: {doc}"
+    );
+}
+
+#[test]
+fn pdfua2_grouping_elements_contain_no_content_items() {
+    // ISO 32005 containment matrix, as shipped in veraPDF's profile
+    // ("Table 5. X-content: <X> shall not contain content items") for
+    // Table, TR and L; ISO 14289-2 8.2.5.25 for LI ("Any real content
+    // within an LI ... not enclosed in an Lbl ... shall be enclosed in an
+    // LBody"). Their own ink is an /Artifact instead.
+    let bytes = forme::render_json(&docua2(r#", "pdfUa2": true"#)).unwrap();
+    let text = String::from_utf8_lossy(&bytes);
+    for marker in ["/S /Table ", "/S /TR ", "/S /L ", "/S /LI "] {
+        let body = struct_elem_body(&text, marker);
+        assert!(
+            !body.contains("/MCR"),
+            "{marker} element must hold no marked content: {body}"
+        );
+    }
+    // The UA-1 shape keeps its historical fused MCIDs — control.
+    let bytes17 = forme::render_json(&docua2(r#", "pdfUa": true"#)).unwrap();
+    let text17 = String::from_utf8_lossy(&bytes17);
+    let body17 = struct_elem_body(&text17, "/S /Table ");
+    assert!(body17.contains("/MCR"), "UA-1 shape unchanged");
+}
+
+#[test]
+fn pdfua2_list_numbering_attribute() {
+    // ISO 14289-2 8.2.5.25: "If Lbl structure elements are present, the
+    // ListNumbering attribute shall be present on the respective L
+    // structure element; in such cases the value None shall not be used."
+    let bytes = forme::render_json(&docua2(r#", "pdfUa2": true"#)).unwrap();
+    let text = String::from_utf8_lossy(&bytes);
+    let l = struct_elem_body(&text, "/S /L ");
+    assert!(
+        l.contains("/A << /O /List /ListNumbering /Decimal >>"),
+        "ordered decimal list declares its numbering: {l}"
+    );
+    assert!(text.contains("/S /Lbl"), "marker tags as Lbl");
+    assert!(text.contains("/S /LBody"), "item content wraps in LBody");
+}
+
+#[test]
+fn pdfua2_graphics_tag_as_figures() {
+    // Under UA-2 a QR code is a semantic /Figure carrying its /Alt — as a
+    // neutral /Div its content items would attribute upward into the
+    // grouping ancestor (ISO 32005) and the alt text would be dead. The
+    // UA-1 shape keeps the historical /Div byte-for-byte.
+    let bytes = forme::render_json(&docua2(r#", "pdfUa2": true"#)).unwrap();
+    let text = String::from_utf8_lossy(&bytes);
+    let fig = struct_elem_body(&text, "/S /Figure ");
+    assert!(fig.contains("/Alt (QR link)"), "figure carries alt: {fig}");
+    let bytes17 = forme::render_json(&docua2(r#", "pdfUa": true"#)).unwrap();
+    assert!(
+        !String::from_utf8_lossy(&bytes17).contains("/S /Figure"),
+        "UA-1 shape keeps the /Div fallback"
+    );
+}
+
+#[test]
+fn pdfua2_contradictions_error_by_name() {
+    let e = forme::render_json(&docua2(r#", "pdfUa2": true, "pdfUa": true"#)).unwrap_err();
+    assert!(
+        e.to_string().contains("pdfUa2 contradicts pdfUa"),
+        "UA-1 x UA-2 must error by name: {e}"
+    );
+    let e = forme::render_json(&docua2(r#", "pdfUa2": true, "pdfa": "2a""#)).unwrap_err();
+    assert!(
+        e.to_string()
+            .contains("pdfUa2 contradicts a 1.7-based pdfa level"),
+        "UA-2 x A-2 must error by name: {e}"
+    );
+}
+
+#[test]
+fn pdfua2_composes_with_pdfa4() {
+    // The modern pair: archival AND accessible on PDF 2.0.
+    let bytes =
+        forme::render_json(&docua2(r#", "pdfUa2": true, "pdfa": "4""#)).expect("compose renders");
+    let text = String::from_utf8_lossy(&bytes);
+    assert!(text.contains("<pdfaid:part>4</pdfaid:part>"));
+    assert!(text.contains("<pdfuaid:part>2</pdfuaid:part>"));
+    assert!(text.contains("<pdfuaid:rev>2024</pdfuaid:rev>"));
+}
