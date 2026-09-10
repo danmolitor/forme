@@ -353,6 +353,14 @@ export interface FormeDocument {
    */
   pdfVersion?: '1.7' | '2.0';
   pdfUa?: boolean;
+  /**
+   * PDF/UA-2 accessibility (ISO 14289-2:2024) — the PDF 2.0 successor
+   * to pdfUa. Implies pdfVersion "2.0" (so every font must be embedded)
+   * and forces tagging with the 2.0 structure namespace. Contradicts
+   * pdfUa and the 1.7 pdfa levels (2x/3x); composes with pdfa '4'/'4f'
+   * for a file that is archival AND accessible.
+   */
+  pdfUa2?: boolean;
   flattenForms?: boolean;
   certification?: CertificationConfig;
 }
