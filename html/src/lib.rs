@@ -856,8 +856,22 @@ pub fn html_to_document(html: &str, options: &HtmlOptions) -> (forme::Document, 
                 doc.pdfa = Some(PdfAConformance::A3a);
                 doc.tagged = true;
             }
+            // Part 4 (ISO 19005-4:2020, PDF 2.0): no a/b/u split — and NO
+            // accessibility requirement; that moved wholly to PDF/UA-2.
+            // Claiming 4/4f implies pdfVersion 2.0 in the engine.
+            "4" => doc.pdfa = Some(PdfAConformance::A4),
+            // A-4f REQUIRES an embedded file (veraPDF 6.9-t5) and the
+            // HTML path has no attachments option yet — claiming it here
+            // could only ever produce the engine's refusal. Warn with the
+            // real path instead of passing through to a guaranteed error.
+            "4f" => warnings.push(
+                "pdf_a: \"4f\" requires an embedded file and the HTML path has no \
+                 attachments option yet — use pdfa: \"4\" here, or render via \
+                 @formepdf/core (which takes attachments) for 4f. Ignoring."
+                    .to_string(),
+            ),
             other => warnings.push(format!(
-                "pdf_a: unknown conformance level {other:?} — expected \"2b\", \"2u\", \"2a\", \"3b\", \"3u\", or \"3a\". Ignoring."
+                "pdf_a: unknown conformance level {other:?} — expected \"2b\", \"2u\", \"2a\", \"3b\", \"3u\", \"3a\", \"4\", or \"4f\". Ignoring."
             )),
         }
         // PDF/A needs embedded fonts too; if the doc has a language for pdf_ua

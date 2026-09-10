@@ -32,7 +32,7 @@ import { renderHtml } from '@formepdf/html';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FIXTURES = join(HERE, '..', 'html', 'tests', 'fixtures');
 const LANG = 'en-US';
-const LEVELS = ['2b', '2a', '3b', '3a']; // 2a/3a additionally require tagging; 2u/3u sit between (same machinery, validated via 3b/3a).
+const LEVELS = ['2b', '2a', '3b', '3a', '4', '4f']; // 2a/3a additionally require tagging; 2u/3u sit between (same machinery, validated via 3b/3a). 4/4f are the ISO 19005-4 (PDF 2.0) levels — no a/b/u split, no accessibility requirement (that moved to PDF/UA-2).
 
 const CORE_FONTS = standardFonts().map((f) => ({
   family: f.family, src: Buffer.from(f.src).toString('base64'),
@@ -50,9 +50,15 @@ const HTML_FIXTURES = ['letterhead', 'dashed-borders', 'statement', 'zebra-invoi
 
 async function renderTemplate(name, data, level) {
   const doc = serialize(getTemplate(name)(data));
-  doc.pdfUa = true;
+  doc.pdfUa = !level.startsWith('4'); // UA-1 is 1.7-based; the 4/4f compose partner is PDF/UA-2 (not yet built)
   doc.tagged = true;
   doc.pdfa = level;
+  // A-4f REQUIRES an embedded file (veraPDF 6.9-t5) — and carrying one
+  // exercises the whole 4f filespec chain (F/UF, MIME Subtype,
+  // AFRelationship, EmbeddedFiles tree) under validation.
+  if (level === '4f') {
+    doc.attachments = [{ name: 'gate.csv', src: Buffer.from('a,b\n1,2\n').toString('base64'), mimeType: 'text/csv', relationship: 'Supplement' }];
+  }
   doc.metadata = { ...(doc.metadata ?? {}), lang: LANG };
   doc.fonts = CORE_FONTS;
   const { pdf } = await renderPdfWithLayout(JSON.stringify(doc));
@@ -60,7 +66,11 @@ async function renderTemplate(name, data, level) {
 }
 async function renderFixture(name, level) {
   const html = await readFile(join(FIXTURES, `${name}.html`), 'utf8');
-  const { pdf } = renderHtml(html, { pdfUa: true, pdfA: level, lang: LANG, fonts: HTML_FONTS });
+  const opts = { pdfUa: !level.startsWith('4'), pdfA: level, lang: LANG, fonts: HTML_FONTS };
+  if (level === '4f') {
+    opts.attachments = [{ name: 'gate.csv', src: Buffer.from('a,b\n1,2\n').toString('base64'), mimeType: 'text/csv', relationship: 'Supplement' }];
+  }
+  const { pdf } = renderHtml(html, opts);
   return pdf;
 }
 
@@ -85,7 +95,9 @@ async function main() {
       id: `a${level}`,
       level,
       label: `PDF/A-${level} + PDF/UA-1`,
-      render: `pdfa:${level} + pdfUa + fonts-standard`,
+      render: level.startsWith('4')
+        ? `pdfa:${level} + fonts-standard (PDF 2.0; accessibility is PDF/UA-2 territory, not composed here)`
+        : `pdfa:${level} + pdfUa + fonts-standard`,
       profiles: [level, 'ua1'],
     })),
     results: [],
@@ -97,13 +109,22 @@ async function main() {
       const p = join(outDir, `${level}-template-${name}.pdf`); writeFileSync(p, pdf);
       corpus.push({ label: `template/${name}`, path: p });
     }
-    for (const name of HTML_FIXTURES) {
-      const pdf = await renderFixture(name, level);
-      const p = join(outDir, `${level}-html-${name}.pdf`); writeFileSync(p, pdf);
-      corpus.push({ label: `html/${name}`, path: p });
+    // The HTML path has no attachments option, and A-4f requires an
+    // embedded file (6.9-t5) — html fixtures validate at every level
+    // except 4f, where the option itself is refused by the html layer.
+    if (level !== '4f') {
+      for (const name of HTML_FIXTURES) {
+        const pdf = await renderFixture(name, level);
+        const p = join(outDir, `${level}-html-${name}.pdf`); writeFileSync(p, pdf);
+        corpus.push({ label: `html/${name}`, path: p });
+      }
     }
     // One JVM per profile over the whole corpus (was one per file*profile).
-    for (const profile of [level, 'ua1']) {
+    // 4/4f validate against their own flavour only: UA-1 is defined over
+    // 1.7 and the engine refuses the combination; the 2.0 accessibility
+    // compose partner is PDF/UA-2, gated when that campaign lands.
+    const profiles = level.startsWith('4') ? [level] : [level, 'ua1'];
+    for (const profile of profiles) {
       const batch = veraValidateBatch(vera, profile, corpus.map((c) => c.path));
       for (const c of corpus) {
         const r = batch.get(c.path) ?? { pass: false, failedClauses: [] };

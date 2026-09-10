@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- **`pdf_a: "4"`** — PDF/A-4 (ISO 19005-4:2020, PDF 2.0) through the HTML path. Implies PDF 2.0 output: every font must be embedded (the standard-14 provision is gone in ISO 32000-2), so register fonts or `fonts-standard`. **PDF/A-4 is not an accessibility claim** — tagging levels moved wholly to PDF/UA-2; for archival + accessible today use `pdf_a: "2a"` + `pdf_ua`. `"4f"` is refused by name until the HTML path grows an attachments option (an A-4f file requires at least one embedded file).
+
 ### Changed (engine behavior visible through the HTML path)
 
 - **Baselines use real font metrics** (see the engine changelog): every text baseline rises by `fs*(1 - ascent + descent)/2` for its font (~0.15em for Helvetica-class faces); line boxes, wrapping, and page breaks are unchanged. The line-height box-centering idiom (`line-height` equal to a box height) now centers glyphs the way a browser does — the repo templates' optical-centering workarounds were removed in the same change.

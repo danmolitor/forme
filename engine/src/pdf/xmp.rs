@@ -54,18 +54,28 @@ pub fn generate_xmp(
     // Build conformance entries
     let mut entries = String::new();
     if let Some(conf) = conformance {
+        // Part 4 identification, per veraPDF's PDFA-4/PDFA-4F rules read
+        // verbatim: part 4 + REQUIRED pdfaid:rev "2020"; base A-4 "shall
+        // not provide any pdfaid:conformance"; A-4f provides "F".
         let (part, level) = match conf {
-            PdfAConformance::A2a => ("2", "A"),
-            PdfAConformance::A2b => ("2", "B"),
-            PdfAConformance::A2u => ("2", "U"),
-            PdfAConformance::A3a => ("3", "A"),
-            PdfAConformance::A3b => ("3", "B"),
-            PdfAConformance::A3u => ("3", "U"),
+            PdfAConformance::A2a => ("2", Some("A")),
+            PdfAConformance::A2b => ("2", Some("B")),
+            PdfAConformance::A2u => ("2", Some("U")),
+            PdfAConformance::A3a => ("3", Some("A")),
+            PdfAConformance::A3b => ("3", Some("B")),
+            PdfAConformance::A3u => ("3", Some("U")),
+            PdfAConformance::A4 => ("4", None),
+            PdfAConformance::A4f => ("4", Some("F")),
         };
-        entries.push_str(&format!(
-            "      <pdfaid:part>{}</pdfaid:part>\n      <pdfaid:conformance>{}</pdfaid:conformance>\n",
-            part, level
-        ));
+        entries.push_str(&format!("      <pdfaid:part>{part}</pdfaid:part>\n"));
+        if let Some(level) = level {
+            entries.push_str(&format!(
+                "      <pdfaid:conformance>{level}</pdfaid:conformance>\n"
+            ));
+        }
+        if matches!(conf, PdfAConformance::A4 | PdfAConformance::A4f) {
+            entries.push_str("      <pdfaid:rev>2020</pdfaid:rev>\n");
+        }
     }
     if pdf_ua {
         entries.push_str("      <pdfuaid:part>1</pdfuaid:part>\n");

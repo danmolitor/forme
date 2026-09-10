@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Added
+
+- **PDF 2.0 output** (`pdfVersion: "2.0"`, default `"1.7"` — byte-identical for non-requesting documents, asserted by pin): `%PDF-2.0` header, XMP document metadata always, no trailer `/Info` (deprecated in ISO 32000-2; forbidden by veraPDF's PDF/A-4 profile), and **embedded fonts required** — 32000-2 removes the standard-14 provision, so base-14 output hard-errors by name with the fonts-standard remedy. 1.7-based conformance claims (`pdfa` 2x/3x, `pdfUa`) are contradictions and error by name.
+- **PDF/A-4 and PDF/A-4f** (ISO 19005-4:2020): `pdfa: "4" | "4f"`, implying PDF 2.0. Identification per veraPDF's shipped rule set — `pdfaid:part` 4, `pdfaid:rev` 2020, conformance only for `4f` ("F"). Base A-4 refuses attachments (only PDF/A files are permitted, which the engine cannot verify); **A-4f requires at least one embedded file** (clause 6.9-t5 — an empty EmbeddedFiles tree is itself non-conformant) and refuses an attachment-less claim. Both levels veraPDF-validated in CI over the standing corpus. NOTE: A-4 carries **no accessibility requirement** — the a/b/u split is gone; accessibility is PDF/UA-2 territory.
+
 ### Changed (behavior — all text ink moves; line boxes and page breaks do not)
 
 - **Baselines use real font metrics.** The glyph block inside a line box is now `(ascent + descent) * font_size` (hhea metrics for custom fonts, the metric-compatible faces' values for the base-14 families), with half-leading splitting the remainder and the baseline sitting `ascent` below the block top — the CSS line box model as browsers implement it. The previous model used `font_size` as a stand-in for the whole block, which sat every baseline `fs*(1 - ascent + descent)/2` lower than a browser (~0.15em for Arial-class metrics) and made single glyphs centered by the line-height idiom ride visibly low. Line boxes, element geometry, page breaks, and page counts are unchanged — only ink position within each line moves, by exactly the per-font predicted delta; baseline-alignment shoves (flex `align-items: baseline`, table-cell `vertical-align: baseline`) are recomputed under the same model and now match glyph placement exactly.
