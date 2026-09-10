@@ -365,6 +365,21 @@ export interface FormeDocument {
   certification?: CertificationConfig;
 }
 
+/**
+ * The document-level conformance claims every authoring adapter exposes
+ * 1:1 as `<Document>` props and its serializer passes straight through.
+ * Adapters assert compile-time parity against this type (see the
+ * `_DocumentClaimParity` guards) — a claim added here without reaching an
+ * adapter's prop types fails that adapter's build instead of shipping
+ * serializable but type-invisible, which is how `pdfVersion` first went
+ * out (and `passes` before it: real on one layer, absent on the layer
+ * users touch).
+ */
+export type FormeDocumentClaimProps = Pick<
+  FormeDocument,
+  'tagged' | 'pdfa' | 'pdfVersion' | 'pdfUa' | 'pdfUa2'
+>;
+
 export interface FormeMetadata {
   title?: string;
   author?: string;

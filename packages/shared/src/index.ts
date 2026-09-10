@@ -56,6 +56,7 @@ export type {
   ListMarker,
   // Forme JSON output
   FormeDocument,
+  FormeDocumentClaimProps,
   FormeFont,
   FormeNode,
   FormeNodeKind,
