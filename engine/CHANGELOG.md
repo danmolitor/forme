@@ -1,12 +1,24 @@
 # Changelog
 
-## [Unreleased]
+## [0.22.0] - 2026-09-10
 
 ### Added
 
 - **PDF 2.0 output** (`pdfVersion: "2.0"`, default `"1.7"` — byte-identical for non-requesting documents, asserted by pin): `%PDF-2.0` header, XMP document metadata always, no trailer `/Info` (deprecated in ISO 32000-2; forbidden by veraPDF's PDF/A-4 profile), and **embedded fonts required** — 32000-2 removes the standard-14 provision, so base-14 output hard-errors by name with the fonts-standard remedy. 1.7-based conformance claims (`pdfa` 2x/3x, `pdfUa`) are contradictions and error by name.
 - **PDF/UA-2** (ISO 14289-2:2024): `pdfUa2`, the PDF 2.0 accessibility claim, veraPDF-validated (ua2 profile) over the standing corpus in CI. Implies PDF 2.0 and tagging; identification `pdfuaid:part` 2 + `pdfuaid:rev` 2024. The structure tree un-fuses into a single `Document` element in the PDF 2.0 namespace (`http://iso.org/pdf2/ssn`), grouping elements (`Table`, `TR`, `L`, `LI`, …) and neutral `Div`s carry no marked content — their own ink (row backgrounds, borders) is marked `/Artifact` per ISO 32005's containment matrix; graphics nodes (`QrCode`, `Barcode`, `Canvas`, charts) tag as `/Figure`, with a barcode/QR's encoded data emitted as `/ActualText` when no `alt` is given (8.2.5.28.2); ordered/bulleted lists declare `/ListNumbering` (8.2.5.25); internal links and bookmarks become **structure destinations** (`/SD`, 8.8); embedded filespecs always carry `/Desc` (8.14.1, falling back to the file name). Contradicts `pdfUa` and 1.7 `pdfa` levels by name; **composes with `pdfa: "4"`/`"4f"`** — the modern archival + accessible pair, both gated in CI. The PDF/UA-1 (`pdfUa`) output shape is byte-identical to before, asserted by pins and the byte-wall.
 - **PDF/A-4 and PDF/A-4f** (ISO 19005-4:2020): `pdfa: "4" | "4f"`, implying PDF 2.0. Identification per veraPDF's shipped rule set — `pdfaid:part` 4, `pdfaid:rev` 2020, conformance only for `4f` ("F"). Base A-4 refuses attachments (only PDF/A files are permitted, which the engine cannot verify); **A-4f requires at least one embedded file** (clause 6.9-t5 — an empty EmbeddedFiles tree is itself non-conformant) and refuses an attachment-less claim. Both levels veraPDF-validated in CI over the standing corpus. NOTE: A-4 carries **no accessibility requirement** — the a/b/u split is gone; accessibility is PDF/UA-2 territory.
+
+- **`align-items: baseline`** in flex rows — items align on the first text baseline using the table-cell baseline model; the line grows for shoved items before the page-break check. Previously parsed and treated as `flex-start`.
+
+### Fixed (behavior — output changes where the old measurement was wrong)
+
+- **Intrinsic width honesty**: `measure_intrinsic_width`'s View arm ignored explicit `Fixed` widths entirely (an empty `width: 33` view measured 0) and measured CSS-gapped flex rows gapless (nested rows under-reported by `(n−1)·gap`). Both fed over-full rows that shrank children; auto-sized layouts whose contents carried fixed-width boxes or gaps now get their true size.
+- **`flex: <n>` shorthand is spec-correct**: it now sets `flex-basis: 0` (CSS: `flex: 1` = `1 1 0`), not `basis: auto`. A `flex: 1` text column no longer brings its full unwrapped width to distribution and crushing fixed-width siblings.
+
+### Changed (behavior)
+
+- **`letter-spacing` and `word-spacing` now inherit**, as CSS specifies (`text-transform` beside them always did). Tracking declared on a container finally reaches its children; documents that declared tracking on wrappers and relied on it not applying will see tracked text.
+- **AcroForm dictionaries no longer set `/NeedAppearances`** — Forme authors every widget appearance stream itself, and the flag asked conforming viewers to regenerate (and thus restyle) them. Field rendering is now identical across viewers instead of viewer-dependent.
 
 ### Changed (behavior — all text ink moves; line boxes and page breaks do not)
 

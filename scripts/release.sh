@@ -48,7 +48,7 @@ confirm() {
 }
 
 # npm packages in dependency/publish order. html joined the line at 0.14.0.
-NPM_ORDER=(shared fonts-standard react core renderer svelte vue preact cli hono next resend mcp sdk tailwind templates html)
+NPM_ORDER=(shared fonts-standard react core renderer svelte vue preact cli hono next resend mcp sdk tailwind templates html preview)
 PARITY_FIXTURES=(letterhead report zebra-invoice statement)
 
 phase_reached() {
