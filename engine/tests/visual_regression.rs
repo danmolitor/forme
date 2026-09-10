@@ -265,6 +265,7 @@ fn visual_invoice() {
         flatten_forms: false,
         pdf_ua: false,
         certification: None,
+        pdf_version: Default::default(),
     };
 
     let pdf = forme::render(&doc).unwrap();
@@ -308,6 +309,7 @@ fn visual_multi_page_text() {
         flatten_forms: false,
         pdf_ua: false,
         certification: None,
+        pdf_version: Default::default(),
     };
 
     let pdf = forme::render(&doc).unwrap();
@@ -447,6 +449,7 @@ fn visual_table_header_repetition() {
         flatten_forms: false,
         pdf_ua: false,
         certification: None,
+        pdf_version: Default::default(),
     };
 
     let pdf = forme::render(&doc).unwrap();
@@ -507,6 +510,7 @@ fn visual_flex_layout() {
         flatten_forms: false,
         pdf_ua: false,
         certification: None,
+        pdf_version: Default::default(),
     };
 
     let pdf = forme::render(&doc).unwrap();
@@ -567,6 +571,7 @@ fn visual_justified_text() {
         flatten_forms: false,
         pdf_ua: false,
         certification: None,
+        pdf_version: Default::default(),
     };
 
     let pdf = forme::render(&doc).unwrap();
@@ -651,6 +656,7 @@ fn visual_line_breaking_greedy_vs_optimal() {
         flatten_forms: false,
         pdf_ua: false,
         certification: None,
+        pdf_version: Default::default(),
     };
 
     let pdf = forme::render(&doc).unwrap();
@@ -731,6 +737,7 @@ fn visual_text_alignment() {
         flatten_forms: false,
         pdf_ua: false,
         certification: None,
+        pdf_version: Default::default(),
         attachments: vec![],
         first_page: None,
         left_page: None,
@@ -773,6 +780,7 @@ fn visual_tagged_no_visual_change() {
         flatten_forms: false,
         pdf_ua: false,
         certification: None,
+        pdf_version: Default::default(),
     };
 
     let doc_tagged = Document {
@@ -797,6 +805,7 @@ fn visual_tagged_no_visual_change() {
         flatten_forms: false,
         pdf_ua: false,
         certification: None,
+        pdf_version: Default::default(),
     };
 
     let pdf_untagged = forme::render(&doc_untagged).unwrap();
@@ -957,6 +966,7 @@ fn visual_flattened_forms() {
         flatten_forms: true,
         pdf_ua: false,
         certification: None,
+        pdf_version: Default::default(),
     };
 
     let pdf = forme::render(&doc).unwrap();
