@@ -134,3 +134,32 @@ For documents that need both accessibility and long-term archival compliance, co
 ```
 
 This produces a PDF that satisfies both PDF/UA-1 and PDF/A-2b. See the [Archival guide](/archival) for PDF/A details.
+
+---
+
+## PDF/UA-2 (PDF 2.0)
+
+`pdfUa2` claims **PDF/UA-2** (ISO 14289-2:2024) — the successor standard, defined over PDF 2.0. Use it when your workflow targets modern PDF 2.0 tooling; `pdfUa` (UA-1) remains the right choice for the widest reader compatibility today.
+
+```tsx
+<Document pdfUa2 title="Accessible Report" lang="en-US" fonts={standardFonts()}>
+  {/* ... */}
+</Document>
+```
+
+What changes under `pdfUa2`:
+
+- **PDF 2.0 output is implied.** Every font must be embedded — PDF 2.0 removes the standard-14 provision, so register `@formepdf/fonts-standard` (or your own fonts) or rendering fails with a font-by-name error.
+- **The structure tree uses the PDF 2.0 namespace** with a single `Document` root, and follows ISO 32005's stricter containment rules (Forme handles this automatically).
+- **Machine-readable graphics carry their data.** A `<Barcode>` or `<QrCode>` without `alt` text embeds its encoded payload as the replacement text, so the figure is never silent for assistive technology. Charts and `<Canvas>` drawings still need an explicit `alt`.
+- **Internal links and bookmarks become structure destinations** — navigation targets the document structure, not just a page position.
+
+`pdfUa2` contradicts `pdfUa` and the 1.7-based `pdfa` levels (`2a`…`3u`); both combinations are refused by name. It **composes with `pdfa="4"`** for the modern archival + accessible pair:
+
+```tsx
+<Document pdfUa2 pdfa="4" title="Archival Accessible Report" lang="en-US" fonts={standardFonts()}>
+  {/* ... */}
+</Document>
+```
+
+Validate with `verapdf --flavour ua2`. Forme's CI renders its template corpus as `pdfa="4" + pdfUa2` and `pdfa="4f" + pdfUa2` and gates on veraPDF's UA-2 profile.

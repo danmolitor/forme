@@ -71,7 +71,7 @@ ISO 19005-4:2020 is defined over **PDF 2.0** (ISO 32000-2). Claiming it implies 
 </Warning>
 
 <Warning>
-**PDF/A-4 is not an accessibility claim.** Part 4 drops the a/b/u split entirely — there is no Level A, and no tagging requirement. Accessibility moved wholly to **PDF/UA-2**, which Forme does not yet produce. If "archival AND accessible" is the goal today, that combination is `pdfa="2a"` (or `"3a"`) + `pdfUa` on PDF 1.7. "PDF/A-4 verified" says the file will open identically in thirty years; it says nothing about screen readers.
+**PDF/A-4 is not an accessibility claim.** Part 4 drops the a/b/u split entirely — there is no Level A, and no tagging requirement. Accessibility moved wholly to **PDF/UA-2**: compose `pdfa="4"` with [`pdfUa2`](/accessibility#pdfua-2-pdf-20) for a file that is archival AND accessible on PDF 2.0 (on PDF 1.7, the equivalent pair is `pdfa="2a"`/`"3a"` + `pdfUa`). "PDF/A-4 verified" alone says the file will open identically in thirty years; it says nothing about screen readers.
 </Warning>
 
 ```tsx

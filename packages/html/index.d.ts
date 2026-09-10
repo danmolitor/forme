@@ -23,16 +23,27 @@ export interface RenderHtmlOptions {
    * reported in `warnings`, never silently dropped.
    */
   pdfUa?: boolean;
+  /**
+   * Emit a PDF/UA-2 (ISO 14289-2:2024) conforming file — the PDF 2.0
+   * successor to `pdfUa`. Implies PDF 2.0 output (every font must be
+   * embedded) and tagging with the 2.0 structure namespace. Contradicts
+   * `pdfUa` and the 2x/3x `pdfA` levels; composes with `pdfA: "4"`.
+   */
+  pdfUa2?: boolean;
   /** Document language for PDF/UA (`/Lang`), e.g. `"en"` or `"en-US"`. Falls
    *  back to the `<html lang>` attribute, then `"en"` with a warning. */
   lang?: string;
   /**
    * PDF/A conformance level: `"2b"` (visual), `"2u"` (+ Unicode mapping), or
-   * `"2a"` (+ full tagging). Needs an embeddable font registered via `fonts`
-   * (`@formepdf/fonts-standard`). Composes with `pdfUa` — a file can be both
-   * PDF/A and PDF/UA-1 at once (archival + accessible).
+   * `"2a"` (+ full tagging); `"4"` is ISO 19005-4:2020 over PDF 2.0 (no
+   * a/b/u split — and no accessibility claim; compose with `pdfUa2` for
+   * that). Needs an embeddable font registered via `fonts`
+   * (`@formepdf/fonts-standard`). Composes with `pdfUa` (2x/3x) or
+   * `pdfUa2` ("4") — a file can be both archival and accessible.
+   * "4f" is not offered here: it requires an embedded file and the HTML
+   * path has no attachments option (the engine refuses it by name).
    */
-  pdfA?: '2b' | '2u' | '2a' | '3b' | '3u' | '3a';
+  pdfA?: '2b' | '2u' | '2a' | '3b' | '3u' | '3a' | '4';
   /**
    * Opt-in post-render content audit: after layout, the engine verifies the
    * pages against the input and reports dropped, fully off-page, invisible

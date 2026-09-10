@@ -103,6 +103,7 @@ interface DocumentProps {
   pdfa?: '2a' | '2b' | '2u' | '3a' | '3b' | '3u' | '4' | '4f';
   pdfVersion?: '1.7' | '2.0';
   pdfUa?: boolean;
+  pdfUa2?: boolean;
   certification?: CertificationConfig;
   /** @deprecated Use certification */
   signature?: CertificationConfig;
@@ -165,6 +166,7 @@ export function parseMarkup(markup: string): FormeDocument {
   if (props.pdfa !== undefined) result.pdfa = props.pdfa;
   if (props.pdfVersion !== undefined) result.pdfVersion = props.pdfVersion;
   if (props.pdfUa) result.pdfUa = true;
+  if (props.pdfUa2) result.pdfUa2 = true;
   const cert = props.certification ?? props.signature;
   if (cert) {
     if (props.signature && !props.certification) {

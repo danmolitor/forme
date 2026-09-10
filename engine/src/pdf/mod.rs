@@ -481,11 +481,26 @@ impl PdfWriter {
                         // PDF/UA 7.18.1-2 / 7.18.5-2: a link annotation must
                         // carry an alternate description in its /Contents key.
                         let contents = Self::escape_pdf_string(&format!("Link to {anchor}"));
+                        // ISO 14289-2 8.8: "All destinations whose target
+                        // lies within the current document shall be
+                        // structure destinations." Under UA-2 the GoTo also
+                        // carries /SD targeting the bookmark's structure
+                        // element; the placeholder object number is patched
+                        // with the real id after write_objects assigns it.
+                        let wants_sd = tag_builder
+                            .as_mut()
+                            .map(|tb| tb.request_struct_destination(anchor, annot_obj_id))
+                            .unwrap_or(false);
+                        let sd_str = if wants_sd {
+                            format!(" /SD [999999999 0 R /XYZ 0 {:.2} null]", bm.y_pdf)
+                        } else {
+                            String::new()
+                        };
                         let annot_dict = format!(
                             "<< /Type /Annot /Subtype /Link /Rect {} /Border [0 0 0] \
                              /F 4 /Contents ({}){} \
-                             /A << /S /GoTo /D [{} 0 R /XYZ 0 {:.2} null] >> >>",
-                            rect, contents, sp_str, bm.page_obj_id, bm.y_pdf
+                             /A << /S /GoTo /D [{} 0 R /XYZ 0 {:.2} null]{} >> >>",
+                            rect, contents, sp_str, bm.page_obj_id, bm.y_pdf, sd_str
                         );
                         builder.objects.push(PdfObject {
                             id: annot_obj_id,
@@ -552,19 +567,29 @@ impl PdfWriter {
 
         // Build outline tree if bookmarks exist
         let outlines_obj_id = if !all_bookmarks.is_empty() {
-            Some(self.write_outline_tree(&mut builder, &all_bookmarks))
+            Some(self.write_outline_tree(&mut builder, &all_bookmarks, tag_builder.as_mut()))
         } else {
             None
         };
 
         // Build structure tree for tagged PDF
         let struct_tree_root_id = if let Some(ref tb) = tag_builder {
-            let (root_id, _parent_tree_id) = tb.write_objects(
+            let (root_id, _parent_tree_id, sd_patches) = tb.write_objects(
                 &mut builder.objects,
                 &page_obj_ids,
                 metadata.lang.as_deref(),
                 pdf_version == crate::model::PdfVersion::V2_0,
             );
+            // Resolve pending structure destinations: the annotation dicts
+            // carry a placeholder object number for their /SD target, since
+            // structure-element ids aren't assigned until write_objects.
+            for (annot_obj_id, elem_obj_id) in sd_patches {
+                let data = std::mem::take(&mut builder.objects[annot_obj_id].data);
+                let patched = String::from_utf8(data)
+                    .expect("annotation dicts are ASCII")
+                    .replacen("999999999 0 R", &format!("{} 0 R", elem_obj_id), 1);
+                builder.objects[annot_obj_id].data = patched.into_bytes();
+            }
             Some(root_id)
         } else {
             None
@@ -660,9 +685,15 @@ impl PdfWriter {
 
             // FileSpec dictionary
             let fs_obj_id = builder.objects.len();
+            let desc = if builder.pdf_version == crate::model::PdfVersion::V2_0 {
+                // ISO 14289-2 8.14.1 (see the attachments path below).
+                " /Desc (forme-data.json)"
+            } else {
+                ""
+            };
             let fs_data = format!(
-                "<< /Type /Filespec /F (forme-data.json) /UF (forme-data.json) /EF << /F {} 0 R >> /AFRelationship /Data >>",
-                ef_obj_id
+                "<< /Type /Filespec /F (forme-data.json) /UF (forme-data.json) /EF << /F {} 0 R >> /AFRelationship /Data{} >>",
+                ef_obj_id, desc
             );
             builder.objects.push(PdfObject {
                 id: fs_obj_id,
@@ -728,6 +759,12 @@ impl PdfWriter {
             );
             if let Some(desc) = &att.description {
                 let _ = write!(fs_data, " /Desc ({})", Self::escape_pdf_string(desc));
+            } else if builder.pdf_version == crate::model::PdfVersion::V2_0 {
+                // ISO 14289-2 8.14.1: "The Desc entry shall be present on
+                // all file specification dictionaries present in the
+                // EmbeddedFiles name tree." The file name is the honest
+                // default when the author gave no description.
+                let _ = write!(fs_data, " /Desc ({})", Self::escape_pdf_string(&att.name));
             }
             fs_data.push_str(" >>");
             builder.objects.push(PdfObject {
@@ -1497,7 +1534,14 @@ impl PdfWriter {
                         href,
                         element.col_span,
                         element.list_numbering,
+                        element.actual_text.as_deref(),
                     );
+                    // Register bookmark anchors against the element just
+                    // opened, so internal links can target it with a
+                    // structure destination under UA-2 (ISO 14289-2 8.8).
+                    if let Some(ref bm) = element.bookmark {
+                        tb.note_bookmark(bm);
+                    }
                     match mcid {
                         Some(mcid) => {
                             // An href'd element tags as /Link (see begin_element); the
@@ -4212,7 +4256,12 @@ impl PdfWriter {
 
     /// Build the PDF outline tree from bookmark entries.
     /// Returns the object ID of the /Outlines dictionary.
-    fn write_outline_tree(&self, builder: &mut PdfBuilder, bookmarks: &[PdfBookmark]) -> usize {
+    fn write_outline_tree(
+        &self,
+        builder: &mut PdfBuilder,
+        bookmarks: &[PdfBookmark],
+        mut tag_builder: Option<&mut tagged::TagBuilder>,
+    ) -> usize {
         // Reserve the Outlines dictionary object
         let outlines_id = builder.objects.len();
         builder.objects.push(PdfObject {
@@ -4233,12 +4282,26 @@ impl PdfWriter {
 
         // Fill in outline items with /Prev, /Next, /Parent, /Dest
         for (i, (bm, &item_id)) in bookmarks.iter().zip(item_ids.iter()).enumerate() {
+            // ISO 14289-2 8.8: "All destinations whose target lies within
+            // the current document shall be structure destinations" — and
+            // veraPDF flags a plain page /Dest array itself, /SD sibling or
+            // not. Under UA-2 the outline item therefore carries ONLY /SD,
+            // targeting the bookmark's structure element (placeholder
+            // patched after write_objects, like the link annotations).
+            let wants_sd = tag_builder
+                .as_mut()
+                .map(|tb| tb.request_struct_destination(&bm.title, item_id))
+                .unwrap_or(false);
+            let dest = if wants_sd {
+                format!("/SD [999999999 0 R /XYZ 0 {:.2} null]", bm.y_pdf)
+            } else {
+                format!("/Dest [{} 0 R /XYZ 0 {:.2} null]", bm.page_obj_id, bm.y_pdf)
+            };
             let mut dict = format!(
-                "<< /Title ({}) /Parent {} 0 R /Dest [{} 0 R /XYZ 0 {:.2} null]",
+                "<< /Title ({}) /Parent {} 0 R {}",
                 Self::escape_pdf_string(&bm.title),
                 outlines_id,
-                bm.page_obj_id,
-                bm.y_pdf,
+                dest,
             );
             if i > 0 {
                 let _ = write!(dict, " /Prev {} 0 R", item_ids[i - 1]);
@@ -4924,6 +4987,7 @@ mod tests {
                     bookmark: None,
                     alt: None,
                     is_header_row: false,
+                    actual_text: None,
                     list_numbering: None,
                     col_span: 1,
                     overflow: Overflow::default(),
@@ -4970,6 +5034,7 @@ mod tests {
                     bookmark: None,
                     alt: None,
                     is_header_row: false,
+                    actual_text: None,
                     list_numbering: None,
                     col_span: 1,
                     overflow: Overflow::default(),
@@ -5145,6 +5210,7 @@ mod tests {
                 bookmark: None,
                 alt: None,
                 is_header_row: false,
+                actual_text: None,
                 list_numbering: None,
                 col_span: 1,
                 overflow: Overflow::default(),

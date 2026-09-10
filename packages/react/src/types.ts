@@ -79,6 +79,8 @@ export interface DocumentProps {
   pdfVersion?: '1.7' | '2.0';
   /** When true, the PDF claims PDF/UA-1 conformance. Forces tagging. */
   pdfUa?: boolean;
+  /** PDF/UA-2 accessibility (ISO 14289-2:2024) — the PDF 2.0 successor to pdfUa. Implies pdfVersion "2.0" (every font embedded); composes with pdfa "4"/"4f". */
+  pdfUa2?: boolean;
   /** Digital certification configuration. Certifies the PDF with an X.509 certificate. */
   certification?: CertificationConfig;
   /** @deprecated Use certification */

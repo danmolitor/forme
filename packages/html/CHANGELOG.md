@@ -4,7 +4,8 @@
 
 ### Added
 
-- **`pdf_a: "4"`** — PDF/A-4 (ISO 19005-4:2020, PDF 2.0) through the HTML path. Implies PDF 2.0 output: every font must be embedded (the standard-14 provision is gone in ISO 32000-2), so register fonts or `fonts-standard`. **PDF/A-4 is not an accessibility claim** — tagging levels moved wholly to PDF/UA-2; for archival + accessible today use `pdf_a: "2a"` + `pdf_ua`. `"4f"` is refused by name until the HTML path grows an attachments option (an A-4f file requires at least one embedded file).
+- **`pdfUa2` option** — PDF/UA-2 (ISO 14289-2:2024) conformance for the HTML path: implies PDF 2.0 (every font must be embedded) and tagging with the 2.0 structure namespace; contradicts `pdfUa` and 2x/3x `pdfA`; composes with `pdfA: "4"`. The `lang`/alt-text prerequisites and warnings work as for `pdfUa`, prefixed with the claiming option's name.
+- **`pdf_a: "4"`** — PDF/A-4 (ISO 19005-4:2020, PDF 2.0) through the HTML path. Implies PDF 2.0 output: every font must be embedded (the standard-14 provision is gone in ISO 32000-2), so register fonts or `fonts-standard`. **PDF/A-4 is not an accessibility claim** — tagging levels moved wholly to PDF/UA-2; for archival + accessible compose `pdf_a: "4"` with `pdfUa2` (or `"2a"` + `pdf_ua` on PDF 1.7). `"4f"` is refused by name until the HTML path grows an attachments option (an A-4f file requires at least one embedded file).
 
 ### Changed (engine behavior visible through the HTML path)
 

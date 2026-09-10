@@ -13075,3 +13075,97 @@ fn pdfua2_composes_with_pdfa4() {
     assert!(text.contains("<pdfuaid:part>2</pdfuaid:part>"));
     assert!(text.contains("<pdfuaid:rev>2024</pdfuaid:rev>"));
 }
+
+#[test]
+fn pdfua2_machine_readable_graphics_carry_actual_text() {
+    // ISO 14289-2 8.2.5.28.2: a Figure needs /Alt or /ActualText. A barcode
+    // or QR code with no author alt carries its encoded data as the
+    // replacement text — the payload IS the content.
+    // (A QR code, not a barcode: barcode human-readable labels draw in
+    // Helvetica, which correctly hard-errors under 2.0 unless an
+    // embeddable substitute is registered — the corpus gate covers that
+    // path with fonts-standard.)
+    let json = r##"{ "children": [
+        { "kind": { "type": "Text", "content": "scan this" }, "style": { "fontFamily": "Noto Sans" }, "children": [] },
+        { "kind": { "type": "QrCode", "data": "ABC-123", "size": 60 }, "style": { "fontFamily": "Noto Sans" }, "children": [] }
+    ], "metadata": { "title": "QR Doc", "lang": "en-US" }, "pdfUa2": true }"##;
+    let bytes = forme::render_json(json).expect("renders");
+    let text = String::from_utf8_lossy(&bytes);
+    let fig = struct_elem_body(&text, "/S /Figure ");
+    assert!(
+        fig.contains("/ActualText (ABC-123)"),
+        "encoded data as replacement text: {fig}"
+    );
+    // An author alt wins — no ActualText then.
+    let json_alt = json.replace(
+        r#""style": { "fontFamily": "Noto Sans" }"#,
+        r#""alt": "a code", "style": { "fontFamily": "Noto Sans" }"#,
+    );
+    let bytes = forme::render_json(&json_alt).unwrap();
+    let text = String::from_utf8_lossy(&bytes);
+    let fig = struct_elem_body(&text, "/S /Figure ");
+    assert!(fig.contains("/Alt (a code)") && !fig.contains("/ActualText"));
+}
+
+#[test]
+fn pdfua2_internal_destinations_are_structure_destinations() {
+    // ISO 14289-2 8.8: "All destinations whose target lies within the
+    // current document shall be structure destinations." Outline items
+    // carry /SD (and no plain page /Dest); internal link GoTo actions
+    // carry /SD beside /D.
+    let json = r##"{ "children": [
+        { "kind": { "type": "Heading", "content": "Section One", "level": 2 }, "bookmark": "Section One", "style": { "fontFamily": "Noto Sans" }, "children": [] },
+        { "kind": { "type": "Text", "content": "jump", "href": "#Section One" }, "style": { "fontFamily": "Noto Sans" }, "children": [] }
+    ], "metadata": { "title": "Dest Doc", "lang": "en-US" }, "pdfUa2": true }"##;
+    let bytes = forme::render_json(json).expect("renders");
+    let text = String::from_utf8_lossy(&bytes);
+    let outline = struct_elem_body(&text, "/Title (Section One)");
+    assert!(
+        outline.contains("/SD ["),
+        "outline uses a structure destination: {outline}"
+    );
+    assert!(
+        !outline.contains("/Dest ["),
+        "no plain page destination in ua2 outlines"
+    );
+    assert!(!text.contains("999999999"), "SD placeholders all patched");
+    let goto = &text[text.find("/S /GoTo").expect("internal link action")..];
+    let goto = &goto[..goto.find(">>").unwrap()];
+    assert!(goto.contains("/SD ["), "GoTo carries /SD: {goto}");
+    // The UA-1 shape keeps plain destinations byte-for-byte.
+    let bytes17 = forme::render_json(&json.replace("pdfUa2", "pdfUa")).unwrap();
+    let text17 = String::from_utf8_lossy(&bytes17);
+    assert!(text17.contains("/Dest [") && !text17.contains("/SD ["));
+}
+
+#[test]
+fn pdfua2_embedded_filespecs_carry_desc() {
+    // ISO 14289-2 8.14.1: "The Desc entry shall be present on all file
+    // specification dictionaries present in the EmbeddedFiles name tree."
+    // The file name is the fallback when the author gave no description.
+    let bytes = forme::render_json(&docua2(
+        r#", "pdfUa2": true, "pdfa": "4f", "attachments": [ { "name": "data.csv", "src": "YSxiCjEsMg==", "mimeType": "text/csv", "relationship": "Supplement" } ]"#,
+    ))
+    .expect("4f + ua2 renders");
+    let text = String::from_utf8_lossy(&bytes);
+    let fs = struct_elem_body(&text, "/Type /Filespec ");
+    assert!(
+        fs.contains("/Desc (data.csv)"),
+        "Desc falls back to the name: {fs}"
+    );
+}
+
+#[test]
+fn pdfua2_link_children_downgrade_to_span() {
+    // ISO 32005 "Table 5. Link-P": <Link> shall not contain <P> — nested
+    // text inside a link tags as Span. And the downgrade flag resets when
+    // the link closes: the next sibling text is a P again (its leak made
+    // every following text a Span child of <Document>, which "Table 5.
+    // Document-Span" forbids).
+    let bytes = forme::render_json(&docua2(r#", "pdfUa2": true"#)).unwrap();
+    let text = String::from_utf8_lossy(&bytes);
+    let link = struct_elem_body(&text, "/S /Link ");
+    assert!(!link.contains("/S /P"), "no P inside Link");
+    let doc = struct_elem_body(&text, "/S /Document ");
+    assert!(!doc.contains("/S /Span"), "no Span child of Document");
+}

@@ -32,6 +32,8 @@ struct WasmOptions {
     tagged: bool,
     #[serde(default)]
     pdf_ua: bool,
+    #[serde(default)]
+    pdf_ua2: bool,
     lang: Option<String>,
     #[serde(default, rename = "pdfA")]
     pdf_a: Option<String>,
@@ -129,6 +131,7 @@ fn parse_options(options_json: &str) -> Result<HtmlOptions, JsValue> {
         css: raw.css,
         tagged: raw.tagged,
         pdf_ua: raw.pdf_ua,
+        pdf_ua2: raw.pdf_ua2,
         lang: raw.lang,
         pdf_a: raw.pdf_a,
         audit_content: raw.audit_content,

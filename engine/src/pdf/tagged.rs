@@ -32,6 +32,11 @@ struct StructElement {
     /// shall be present on the respective L structure element"). None for
     /// non-list elements and for markerType "none" (which draws no Lbl).
     list_numbering: Option<&'static str>,
+    /// Replacement text for machine-readable graphics (a barcode's or QR
+    /// code's encoded data). Emitted as /ActualText under the 2.0 namespace
+    /// when no /Alt is present — ISO 14289-2 8.2.5.28.2: "A Figure structure
+    /// element shall have at least one of ... Alt ... ActualText".
+    actual_text: Option<String>,
 }
 
 /// A child of a structure element.
@@ -77,6 +82,15 @@ pub struct TagBuilder {
     /// item's non-label content (PDF/UA 7.2-20) and closed together with their
     /// /LI, since the caller emits no matching end_element for them.
     synthetic_lbody: std::collections::HashSet<usize>,
+    /// Bookmark title -> structure element index (first occurrence wins),
+    /// so internal GoTo actions can carry structure destinations under
+    /// UA-2 (ISO 14289-2 8.8: "All destinations whose target lies within
+    /// the current document shall be structure destinations").
+    bookmark_targets: std::collections::HashMap<String, usize>,
+    /// (annotation object id, target element idx) pairs whose /SD entry
+    /// awaits the real structure-element object ids; write_objects returns
+    /// them resolved for the caller to patch into the annotation dicts.
+    pending_struct_dests: Vec<(usize, usize)>,
     /// PDF/UA-2 mode (ISO 14289-2). Under UA-2, ISO 32005's containment
     /// matrix forbids content items inside grouping elements, and neutral
     /// /Div content attributes upward to the nearest structural ancestor —
@@ -98,6 +112,7 @@ impl TagBuilder {
             alt: None,
             col_span: 1,
             list_numbering: None,
+            actual_text: None,
         };
         TagBuilder {
             elements: vec![root],
@@ -111,6 +126,8 @@ impl TagBuilder {
             // start after them so the two never collide in the ParentTree.
             next_annot_struct_parent: num_pages as u32,
             synthetic_lbody: std::collections::HashSet::new(),
+            bookmark_targets: std::collections::HashMap::new(),
+            pending_struct_dests: Vec::new(),
             ua2,
         }
     }
@@ -142,6 +159,31 @@ impl TagBuilder {
         )
     }
 
+    /// Record the just-opened element as the target of a bookmark anchor,
+    /// so an internal link to it can use a structure destination (UA-2).
+    pub fn note_bookmark(&mut self, title: &str) {
+        let idx = self.elements.len() - 1;
+        self.bookmark_targets
+            .entry(title.to_string())
+            .or_insert(idx);
+    }
+
+    /// Under UA-2, register an internal link annotation for a structure
+    /// destination on `anchor`. Returns true when the target is known — the
+    /// caller then emits the /SD placeholder that `write_objects` resolves.
+    pub fn request_struct_destination(&mut self, anchor: &str, annot_obj_id: usize) -> bool {
+        if !self.ua2 {
+            return false;
+        }
+        match self.bookmark_targets.get(anchor) {
+            Some(&elem_idx) => {
+                self.pending_struct_dests.push((annot_obj_id, elem_idx));
+                true
+            }
+            None => false,
+        }
+    }
+
     /// Begin a structure element for a layout node. Returns `Some(mcid)` to
     /// use in the BDC operator, or `None` when the element's role forbids
     /// content items (PDF/UA-2 grouping and neutral roles) — the caller must
@@ -158,6 +200,7 @@ impl TagBuilder {
         href: Option<&str>,
         col_span: u32,
         list_numbering: Option<&'static str>,
+        actual_text: Option<&str>,
     ) -> Option<u32> {
         // An element carrying an href is a link: it tags as a /Link structure
         // element (overriding its node_type role) so the annotation can attach
@@ -172,7 +215,13 @@ impl TagBuilder {
         // Headings act like paragraphs for the inner-text → Span downgrade
         // rule, so a nested Text inside an H1 maps to a Span rather than
         // spawning a P child of the H1.
-        if matches!(role, "P" | "H1" | "H2" | "H3" | "H4" | "H5" | "H6") {
+        if matches!(role, "P" | "H1" | "H2" | "H3" | "H4" | "H5" | "H6")
+            // ISO 32005 "Table 5. Link-P": <Link>, when used as a
+            // non-grouping element, shall not contain <P> — so under UA-2 a
+            // link's nested Text children downgrade to Span, like a
+            // paragraph's do. The UA-1 shape keeps its historical P children.
+            || (self.ua2 && role == "Link")
+        {
             self.inside_paragraph = true;
         }
 
@@ -192,6 +241,7 @@ impl TagBuilder {
                 alt: None,
                 col_span: 1,
                 list_numbering: None,
+                actual_text: None,
             });
             self.elements[parent_idx]
                 .kids
@@ -229,6 +279,7 @@ impl TagBuilder {
             alt: alt.map(|s| s.to_string()),
             col_span,
             list_numbering,
+            actual_text: actual_text.map(|s| s.to_string()),
         };
         self.elements.push(elem);
 
@@ -303,12 +354,18 @@ impl TagBuilder {
             }
         }
         if let Some(idx) = self.parent_stack.pop() {
-            // If we're leaving a paragraph-like element (P or any heading),
-            // reset the flag so the next sibling text gets the P role again.
+            // If we're leaving a paragraph-like element (P or any heading —
+            // and under UA-2 a Link, which sets the flag on entry so its
+            // children downgrade to Span), reset it so the next sibling
+            // text gets the P role again. Without the Link arm the flag
+            // stayed stuck after a link closed and every following
+            // top-level text became a Span child of <Document> — which
+            // ISO 32005 forbids ("Table 5. Document-Span").
             if matches!(
                 self.elements[idx].role,
                 "P" | "H1" | "H2" | "H3" | "H4" | "H5" | "H6"
-            ) {
+            ) || (self.ua2 && self.elements[idx].role == "Link")
+            {
                 self.inside_paragraph = false;
             }
         }
@@ -375,14 +432,16 @@ impl TagBuilder {
     }
 
     /// Write all structure tree objects to the PDF builder.
-    /// Returns `(struct_tree_root_obj_id, parent_tree_obj_id)`.
+    /// Returns `(struct_tree_root_obj_id, parent_tree_obj_id, sd_patches)`
+    /// where `sd_patches` maps annotation object ids to the resolved
+    /// structure-element object ids for pending structure destinations.
     pub fn write_objects(
         &self,
         objects: &mut Vec<super::PdfObject>,
         page_obj_ids: &[usize],
         lang: Option<&str>,
         ns_2_0: bool,
-    ) -> (usize, usize) {
+    ) -> (usize, usize, Vec<(usize, usize)>) {
         let num_pages = page_obj_ids.len();
 
         // Allocate object IDs for all structure elements
@@ -531,6 +590,17 @@ impl TagBuilder {
                 }
             }
 
+            // ISO 14289-2 8.2.5.28.2: a Figure needs /Alt or /ActualText;
+            // machine-readable graphics carry their encoded data as the
+            // replacement text when the author gave no alt. Gated on the
+            // 2.0 namespace so the 1.7 shape stays byte-identical.
+            if ns_2_0 && elem.alt.is_none() {
+                if let Some(ref at) = elem.actual_text {
+                    let escaped = super::PdfWriter::escape_pdf_string(at);
+                    let _ = write!(dict, " /ActualText ({})", escaped);
+                }
+            }
+
             // PDF/UA-2 list numbering (ISO 14289-2 8.2.5.25: "If Lbl
             // structure elements are present, the ListNumbering attribute
             // shall be present on the respective L structure element; in
@@ -588,7 +658,12 @@ impl TagBuilder {
         // the entire structure tree in veraPDF.
         objects[role_map_id].data = b"<< >>".to_vec();
 
-        (root_obj_id, parent_tree_id)
+        let sd_patches = self
+            .pending_struct_dests
+            .iter()
+            .map(|&(annot_obj_id, elem_idx)| (annot_obj_id, elem_obj_ids[elem_idx]))
+            .collect();
+        (root_obj_id, parent_tree_id, sd_patches)
     }
 
     /// Format the /K array entries for a structure element.
@@ -633,10 +708,10 @@ mod tests {
     fn test_tag_builder_basic() {
         let mut tb = TagBuilder::new(1, false);
 
-        let mcid = tb.begin_element("View", false, None, 0, None, 1, None);
+        let mcid = tb.begin_element("View", false, None, 0, None, 1, None, None);
         assert_eq!(mcid, Some(0));
 
-        let mcid2 = tb.begin_element("Text", false, None, 0, None, 1, None);
+        let mcid2 = tb.begin_element("Text", false, None, 0, None, 1, None, None);
         assert_eq!(mcid2, Some(1));
         tb.end_element(); // Text
 
@@ -654,8 +729,8 @@ mod tests {
         // the whole structure tree in veraPDF. Forme emits only standard PDF
         // 1.7 roles, so none belong in the RoleMap — it must not self-map any.
         let mut tb = TagBuilder::new(1, false);
-        tb.begin_element("View", false, None, 0, None, 1, None);
-        tb.begin_element("Text", false, None, 0, None, 1, None);
+        tb.begin_element("View", false, None, 0, None, 1, None, None);
+        tb.begin_element("Text", false, None, 0, None, 1, None, None);
         tb.end_element();
         tb.end_element();
 
@@ -664,7 +739,7 @@ mod tests {
             data: Vec::new(),
         }];
         let page_obj_ids = vec![0usize];
-        let (root_id, _) = tb.write_objects(&mut objects, &page_obj_ids, Some("en-US"), false);
+        let (root_id, _, _) = tb.write_objects(&mut objects, &page_obj_ids, Some("en-US"), false);
 
         // Resolve the RoleMap object from the StructTreeRoot's /RoleMap ref, so
         // the check inspects the RoleMap itself — not a StructElem, whose
@@ -697,11 +772,11 @@ mod tests {
         let mut tb = TagBuilder::new(1, false);
 
         // Outer Text → P
-        let _mcid = tb.begin_element("Text", false, None, 0, None, 1, None);
+        let _mcid = tb.begin_element("Text", false, None, 0, None, 1, None, None);
         assert_eq!(tb.elements.last().unwrap().role, "P");
 
         // Inner Text → Span (because inside_paragraph)
-        let _mcid = tb.begin_element("Text", false, None, 0, None, 1, None);
+        let _mcid = tb.begin_element("Text", false, None, 0, None, 1, None, None);
         assert_eq!(tb.elements.last().unwrap().role, "Span");
 
         tb.end_element();
@@ -712,11 +787,11 @@ mod tests {
     fn test_table_header_maps_to_th() {
         let mut tb = TagBuilder::new(1, false);
 
-        tb.begin_element("Table", false, None, 0, None, 1, None);
-        tb.begin_element("TableRow", true, None, 0, None, 1, None);
+        tb.begin_element("Table", false, None, 0, None, 1, None, None);
+        tb.begin_element("TableRow", true, None, 0, None, 1, None, None);
 
         // Cell in header row → TH
-        tb.begin_element("TableCell", true, None, 0, None, 1, None);
+        tb.begin_element("TableCell", true, None, 0, None, 1, None, None);
         assert_eq!(tb.elements.last().unwrap().role, "TH");
         tb.end_element();
 
@@ -724,8 +799,8 @@ mod tests {
         tb.end_element(); // Table
 
         // Body row
-        tb.begin_element("TableRow", false, None, 0, None, 1, None);
-        tb.begin_element("TableCell", false, None, 0, None, 1, None);
+        tb.begin_element("TableRow", false, None, 0, None, 1, None, None);
+        tb.begin_element("TableCell", false, None, 0, None, 1, None, None);
         assert_eq!(tb.elements.last().unwrap().role, "TD");
         tb.end_element();
         tb.end_element();
@@ -735,7 +810,16 @@ mod tests {
     fn test_figure_with_alt_text() {
         let mut tb = TagBuilder::new(1, false);
 
-        tb.begin_element("Image", false, Some("A photo of a cat"), 0, None, 1, None);
+        tb.begin_element(
+            "Image",
+            false,
+            Some("A photo of a cat"),
+            0,
+            None,
+            1,
+            None,
+            None,
+        );
         let elem = tb.elements.last().unwrap();
         assert_eq!(elem.role, "Figure");
         assert_eq!(elem.alt.as_deref(), Some("A photo of a cat"));
@@ -747,13 +831,13 @@ mod tests {
         let mut tb = TagBuilder::new(2, false);
 
         // Page 0: 2 elements
-        tb.begin_element("Text", false, None, 0, None, 1, None);
+        tb.begin_element("Text", false, None, 0, None, 1, None, None);
         tb.end_element();
-        tb.begin_element("Text", false, None, 0, None, 1, None);
+        tb.begin_element("Text", false, None, 0, None, 1, None, None);
         tb.end_element();
 
         // Page 1: 1 element
-        tb.begin_element("Text", false, None, 1, None, 1, None);
+        tb.begin_element("Text", false, None, 1, None, 1, None, None);
         tb.end_element();
 
         assert_eq!(tb.page_mcid_count(0), 2);
