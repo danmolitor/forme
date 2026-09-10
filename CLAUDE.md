@@ -398,9 +398,6 @@ The `Document` component sets `__formeType: 'Document'` on the returned element 
 
 ### Engine Features
 
-**`align-items: baseline`** (Low effort, high correctness value)
-The enum variant exists in `style/mod.rs` and the match arm exists in layout but returns 0.0. Needs: measure each flex child's first text baseline (distance from top of child to the alphabetic baseline of its first line of text), find the max, and offset each child so baselines align. Affects `layout_flex_row` cross-axis positioning. Would require a `measure_baseline()` helper that walks into a node's children to find the first text node and returns its ascender-based offset.
-
 **`grid-template-areas`** (Medium effort, productivity win)
 Named grid areas like `gridTemplateAreas: '"header header" "sidebar main"'`. Needs: parse the area string into a 2D grid of names, map each child's `gridArea` name to its row/column span. Most of the grid track sizing and placement machinery in `layout/grid.rs` already works — this is primarily a parsing + name-to-span resolution layer on top.
 
@@ -517,6 +514,19 @@ When making layout changes, always test with:
 
 ## Compliance & conformance (PDF/UA-1/-2 + PDF/A-2/-3/-4 + PDF 2.0 + e-invoice containers)
 
+Forme produces **PDF/UA-1**, **PDF/A-2 (2b/2u/2a)**, and **PDF/A-3 (3b/3u/3a)**
+conforming output — part 3 is part 2 plus permission for arbitrary embedded
+files (`Document.attachments` + catalog `/AF`), which is what **Factur-X/ZUGFeRD
+e-invoice containers** are: `facturX` render option embeds caller-supplied
+EN 16931 XML with the `fx:` XMP identification (container only; Forme never
+generates or validates the XML semantics). Gated in CI by veraPDF (3b + ua1)
+AND Mustangproject (`scripts/verify-einvoice.mjs`, jar pinned by sha256 in
+`.github/scripts/install-mustang.sh`). Attachments under PDF/A-2 error by
+name (part 2 forbids non-PDF/A attachments). Attachment `/ModDate` defaults
+to a fixed constant — determinism must survive. PDF/UA and PDF/A **compose** — a single file can be archival AND accessible (`<Document
+pdfa="2a" pdfUa lang="en-US" fonts={standardFonts()}>`). This is validated, not
+asserted:
+
 Forme also produces **PDF 2.0** output (`pdfVersion: "2.0"` — XMP-always, no
 trailer /Info, every font embedded), **PDF/A-4 and A-4f** (`pdfa: "4"|"4f"`,
 implying 2.0; 4f requires ≥1 embedded file; base 4 refuses attachments; NOT
@@ -531,19 +541,6 @@ levels). The 1.7 default path is byte-identical with the claims absent,
 asserted by pins. Document-level claim props are guarded across all five
 adapters by compile-time parity asserts against `FormeDocumentClaimProps`
 (@formepdf/shared).
-
-Forme produces **PDF/UA-1**, **PDF/A-2 (2b/2u/2a)**, and **PDF/A-3 (3b/3u/3a)**
-conforming output — part 3 is part 2 plus permission for arbitrary embedded
-files (`Document.attachments` + catalog `/AF`), which is what **Factur-X/ZUGFeRD
-e-invoice containers** are: `facturX` render option embeds caller-supplied
-EN 16931 XML with the `fx:` XMP identification (container only; Forme never
-generates or validates the XML semantics). Gated in CI by veraPDF (3b + ua1)
-AND Mustangproject (`scripts/verify-einvoice.mjs`, jar pinned by sha256 in
-`.github/scripts/install-mustang.sh`). Attachments under PDF/A-2 error by
-name (part 2 forbids non-PDF/A attachments). Attachment `/ModDate` defaults
-to a fixed constant — determinism must survive. PDF/UA and PDF/A **compose** — a single file can be archival AND accessible (`<Document
-pdfa="2a" pdfUa lang="en-US" fonts={standardFonts()}>`). This is validated, not
-asserted:
 
 - **Gates** (both use [veraPDF](https://verapdf.org), a hard CI gate in the
   `pdfua-conformance` job): `scripts/verify-pdfua.mjs` (PDF/UA-1 over the 9-file
