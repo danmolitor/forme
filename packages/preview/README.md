@@ -59,16 +59,24 @@ browser render path cannot fetch fonts — it takes bytes — so:
 ## Bundler setup
 
 The engine is self-instantiating WASM, so your bundler needs WASM + top-level
-await support. For Vite:
+await support. For Vite, add `vite-plugin-wasm` and target `esnext` (which emits
+native top-level await):
 
 ```ts
 // vite.config.ts
+import { defineConfig } from 'vite';
 import wasm from 'vite-plugin-wasm';
-import topLevelAwait from 'vite-plugin-top-level-await';
-export default { plugins: [wasm(), topLevelAwait()] };
+
+export default defineConfig({
+  plugins: [wasm()],
+  build: { target: 'esnext' },
+  optimizeDeps: { esbuildOptions: { target: 'esnext' } },
+});
 ```
 
-(Framework equivalents exist for webpack/Next/etc.)
+You can instead add `vite-plugin-top-level-await`, but it bundles `@swc/core`
+and can break on some SWC versions — the `esnext` target is the more robust
+route. (Framework equivalents exist for webpack/Next/etc.)
 
 ## Props
 
