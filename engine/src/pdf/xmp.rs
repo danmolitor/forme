@@ -16,6 +16,7 @@ pub fn generate_xmp(
     metadata: &Metadata,
     conformance: Option<&PdfAConformance>,
     pdf_ua: bool,
+    pdf_ua2: bool,
     zugferd: Option<&ZugferdMeta>,
 ) -> String {
     let title = metadata.title.as_deref().unwrap_or("Untitled");
@@ -30,7 +31,7 @@ pub fn generate_xmp(
     if conformance.is_some() {
         namespaces.push(r#"xmlns:pdfaid="http://www.aiim.org/pdfa/ns/id/""#.to_string());
     }
-    if pdf_ua {
+    if pdf_ua || pdf_ua2 {
         namespaces.push(r#"xmlns:pdfuaid="http://www.aiim.org/pdfua/ns/id/""#.to_string());
     }
     if zugferd.is_some() {
@@ -79,6 +80,12 @@ pub fn generate_xmp(
     }
     if pdf_ua {
         entries.push_str("      <pdfuaid:part>1</pdfuaid:part>\n");
+    }
+    if pdf_ua2 {
+        // veraPDF PDFUA-2 rules verbatim: pdfuaid:part 2 and REQUIRED
+        // pdfuaid:rev "2024".
+        entries.push_str("      <pdfuaid:part>2</pdfuaid:part>\n");
+        entries.push_str("      <pdfuaid:rev>2024</pdfuaid:rev>\n");
     }
     if let Some(z) = zugferd {
         // Values verified against Mustang's validator: ConformanceLevel
@@ -231,7 +238,7 @@ mod tests {
             title: Some("Test".to_string()),
             ..Default::default()
         };
-        let xmp = generate_xmp(&metadata, Some(&PdfAConformance::A2a), false, None);
+        let xmp = generate_xmp(&metadata, Some(&PdfAConformance::A2a), false, false, None);
         assert!(xmp.contains("<pdfaid:part>2</pdfaid:part>"));
         assert!(xmp.contains("<pdfaid:conformance>A</pdfaid:conformance>"));
         assert!(!xmp.contains("pdfuaid"));
@@ -243,7 +250,7 @@ mod tests {
             title: Some("A & B <C>".to_string()),
             ..Default::default()
         };
-        let xmp = generate_xmp(&metadata, Some(&PdfAConformance::A2b), false, None);
+        let xmp = generate_xmp(&metadata, Some(&PdfAConformance::A2b), false, false, None);
         assert!(xmp.contains("A &amp; B &lt;C&gt;"));
         assert!(xmp.contains("<pdfaid:conformance>B</pdfaid:conformance>"));
     }
@@ -254,7 +261,7 @@ mod tests {
             title: Some("Accessible".to_string()),
             ..Default::default()
         };
-        let xmp = generate_xmp(&metadata, None, true, None);
+        let xmp = generate_xmp(&metadata, None, true, false, None);
         assert!(xmp.contains("<pdfuaid:part>1</pdfuaid:part>"));
         assert!(xmp.contains("xmlns:pdfuaid"));
         assert!(!xmp.contains("pdfaid"));
@@ -266,7 +273,7 @@ mod tests {
             title: Some("Both".to_string()),
             ..Default::default()
         };
-        let xmp = generate_xmp(&metadata, Some(&PdfAConformance::A2a), true, None);
+        let xmp = generate_xmp(&metadata, Some(&PdfAConformance::A2a), true, false, None);
         assert!(xmp.contains("<pdfaid:part>2</pdfaid:part>"));
         assert!(xmp.contains("<pdfaid:conformance>A</pdfaid:conformance>"));
         assert!(xmp.contains("<pdfuaid:part>1</pdfuaid:part>"));
@@ -277,7 +284,7 @@ mod tests {
     #[test]
     fn test_xmp_pdfua_only_no_pdfa_entries() {
         let metadata = Metadata::default();
-        let xmp = generate_xmp(&metadata, None, true, None);
+        let xmp = generate_xmp(&metadata, None, true, false, None);
         assert!(xmp.contains("<pdfuaid:part>1</pdfuaid:part>"));
         assert!(!xmp.contains("<pdfaid:part>"));
         assert!(!xmp.contains("<pdfaid:conformance>"));

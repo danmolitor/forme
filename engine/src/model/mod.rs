@@ -97,6 +97,13 @@ pub struct Document {
     #[serde(default)]
     pub pdf_ua: bool,
 
+    /// When true, the PDF claims PDF/UA-2 (ISO 14289-2:2024) conformance —
+    /// the PDF 2.0 accessibility standard. Implies `pdfVersion: "2.0"` and
+    /// `tagged`; contradicts `pdfUa` (UA-1) and the 1.7 pdfa levels.
+    /// Composes with `pdfa: "4"`/`"4f"` for archival + accessible.
+    #[serde(default)]
+    pub pdf_ua2: bool,
+
     /// Optional JSON string to embed as an attached file in the PDF.
     /// Enables round-tripping structured data through PDF files.
     /// Forbidden under PDF/A-1/-2 (which allow only PDF/A attachments);

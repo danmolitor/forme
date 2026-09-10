@@ -207,6 +207,7 @@ impl PdfWriter {
         zugferd: Option<&ZugferdMeta>,
         flatten_forms: bool,
         pdf_version: crate::model::PdfVersion,
+        pdf_ua2: bool,
     ) -> Result<(Vec<u8>, Vec<String>), FormeError> {
         // ── Attachment / e-invoice validation (before any emission) ──
         //
@@ -367,9 +368,10 @@ impl PdfWriter {
         // Register Shading dictionaries for gradient backgrounds.
         self.register_shadings(&mut builder, pages);
 
-        // Create tag builder for accessibility if requested
+        // Create tag builder for accessibility if requested. PDF/UA-2 mode
+        // selects the ISO 32005 structure shape (see TagBuilder::new).
         let mut tag_builder = if tagged {
-            Some(tagged::TagBuilder::new(pages.len()))
+            Some(tagged::TagBuilder::new(pages.len(), pdf_ua2))
         } else {
             None
         };
@@ -561,6 +563,7 @@ impl PdfWriter {
                 &mut builder.objects,
                 &page_obj_ids,
                 metadata.lang.as_deref(),
+                pdf_version == crate::model::PdfVersion::V2_0,
             );
             Some(root_id)
         } else {
@@ -573,7 +576,7 @@ impl PdfWriter {
         // PDF/A-4 profile): write the XMP metadata stream.
         let xmp_metadata_id =
             if pdfa.is_some() || pdf_ua || pdf_version == crate::model::PdfVersion::V2_0 {
-                let xmp_xml = xmp::generate_xmp(metadata, pdfa, pdf_ua, zugferd);
+                let xmp_xml = xmp::generate_xmp(metadata, pdfa, pdf_ua, pdf_ua2, zugferd);
                 let xmp_bytes = xmp_xml.as_bytes();
                 let xmp_obj_id = builder.objects.len();
                 // XMP metadata stream must NOT be compressed (PDF/A requirement)
@@ -1318,7 +1321,7 @@ impl PdfWriter {
                 .join(" ");
             write!(catalog, " /AF [{}]", refs).unwrap();
         }
-        if pdf_ua {
+        if pdf_ua || pdf_ua2 {
             catalog.push_str(" /ViewerPreferences << /DisplayDocTitle true >>");
         }
         catalog.push_str(" >>");
@@ -1465,6 +1468,11 @@ impl PdfWriter {
         // Tagged PDF: emit BDC (begin marked content) for elements with a node_type,
         // or /Artifact BMC for decorative elements (watermarks, untagged drawing).
         let mut is_artifact = false;
+        // PDF/UA-2: a structure element was opened but got no MCID — its
+        // role forbids content items (ISO 32005 containment matrix), so its
+        // own ink (borders, row backgrounds) must be marked /Artifact and
+        // only its children carry tagged content.
+        let mut artifact_own_draw = false;
         let tagged_mcid = if let Some(ref mut tb) = tag_builder {
             if let Some(ref nt) = element.node_type {
                 if nt == "Watermark" {
@@ -1482,16 +1490,25 @@ impl PdfWriter {
                         page_idx,
                         href,
                         element.col_span,
+                        element.list_numbering,
                     );
-                    // An href'd element tags as /Link (see begin_element); the
-                    // BDC role must match the structure role, so key on href too.
-                    let role = if href.is_some() {
-                        "Link"
-                    } else {
-                        tb.map_role_public(nt, is_header)
-                    };
-                    let _ = writeln!(stream, "/{} <</MCID {}>> BDC", role, mcid);
-                    Some(mcid)
+                    match mcid {
+                        Some(mcid) => {
+                            // An href'd element tags as /Link (see begin_element); the
+                            // BDC role must match the structure role, so key on href too.
+                            let role = if href.is_some() {
+                                "Link"
+                            } else {
+                                tb.map_role_public(nt, is_header)
+                            };
+                            let _ = writeln!(stream, "/{} <</MCID {}>> BDC", role, mcid);
+                            Some(mcid)
+                        }
+                        None => {
+                            artifact_own_draw = true;
+                            None
+                        }
+                    }
                 }
             } else if !matches!(element.draw, DrawCommand::None) {
                 // No node_type but has drawing — wrap as artifact
@@ -1573,6 +1590,18 @@ impl PdfWriter {
             }
             // Shift origin back to its real position.
             let _ = writeln!(stream, "1 0 0 1 {:.4} {:.4} cm", origin_x, origin_y);
+        }
+
+        // PDF/UA-2: the element's own ink (a grouping element's borders or
+        // background) is decoration under ISO 32005 — mark it /Artifact.
+        // Children recurse OUTSIDE this bracket (below), so their tagged
+        // content is never nested inside the artifact. Only the Rect and
+        // None arms are reachable with the flag set: every graphics arm
+        // maps to /Figure under UA-2 and takes the MCID path instead.
+        let wrap_own_draw_as_artifact =
+            artifact_own_draw && !matches!(element.draw, DrawCommand::None);
+        if wrap_own_draw_as_artifact {
+            let _ = writeln!(stream, "/Artifact BMC");
         }
 
         match &element.draw {
@@ -1982,6 +2011,14 @@ impl PdfWriter {
                     }
                 } else if is_artifact {
                     let _ = writeln!(stream, "EMC");
+                } else if wrap_own_draw_as_artifact {
+                    // Unreachable today (graphics arms map to /Figure under
+                    // UA-2), but if a forbidden-content role ever gained a
+                    // graphics draw, close its /Artifact bracket and element.
+                    let _ = writeln!(stream, "EMC");
+                    if let Some(ref mut tb) = tag_builder {
+                        tb.end_element();
+                    }
                 }
                 return; // Don't increment counter again for children
             }
@@ -2002,6 +2039,14 @@ impl PdfWriter {
                     }
                 } else if is_artifact {
                     let _ = writeln!(stream, "EMC");
+                } else if wrap_own_draw_as_artifact {
+                    // Unreachable today (graphics arms map to /Figure under
+                    // UA-2), but if a forbidden-content role ever gained a
+                    // graphics draw, close its /Artifact bracket and element.
+                    let _ = writeln!(stream, "EMC");
+                    if let Some(ref mut tb) = tag_builder {
+                        tb.end_element();
+                    }
                 }
                 return;
             }
@@ -2069,6 +2114,14 @@ impl PdfWriter {
                     }
                 } else if is_artifact {
                     let _ = writeln!(stream, "EMC");
+                } else if wrap_own_draw_as_artifact {
+                    // Unreachable today (graphics arms map to /Figure under
+                    // UA-2), but if a forbidden-content role ever gained a
+                    // graphics draw, close its /Artifact bracket and element.
+                    let _ = writeln!(stream, "EMC");
+                    if let Some(ref mut tb) = tag_builder {
+                        tb.end_element();
+                    }
                 }
                 return;
             }
@@ -2101,6 +2154,14 @@ impl PdfWriter {
                     }
                 } else if is_artifact {
                     let _ = writeln!(stream, "EMC");
+                } else if wrap_own_draw_as_artifact {
+                    // Unreachable today (graphics arms map to /Figure under
+                    // UA-2), but if a forbidden-content role ever gained a
+                    // graphics draw, close its /Artifact bracket and element.
+                    let _ = writeln!(stream, "EMC");
+                    if let Some(ref mut tb) = tag_builder {
+                        tb.end_element();
+                    }
                 }
                 return;
             }
@@ -2134,6 +2195,14 @@ impl PdfWriter {
                     }
                 } else if is_artifact {
                     let _ = writeln!(stream, "EMC");
+                } else if wrap_own_draw_as_artifact {
+                    // Unreachable today (graphics arms map to /Figure under
+                    // UA-2), but if a forbidden-content role ever gained a
+                    // graphics draw, close its /Artifact bracket and element.
+                    let _ = writeln!(stream, "EMC");
+                    if let Some(ref mut tb) = tag_builder {
+                        tb.end_element();
+                    }
                 }
                 return;
             }
@@ -2161,6 +2230,14 @@ impl PdfWriter {
                     }
                 } else if is_artifact {
                     let _ = writeln!(stream, "EMC");
+                } else if wrap_own_draw_as_artifact {
+                    // Unreachable today (graphics arms map to /Figure under
+                    // UA-2), but if a forbidden-content role ever gained a
+                    // graphics draw, close its /Artifact bracket and element.
+                    let _ = writeln!(stream, "EMC");
+                    if let Some(ref mut tb) = tag_builder {
+                        tb.end_element();
+                    }
                 }
                 return;
             }
@@ -2250,6 +2327,14 @@ impl PdfWriter {
                     }
                 } else if is_artifact {
                     let _ = writeln!(stream, "EMC");
+                } else if wrap_own_draw_as_artifact {
+                    // Unreachable today (graphics arms map to /Figure under
+                    // UA-2), but if a forbidden-content role ever gained a
+                    // graphics draw, close its /Artifact bracket and element.
+                    let _ = writeln!(stream, "EMC");
+                    if let Some(ref mut tb) = tag_builder {
+                        tb.end_element();
+                    }
                 }
                 return;
             }
@@ -2515,6 +2600,12 @@ impl PdfWriter {
             }
         }
 
+        // Close the /Artifact bracket around the element's own ink (opened
+        // before the draw match) — children below stay outside it.
+        if wrap_own_draw_as_artifact {
+            let _ = writeln!(stream, "EMC");
+        }
+
         // Overflow clipping: wrap children in q/clip/Q when overflow is Hidden.
         // When the element's Rect has a non-zero border_radius, clip to the
         // rounded path so descendants don't visually overflow the rounded
@@ -2588,6 +2679,12 @@ impl PdfWriter {
             }
         } else if is_artifact {
             let _ = writeln!(stream, "EMC");
+        } else if artifact_own_draw {
+            // The element opened a structure entry but no marked content
+            // (PDF/UA-2 forbidden-content role) — close just the element.
+            if let Some(ref mut tb) = tag_builder {
+                tb.end_element();
+            }
         }
     }
 
@@ -4717,6 +4814,7 @@ mod tests {
                 None,
                 false,
                 crate::model::PdfVersion::V1_7,
+                false,
             )
             .unwrap();
 
@@ -4760,6 +4858,7 @@ mod tests {
                 None,
                 false,
                 crate::model::PdfVersion::V1_7,
+                false,
             )
             .unwrap();
         let text = String::from_utf8_lossy(&bytes);
@@ -4819,6 +4918,7 @@ mod tests {
                     bookmark: None,
                     alt: None,
                     is_header_row: false,
+                    list_numbering: None,
                     col_span: 1,
                     overflow: Overflow::default(),
                     opacity: 1.0,
@@ -4864,6 +4964,7 @@ mod tests {
                     bookmark: None,
                     alt: None,
                     is_header_row: false,
+                    list_numbering: None,
                     col_span: 1,
                     overflow: Overflow::default(),
                     opacity: 1.0,
@@ -4890,6 +4991,7 @@ mod tests {
                 None,
                 false,
                 crate::model::PdfVersion::V1_7,
+                false,
             )
             .unwrap();
         let text = String::from_utf8_lossy(&bytes);
@@ -5037,6 +5139,7 @@ mod tests {
                 bookmark: None,
                 alt: None,
                 is_header_row: false,
+                list_numbering: None,
                 col_span: 1,
                 overflow: Overflow::default(),
                 opacity: 1.0,
@@ -5062,6 +5165,7 @@ mod tests {
                 None,
                 false,
                 crate::model::PdfVersion::V1_7,
+                false,
             )
             .unwrap();
         let text = String::from_utf8_lossy(&bytes);

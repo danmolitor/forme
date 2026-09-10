@@ -451,6 +451,11 @@ pub struct LayoutElement {
     pub alt: Option<String>,
     /// Whether this is a table header row (for tagged PDF: TH vs TD).
     pub is_header_row: bool,
+    /// ListNumbering attribute value for List elements (ISO 14289-2
+    /// 8.2.5.25: required on /L when Lbl children are present). `None` for
+    /// every non-List element and for markerType "none", which draws no
+    /// marker (and therefore no Lbl).
+    pub list_numbering: Option<&'static str>,
     /// Number of columns this table cell spans (for tagged PDF: /ColSpan).
     /// 1 for every non-cell element and for unspanned cells.
     pub col_span: u32,
@@ -567,6 +572,7 @@ fn bookmark_marker(node: &Node, x: f64, y: f64) -> Option<LayoutElement> {
         bookmark: Some(title.clone()),
         alt: None,
         is_header_row: false,
+        list_numbering: None,
         col_span: 1,
         overflow: Overflow::default(),
         opacity: 1.0,
@@ -2227,6 +2233,7 @@ impl LayoutEngine {
                 bookmark: None,
                 alt: None,
                 is_header_row: false,
+                list_numbering: None,
                 col_span: 1,
                 overflow: style.overflow,
                 opacity: style.opacity,
@@ -2361,6 +2368,7 @@ impl LayoutEngine {
                 bookmark: None,
                 alt: None,
                 is_header_row: false,
+                list_numbering: None,
                 col_span: 1,
                 overflow: style.overflow,
                 opacity: style.opacity,
@@ -2391,6 +2399,7 @@ impl LayoutEngine {
                     bookmark: None,
                     alt: None,
                     is_header_row: false,
+                    list_numbering: None,
                     col_span: 1,
                     overflow: Overflow::default(),
                     opacity: 1.0,
@@ -2421,6 +2430,7 @@ impl LayoutEngine {
                         bookmark: None,
                         alt: None,
                         is_header_row: false,
+                        list_numbering: None,
                         col_span: 1,
                         overflow: Overflow::default(),
                         opacity: 1.0,
@@ -2449,6 +2459,7 @@ impl LayoutEngine {
                     bookmark: None,
                     alt: None,
                     is_header_row: false,
+                    list_numbering: None,
                     col_span: 1,
                     overflow: Overflow::default(),
                     opacity: 1.0,
@@ -3395,6 +3406,20 @@ impl LayoutEngine {
             bookmark: node.bookmark.clone(),
             alt: None,
             is_header_row: false,
+            // ISO 32000-2 ListNumbering value matching the declared marker.
+            // markerType "none" draws no marker (no Lbl child), so the
+            // attribute isn't required — see format_marker.
+            list_numbering: match marker_type {
+                ListMarkerType::None => None,
+                ListMarkerType::Disc => Some("Disc"),
+                ListMarkerType::Circle => Some("Circle"),
+                ListMarkerType::Square => Some("Square"),
+                ListMarkerType::Decimal => Some("Decimal"),
+                ListMarkerType::LowerAlpha => Some("LowerAlpha"),
+                ListMarkerType::UpperAlpha => Some("UpperAlpha"),
+                ListMarkerType::LowerRoman => Some("LowerRoman"),
+                ListMarkerType::UpperRoman => Some("UpperRoman"),
+            },
             col_span: 1,
             overflow: style.overflow,
             opacity: style.opacity,
@@ -3484,6 +3509,7 @@ impl LayoutEngine {
             bookmark: item.bookmark.clone(),
             alt: None,
             is_header_row: false,
+            list_numbering: None,
             col_span: 1,
             overflow: item_style.overflow,
             opacity: item_style.opacity,
@@ -3726,6 +3752,7 @@ impl LayoutEngine {
                 bookmark: None,
                 alt: None,
                 is_header_row: false,
+                list_numbering: None,
                 col_span: 1,
                 overflow: Overflow::default(),
                 opacity: style.opacity,
@@ -4087,6 +4114,7 @@ impl LayoutEngine {
                 bookmark: cell.bookmark.clone(),
                 alt: None,
                 is_header_row: is_header,
+                list_numbering: None,
                 col_span: span as u32,
                 overflow: Overflow::default(),
                 opacity: 1.0,
@@ -4122,6 +4150,7 @@ impl LayoutEngine {
             bookmark: row.bookmark.clone(),
             alt: None,
             is_header_row: is_header,
+            list_numbering: None,
             col_span: 1,
             overflow: row_style.overflow,
             opacity: row_style.opacity,
@@ -4347,6 +4376,7 @@ impl LayoutEngine {
                         },
                         alt: None,
                         is_header_row: false,
+                        list_numbering: None,
                         col_span: 1,
                         overflow: Overflow::default(),
                         opacity: 1.0,
@@ -4457,6 +4487,7 @@ impl LayoutEngine {
                 bookmark: None,
                 alt: None,
                 is_header_row: false,
+                list_numbering: None,
                 col_span: 1,
                 overflow: Overflow::default(),
                 opacity: 1.0,
@@ -4487,6 +4518,7 @@ impl LayoutEngine {
                 },
                 alt: None,
                 is_header_row: false,
+                list_numbering: None,
                 col_span: 1,
                 overflow: Overflow::default(),
                 opacity: 1.0,
@@ -4637,6 +4669,7 @@ impl LayoutEngine {
                         },
                         alt: None,
                         is_header_row: false,
+                        list_numbering: None,
                         col_span: 1,
                         overflow: Overflow::default(),
                         opacity: 1.0,
@@ -4743,6 +4776,7 @@ impl LayoutEngine {
                 bookmark: None,
                 alt: None,
                 is_header_row: false,
+                list_numbering: None,
                 col_span: 1,
                 overflow: Overflow::default(),
                 opacity: 1.0,
@@ -4772,6 +4806,7 @@ impl LayoutEngine {
                 },
                 alt: None,
                 is_header_row: false,
+                list_numbering: None,
                 col_span: 1,
                 overflow: Overflow::default(),
                 opacity: 1.0,
@@ -5547,6 +5582,7 @@ impl LayoutEngine {
             bookmark: node.bookmark.clone(),
             alt: node.alt.clone(),
             is_header_row: false,
+            list_numbering: None,
             col_span: 1,
             overflow: style.overflow,
             opacity: style.opacity,
@@ -5614,6 +5650,7 @@ impl LayoutEngine {
             bookmark: node.bookmark.clone(),
             alt: node.alt.clone(),
             is_header_row: false,
+            list_numbering: None,
             col_span: 1,
             overflow: style.overflow,
             opacity: style.opacity,
@@ -5796,6 +5833,7 @@ impl LayoutEngine {
             bookmark: node.bookmark.clone(),
             alt: node.alt.clone(),
             is_header_row: false,
+            list_numbering: None,
             col_span: 1,
             overflow: style.overflow,
             opacity: style.opacity,
@@ -5846,6 +5884,7 @@ impl LayoutEngine {
             bookmark: node.bookmark.clone(),
             alt: node.alt.clone(),
             is_header_row: false,
+            list_numbering: None,
             col_span: 1,
             overflow: style.overflow,
             opacity: style.opacity,
@@ -5892,6 +5931,7 @@ impl LayoutEngine {
             bookmark: node.bookmark.clone(),
             alt: node.alt.clone(),
             is_header_row: false,
+            list_numbering: None,
             col_span: 1,
             overflow: style.overflow,
             opacity: style.opacity,
@@ -5956,6 +5996,7 @@ impl LayoutEngine {
             bookmark: node.bookmark.clone(),
             alt: node.alt.clone(),
             is_header_row: false,
+            list_numbering: None,
             col_span: 1,
             overflow: style.overflow,
             opacity: style.opacity,
@@ -6014,6 +6055,7 @@ impl LayoutEngine {
             bookmark: node.bookmark.clone(),
             alt: node.alt.clone(),
             is_header_row: false,
+            list_numbering: None,
             col_span: 1,
             overflow: style.overflow,
             opacity: style.opacity,
@@ -7277,6 +7319,7 @@ impl LayoutEngine {
                             bookmark: None,
                             alt: None,
                             is_header_row: false,
+                            list_numbering: None,
                             col_span: 1,
                             overflow: Overflow::default(),
                             opacity: 1.0,
@@ -7991,6 +8034,7 @@ mod tests {
             pdf_ua: false,
             certification: None,
             pdf_version: Default::default(),
+            pdf_ua2: false,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -8056,6 +8100,7 @@ mod tests {
             pdf_ua: false,
             certification: None,
             pdf_version: Default::default(),
+            pdf_ua2: false,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -8122,6 +8167,7 @@ mod tests {
             pdf_ua: false,
             certification: None,
             pdf_version: Default::default(),
+            pdf_ua2: false,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -8201,6 +8247,7 @@ mod tests {
             pdf_ua: false,
             certification: None,
             pdf_version: Default::default(),
+            pdf_ua2: false,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -8293,6 +8340,7 @@ mod tests {
             pdf_ua: false,
             certification: None,
             pdf_version: Default::default(),
+            pdf_ua2: false,
         };
         let pages = engine.layout(&doc, &font_context);
         let page = &pages[0];
@@ -8444,6 +8492,7 @@ mod tests {
             pdf_ua: false,
             certification: None,
             pdf_version: Default::default(),
+            pdf_ua2: false,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -8520,6 +8569,7 @@ mod tests {
             pdf_ua: false,
             certification: None,
             pdf_version: Default::default(),
+            pdf_ua2: false,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -8608,6 +8658,7 @@ mod tests {
             pdf_ua: false,
             certification: None,
             pdf_version: Default::default(),
+            pdf_ua2: false,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -8674,6 +8725,7 @@ mod tests {
             pdf_ua: false,
             certification: None,
             pdf_version: Default::default(),
+            pdf_ua2: false,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -8751,6 +8803,7 @@ mod tests {
             pdf_ua: false,
             certification: None,
             pdf_version: Default::default(),
+            pdf_ua2: false,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -8839,6 +8892,7 @@ mod tests {
             pdf_ua: false,
             certification: None,
             pdf_version: Default::default(),
+            pdf_ua2: false,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -8926,6 +8980,7 @@ mod tests {
             pdf_ua: false,
             certification: None,
             pdf_version: Default::default(),
+            pdf_ua2: false,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -9007,6 +9062,7 @@ mod tests {
             pdf_ua: false,
             certification: None,
             pdf_version: Default::default(),
+            pdf_ua2: false,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -9080,6 +9136,7 @@ mod tests {
             pdf_ua: false,
             certification: None,
             pdf_version: Default::default(),
+            pdf_ua2: false,
         };
 
         let pages = engine.layout(&doc, &font_context);
