@@ -100,7 +100,8 @@ interface DocumentProps {
   lang?: string;
   style?: Style;
   tagged?: boolean;
-  pdfa?: '2a' | '2b' | '2u' | '3a' | '3b' | '3u';
+  pdfa?: '2a' | '2b' | '2u' | '3a' | '3b' | '3u' | '4' | '4f';
+  pdfVersion?: '1.7' | '2.0';
   pdfUa?: boolean;
   certification?: CertificationConfig;
   /** @deprecated Use certification */
@@ -162,6 +163,7 @@ export function parseMarkup(markup: string): FormeDocument {
   if (props.style) result.defaultStyle = mapStyle(props.style);
   if (props.tagged !== undefined) result.tagged = props.tagged;
   if (props.pdfa !== undefined) result.pdfa = props.pdfa;
+  if (props.pdfVersion !== undefined) result.pdfVersion = props.pdfVersion;
   if (props.pdfUa) result.pdfUa = true;
   const cert = props.certification ?? props.signature;
   if (cert) {
