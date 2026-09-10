@@ -353,9 +353,32 @@ export interface FormeDocument {
    */
   pdfVersion?: '1.7' | '2.0';
   pdfUa?: boolean;
+  /**
+   * PDF/UA-2 accessibility (ISO 14289-2:2024) — the PDF 2.0 successor
+   * to pdfUa. Implies pdfVersion "2.0" (so every font must be embedded)
+   * and forces tagging with the 2.0 structure namespace. Contradicts
+   * pdfUa and the 1.7 pdfa levels (2x/3x); composes with pdfa '4'/'4f'
+   * for a file that is archival AND accessible.
+   */
+  pdfUa2?: boolean;
   flattenForms?: boolean;
   certification?: CertificationConfig;
 }
+
+/**
+ * The document-level conformance claims every authoring adapter exposes
+ * 1:1 as `<Document>` props and its serializer passes straight through.
+ * Adapters assert compile-time parity against this type (see the
+ * `_DocumentClaimParity` guards) — a claim added here without reaching an
+ * adapter's prop types fails that adapter's build instead of shipping
+ * serializable but type-invisible, which is how `pdfVersion` first went
+ * out (and `passes` before it: real on one layer, absent on the layer
+ * users touch).
+ */
+export type FormeDocumentClaimProps = Pick<
+  FormeDocument,
+  'tagged' | 'pdfa' | 'pdfVersion' | 'pdfUa' | 'pdfUa2'
+>;
 
 export interface FormeMetadata {
   title?: string;

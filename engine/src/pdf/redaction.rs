@@ -2503,6 +2503,7 @@ mod tests {
             flatten_forms: false,
             certification: None,
             pdf_version: Default::default(),
+            pdf_ua2: false,
         };
 
         let pdf_bytes = crate::render(&doc).expect("render should succeed");
@@ -2560,6 +2561,7 @@ mod tests {
             flatten_forms: false,
             certification: None,
             pdf_version: Default::default(),
+            pdf_ua2: false,
         };
 
         let pdf_bytes = crate::render(&doc).expect("render should succeed");
@@ -2606,6 +2608,7 @@ mod tests {
             flatten_forms: false,
             certification: None,
             pdf_version: Default::default(),
+            pdf_ua2: false,
         };
 
         let pdf_bytes = crate::render(&doc).expect("render should succeed");
@@ -2688,6 +2691,7 @@ mod tests {
             flatten_forms: false,
             certification: None,
             pdf_version: Default::default(),
+            pdf_ua2: false,
         };
 
         let pdf_bytes = crate::render(&doc).expect("render should succeed");
@@ -2852,6 +2856,7 @@ mod tests {
             flatten_forms: false,
             certification: None,
             pdf_version: Default::default(),
+            pdf_ua2: false,
         };
 
         let pdf_bytes = crate::render(&doc).expect("render should succeed");
@@ -2904,6 +2909,7 @@ mod tests {
             flatten_forms: false,
             certification: None,
             pdf_version: Default::default(),
+            pdf_ua2: false,
         };
 
         let pdf_bytes = crate::render(&doc).expect("render should succeed");
@@ -3032,6 +3038,7 @@ mod tests {
             flatten_forms: false,
             certification: None,
             pdf_version: Default::default(),
+            pdf_ua2: false,
         };
 
         let pdf_bytes = crate::render(&doc).expect("render should succeed");
@@ -3081,6 +3088,7 @@ mod tests {
             flatten_forms: false,
             certification: None,
             pdf_version: Default::default(),
+            pdf_ua2: false,
         };
 
         let pdf_bytes = crate::render(&doc).expect("render should succeed");
@@ -3125,6 +3133,7 @@ mod tests {
             flatten_forms: false,
             certification: None,
             pdf_version: Default::default(),
+            pdf_ua2: false,
         };
 
         let pdf_bytes = crate::render(&doc).expect("render should succeed");
@@ -3172,6 +3181,7 @@ mod tests {
             flatten_forms: false,
             certification: None,
             pdf_version: Default::default(),
+            pdf_ua2: false,
         };
 
         let pdf_bytes = crate::render(&doc).expect("render should succeed");
@@ -3219,6 +3229,7 @@ mod tests {
             flatten_forms: false,
             certification: None,
             pdf_version: Default::default(),
+            pdf_ua2: false,
         };
 
         let pdf_bytes = crate::render(&doc).expect("render should succeed");
@@ -3349,6 +3360,7 @@ endcmap
             flatten_forms: false,
             certification: None,
             pdf_version: Default::default(),
+            pdf_ua2: false,
         };
 
         let pdf_bytes = crate::render(&doc).expect("render should succeed");

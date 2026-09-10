@@ -241,6 +241,9 @@ pub fn render_with_warnings_and_passes(
 /// a file whose header falsifies its own conformance).
 fn effective_pdf_version(document: &Document) -> crate::model::PdfVersion {
     use crate::model::{PdfAConformance, PdfVersion};
+    if document.pdf_ua2 {
+        return PdfVersion::V2_0;
+    }
     match &document.pdfa {
         Some(PdfAConformance::A4 | PdfAConformance::A4f) => PdfVersion::V2_0,
         _ => document.pdf_version,
@@ -266,7 +269,40 @@ fn validate_pdf_version(document: &Document) -> Result<(), FormeError> {
     }
     if document.pdf_ua {
         return Err(FormeError::RenderError(
-            "pdfVersion \"2.0\" contradicts pdfUa: PDF/UA-1 is defined over ISO 32000-1              (PDF 1.7). Drop the pdfUa claim, or keep pdfVersion \"1.7\" (the default).              PDF/UA-2 is the 2.0-based accessibility standard."
+            "pdfVersion \"2.0\" contradicts pdfUa: PDF/UA-1 is defined over ISO 32000-1              (PDF 1.7). Drop the pdfUa claim, or keep pdfVersion \"1.7\" (the default).              PDF/UA-2 is the 2.0-based accessibility standard (pdfUa2)."
+                .to_string(),
+        ));
+    }
+    Ok(())
+}
+
+/// PDF/UA-2 (ISO 14289-2:2024) is defined over PDF 2.0: it implies the
+/// 2.0 output version and tagging, contradicts UA-1 and the 1.7 pdfa
+/// levels, and composes with pdfa "4"/"4f".
+fn validate_pdf_ua2(document: &Document) -> Result<(), FormeError> {
+    use crate::model::PdfAConformance;
+    if !document.pdf_ua2 {
+        return Ok(());
+    }
+    if document.pdf_ua {
+        return Err(FormeError::RenderError(
+            "pdfUa2 contradicts pdfUa: a file claims PDF/UA-1 (ISO 32000-1) or PDF/UA-2 \
+             (PDF 2.0), not both. Keep exactly one."
+                .to_string(),
+        ));
+    }
+    if let Some(
+        PdfAConformance::A2a
+        | PdfAConformance::A2b
+        | PdfAConformance::A2u
+        | PdfAConformance::A3a
+        | PdfAConformance::A3b
+        | PdfAConformance::A3u,
+    ) = document.pdfa
+    {
+        return Err(FormeError::RenderError(
+            "pdfUa2 contradicts a 1.7-based pdfa level (2x/3x are ISO 32000-1). \
+             Compose PDF/UA-2 with pdfa: \"4\" or \"4f\", or drop one claim."
                 .to_string(),
         ));
     }
@@ -278,6 +314,7 @@ pub fn render_with_options(
     options: RenderOptions,
 ) -> Result<(Vec<u8>, Vec<String>, u32), FormeError> {
     validate_pdf_version(document)?;
+    validate_pdf_ua2(document)?;
     // Coarse phase profiling behind FORME_PROFILE (native only in practice —
     // `env::var` is Err under wasm, so the timer is never constructed there and
     // `Instant::now` is never called). Prints layout vs serialize to stderr.
@@ -294,6 +331,7 @@ pub fn render_with_options(
     let writer = PdfWriter::new();
     let tagged = document.tagged
         || document.pdf_ua
+        || document.pdf_ua2
         || matches!(
             document.pdfa,
             Some(model::PdfAConformance::A2a) | Some(model::PdfAConformance::A3a)
@@ -315,6 +353,7 @@ pub fn render_with_options(
         document.zugferd.as_ref(),
         document.flatten_forms,
         effective_pdf_version(document),
+        document.pdf_ua2,
     )?;
     let warnings = {
         let mut all = layout_warnings;
@@ -366,12 +405,14 @@ pub fn render_with_layout_and_options(
     options: RenderOptions,
 ) -> Result<(Vec<u8>, LayoutInfo, Vec<String>, u32), FormeError> {
     validate_pdf_version(document)?;
+    validate_pdf_ua2(document)?;
     let (pages, font_context, passes, layout_warnings) =
         layout_with_sentinel_passes_audited(document, options.audit_content);
     let layout_info = LayoutInfo::from_pages(&pages);
     let writer = PdfWriter::new();
     let tagged = document.tagged
         || document.pdf_ua
+        || document.pdf_ua2
         || matches!(
             document.pdfa,
             Some(model::PdfAConformance::A2a) | Some(model::PdfAConformance::A3a)
@@ -388,6 +429,7 @@ pub fn render_with_layout_and_options(
         document.zugferd.as_ref(),
         document.flatten_forms,
         effective_pdf_version(document),
+        document.pdf_ua2,
     )?;
     let pdf = if let Some(ref sig_config) = document.certification {
         pdf::certify::certify_pdf(&pdf, sig_config)?

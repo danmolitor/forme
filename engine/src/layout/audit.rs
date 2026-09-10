@@ -453,6 +453,7 @@ mod tests {
             flatten_forms: false,
             certification: None,
             pdf_version: Default::default(),
+            pdf_ua2: false,
         }
     }
 
@@ -559,6 +560,8 @@ mod tests {
             bookmark: None,
             alt: None,
             is_header_row: false,
+            actual_text: None,
+            list_numbering: None,
             col_span: 1,
             overflow: Overflow::Visible,
             opacity: 1.0,

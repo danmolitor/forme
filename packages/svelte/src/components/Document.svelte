@@ -1,6 +1,11 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
-  import type { CertificationConfig, FontRegistration, Style } from '@formepdf/shared';
+  import type {
+    CertificationConfig,
+    FontRegistration,
+    FormeDocumentClaimProps,
+    Style,
+  } from '@formepdf/shared';
   import { encodeProps } from '@formepdf/shared';
 
   interface Props {
@@ -20,6 +25,8 @@
     pdfVersion?: '1.7' | '2.0';
     /** When true, the PDF claims PDF/UA-1 conformance. Forces tagging. */
     pdfUa?: boolean;
+    /** PDF/UA-2 accessibility (ISO 14289-2:2024) — the PDF 2.0 successor to pdfUa. Implies pdfVersion "2.0" (every font embedded); composes with pdfa "4"/"4f". */
+    pdfUa2?: boolean;
     /** Digital certification configuration. Certifies the PDF with an X.509 certificate. */
     certification?: CertificationConfig;
     /** @deprecated Use certification */
@@ -28,6 +35,17 @@
     fonts?: FontRegistration[];
     children?: Snippet;
   }
+
+  // Compile-time claim parity with the serializer's accepted options
+  // (FormeDocumentClaimProps) — fails `npm run check` when a conformance
+  // claim is missing here or drifts in type.
+  type Exact<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2)
+    ? true
+    : false;
+  type AssertTrue<T extends true> = T;
+  type _DocumentClaimParity = AssertTrue<
+    Exact<Pick<Props, keyof FormeDocumentClaimProps>, FormeDocumentClaimProps>
+  >;
 
   let { children, ...rest }: Props = $props();
 </script>

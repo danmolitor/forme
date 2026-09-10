@@ -27,6 +27,16 @@ struct StructElement {
     alt: Option<String>,
     /// Column span, for table cells (PDF/UA 7.2-43 / `/ColSpan`). 1 otherwise.
     col_span: u32,
+    /// ListNumbering attribute value for /L elements (ISO 14289-2 8.2.5.25:
+    /// "If Lbl structure elements are present, the ListNumbering attribute
+    /// shall be present on the respective L structure element"). None for
+    /// non-list elements and for markerType "none" (which draws no Lbl).
+    list_numbering: Option<&'static str>,
+    /// Replacement text for machine-readable graphics (a barcode's or QR
+    /// code's encoded data). Emitted as /ActualText under the 2.0 namespace
+    /// when no /Alt is present — ISO 14289-2 8.2.5.28.2: "A Figure structure
+    /// element shall have at least one of ... Alt ... ActualText".
+    actual_text: Option<String>,
 }
 
 /// A child of a structure element.
@@ -72,17 +82,37 @@ pub struct TagBuilder {
     /// item's non-label content (PDF/UA 7.2-20) and closed together with their
     /// /LI, since the caller emits no matching end_element for them.
     synthetic_lbody: std::collections::HashSet<usize>,
+    /// Bookmark title -> structure element index (first occurrence wins),
+    /// so internal GoTo actions can carry structure destinations under
+    /// UA-2 (ISO 14289-2 8.8: "All destinations whose target lies within
+    /// the current document shall be structure destinations").
+    bookmark_targets: std::collections::HashMap<String, usize>,
+    /// (annotation object id, target element idx) pairs whose /SD entry
+    /// awaits the real structure-element object ids; write_objects returns
+    /// them resolved for the caller to patch into the annotation dicts.
+    pending_struct_dests: Vec<(usize, usize)>,
+    /// PDF/UA-2 mode (ISO 14289-2). Under UA-2, ISO 32005's containment
+    /// matrix forbids content items inside grouping elements, and neutral
+    /// /Div content attributes upward to the nearest structural ancestor —
+    /// so grouping and Div elements get no MCID (their own ink is marked
+    /// /Artifact by the caller), and graphics node types map to /Figure
+    /// instead of the /Div fallback. False preserves the PDF/UA-1 shape
+    /// byte-for-byte.
+    ua2: bool,
 }
 
 impl TagBuilder {
     /// Create a new TagBuilder with a root "Document" structure element.
-    pub fn new(num_pages: usize) -> Self {
+    /// `ua2` selects the PDF/UA-2 structure shape (see the field doc).
+    pub fn new(num_pages: usize, ua2: bool) -> Self {
         let root = StructElement {
             role: "Document",
             parent_idx: 0,
             kids: Vec::new(),
             alt: None,
             col_span: 1,
+            list_numbering: None,
+            actual_text: None,
         };
         TagBuilder {
             elements: vec![root],
@@ -96,11 +126,71 @@ impl TagBuilder {
             // start after them so the two never collide in the ParentTree.
             next_annot_struct_parent: num_pages as u32,
             synthetic_lbody: std::collections::HashSet::new(),
+            bookmark_targets: std::collections::HashMap::new(),
+            pending_struct_dests: Vec::new(),
+            ua2,
         }
     }
 
-    /// Begin a structure element for a layout node. Returns the MCID to use
-    /// in the BDC operator. Call `end_element` after the content is written.
+    /// Roles whose structure elements shall not contain content items under
+    /// PDF/UA-2. The set is ISO 32005's containment matrix as shipped in
+    /// veraPDF's PDFUA-2 profile ("Table 5. X-content: <X> shall not contain
+    /// content items"), plus /LI, whose equivalent rule is ISO 14289-2
+    /// 8.2.5.25: "Any real content within an LI structure element that is
+    /// not enclosed in an Lbl structure element shall be enclosed in an
+    /// LBody structure element" — the LI's own ink counts as such content.
+    fn role_forbids_content(role: &str) -> bool {
+        matches!(
+            role,
+            "Art"
+                | "Document"
+                | "DocumentFragment"
+                | "Index"
+                | "L"
+                | "Sect"
+                | "TBody"
+                | "TFoot"
+                | "THead"
+                | "TOC"
+                | "TOCI"
+                | "TR"
+                | "Table"
+                | "LI"
+        )
+    }
+
+    /// Record the just-opened element as the target of a bookmark anchor,
+    /// so an internal link to it can use a structure destination (UA-2).
+    pub fn note_bookmark(&mut self, title: &str) {
+        let idx = self.elements.len() - 1;
+        self.bookmark_targets
+            .entry(title.to_string())
+            .or_insert(idx);
+    }
+
+    /// Under UA-2, register an internal link annotation for a structure
+    /// destination on `anchor`. Returns true when the target is known — the
+    /// caller then emits the /SD placeholder that `write_objects` resolves.
+    pub fn request_struct_destination(&mut self, anchor: &str, annot_obj_id: usize) -> bool {
+        if !self.ua2 {
+            return false;
+        }
+        match self.bookmark_targets.get(anchor) {
+            Some(&elem_idx) => {
+                self.pending_struct_dests.push((annot_obj_id, elem_idx));
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// Begin a structure element for a layout node. Returns `Some(mcid)` to
+    /// use in the BDC operator, or `None` when the element's role forbids
+    /// content items (PDF/UA-2 grouping and neutral roles) — the caller must
+    /// then mark the element's own drawing as an /Artifact instead of
+    /// tagging it. Call `end_element` after the content is written either
+    /// way.
+    #[allow(clippy::too_many_arguments)]
     pub fn begin_element(
         &mut self,
         node_type: &str,
@@ -109,7 +199,9 @@ impl TagBuilder {
         page_idx: usize,
         href: Option<&str>,
         col_span: u32,
-    ) -> u32 {
+        list_numbering: Option<&'static str>,
+        actual_text: Option<&str>,
+    ) -> Option<u32> {
         // An element carrying an href is a link: it tags as a /Link structure
         // element (overriding its node_type role) so the annotation can attach
         // to it (PDF/UA 7.18.5-1). The BDC role at the call site uses the same
@@ -123,7 +215,13 @@ impl TagBuilder {
         // Headings act like paragraphs for the inner-text → Span downgrade
         // rule, so a nested Text inside an H1 maps to a Span rather than
         // spawning a P child of the H1.
-        if matches!(role, "P" | "H1" | "H2" | "H3" | "H4" | "H5" | "H6") {
+        if matches!(role, "P" | "H1" | "H2" | "H3" | "H4" | "H5" | "H6")
+            // ISO 32005 "Table 5. Link-P": <Link>, when used as a
+            // non-grouping element, shall not contain <P> — so under UA-2 a
+            // link's nested Text children downgrade to Span, like a
+            // paragraph's do. The UA-1 shape keeps its historical P children.
+            || (self.ua2 && role == "Link")
+        {
             self.inside_paragraph = true;
         }
 
@@ -142,6 +240,8 @@ impl TagBuilder {
                 kids: Vec::new(),
                 alt: None,
                 col_span: 1,
+                list_numbering: None,
+                actual_text: None,
             });
             self.elements[parent_idx]
                 .kids
@@ -153,16 +253,33 @@ impl TagBuilder {
 
         let elem_idx = self.elements.len();
 
-        // Allocate MCID on this page
-        let mcid = self.page_mcid_counters[page_idx];
-        self.page_mcid_counters[page_idx] += 1;
+        // PDF/UA-2: grouping roles shall not contain content items (ISO
+        // 32005 containment matrix), and a neutral /Div's content items
+        // attribute upward to its nearest structural ancestor — which then
+        // violates that ancestor's containment rule. Neither gets an MCID;
+        // the caller marks their own ink (borders, backgrounds) /Artifact.
+        let skip_mcid = self.ua2 && (Self::role_forbids_content(role) || role == "Div");
+
+        let mcid = if skip_mcid {
+            None
+        } else {
+            // Allocate MCID on this page
+            let mcid = self.page_mcid_counters[page_idx];
+            self.page_mcid_counters[page_idx] += 1;
+            Some(mcid)
+        };
 
         let elem = StructElement {
             role,
             parent_idx,
-            kids: vec![StructKid::MarkedContent { page_idx, mcid }],
+            kids: match mcid {
+                Some(mcid) => vec![StructKid::MarkedContent { page_idx, mcid }],
+                None => Vec::new(),
+            },
             alt: alt.map(|s| s.to_string()),
             col_span,
+            list_numbering,
+            actual_text: actual_text.map(|s| s.to_string()),
         };
         self.elements.push(elem);
 
@@ -172,7 +289,9 @@ impl TagBuilder {
             .push(StructKid::StructRef(elem_idx));
 
         // Track for ParentTree
-        self.mcid_to_struct.push((page_idx, mcid, elem_idx));
+        if let Some(mcid) = mcid {
+            self.mcid_to_struct.push((page_idx, mcid, elem_idx));
+        }
 
         // Push onto parent stack so nested elements become children
         self.parent_stack.push(elem_idx);
@@ -235,12 +354,18 @@ impl TagBuilder {
             }
         }
         if let Some(idx) = self.parent_stack.pop() {
-            // If we're leaving a paragraph-like element (P or any heading),
-            // reset the flag so the next sibling text gets the P role again.
+            // If we're leaving a paragraph-like element (P or any heading —
+            // and under UA-2 a Link, which sets the flag on entry so its
+            // children downgrade to Span), reset it so the next sibling
+            // text gets the P role again. Without the Link arm the flag
+            // stayed stuck after a link closed and every following
+            // top-level text became a Span child of <Document> — which
+            // ISO 32005 forbids ("Table 5. Document-Span").
             if matches!(
                 self.elements[idx].role,
                 "P" | "H1" | "H2" | "H3" | "H4" | "H5" | "H6"
-            ) {
+            ) || (self.ua2 && self.elements[idx].role == "Link")
+            {
                 self.inside_paragraph = false;
             }
         }
@@ -291,18 +416,32 @@ impl TagBuilder {
                 }
             }
             "TextField" | "Checkbox" | "Dropdown" | "RadioButton" => "Form",
+            // PDF/UA-2: graphics node types are semantic figures, not
+            // neutral containers — a /Div's content would attribute upward
+            // into its grouping ancestor (ISO 32005), and only /Figure
+            // carries the /Alt these elements declare. The UA-1 shape keeps
+            // the historical /Div fallback byte-for-byte.
+            "QrCode" | "Barcode" | "Canvas" | "BarChart" | "LineChart" | "PieChart"
+            | "AreaChart" | "DotPlot"
+                if self.ua2 =>
+            {
+                "Figure"
+            }
             _ => "Div",
         }
     }
 
     /// Write all structure tree objects to the PDF builder.
-    /// Returns `(struct_tree_root_obj_id, parent_tree_obj_id)`.
+    /// Returns `(struct_tree_root_obj_id, parent_tree_obj_id, sd_patches)`
+    /// where `sd_patches` maps annotation object ids to the resolved
+    /// structure-element object ids for pending structure destinations.
     pub fn write_objects(
         &self,
         objects: &mut Vec<super::PdfObject>,
         page_obj_ids: &[usize],
         lang: Option<&str>,
-    ) -> (usize, usize) {
+        ns_2_0: bool,
+    ) -> (usize, usize, Vec<(usize, usize)>) {
         let num_pages = page_obj_ids.len();
 
         // Allocate object IDs for all structure elements
@@ -331,6 +470,36 @@ impl TagBuilder {
             data: Vec::new(),
         });
 
+        // PDF 2.0 mode (ISO 32005 / PDF/UA-2 shape): a namespace object
+        // for the PDF 2.0 standard structure namespace, and a REAL
+        // Document element as the StructTreeRoot's single child — the
+        // 1.7 writer fuses the Document element into the root (its kids
+        // hang off /StructTreeRoot directly), which UA-1 tolerates and
+        // veraPDF's UA-2 profile forbids ("The structure tree root shall
+        // contain a single Document structure element as its only child.
+        // The namespace for that element shall be specified as the PDF
+        // 2.0 namespace").
+        let ns_obj_id = if ns_2_0 {
+            let id = objects.len();
+            objects.push(super::PdfObject {
+                id,
+                data: b"<< /Type /Namespace /NS (http://iso.org/pdf2/ssn) >>".to_vec(),
+            });
+            Some(id)
+        } else {
+            None
+        };
+        let doc_elem_id = if ns_2_0 {
+            let id = objects.len();
+            objects.push(super::PdfObject {
+                id,
+                data: Vec::new(),
+            });
+            Some(id)
+        } else {
+            None
+        };
+
         // Build StructTreeRoot (element 0 = "Document")
         let root_obj_id = elem_obj_ids[0];
         {
@@ -341,24 +510,55 @@ impl TagBuilder {
             } else {
                 String::new()
             };
-            let data = format!(
-                "<< /Type /StructTreeRoot /K [{kids}] /ParentTree {pt} 0 R /RoleMap {rm} 0 R{lang} >>",
-                kids = kids_str,
-                pt = parent_tree_id,
-                rm = role_map_id,
-                lang = lang_str,
-            );
-            objects[root_obj_id].data = data.into_bytes();
+            if let (Some(ns), Some(doc_id)) = (ns_obj_id, doc_elem_id) {
+                // Root points at the single Document element…
+                let data = format!(
+                    "<< /Type /StructTreeRoot /K [{doc_id} 0 R] /ParentTree {pt} 0 R /RoleMap {rm} 0 R /Namespaces [{ns} 0 R]{lang} >>",
+                    pt = parent_tree_id,
+                    rm = role_map_id,
+                    lang = lang_str,
+                );
+                objects[root_obj_id].data = data.into_bytes();
+                // …and the Document element (in the 2.0 namespace) holds
+                // what used to hang off the root.
+                let doc_data = format!(
+                    "<< /Type /StructElem /S /Document /NS {ns} 0 R /P {root_obj_id} 0 R /K [{kids_str}] >>",
+                );
+                objects[doc_id].data = doc_data.into_bytes();
+            } else {
+                let data = format!(
+                    "<< /Type /StructTreeRoot /K [{kids}] /ParentTree {pt} 0 R /RoleMap {rm} 0 R{lang} >>",
+                    kids = kids_str,
+                    pt = parent_tree_id,
+                    rm = role_map_id,
+                    lang = lang_str,
+                );
+                objects[root_obj_id].data = data.into_bytes();
+            }
         }
 
         // Write each structure element (skip 0 = root, handled above)
         for (i, elem) in self.elements.iter().enumerate().skip(1) {
             let obj_id = elem_obj_ids[i];
-            let parent_obj_id = elem_obj_ids[elem.parent_idx];
+            // Top-level elements reparent onto the interposed Document
+            // element under the 2.0 shape (their old parent was the fused
+            // root at index 0).
+            let parent_obj_id = if elem.parent_idx == 0 {
+                doc_elem_id.unwrap_or(elem_obj_ids[0])
+            } else {
+                elem_obj_ids[elem.parent_idx]
+            };
             let kids_str = self.format_kids(&elem.kids, &elem_obj_ids, page_obj_ids);
 
+            // Every role Forme emits exists in the PDF 2.0 standard
+            // structure namespace (ISO 32005), so 2.0 mode stamps /NS on
+            // each element rather than mixing namespaces.
+            let ns_str = match ns_obj_id {
+                Some(ns) => format!(" /NS {ns} 0 R"),
+                None => String::new(),
+            };
             let mut dict = format!(
-                "<< /Type /StructElem /S /{role} /P {parent} 0 R /K [{kids}]",
+                "<< /Type /StructElem /S /{role}{ns_str} /P {parent} 0 R /K [{kids}]",
                 role = elem.role,
                 parent = parent_obj_id,
                 kids = kids_str,
@@ -387,6 +587,28 @@ impl TagBuilder {
                 // span needs none).
                 if attrs != " /A << /O /Table >>" {
                     dict.push_str(&attrs);
+                }
+            }
+
+            // ISO 14289-2 8.2.5.28.2: a Figure needs /Alt or /ActualText;
+            // machine-readable graphics carry their encoded data as the
+            // replacement text when the author gave no alt. Gated on the
+            // 2.0 namespace so the 1.7 shape stays byte-identical.
+            if ns_2_0 && elem.alt.is_none() {
+                if let Some(ref at) = elem.actual_text {
+                    let escaped = super::PdfWriter::escape_pdf_string(at);
+                    let _ = write!(dict, " /ActualText ({})", escaped);
+                }
+            }
+
+            // PDF/UA-2 list numbering (ISO 14289-2 8.2.5.25: "If Lbl
+            // structure elements are present, the ListNumbering attribute
+            // shall be present on the respective L structure element; in
+            // such cases the value None shall not be used"). Gated on the
+            // 2.0 namespace so the 1.7 shape stays byte-identical.
+            if ns_2_0 && elem.role == "L" {
+                if let Some(numbering) = elem.list_numbering {
+                    let _ = write!(dict, " /A << /O /List /ListNumbering /{} >>", numbering);
                 }
             }
 
@@ -436,7 +658,12 @@ impl TagBuilder {
         // the entire structure tree in veraPDF.
         objects[role_map_id].data = b"<< >>".to_vec();
 
-        (root_obj_id, parent_tree_id)
+        let sd_patches = self
+            .pending_struct_dests
+            .iter()
+            .map(|&(annot_obj_id, elem_idx)| (annot_obj_id, elem_obj_ids[elem_idx]))
+            .collect();
+        (root_obj_id, parent_tree_id, sd_patches)
     }
 
     /// Format the /K array entries for a structure element.
@@ -479,13 +706,13 @@ mod tests {
 
     #[test]
     fn test_tag_builder_basic() {
-        let mut tb = TagBuilder::new(1);
+        let mut tb = TagBuilder::new(1, false);
 
-        let mcid = tb.begin_element("View", false, None, 0, None, 1);
-        assert_eq!(mcid, 0);
+        let mcid = tb.begin_element("View", false, None, 0, None, 1, None, None);
+        assert_eq!(mcid, Some(0));
 
-        let mcid2 = tb.begin_element("Text", false, None, 0, None, 1);
-        assert_eq!(mcid2, 1);
+        let mcid2 = tb.begin_element("Text", false, None, 0, None, 1, None, None);
+        assert_eq!(mcid2, Some(1));
         tb.end_element(); // Text
 
         tb.end_element(); // View
@@ -501,9 +728,9 @@ mod tests {
         // to itself (e.g. /Div /Div) is a *circular* mapping and invalidates
         // the whole structure tree in veraPDF. Forme emits only standard PDF
         // 1.7 roles, so none belong in the RoleMap — it must not self-map any.
-        let mut tb = TagBuilder::new(1);
-        tb.begin_element("View", false, None, 0, None, 1);
-        tb.begin_element("Text", false, None, 0, None, 1);
+        let mut tb = TagBuilder::new(1, false);
+        tb.begin_element("View", false, None, 0, None, 1, None, None);
+        tb.begin_element("Text", false, None, 0, None, 1, None, None);
         tb.end_element();
         tb.end_element();
 
@@ -512,7 +739,7 @@ mod tests {
             data: Vec::new(),
         }];
         let page_obj_ids = vec![0usize];
-        let (root_id, _) = tb.write_objects(&mut objects, &page_obj_ids, Some("en-US"));
+        let (root_id, _, _) = tb.write_objects(&mut objects, &page_obj_ids, Some("en-US"), false);
 
         // Resolve the RoleMap object from the StructTreeRoot's /RoleMap ref, so
         // the check inspects the RoleMap itself — not a StructElem, whose
@@ -542,14 +769,14 @@ mod tests {
 
     #[test]
     fn test_nested_text_maps_to_span() {
-        let mut tb = TagBuilder::new(1);
+        let mut tb = TagBuilder::new(1, false);
 
         // Outer Text → P
-        let _mcid = tb.begin_element("Text", false, None, 0, None, 1);
+        let _mcid = tb.begin_element("Text", false, None, 0, None, 1, None, None);
         assert_eq!(tb.elements.last().unwrap().role, "P");
 
         // Inner Text → Span (because inside_paragraph)
-        let _mcid = tb.begin_element("Text", false, None, 0, None, 1);
+        let _mcid = tb.begin_element("Text", false, None, 0, None, 1, None, None);
         assert_eq!(tb.elements.last().unwrap().role, "Span");
 
         tb.end_element();
@@ -558,13 +785,13 @@ mod tests {
 
     #[test]
     fn test_table_header_maps_to_th() {
-        let mut tb = TagBuilder::new(1);
+        let mut tb = TagBuilder::new(1, false);
 
-        tb.begin_element("Table", false, None, 0, None, 1);
-        tb.begin_element("TableRow", true, None, 0, None, 1);
+        tb.begin_element("Table", false, None, 0, None, 1, None, None);
+        tb.begin_element("TableRow", true, None, 0, None, 1, None, None);
 
         // Cell in header row → TH
-        tb.begin_element("TableCell", true, None, 0, None, 1);
+        tb.begin_element("TableCell", true, None, 0, None, 1, None, None);
         assert_eq!(tb.elements.last().unwrap().role, "TH");
         tb.end_element();
 
@@ -572,8 +799,8 @@ mod tests {
         tb.end_element(); // Table
 
         // Body row
-        tb.begin_element("TableRow", false, None, 0, None, 1);
-        tb.begin_element("TableCell", false, None, 0, None, 1);
+        tb.begin_element("TableRow", false, None, 0, None, 1, None, None);
+        tb.begin_element("TableCell", false, None, 0, None, 1, None, None);
         assert_eq!(tb.elements.last().unwrap().role, "TD");
         tb.end_element();
         tb.end_element();
@@ -581,9 +808,18 @@ mod tests {
 
     #[test]
     fn test_figure_with_alt_text() {
-        let mut tb = TagBuilder::new(1);
+        let mut tb = TagBuilder::new(1, false);
 
-        tb.begin_element("Image", false, Some("A photo of a cat"), 0, None, 1);
+        tb.begin_element(
+            "Image",
+            false,
+            Some("A photo of a cat"),
+            0,
+            None,
+            1,
+            None,
+            None,
+        );
         let elem = tb.elements.last().unwrap();
         assert_eq!(elem.role, "Figure");
         assert_eq!(elem.alt.as_deref(), Some("A photo of a cat"));
@@ -592,16 +828,16 @@ mod tests {
 
     #[test]
     fn test_parent_tree_consistency() {
-        let mut tb = TagBuilder::new(2);
+        let mut tb = TagBuilder::new(2, false);
 
         // Page 0: 2 elements
-        tb.begin_element("Text", false, None, 0, None, 1);
+        tb.begin_element("Text", false, None, 0, None, 1, None, None);
         tb.end_element();
-        tb.begin_element("Text", false, None, 0, None, 1);
+        tb.begin_element("Text", false, None, 0, None, 1, None, None);
         tb.end_element();
 
         // Page 1: 1 element
-        tb.begin_element("Text", false, None, 1, None, 1);
+        tb.begin_element("Text", false, None, 1, None, 1, None, None);
         tb.end_element();
 
         assert_eq!(tb.page_mcid_count(0), 2);

@@ -28,6 +28,7 @@
  */
 
 import { parseFragment } from 'parse5';
+import type { FormeDocumentClaimProps } from './types.js';
 import type { DefaultTreeAdapterMap } from 'parse5';
 import {
   buildAreaChartKind,
@@ -103,11 +104,28 @@ interface DocumentProps {
   pdfa?: '2a' | '2b' | '2u' | '3a' | '3b' | '3u' | '4' | '4f';
   pdfVersion?: '1.7' | '2.0';
   pdfUa?: boolean;
+  pdfUa2?: boolean;
   certification?: CertificationConfig;
   /** @deprecated Use certification */
   signature?: CertificationConfig;
   fonts?: FontRegistration[];
 }
+
+
+// ── Compile-time claim parity ───────────────────────────────────────────
+// DocumentProps must accept every document-level conformance claim the
+// serializer passes through, with the exact shared types (see
+// FormeDocumentClaimProps in ./types.js). Pick fails to compile on
+// a missing key; Exact fails on a drifted type. This is the guard that
+// would have caught pdfVersion existing in serialization but not on the
+// props users type against.
+type Exact<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2)
+  ? true
+  : false;
+type AssertTrue<T extends true> = T;
+export type _DocumentClaimParity = AssertTrue<
+  Exact<Pick<DocumentProps, keyof FormeDocumentClaimProps>, FormeDocumentClaimProps>
+>;
 
 export function parseMarkup(markup: string): FormeDocument {
   const fragment = parseFragment(markup);
@@ -165,6 +183,7 @@ export function parseMarkup(markup: string): FormeDocument {
   if (props.pdfa !== undefined) result.pdfa = props.pdfa;
   if (props.pdfVersion !== undefined) result.pdfVersion = props.pdfVersion;
   if (props.pdfUa) result.pdfUa = true;
+  if (props.pdfUa2) result.pdfUa2 = true;
   const cert = props.certification ?? props.signature;
   if (cert) {
     if (props.signature && !props.certification) {

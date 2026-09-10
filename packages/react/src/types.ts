@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import type { FormeDocumentClaimProps } from '@formepdf/shared';
 import type { FontRegistration } from './font.js';
 import type {
   Style,
@@ -79,6 +80,8 @@ export interface DocumentProps {
   pdfVersion?: '1.7' | '2.0';
   /** When true, the PDF claims PDF/UA-1 conformance. Forces tagging. */
   pdfUa?: boolean;
+  /** PDF/UA-2 accessibility (ISO 14289-2:2024) — the PDF 2.0 successor to pdfUa. Implies pdfVersion "2.0" (every font embedded); composes with pdfa "4"/"4f". */
+  pdfUa2?: boolean;
   /** Digital certification configuration. Certifies the PDF with an X.509 certificate. */
   certification?: CertificationConfig;
   /** @deprecated Use certification */
@@ -368,3 +371,18 @@ export interface CanvasProps {
   draw: (ctx: CanvasContext) => void;
   style?: Style;
 }
+
+// ── Compile-time claim parity ───────────────────────────────────────────
+// DocumentProps must accept every document-level conformance claim the
+// serializer passes through, with the exact shared types (see
+// FormeDocumentClaimProps in @formepdf/shared). Pick fails to compile on
+// a missing key; Exact fails on a drifted type. This is the guard that
+// would have caught pdfVersion existing in serialization but not on the
+// props users type against.
+type Exact<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2)
+  ? true
+  : false;
+type AssertTrue<T extends true> = T;
+export type _DocumentClaimParity = AssertTrue<
+  Exact<Pick<DocumentProps, keyof FormeDocumentClaimProps>, FormeDocumentClaimProps>
+>;

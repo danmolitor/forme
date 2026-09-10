@@ -126,6 +126,7 @@ fn default_doc(children: Vec<Node>) -> Document {
         pdf_ua: false,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     }
 }
 
@@ -597,6 +598,7 @@ fn test_metadata_in_output() {
         pdf_ua: false,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
     let bytes = render_to_pdf(&doc);
     assert_valid_pdf(&bytes);
@@ -744,6 +746,7 @@ fn render_with_custom_font(font_data: &[u8], text: &str) -> Vec<u8> {
         pdf_ua: false,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
 
     let engine = LayoutEngine::new();
@@ -762,6 +765,7 @@ fn render_with_custom_font(font_data: &[u8], text: &str) -> Vec<u8> {
             doc.zugferd.as_ref(),
             doc.flatten_forms,
             forme::model::PdfVersion::V1_7,
+            false,
         )
         .unwrap()
         .0
@@ -908,6 +912,7 @@ fn test_mixed_standard_and_custom_fonts() {
         pdf_ua: false,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
 
     let engine = LayoutEngine::new();
@@ -926,6 +931,7 @@ fn test_mixed_standard_and_custom_fonts() {
             None,
             false,
             forme::model::PdfVersion::V1_7,
+            false,
         )
         .unwrap();
 
@@ -3311,6 +3317,7 @@ fn test_breakable_view_with_background_splits_across_pages() {
         pdf_ua: false,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
 
     let pages = layout_doc(&doc);
@@ -3401,6 +3408,7 @@ fn test_breakable_view_background_does_not_overlap_footer() {
         pdf_ua: false,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
 
     let pages = layout_doc(&doc);
@@ -3479,6 +3487,7 @@ fn test_breakable_view_without_visual_stays_unwrapped() {
         pdf_ua: false,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
 
     let pages = layout_doc(&doc);
@@ -3817,6 +3826,7 @@ fn test_breakable_view_continuation_page_has_top_padding() {
         pdf_ua: false,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
 
     let pages = layout_doc(&doc);
@@ -4176,6 +4186,7 @@ fn test_document_lang_in_pdf_catalog() {
         pdf_ua: false,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
     let bytes = render_to_pdf(&doc);
     assert_valid_pdf(&bytes);
@@ -4425,6 +4436,7 @@ fn test_justified_text_produces_valid_pdf() {
         pdf_ua: false,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
 
     let bytes = forme::render(&doc).expect("Should render justified text");
@@ -4490,6 +4502,7 @@ fn test_lang_inherits_to_text_nodes() {
         pdf_ua: false,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
 
     // Just verify it renders without error — lang cascading is tested at the unit level
@@ -4570,6 +4583,7 @@ fn test_per_node_lang_override() {
         pdf_ua: false,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
 
     let bytes = forme::render(&doc).expect("Should render with per-node lang override");
@@ -4603,6 +4617,7 @@ fn test_tagged_pdf_has_struct_tree_root() {
         pdf_ua: false,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
 
     let bytes = forme::render(&doc).unwrap();
@@ -4672,6 +4687,7 @@ fn test_tagged_pdf_parent_tree_consistency() {
         pdf_ua: false,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
 
     let bytes = forme::render(&doc).unwrap();
@@ -4753,6 +4769,7 @@ fn test_tagged_pdf_nested_text_roles() {
         pdf_ua: false,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
 
     let bytes = forme::render(&doc).unwrap();
@@ -4856,6 +4873,7 @@ fn test_tagged_pdf_table_th_td() {
         pdf_ua: false,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
 
     let bytes = forme::render(&doc).unwrap();
@@ -4916,6 +4934,7 @@ fn test_tagged_pdf_figure_alt_text() {
         pdf_ua: false,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
 
     let bytes = forme::render(&doc).unwrap();
@@ -5191,6 +5210,7 @@ fn test_qrcode_renders_to_pdf() {
         pdf_ua: false,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
 
     let pdf = forme::render(&doc).expect("QR code should render to PDF");
@@ -5231,6 +5251,7 @@ fn test_qrcode_with_explicit_size() {
         pdf_ua: false,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
 
     let (pdf, layout, _) = forme::render_with_layout(&doc).expect("Should render");
@@ -5283,6 +5304,7 @@ fn test_qrcode_page_break() {
         pdf_ua: false,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
 
     let (pdf, layout, _) = forme::render_with_layout(&doc).expect("Should render");
@@ -5347,6 +5369,7 @@ fn test_font_fallback_chain_in_document() {
         pdf_ua: false,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
 
     let pdf = forme::render(&doc).expect("Fallback chain should render");
@@ -5433,6 +5456,7 @@ fn test_text_overflow_ellipsis_single_line() {
         pdf_ua: false,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
 
     let (_pdf, layout, _) = forme::render_with_layout(&doc).expect("Should render");
@@ -5813,6 +5837,7 @@ fn test_document_default_style() {
         pdf_ua: false,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
     let pdf = render_to_pdf(&doc);
     let pdf_str = String::from_utf8_lossy(&pdf);
@@ -5850,6 +5875,7 @@ fn test_embedded_data_round_trip() {
         pdf_ua: false,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
     let pdf = render_to_pdf(&doc);
     assert_valid_pdf(&pdf);
@@ -5944,6 +5970,7 @@ fn test_barcode_renders_to_pdf() {
         pdf_ua: false,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
 
     let pdf = forme::render(&doc).expect("Barcode should render to PDF");
@@ -6018,6 +6045,7 @@ fn test_barcode_layout_dimensions() {
         pdf_ua: false,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
 
     let (pdf, layout, _) = forme::render_with_layout(&doc).expect("Should render");
@@ -6077,6 +6105,7 @@ fn auto_margin_horizontal_centers_child() {
         pdf_ua: false,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
 
     let (_pdf, layout, _) = forme::render_with_layout(&doc).expect("Should render");
@@ -6140,6 +6169,7 @@ fn auto_margin_left_pushes_right() {
         pdf_ua: false,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
 
     let (_pdf, layout, _) = forme::render_with_layout(&doc).expect("Should render");
@@ -6467,6 +6497,7 @@ fn test_bar_chart_layout_dimensions() {
         pdf_ua: false,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
 
     let (pdf, layout, _) = forme::render_with_layout(&doc).expect("Should render");
@@ -7222,6 +7253,7 @@ fn test_pdf_ua_has_viewer_preferences() {
         pdf_ua: true,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
     let bytes = render_to_pdf(&doc);
     assert_valid_pdf(&bytes);
@@ -7260,6 +7292,7 @@ fn test_pdf_ua_has_xmp_pdfuaid() {
         pdf_ua: true,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
     let bytes = render_to_pdf(&doc);
     assert_valid_pdf(&bytes);
@@ -7291,6 +7324,7 @@ fn test_pdf_ua_forces_tagging() {
         pdf_ua: true,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
     let bytes = render_to_pdf(&doc);
     assert_valid_pdf(&bytes);
@@ -7333,6 +7367,7 @@ fn test_pdf_ua_and_pdfa_combined_xmp() {
         pdf_ua: true,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
     let bytes = render_to_pdf(&doc);
     assert_valid_pdf(&bytes);
@@ -7377,6 +7412,7 @@ fn test_tagged_pdf_has_tab_order() {
         pdf_ua: false,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
     let bytes = render_to_pdf(&doc);
     assert_valid_pdf(&bytes);
@@ -7408,6 +7444,7 @@ fn test_untagged_pdf_no_tab_order() {
         pdf_ua: false,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
     let bytes = render_to_pdf(&doc);
     assert_valid_pdf(&bytes);
@@ -7439,6 +7476,7 @@ fn test_tagged_role_map_omits_standard_self_mappings() {
         pdf_ua: false,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
     let bytes = render_to_pdf(&doc);
     assert_valid_pdf(&bytes);
@@ -7489,6 +7527,7 @@ fn test_tagged_struct_tree_has_lang() {
         pdf_ua: false,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
     let bytes = render_to_pdf(&doc);
     assert_valid_pdf(&bytes);
@@ -7890,6 +7929,7 @@ fn test_certify_at_render_time() {
             height: None,
         }),
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
 
     let pdf = forme::render(&doc).unwrap();
@@ -8338,6 +8378,7 @@ fn test_page_placeholder_survives_line_breaking() {
         pdf_ua: false,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
 
     let (pdf, _layout, _) = forme::render_with_layout(&doc).unwrap();
@@ -8429,6 +8470,7 @@ fn test_two_pass_multi_page_common_case() {
         pdf_ua: false,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
     let (pdf, layout, _) = forme::render_with_layout(&doc).unwrap();
     assert!(layout.pages.len() >= 2, "Should be multi-page");
@@ -8487,6 +8529,7 @@ fn test_render_performance() {
         pdf_ua: false,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
 
     let start = Instant::now();
@@ -8578,6 +8621,7 @@ fn test_multi_weight_font_resolution() {
         pdf_ua: false,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
 
     let pdf = forme::render(&doc).unwrap();
@@ -8630,6 +8674,7 @@ fn test_svg_opacity_produces_ext_gstate() {
         pdf_ua: false,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
 
     let pdf = forme::render(&doc).unwrap();
@@ -8684,6 +8729,7 @@ fn test_svg_fill_opacity_produces_ext_gstate() {
         pdf_ua: false,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
 
     let pdf = forme::render(&doc).unwrap();
@@ -8732,6 +8778,7 @@ fn test_svg_inherited_group_opacity() {
         pdf_ua: false,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
 
     let pdf = forme::render(&doc).unwrap();
@@ -9056,6 +9103,7 @@ fn test_page_background_opacity_creates_extgstate() {
         flatten_forms: false,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
     let pdf_bytes = render_to_pdf(&doc);
     let pdf_str = String::from_utf8_lossy(&pdf_bytes);
@@ -10649,6 +10697,7 @@ fn test_heading_emits_h1_through_h6_structure_roles_in_tagged_pdf() {
         pdf_ua: false,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
     let bytes = forme::render(&doc).unwrap();
     let pdf_str = String::from_utf8_lossy(&bytes);
@@ -10692,6 +10741,7 @@ fn test_heading_renders_text_content() {
         pdf_ua: false,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
     let bytes = forme::render(&doc).unwrap();
     let stream = decompress_pdf_streams(&bytes);
@@ -10888,6 +10938,7 @@ fn test_list_emits_l_li_lbl_in_tagged_pdf() {
         pdf_ua: false,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
     let bytes = forme::render(&doc).unwrap();
     let pdf_str = String::from_utf8_lossy(&bytes);
@@ -11309,6 +11360,7 @@ fn siblings_after_overflowing_flex_row_still_render() {
         flatten_forms: false,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
 
     let (_pdf, layout, _) = forme::render_with_layout(&doc).expect("Should render");
@@ -11579,6 +11631,7 @@ fn first_page_config_gives_page_one_its_own_margins() {
         flatten_forms: false,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
     let (_pdf, layout, _) = forme::render_with_layout(&doc).expect("Should render");
     assert!(layout.pages.len() >= 2, "content must flow to page 2");
@@ -11610,6 +11663,7 @@ fn not_first_header_skips_page_one() {
         flatten_forms: false,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
     let (_pdf, layout, _) = forme::render_with_layout(&doc).expect("Should render");
     assert!(layout.pages.len() >= 2);
@@ -11712,6 +11766,7 @@ fn first_page_restores_margin_when_its_band_is_suppressed() {
         flatten_forms: false,
         certification: None,
         pdf_version: Default::default(),
+        pdf_ua2: false,
     };
     let (_pdf, layout, _) = forme::render_with_layout(&doc).expect("Should render");
     assert!(layout.pages.len() >= 2);
@@ -12860,4 +12915,257 @@ fn pdfa4f_without_files_is_refused() {
         msg.contains("at least one embedded file") && msg.contains("\"4\""),
         "must explain and point at plain A-4: {msg}"
     );
+}
+
+// ── PDF/UA-2 (ISO 14289-2:2024) ─────────────────────────────────────────
+
+/// A document exercising every UA-2 structure family: headings, a link,
+/// an ordered list (Lbl + LBody + ListNumbering), a table with a header
+/// row and a colspan, and a QR figure with alt text.
+fn docua2(claims: &str) -> String {
+    format!(
+        r##"{{ "children": [
+            {{ "kind": {{ "type": "Heading", "content": "Report", "level": 1 }}, "style": {{ "fontFamily": "Noto Sans" }}, "children": [] }},
+            {{ "kind": {{ "type": "Text", "content": "See the appendix.", "href": "https://example.com" }}, "style": {{ "fontFamily": "Noto Sans" }}, "children": [] }},
+            {{ "kind": {{ "type": "List", "ordered": true, "marker_type": "decimal" }}, "style": {{ "fontFamily": "Noto Sans" }}, "children": [
+                {{ "kind": {{ "type": "ListItem" }}, "style": {{}}, "children": [ {{ "kind": {{ "type": "Text", "content": "First" }}, "style": {{}}, "children": [] }} ] }}
+            ] }},
+            {{ "kind": {{ "type": "Table", "columns": [] }}, "style": {{ "fontFamily": "Noto Sans" }}, "children": [
+                {{ "kind": {{ "type": "TableRow", "is_header": true }}, "style": {{ "backgroundColor": {{ "r": 0.93, "g": 0.93, "b": 0.93, "a": 1.0 }} }}, "children": [
+                    {{ "kind": {{ "type": "TableCell" }}, "style": {{}}, "children": [ {{ "kind": {{ "type": "Text", "content": "Item" }}, "style": {{}}, "children": [] }} ] }},
+                    {{ "kind": {{ "type": "TableCell" }}, "style": {{}}, "children": [ {{ "kind": {{ "type": "Text", "content": "Value" }}, "style": {{}}, "children": [] }} ] }}
+                ] }},
+                {{ "kind": {{ "type": "TableRow" }}, "style": {{}}, "children": [
+                    {{ "kind": {{ "type": "TableCell", "col_span": 2 }}, "style": {{}}, "children": [ {{ "kind": {{ "type": "Text", "content": "Total" }}, "style": {{}}, "children": [] }} ] }}
+                ] }}
+            ] }},
+            {{ "kind": {{ "type": "QrCode", "data": "https://example.com", "size": 60 }}, "alt": "QR link", "style": {{}}, "children": [] }}
+        ], "metadata": {{ "title": "UA2 Doc", "lang": "en-US" }}{claims} }}"##
+    )
+}
+
+/// Slice one structure element's object body out of the (uncompressed
+/// object dictionary) PDF text: from the `/S /<role> ` marker to the next
+/// `endobj`. Panics if the role isn't present.
+fn struct_elem_body<'a>(text: &'a str, role_marker: &str) -> &'a str {
+    let start = text
+        .find(role_marker)
+        .unwrap_or_else(|| panic!("no {role_marker} element in output"));
+    let rest = &text[start..];
+    let end = rest.find("endobj").expect("dict runs to endobj");
+    &rest[..end]
+}
+
+#[test]
+fn pdfua2_identification_and_implied_version() {
+    // veraPDF's PDFUA-2 rules, read verbatim: pdfuaid:part 2 with
+    // pdfuaid:rev 2024, and ViewerPreferences /DisplayDocTitle true
+    // (clause 8.11.2). UA-2 is a PDF 2.0 standard — claiming it implies
+    // the 2.0 header, XMP-always, and no trailer /Info.
+    let bytes = forme::render_json(&docua2(r#", "pdfUa2": true"#)).expect("UA-2 doc renders");
+    assert!(
+        bytes.starts_with(b"%PDF-2.0"),
+        "UA-2 implies the 2.0 header"
+    );
+    let text = String::from_utf8_lossy(&bytes);
+    assert!(text.contains("<pdfuaid:part>2</pdfuaid:part>"));
+    assert!(text.contains("<pdfuaid:rev>2024</pdfuaid:rev>"));
+    assert!(text.contains("/ViewerPreferences << /DisplayDocTitle true >>"));
+    assert!(!text.contains("/Info "), "no trailer /Info under 2.0");
+}
+
+#[test]
+fn pdfua2_single_document_root_in_20_namespace() {
+    // ISO 32005: the StructTreeRoot contains a single Document structure
+    // element in the PDF 2.0 namespace as its only child — the 1.7
+    // writer's fused root is exactly what UA-2 forbids.
+    let bytes = forme::render_json(&docua2(r#", "pdfUa2": true"#)).unwrap();
+    let text = String::from_utf8_lossy(&bytes);
+    assert!(
+        text.contains("(http://iso.org/pdf2/ssn)"),
+        "2.0 namespace object"
+    );
+    assert!(text.contains("/Namespaces ["), "root carries /Namespaces");
+    let doc = struct_elem_body(&text, "/S /Document ");
+    assert!(doc.contains("/NS "), "Document element is in a namespace");
+    assert!(
+        !doc.contains("/MCR"),
+        "<Document> shall not contain content items: {doc}"
+    );
+}
+
+#[test]
+fn pdfua2_grouping_elements_contain_no_content_items() {
+    // ISO 32005 containment matrix, as shipped in veraPDF's profile
+    // ("Table 5. X-content: <X> shall not contain content items") for
+    // Table, TR and L; ISO 14289-2 8.2.5.25 for LI ("Any real content
+    // within an LI ... not enclosed in an Lbl ... shall be enclosed in an
+    // LBody"). Their own ink is an /Artifact instead.
+    let bytes = forme::render_json(&docua2(r#", "pdfUa2": true"#)).unwrap();
+    let text = String::from_utf8_lossy(&bytes);
+    for marker in ["/S /Table ", "/S /TR ", "/S /L ", "/S /LI "] {
+        let body = struct_elem_body(&text, marker);
+        assert!(
+            !body.contains("/MCR"),
+            "{marker} element must hold no marked content: {body}"
+        );
+    }
+    // The UA-1 shape keeps its historical fused MCIDs — control.
+    let bytes17 = forme::render_json(&docua2(r#", "pdfUa": true"#)).unwrap();
+    let text17 = String::from_utf8_lossy(&bytes17);
+    let body17 = struct_elem_body(&text17, "/S /Table ");
+    assert!(body17.contains("/MCR"), "UA-1 shape unchanged");
+}
+
+#[test]
+fn pdfua2_list_numbering_attribute() {
+    // ISO 14289-2 8.2.5.25: "If Lbl structure elements are present, the
+    // ListNumbering attribute shall be present on the respective L
+    // structure element; in such cases the value None shall not be used."
+    let bytes = forme::render_json(&docua2(r#", "pdfUa2": true"#)).unwrap();
+    let text = String::from_utf8_lossy(&bytes);
+    let l = struct_elem_body(&text, "/S /L ");
+    assert!(
+        l.contains("/A << /O /List /ListNumbering /Decimal >>"),
+        "ordered decimal list declares its numbering: {l}"
+    );
+    assert!(text.contains("/S /Lbl"), "marker tags as Lbl");
+    assert!(text.contains("/S /LBody"), "item content wraps in LBody");
+}
+
+#[test]
+fn pdfua2_graphics_tag_as_figures() {
+    // Under UA-2 a QR code is a semantic /Figure carrying its /Alt — as a
+    // neutral /Div its content items would attribute upward into the
+    // grouping ancestor (ISO 32005) and the alt text would be dead. The
+    // UA-1 shape keeps the historical /Div byte-for-byte.
+    let bytes = forme::render_json(&docua2(r#", "pdfUa2": true"#)).unwrap();
+    let text = String::from_utf8_lossy(&bytes);
+    let fig = struct_elem_body(&text, "/S /Figure ");
+    assert!(fig.contains("/Alt (QR link)"), "figure carries alt: {fig}");
+    let bytes17 = forme::render_json(&docua2(r#", "pdfUa": true"#)).unwrap();
+    assert!(
+        !String::from_utf8_lossy(&bytes17).contains("/S /Figure"),
+        "UA-1 shape keeps the /Div fallback"
+    );
+}
+
+#[test]
+fn pdfua2_contradictions_error_by_name() {
+    let e = forme::render_json(&docua2(r#", "pdfUa2": true, "pdfUa": true"#)).unwrap_err();
+    assert!(
+        e.to_string().contains("pdfUa2 contradicts pdfUa"),
+        "UA-1 x UA-2 must error by name: {e}"
+    );
+    let e = forme::render_json(&docua2(r#", "pdfUa2": true, "pdfa": "2a""#)).unwrap_err();
+    assert!(
+        e.to_string()
+            .contains("pdfUa2 contradicts a 1.7-based pdfa level"),
+        "UA-2 x A-2 must error by name: {e}"
+    );
+}
+
+#[test]
+fn pdfua2_composes_with_pdfa4() {
+    // The modern pair: archival AND accessible on PDF 2.0.
+    let bytes =
+        forme::render_json(&docua2(r#", "pdfUa2": true, "pdfa": "4""#)).expect("compose renders");
+    let text = String::from_utf8_lossy(&bytes);
+    assert!(text.contains("<pdfaid:part>4</pdfaid:part>"));
+    assert!(text.contains("<pdfuaid:part>2</pdfuaid:part>"));
+    assert!(text.contains("<pdfuaid:rev>2024</pdfuaid:rev>"));
+}
+
+#[test]
+fn pdfua2_machine_readable_graphics_carry_actual_text() {
+    // ISO 14289-2 8.2.5.28.2: a Figure needs /Alt or /ActualText. A barcode
+    // or QR code with no author alt carries its encoded data as the
+    // replacement text — the payload IS the content.
+    // (A QR code, not a barcode: barcode human-readable labels draw in
+    // Helvetica, which correctly hard-errors under 2.0 unless an
+    // embeddable substitute is registered — the corpus gate covers that
+    // path with fonts-standard.)
+    let json = r##"{ "children": [
+        { "kind": { "type": "Text", "content": "scan this" }, "style": { "fontFamily": "Noto Sans" }, "children": [] },
+        { "kind": { "type": "QrCode", "data": "ABC-123", "size": 60 }, "style": { "fontFamily": "Noto Sans" }, "children": [] }
+    ], "metadata": { "title": "QR Doc", "lang": "en-US" }, "pdfUa2": true }"##;
+    let bytes = forme::render_json(json).expect("renders");
+    let text = String::from_utf8_lossy(&bytes);
+    let fig = struct_elem_body(&text, "/S /Figure ");
+    assert!(
+        fig.contains("/ActualText (ABC-123)"),
+        "encoded data as replacement text: {fig}"
+    );
+    // An author alt wins — no ActualText then.
+    let json_alt = json.replace(
+        r#""style": { "fontFamily": "Noto Sans" }"#,
+        r#""alt": "a code", "style": { "fontFamily": "Noto Sans" }"#,
+    );
+    let bytes = forme::render_json(&json_alt).unwrap();
+    let text = String::from_utf8_lossy(&bytes);
+    let fig = struct_elem_body(&text, "/S /Figure ");
+    assert!(fig.contains("/Alt (a code)") && !fig.contains("/ActualText"));
+}
+
+#[test]
+fn pdfua2_internal_destinations_are_structure_destinations() {
+    // ISO 14289-2 8.8: "All destinations whose target lies within the
+    // current document shall be structure destinations." Outline items
+    // carry /SD (and no plain page /Dest); internal link GoTo actions
+    // carry /SD beside /D.
+    let json = r##"{ "children": [
+        { "kind": { "type": "Heading", "content": "Section One", "level": 2 }, "bookmark": "Section One", "style": { "fontFamily": "Noto Sans" }, "children": [] },
+        { "kind": { "type": "Text", "content": "jump", "href": "#Section One" }, "style": { "fontFamily": "Noto Sans" }, "children": [] }
+    ], "metadata": { "title": "Dest Doc", "lang": "en-US" }, "pdfUa2": true }"##;
+    let bytes = forme::render_json(json).expect("renders");
+    let text = String::from_utf8_lossy(&bytes);
+    let outline = struct_elem_body(&text, "/Title (Section One)");
+    assert!(
+        outline.contains("/SD ["),
+        "outline uses a structure destination: {outline}"
+    );
+    assert!(
+        !outline.contains("/Dest ["),
+        "no plain page destination in ua2 outlines"
+    );
+    assert!(!text.contains("999999999"), "SD placeholders all patched");
+    let goto = &text[text.find("/S /GoTo").expect("internal link action")..];
+    let goto = &goto[..goto.find(">>").unwrap()];
+    assert!(goto.contains("/SD ["), "GoTo carries /SD: {goto}");
+    // The UA-1 shape keeps plain destinations byte-for-byte.
+    let bytes17 = forme::render_json(&json.replace("pdfUa2", "pdfUa")).unwrap();
+    let text17 = String::from_utf8_lossy(&bytes17);
+    assert!(text17.contains("/Dest [") && !text17.contains("/SD ["));
+}
+
+#[test]
+fn pdfua2_embedded_filespecs_carry_desc() {
+    // ISO 14289-2 8.14.1: "The Desc entry shall be present on all file
+    // specification dictionaries present in the EmbeddedFiles name tree."
+    // The file name is the fallback when the author gave no description.
+    let bytes = forme::render_json(&docua2(
+        r#", "pdfUa2": true, "pdfa": "4f", "attachments": [ { "name": "data.csv", "src": "YSxiCjEsMg==", "mimeType": "text/csv", "relationship": "Supplement" } ]"#,
+    ))
+    .expect("4f + ua2 renders");
+    let text = String::from_utf8_lossy(&bytes);
+    let fs = struct_elem_body(&text, "/Type /Filespec ");
+    assert!(
+        fs.contains("/Desc (data.csv)"),
+        "Desc falls back to the name: {fs}"
+    );
+}
+
+#[test]
+fn pdfua2_link_children_downgrade_to_span() {
+    // ISO 32005 "Table 5. Link-P": <Link> shall not contain <P> — nested
+    // text inside a link tags as Span. And the downgrade flag resets when
+    // the link closes: the next sibling text is a P again (its leak made
+    // every following text a Span child of <Document>, which "Table 5.
+    // Document-Span" forbids).
+    let bytes = forme::render_json(&docua2(r#", "pdfUa2": true"#)).unwrap();
+    let text = String::from_utf8_lossy(&bytes);
+    let link = struct_elem_body(&text, "/S /Link ");
+    assert!(!link.contains("/S /P"), "no P inside Link");
+    let doc = struct_elem_body(&text, "/S /Document ");
+    assert!(!doc.contains("/S /Span"), "no Span child of Document");
 }
