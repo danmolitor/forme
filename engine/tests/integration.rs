@@ -8052,7 +8052,7 @@ fn test_double_certification_unique_names() {
 
 #[test]
 fn test_certify_preserves_acroform_metadata() {
-    // Create a PDF with a text field (which produces /NeedAppearances true, /DA)
+    // Create a PDF with a text field (which produces an AcroForm with /DA)
     let text_field = Node {
         kind: NodeKind::TextField {
             name: "field1".to_string(),
@@ -8079,10 +8079,14 @@ fn test_certify_preserves_acroform_metadata() {
     let pdf = forme::render(&doc).unwrap();
     let text_before = String::from_utf8_lossy(&pdf);
     assert!(
-        text_before.contains("/NeedAppearances true"),
-        "Original PDF must have /NeedAppearances"
+        !text_before.contains("/NeedAppearances"),
+        "NeedAppearances is deprecated (PDF 2.0) and redundant: every widget carries /AP"
     );
     assert!(text_before.contains("/DA"), "Original PDF must have /DA");
+    assert!(
+        text_before.contains("/AP"),
+        "widgets must carry authored appearance streams"
+    );
 
     // Sign it
     let (cert_pem, key_pem) = generate_test_cert_and_key();
@@ -8104,8 +8108,8 @@ fn test_certify_preserves_acroform_metadata() {
 
     // Signed PDF must preserve AcroForm metadata
     assert!(
-        text_after.contains("/NeedAppearances true"),
-        "Signed PDF must preserve /NeedAppearances"
+        !text_after.contains("/NeedAppearances"),
+        "Signing must not introduce the deprecated flag"
     );
     assert!(text_after.contains("/DA"), "Signed PDF must preserve /DA");
 
