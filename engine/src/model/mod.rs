@@ -82,6 +82,17 @@ pub struct Document {
     #[serde(default)]
     pub pdfa: Option<PdfAConformance>,
 
+    /// Output PDF version. `1.7` (the default) is today's writer,
+    /// byte-for-byte. `2.0` writes an ISO 32000-2 file: the %PDF-2.0
+    /// header, XMP document metadata always (no trailer /Info — 2.0
+    /// deprecates its entries and PDF/A-4 forbids the key), and embedded
+    /// fonts required (2.0 removes the standard-14 provision, so a
+    /// non-embedded Helvetica is a bet on reader goodwill; register
+    /// fonts or use fonts-standard, exactly as pdfA requires). 1.7-based
+    /// conformance claims (pdfA 2*/3*, pdfUa) are hard errors under 2.0.
+    #[serde(default)]
+    pub pdf_version: PdfVersion,
+
     /// When true, the PDF claims PDF/UA-1 conformance. Forces `tagged = true`.
     #[serde(default)]
     pub pdf_ua: bool,
@@ -117,6 +128,18 @@ pub struct Document {
     /// with the specified X.509 certificate and RSA private key.
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "signature")]
     pub certification: Option<CertificationConfig>,
+}
+
+/// The output PDF version. The 1.7 arm is the writer as it has always
+/// been; every 2.0 behavior lives behind explicit `V2_0` match arms so
+/// the default path is textually unchanged.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum PdfVersion {
+    #[default]
+    #[serde(rename = "1.7")]
+    V1_7,
+    #[serde(rename = "2.0")]
+    V2_0,
 }
 
 /// PDF/A conformance level.

@@ -154,6 +154,7 @@ pub fn map_html(
         embedded_data: None,
         flatten_forms: false,
         certification: None,
+        pdf_version: Default::default(),
     };
     (doc, mapper.warnings)
 }

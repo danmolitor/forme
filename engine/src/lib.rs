@@ -232,10 +232,37 @@ pub fn render_with_warnings_and_passes(
 }
 
 /// Like [`render_with_warnings_and_passes`], with opt-in [`RenderOptions`].
+/// PDF 2.0 contradicts every ISO 32000-1 (PDF 1.7) based conformance
+/// claim: PDF/A-2 and A-3 are defined over 1.7, as is PDF/UA-1. Error by
+/// name rather than emit a file whose header falsifies its own claim.
+fn validate_pdf_version(document: &Document) -> Result<(), FormeError> {
+    use crate::model::{PdfAConformance, PdfVersion};
+    if document.pdf_version != PdfVersion::V2_0 {
+        return Ok(());
+    }
+    if let Some(level) = &document.pdfa {
+        let family = match level {
+            PdfAConformance::A2a | PdfAConformance::A2b | PdfAConformance::A2u => "PDF/A-2",
+            PdfAConformance::A3a | PdfAConformance::A3b | PdfAConformance::A3u => "PDF/A-3",
+        };
+        return Err(FormeError::RenderError(format!(
+            "pdfVersion \"2.0\" contradicts pdfa: {family} is defined over ISO 32000-1              (PDF 1.7). Drop the pdfa claim, or keep pdfVersion \"1.7\" (the default).              PDF/A-4 is the 2.0-based archival standard."
+        )));
+    }
+    if document.pdf_ua {
+        return Err(FormeError::RenderError(
+            "pdfVersion \"2.0\" contradicts pdfUa: PDF/UA-1 is defined over ISO 32000-1              (PDF 1.7). Drop the pdfUa claim, or keep pdfVersion \"1.7\" (the default).              PDF/UA-2 is the 2.0-based accessibility standard."
+                .to_string(),
+        ));
+    }
+    Ok(())
+}
+
 pub fn render_with_options(
     document: &Document,
     options: RenderOptions,
 ) -> Result<(Vec<u8>, Vec<String>, u32), FormeError> {
+    validate_pdf_version(document)?;
     // Coarse phase profiling behind FORME_PROFILE (native only in practice —
     // `env::var` is Err under wasm, so the timer is never constructed there and
     // `Instant::now` is never called). Prints layout vs serialize to stderr.
@@ -272,6 +299,7 @@ pub fn render_with_options(
         &document.attachments,
         document.zugferd.as_ref(),
         document.flatten_forms,
+        document.pdf_version,
     )?;
     let warnings = {
         let mut all = layout_warnings;
@@ -322,6 +350,7 @@ pub fn render_with_layout_and_options(
     document: &Document,
     options: RenderOptions,
 ) -> Result<(Vec<u8>, LayoutInfo, Vec<String>, u32), FormeError> {
+    validate_pdf_version(document)?;
     let (pages, font_context, passes, layout_warnings) =
         layout_with_sentinel_passes_audited(document, options.audit_content);
     let layout_info = LayoutInfo::from_pages(&pages);
@@ -343,6 +372,7 @@ pub fn render_with_layout_and_options(
         &document.attachments,
         document.zugferd.as_ref(),
         document.flatten_forms,
+        document.pdf_version,
     )?;
     let pdf = if let Some(ref sig_config) = document.certification {
         pdf::certify::certify_pdf(&pdf, sig_config)?

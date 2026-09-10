@@ -7990,6 +7990,7 @@ mod tests {
             flatten_forms: false,
             pdf_ua: false,
             certification: None,
+            pdf_version: Default::default(),
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -8054,6 +8055,7 @@ mod tests {
             flatten_forms: false,
             pdf_ua: false,
             certification: None,
+            pdf_version: Default::default(),
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -8119,6 +8121,7 @@ mod tests {
             flatten_forms: false,
             pdf_ua: false,
             certification: None,
+            pdf_version: Default::default(),
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -8197,6 +8200,7 @@ mod tests {
             flatten_forms: false,
             pdf_ua: false,
             certification: None,
+            pdf_version: Default::default(),
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -8288,6 +8292,7 @@ mod tests {
             flatten_forms: false,
             pdf_ua: false,
             certification: None,
+            pdf_version: Default::default(),
         };
         let pages = engine.layout(&doc, &font_context);
         let page = &pages[0];
@@ -8438,6 +8443,7 @@ mod tests {
             flatten_forms: false,
             pdf_ua: false,
             certification: None,
+            pdf_version: Default::default(),
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -8513,6 +8519,7 @@ mod tests {
             flatten_forms: false,
             pdf_ua: false,
             certification: None,
+            pdf_version: Default::default(),
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -8600,6 +8607,7 @@ mod tests {
             flatten_forms: false,
             pdf_ua: false,
             certification: None,
+            pdf_version: Default::default(),
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -8665,6 +8673,7 @@ mod tests {
             flatten_forms: false,
             pdf_ua: false,
             certification: None,
+            pdf_version: Default::default(),
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -8741,6 +8750,7 @@ mod tests {
             flatten_forms: false,
             pdf_ua: false,
             certification: None,
+            pdf_version: Default::default(),
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -8828,6 +8838,7 @@ mod tests {
             flatten_forms: false,
             pdf_ua: false,
             certification: None,
+            pdf_version: Default::default(),
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -8914,6 +8925,7 @@ mod tests {
             flatten_forms: false,
             pdf_ua: false,
             certification: None,
+            pdf_version: Default::default(),
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -8994,6 +9006,7 @@ mod tests {
             flatten_forms: false,
             pdf_ua: false,
             certification: None,
+            pdf_version: Default::default(),
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -9066,6 +9079,7 @@ mod tests {
             flatten_forms: false,
             pdf_ua: false,
             certification: None,
+            pdf_version: Default::default(),
         };
 
         let pages = engine.layout(&doc, &font_context);
