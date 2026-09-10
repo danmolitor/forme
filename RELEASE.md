@@ -128,6 +128,7 @@ Files to update when bumping (e.g. 0.8.3 -> 0.9.0):
 - [ ] `packages/tailwind/package.json`
 - [ ] `packages/templates/package.json`
 - [ ] `packages/html/package.json` — on the shared line since 0.14.0; `scripts/bump-version.sh` handles it
+- [ ] `packages/preview/package.json` — joined the shared line at 0.22.0 (born 0.21.0/0.21.1 out-of-band); depends on `@formepdf/html` + `fonts-standard` with caret ranges, so it cannot stay behind on a 0.x line; `scripts/bump-version.sh` handles it
 - [ ] `packages/vscode/package.json` — on the shared version line since 0.13.0; `scripts/bump-version.sh` handles it
 
 ### Non-npm packages

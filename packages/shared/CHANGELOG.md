@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.22.0] - 2026-09-10
+
+### Added
+
+- **`pdfUa2`** on `FormeDocument` and the markup parser — PDF/UA-2 (ISO 14289-2:2024), the PDF 2.0 accessibility claim; composes with `pdfa: "4"`/`"4f"`.
+- **`FormeDocumentClaimProps`** — the canonical set of document-level conformance claims (`tagged`, `pdfa`, `pdfVersion`, `pdfUa`, `pdfUa2`). Every authoring adapter asserts compile-time parity against it, so a claim added here without reaching an adapter's prop types fails that adapter's build instead of shipping type-invisible.
+- The markup parser (svelte/vue path) now passes **`pdfVersion`** through — it was silently dropped in 0.21.x.
+
 ## [0.20.1] - 2026-09-07
 
 ### Changed
