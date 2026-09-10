@@ -1240,8 +1240,14 @@ impl PdfWriter {
             } else {
                 String::new()
             };
+            // No /NeedAppearances: we build a full appearance stream for
+            // every widget (/AP /N on each), and the flag — deprecated in
+            // PDF 2.0 — told viewers to DISCARD them and regenerate. With
+            // it gone, viewers render the appearances we authored, which
+            // is what every headless renderer (poppler, pdfium, pdfjs)
+            // did anyway.
             let acroform_dict = format!(
-                "<< /Fields [{}] /NeedAppearances true{} /DA (/Helv 0 Tf 0 g) >>",
+                "<< /Fields [{}]{} /DA (/Helv 0 Tf 0 g) >>",
                 fields_refs, dr_str
             );
             builder.objects.push(PdfObject {
