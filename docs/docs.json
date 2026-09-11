@@ -138,6 +138,7 @@
       {
         "group": "Guides",
         "pages": [
+          "guides/e-invoicing-with-a-pdp",
           "guides/migrating-to-0-9",
           "guides/bring-your-own-ui",
           "migrating-from-react-pdf",

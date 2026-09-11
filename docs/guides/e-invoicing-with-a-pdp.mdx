@@ -1,0 +1,250 @@
+---
+title: "E-invoicing with a PDP or conversion service"
+description: "A worked pipeline: Forme renders the invoice as validated PDF/A-3, an e-invoicing service embeds the EN 16931 XML, and the result is a Factur-X that passes both veraPDF and Mustang."
+---
+
+A hybrid e-invoice (Factur-X in France, ZUGFeRD in Germany) is a PDF/A-3
+file that people can read, carrying a machine-readable EN 16931 invoice
+XML as an embedded attachment. The PDF must be PDF/A-3 because that is
+the archival profile that permits arbitrary embedded files — PDF/A-2
+forbids them — and every Factur-X profile requires it.
+
+The problem splits into two halves that different tools own:
+
+1. **A conformant container** — a PDF/A-3 with embedded fonts and the
+   attachment slot. This is Forme's half, verified by veraPDF in CI.
+2. **Standards-compliant invoice XML** — the EN 16931 semantic model,
+   its ~170 business terms, and the several hundred business rules over
+   them. This half comes from a PDP (in France, a *Plateforme de
+   Dématérialisation Partenaire*), an e-invoicing service, or your own
+   EN 16931 implementation.
+
+If you already generate the XML yourself, Forme can embed it directly in
+the render call — that one-pass path is the [E-invoicing
+page](/einvoicing). This guide is the other arrangement, common when a
+PDP handles the regulatory side: **you send the service a PDF and the
+invoice data, and it returns the Factur-X.** Any service with that shape
+fits. The worked example below uses [SuperPDP](https://superpdp.tech)
+because its API is public and documents the conversion call precisely;
+nothing about the pipeline is specific to it.
+
+The full example is runnable from the Forme repo:
+[`examples/factur-x-pdp/`](https://github.com/formepdf/forme/tree/main/examples/factur-x-pdp).
+Everything below was executed against the live endpoint on
+2026-09-11 and verified with veraPDF 1.30.2 and Mustangproject 2.26.0;
+the one thing that did not verify is called out where it happened.
+
+## The pipeline
+
+```
+your invoice data
+      │
+      ├──────────────► EN 16931 semantic model (JSON or CII XML)
+      │                        │
+      ▼                        │
+Forme renders PDF/A-3b         │
+(fonts embedded,               │
+ veraPDF-checked locally)      │
+      │                        │
+      ▼                        ▼
+   POST multipart: pdf + invoice ──► conversion service ──► Factur-X
+                                                              │
+                                                              ▼
+                                            verify: veraPDF (PDF/A-3b)
+                                                  + Mustang (EN 16931)
+```
+
+The point of rendering PDF/A-3b *before* the call is that the container
+is already conformant when the service sees it — fonts embedded, sRGB
+output intent, XMP identification — and you have validated that claim in
+your own process rather than trusting anyone's marketing, theirs or
+ours.
+
+## Step 1 — map your data to EN 16931
+
+This is the part everyone has to do and nobody documents. The example
+starts from the [invoice template](/templates/invoice-standard)'s own
+data shape and maps it to the EN 16931 semantic model (the field names
+below are SuperPDP's JSON encoding of it; every field is annotated with
+its EN 16931 business term, so the mapping transfers to any encoding):
+
+| Template field | EN 16931 | Business term |
+|---|---|---|
+| `document.number` | `number` | BT-1 |
+| `document.issued` | `issue_date` (ISO date) | BT-2 |
+| — (implied by "invoice") | `type_code: 380` (UNTDID 1001) | BT-3 |
+| — (implied by currency symbol) | `currency_code` | BT-5 |
+| `document.due` | `payment_due_date` | BT-9 |
+| `document.terms` | `payment_terms` | BT-20 |
+| `document.customerPo` | `purchase_order_reference` | BT-13 |
+| `issuer.name` / address | `seller.name`, `seller.postal_address` | BT-27, BG-5 |
+| `issuer.email` | `seller.electronic_address` | BT-34 |
+| `billTo` | `buyer.name`, `buyer.postal_address` | BT-44, BG-8 |
+| `shipTo` | `deliver_to_address` | BG-15 |
+| `items[].item` | `lines[].identifier` | BT-126 |
+| `items[].description` | `lines[].item_information.name` | BT-153 |
+| `items[].qty` / `unit` | `invoiced_quantity` + UN/ECE unit code | BT-129, BT-130 |
+| `items[].rate` | `price_details.item_net_price` | BT-146 |
+| `items[].amount` | `lines[].net_amount` | BT-131 |
+| `totals.subtotal` | `totals.sum_invoice_lines_amount`, `total_without_vat` | BT-106, BT-109 |
+| `totals.tax` | `totals.total_vat_amount` | BT-110 |
+| `totals.total` / `amountDue` | `total_with_vat`, `amount_due_for_payment` | BT-112, BT-115 |
+
+Fields with **no equivalent** in the standard: presentation strings like
+the template's `eyebrow` label stay on the PDF only, which is fine — the
+XML is the machine-readable half, not a transcript of the layout.
+
+Fields the **standard requires that a typical invoice template does not
+carry** — this is where the real work is:
+
+- **`process_control.specification_identifier`** (BT-24): the literal
+  `urn:cen.eu:en16931:2017`, naming which rule set the invoice claims.
+- **A VAT breakdown by rate** (BG-23): taxable amount, tax amount, and
+  category code per rate. A display total like "tax: 863.75" is not
+  enough; the standard wants the rate-by-rate decomposition so the
+  receiver can reconcile it.
+- **A VAT category code per line** (BT-151): `S` for standard rate,
+  `E` exempt, and so on — per line, not per invoice.
+- **Structured party identifiers**: country codes on every address,
+  and a seller identifier the buyer can resolve (BR-CO-26 requires
+  BT-29, BT-30 or BT-31 — a registration or VAT identifier, not just a
+  name).
+
+### The jurisdiction layer
+
+The EN 16931 core is not the end of it. Converting through a French PDP,
+the endpoint also enforced the **French CTC profile** on top — every one
+of these was a real rejection the example hit before it passed:
+
+- Seller SIREN, exactly 9 digits (BR-FR-10), and a buyer electronic
+  address for routing (BR-FR-12) — the example uses the SIREN with EAS
+  scheme `0002` for both parties.
+- Three mandatory notes (BG-1) with subject codes: late-payment
+  penalties (`PMD`), the statutory €40 recovery indemnity (`PMT`), and
+  the early-payment discount mention (`AAB`) (BR-FR-05). French
+  invoices carry these sentences by law; the standard makes them data.
+- A billing-mode code in `process_control.business_process_type`
+  (BR-FR-08), `B1` for ordinary goods invoicing.
+- VAT rates from the French rate list (BR-FR-16) — the schematron
+  rejects a rate that is not an actual French rate, so a demonstration
+  invoice with US sales tax cannot pass a French pipeline. The example
+  invoice is accordingly a French one, 20% VAT, with the PDF and the
+  XML agreeing — a hybrid invoice whose two halves disagree is worse
+  than either half alone.
+
+The practical lesson: the service's validation errors are the spec. The
+example's data was corrected entirely by reading the schematron rule
+IDs the endpoint returned (`BR-CO-26`, `CII-SR-470`, `BR-FR-05`…), the
+same validator-first loop Forme's own conformance work uses.
+
+## Step 2 — render the PDF/A-3b
+
+```js
+import { renderHtml } from '@formepdf/html';
+import { standardFonts } from '@formepdf/fonts-standard';
+
+const fonts = standardFonts().map((f) => ({
+  family: f.family, data: f.src, weight: f.fontWeight,
+  italic: f.fontStyle === 'italic',
+}));
+
+const { pdf } = renderHtml(invoiceHtml, { pdfA: '3b', fonts, lang: 'fr' });
+```
+
+`pdfA: '3b'` is the level Factur-X requires; `3b` is sufficient for
+every profile. PDF/A requires embedded fonts, and the base-14 families
+are not embeddable — `@formepdf/fonts-standard` provides
+metric-compatible substitutes the engine embeds in place, so layout is
+byte-identical with or without compliance mode. The JSX path is the
+same idea: `<Document pdfa="3b" fonts={standardFonts()}>`.
+
+The example then runs veraPDF locally and refuses to post a PDF that
+fails its own claim:
+
+```
+pre-flight: veraPDF PDF/A-3b PASS
+```
+
+## Step 3 — the conversion call
+
+The endpoint takes `multipart/form-data` with two parts: the invoice
+(JSON semantic model or raw CII XML) and the PDF.
+
+```js
+const form = new FormData();
+form.append('invoice', new Blob([invoiceJson], { type: 'application/json' }), 'invoice.json');
+form.append('pdf', new Blob([pdf], { type: 'application/pdf' }), 'invoice.pdf');
+
+const res = await fetch(
+  `${BASE}/v1.beta/invoices/convert?from=en16931&to=factur-x`,
+  { method: 'POST', body: form, headers },   // headers: Authorization if your service needs it
+);
+
+if (!res.ok) {
+  const { message } = await res.json();      // 400/500: { http_status_code, message }
+  throw new Error(`conversion failed: ${res.status} — ${message}`);
+}
+const facturX = Buffer.from(await res.arrayBuffer());
+```
+
+A 400 carries the schematron findings verbatim — treat it as the
+validator output it is, not as noise.
+
+**If you generate your own CII XML** the same endpoint takes it in
+place of the JSON: `from=cii`, and the `invoice` part is the XML with
+`type: 'application/xml'`. Nothing else changes. (And if you have the
+XML, also consider [embedding it in the render
+call](/einvoicing) and skipping the service round trip entirely.)
+
+## Step 4 — verify what came back
+
+A returned file is a claim, not a fact. The example runs the result
+through the same two validators Forme's CI uses:
+
+```
+returned file: veraPDF PDF/A-3b PASS
+returned file: Mustang (Factur-X / EN 16931) PASS
+```
+
+Mustang's report for the run: `Parsed PDF: valid, XML: valid, Profile:
+urn:cen.eu:en16931:2017, Errors: []` — the returned Factur-X passed
+PDF/A-3b, the EN 16931 schematron, and the French Flux2 schematron
+Mustang 2.26.0 applies.
+
+One thing did **not** verify, and it is worth stating plainly: sending
+payment instructions (BG-16, a credit transfer with a valid French
+IBAN as BT-84) made the endpoint's own validation reject its CII
+serialization with `[CII-SR-470] Either the IBAN or a Proprietary ID
+(BT-84) shall be used`, in every scheme spelling we tried. BG-16 is
+optional in EN 16931, so the example omits it and the payment details
+stay on the human-readable PDF. If your invoices must carry structured
+payment data through a conversion service, test that path against your
+service before relying on it.
+
+## Alternatives, honestly
+
+- **A PDP or e-invoicing API** (as here): the service owns the XML
+  generation and the regulatory keep-up. In France this is the
+  mandated direction of travel anyway — invoices flow through a PDP.
+- **An EN 16931 library or service that only does XML** — several
+  exist across ecosystems (Mustangproject itself generates as well as
+  validates, on the JVM). You then hold the XML and can use Forme's
+  [one-pass embedding](/einvoicing) with no second service.
+- **In-house EN 16931** — a real project, not a weekend: the semantic
+  model, the CII or UBL serialization, and ongoing schematron
+  maintenance as the rule sets revise. Teams with heavy invoice volume
+  and existing standards expertise do it; most don't need to.
+
+All three end at the same place: XML that validates, inside a PDF/A-3
+that validates.
+
+## What Forme does and does not do
+
+Forme emits the **container**: PDF/A-3 with embedded fonts and a
+conformant embedded-file slot, verified by veraPDF on every commit, plus
+the one-pass Factur-X embedding when you supply the XML. Forme does
+**not** generate EN 16931 XML, and this page's pipeline is not "Factur-X
+support" — the semantic half belongs to the service or library you
+choose. The distinction matters: a conformant container around
+non-conformant XML is not a legal e-invoice, and no PDF library can fix
+that for you.
