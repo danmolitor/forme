@@ -1,6 +1,6 @@
 {
   "name": "@formepdf/preview",
-  "version": "0.22.0",
+  "version": "0.23.0",
   "description": "In-browser PDF preview for Forme — renders HTML through the same engine as the server and shows the actual PDF, so preview and output agree by construction.",
   "license": "MIT",
   "type": "module",
@@ -23,8 +23,8 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@formepdf/fonts-standard": "^0.22.0",
-    "@formepdf/html": "^0.22.0"
+    "@formepdf/fonts-standard": "^0.23.0",
+    "@formepdf/html": "^0.23.0"
   },
   "peerDependencies": {
     "react": "^18 || ^19"
