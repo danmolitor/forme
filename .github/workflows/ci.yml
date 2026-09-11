@@ -194,6 +194,49 @@ jobs:
           name: parity-determinism
           path: parity-partials/determinism.json
 
+  python-sdk:
+    name: Python SDK (local WASM tests + byte-parity)
+    runs-on: ubuntu-latest
+    needs: [engine, wasm]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            engine
+            html
+      - name: Add wasip1 target
+        run: rustup target add wasm32-wasip1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Download WASM packages (built once in the wasm job)
+        # Provides the built @formepdf/html target so the Node reference render
+        # (the byte-parity oracle) resolves from the repo root.
+        uses: actions/download-artifact@v4
+        with:
+          name: wasm-pkgs
+          path: packages
+      - name: Install Node deps (for @formepdf/html parity reference)
+        run: npm install
+      - name: Build the Python WASM module (from the html crate)
+        working-directory: packages/python-sdk
+        run: bash build_wasm.sh
+      - name: Install Python deps
+        run: pip install wasmtime pytest
+      - name: Run Python tests (options surface + byte-parity to Node)
+        working-directory: packages/python-sdk
+        env:
+          # Resolve @formepdf/html for the parity oracle from the repo root,
+          # where `npm install` above set up the workspace symlink.
+          FORME_NODE_REF_DIR: ${{ github.workspace }}
+        run: python -m pytest -q
+
   coverage:
     name: Coverage (Rust)
     runs-on: ubuntu-latest
