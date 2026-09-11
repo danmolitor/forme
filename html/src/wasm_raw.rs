@@ -78,26 +78,54 @@ pub unsafe extern "C" fn forme_render_pdf(ptr: *const u8, len: usize) -> i32 {
     }
 }
 
-/// Render HTML + print-CSS to PDF bytes with default options — the HTML input
-/// path, matching `renderHtml(html, {})` in `@formepdf/html`.
+/// Render HTML + print-CSS to PDF bytes. `options_ptr`/`options_len` carry the
+/// same camelCase options JSON the JS path uses (empty/`{}` for defaults) — so
+/// output matches `renderHtml(html, options)` in `@formepdf/html` byte-for-byte.
 ///
 /// # Safety
-/// `ptr` must point to `len` valid UTF-8 bytes.
+/// `html_ptr` must point to `html_len` valid UTF-8 bytes; `options_ptr` to
+/// `options_len` valid UTF-8 bytes (may be empty).
 #[no_mangle]
-pub unsafe extern "C" fn forme_render_html(ptr: *const u8, len: usize) -> i32 {
+pub unsafe extern "C" fn forme_render_html(
+    html_ptr: *const u8,
+    html_len: usize,
+    options_ptr: *const u8,
+    options_len: usize,
+) -> i32 {
     free_result_buf();
     free_error_buf();
 
-    let html_bytes = std::slice::from_raw_parts(ptr, len);
+    let html_bytes = std::slice::from_raw_parts(html_ptr, html_len);
     let html_str = match std::str::from_utf8(html_bytes) {
         Ok(s) => s,
         Err(e) => {
-            set_error(&format!("Invalid UTF-8: {e}"));
+            set_error(&format!("Invalid UTF-8 in html: {e}"));
             return 1;
         }
     };
 
-    match crate::render_html(html_str, &crate::HtmlOptions::default()) {
+    let options_str = if options_len == 0 {
+        ""
+    } else {
+        let option_bytes = std::slice::from_raw_parts(options_ptr, options_len);
+        match std::str::from_utf8(option_bytes) {
+            Ok(s) => s,
+            Err(e) => {
+                set_error(&format!("Invalid UTF-8 in options: {e}"));
+                return 1;
+            }
+        }
+    };
+
+    let options = match crate::options_wire::parse_options(options_str) {
+        Ok(o) => o,
+        Err(e) => {
+            set_error(&e);
+            return 1;
+        }
+    };
+
+    match crate::render_html(html_str, &options) {
         Ok(out) => {
             set_result(&out.pdf);
             0
