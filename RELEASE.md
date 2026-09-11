@@ -526,9 +526,8 @@ printf '<h1>hi</h1>' > t.html && npx forme-html t.html && head -c5 t.pdf  # %PDF
   installed-vs-pinned drift check will fire on any `ElementNodeType` change and
   say exactly what to update. Known for 0.14: `'Table'` joins the union
   (pinned list 32 → 33; `FORME_ROLE_BY_NODE_TYPE` already has `Table: 'table'`).
-- [ ] **forme-landing** + **forme-playground**: bump their `@formepdf/*` deps
-  to the new version (landing bundles react+core for the live demo;
-  playground uses `@formepdf/core/browser`).
+- [ ] **forme-landing**: bump its `@formepdf/*` deps to the new version (it
+  bundles react+core for the live demo).
 - [ ] **docs.formepdf.com** (`docs/`): pages affected by the release.
 
 ---
