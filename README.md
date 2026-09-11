@@ -18,8 +18,6 @@ Forme is a document engine for JavaScript, written in Rust and compiled to WASM.
 
 Every PDF tool makes you choose: fight with CSS page breaks or use an editor that can't handle dynamic data. Forme is a layout engine built for pages. No headless browser. No Chrome. Renders in milliseconds. Runs anywhere — Node, the browser, or at the edge.
 
-**[Try it in the playground](https://playground.formepdf.com/)**
-
 ## Quick Start
 
 ### Bring your HTML
