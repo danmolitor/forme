@@ -1,138 +1,31 @@
 # formepdf
 
-Python SDK for [Forme](https://formepdf.com) — the page-native PDF rendering engine. Two ways to use it:
+Python SDK for [Forme](https://formepdf.com) — a page-native PDF rendering engine.
+Build documents from a component DSL and render them to PDF **locally**, in-process,
+with **no browser, no headless Chromium, and no system libraries** — the engine ships
+as a single WebAssembly module and runs anywhere Python runs (including serverless).
 
-1. **API client** — calls the hosted API at api.formepdf.com (requires API key)
-2. **Local rendering** — runs the WASM engine locally via wasmtime (no API key needed)
+- **Local rendering** via `wasmtime` — no API key, no network calls.
+- **Real print features** — flexbox layout, tables with headers that repeat across
+  pages, fixed headers/footers, page breaks, watermarks.
+- **Accessible & archival** — tagged PDF, **PDF/UA-1**, and **PDF/A** produced locally,
+  the same conformance the engine gives everywhere.
+- **Charts, QR codes, barcodes, and fillable form fields** built in.
+- **Local digital signing** (PKCS#7 / X.509).
 
 ## Installation
 
 ```bash
-# API client only (zero dependencies)
-pip install formepdf
-
-# Local rendering with component DSL (adds wasmtime)
 pip install formepdf[local]
 ```
 
-## API Client
+The `[local]` extra adds `wasmtime`; the engine WASM is bundled in the wheel. That's
+all you need — no cairo, no pango, no fonts to install.
 
-### Setup
-
-```python
-from formepdf import Forme
-
-client = Forme("forme_sk_...")
-```
-
-### Render
-
-Render a template (created in the [dashboard](https://app.formepdf.com)) with data:
+## Quick start
 
 ```python
-pdf = client.render("invoice", {"customer": "Acme", "total": 245})
-
-with open("invoice.pdf", "wb") as f:
-    f.write(pdf)
-```
-
-### Async render
-
-```python
-job = client.render_async("report", data, webhook_url="https://example.com/hook")
-
-result = client.get_job(job["jobId"])
-if result["status"] == "complete":
-    pdf_b64 = result["pdfBase64"]
-```
-
-### Certify
-
-Apply a PKCS#7 digital signature to an existing PDF:
-
-```python
-with open("document.pdf", "rb") as f:
-    pdf = f.read()
-
-certified = client.certify(
-    pdf,
-    certificate=open("cert.pem").read(),
-    private_key=open("key.pem").read(),
-    reason="Approved",
-    location="New York",
-)
-
-with open("certified.pdf", "wb") as f:
-    f.write(certified)
-```
-
-Or use a saved certificate on the hosted API:
-
-```python
-certified = client.certify(pdf, certificate_id="cert_abc123")
-```
-
-### Redact
-
-Remove sensitive content from a PDF — true redaction (text operators removed, not just covered):
-
-```python
-# By text pattern
-redacted = client.redact(pdf, patterns=[
-    {"pattern": "Jane Doe", "pattern_type": "Literal"},
-    {"pattern": r"\d{3}-\d{2}-\d{4}", "pattern_type": "Regex"},
-])
-
-# By built-in presets
-redacted = client.redact(pdf, presets=["ssn", "email", "phone"])
-
-# By coordinate regions
-redacted = client.redact(pdf, redactions=[
-    {"page": 0, "x": 100, "y": 200, "width": 150, "height": 20},
-])
-
-# By saved redaction template
-redacted = client.redact(pdf, template="hipaa-patient-record")
-```
-
-### Merge
-
-Combine multiple PDFs into one:
-
-```python
-merged = client.merge([pdf1_bytes, pdf2_bytes, pdf3_bytes])
-
-with open("merged.pdf", "wb") as f:
-    f.write(merged)
-```
-
-### Extract embedded data
-
-```python
-data = client.extract(pdf)  # returns dict or None
-```
-
-### Error handling
-
-```python
-from formepdf import Forme, FormeError
-
-try:
-    pdf = client.render("invoice", data)
-except FormeError as e:
-    print(f"Error {e.status}: {e.message}")
-```
-
----
-
-## Local Rendering (WASM)
-
-Build PDF documents in Python with a component DSL that mirrors the JSX API. Renders locally via the WASM engine — no API key or network calls needed.
-
-### Basic example
-
-```python
-from formepdf import Document, Page, View, Text, Image
+from formepdf import Document, Page, View, Text
 
 doc = Document(
     Page(
@@ -145,13 +38,33 @@ doc = Document(
     title="Invoice #001",
 )
 
-pdf = doc.render()
+pdf = doc.render()               # -> bytes
 
 with open("invoice.pdf", "wb") as f:
     f.write(pdf)
 ```
 
-### Components
+## Accessible & archival output
+
+The conformance options live on `Document` — no extra pipeline, no external validator
+step to produce them:
+
+```python
+doc = Document(
+    Page(Text("Annual Report 2026", font_size=20)),
+    title="Annual Report 2026",
+    lang="en",
+    tagged=True,     # structure tree (BDC/EMC marked content)
+    pdf_ua=True,     # PDF/UA-1 (accessibility)
+    pdfa="2b",       # PDF/A-2b (archival); also "2u", "2a", "3b", "3u", "3a"
+)
+pdf = doc.render()
+```
+
+`Document` options: `title`, `author`, `subject`, `lang`, `tagged`, `pdf_ua`, `pdfa`,
+`flatten_forms`.
+
+## Components
 
 | Component | Description |
 |-----------|-------------|
@@ -179,15 +92,17 @@ with open("invoice.pdf", "wb") as f:
 | `PageBreak()` | Force a page break |
 | `Fixed(*children)` | Fixed-position element. Options: `position` (`"header"`, `"footer"`) |
 
-### Certify locally
+## Local digital signing
+
+Apply a PKCS#7 / X.509 signature to an existing PDF, offline:
 
 ```python
+import json
 from formepdf.wasm import certify_pdf
 
 with open("document.pdf", "rb") as f:
     pdf = f.read()
 
-import json
 config = json.dumps({
     "certificate_pem": open("cert.pem").read(),
     "private_key_pem": open("key.pem").read(),
@@ -197,8 +112,23 @@ config = json.dumps({
 certified = certify_pdf(pdf, config)
 ```
 
+## Self-hosted render server (optional)
+
+The package also ships a thin HTTP client, `Forme`, for a **self-hosted** Forme render
+server — the public hosted API has been retired, so point `base_url` at your own
+deployment. It exposes server-side operations the local WASM engine doesn't:
+render stored templates by slug (`render` / `render_async` / `get_job`), true redaction
+(`redact`), `merge`, `rasterize`, and `extract`.
+
+```python
+from formepdf import Forme
+
+client = Forme("forme_sk_...", base_url="https://pdf.your-company.com")
+pdf = client.render("invoice", {"customer": "Acme", "total": 245})
+```
+
 ## Requirements
 
 - Python 3.8+
-- No external dependencies for the API client (stdlib only)
 - `wasmtime` for local rendering (`pip install formepdf[local]`)
+- No system libraries, no browser.

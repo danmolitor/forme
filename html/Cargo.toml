@@ -28,6 +28,11 @@ getrandom = { version = "0.2", features = ["js"], optional = true }
 
 [features]
 wasm = ["wasm-bindgen", "getrandom", "forme-pdf/wasm"]
+# C-ABI exports for non-JS WASM hosts (Python wasmtime). Deliberately does NOT
+# enable the engine's own `wasm-raw` — this crate's wasm_raw.rs is the single
+# C-ABI surface, so there are no duplicate symbols. Build the Python wasm with:
+#   cargo build -p forme-pdf-html --lib --target wasm32-wasip1 --release --features wasm-raw
+wasm-raw = []
 
 [[bin]]
 name = "forme-html"

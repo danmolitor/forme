@@ -1,6 +1,7 @@
 """Forme Python SDK — client for the Forme hosted PDF API and local rendering."""
 
 from .client import Forme, FormeError
+from .wasm import render_html
 from .templates import (
     Document,
     Page,
@@ -31,6 +32,8 @@ __all__ = [
     # API client
     "Forme",
     "FormeError",
+    # Local HTML → PDF (WASM)
+    "render_html",
     # Template components
     "Document",
     "Page",
