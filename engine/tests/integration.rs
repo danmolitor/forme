@@ -13169,3 +13169,42 @@ fn pdfua2_link_children_downgrade_to_span() {
     let doc = struct_elem_body(&text, "/S /Document ");
     assert!(!doc.contains("/S /Span"), "no Span child of Document");
 }
+
+#[test]
+fn align_items_center_respects_max_width() {
+    // A max-width'd auto block inside an align-items: center column is the
+    // classic centered-certificate idiom. The centering offset must use the
+    // CLAMPED width: intrinsic width of a long paragraph is the full
+    // measure, so the unclamped offset degenerated to zero and the block
+    // sat flush left while its lines wrapped at max-width.
+    let json = r##"{ "children": [
+        { "kind": { "type": "View" }, "style": { "width": { "Pt": 400 }, "alignItems": "Center", "flexDirection": "Column" }, "children": [
+            { "kind": { "type": "Text", "content": "a long paragraph of certificate prose that wraps to several lines at the clamped measure" },
+              "style": { "maxWidth": { "Pt": 200 }, "fontFamily": "Noto Sans" }, "children": [] }
+        ] }
+    ], "metadata": { "title": "Center Doc" } }"##;
+    let (_, layout, _) = forme::render_with_layout(&serde_json::from_str(json).unwrap()).unwrap();
+    let page = &layout.pages[0];
+    fn find_text(els: &[forme::layout::ElementInfo]) -> Option<(f64, f64)> {
+        for e in els {
+            if e.kind == "Text" {
+                return Some((e.x, e.width));
+            }
+            if let Some(r) = find_text(&e.children) {
+                return Some(r);
+            }
+        }
+        None
+    }
+    let (x, w) = find_text(&page.elements).expect("text element");
+    assert!(w <= 200.5, "wraps at the clamp: {w}");
+    // The centering offset uses the CLAMPED layout width (200), not the
+    // block's natural width: content starts at the 54pt page margin, so
+    // the block sits at 54 + (400 - 200)/2 = 154. The broken behavior
+    // put it at 54 (offset degenerated to zero).
+    let expected = 54.0 + (400.0 - 200.0) / 2.0;
+    assert!(
+        (x - expected).abs() < 1.0,
+        "block centered: x={x}, expected≈{expected} (w={w})"
+    );
+}
