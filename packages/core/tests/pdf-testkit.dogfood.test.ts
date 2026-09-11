@@ -45,6 +45,15 @@ describe('pdf-testkit dogfood — FormePDF verifies its own layout', () => {
     const { layout } = await renderDocumentWithLayout(invoice());
     // Pass the LayoutInfo directly — the authoritative FormePDF fast path
     // (no PDF parsing, every node at confidence 1.0).
-    await expect(layout).toMatchPDFSnapshot({ snapshotName: 'invoice' });
+    //
+    // `contentChanges` (pdf-testkit 0.5.0, opt-in) also reports a text edit
+    // at a stable slot — structural diffing is silent on those by design.
+    // These baselines render FIXED fixtures, so any text change is the
+    // renderer changing what it emits (an encoding or glyph-substitution
+    // regression, the "≤ printed as ?" class), never legitimate data drift.
+    // Verified to bite: a $98.00 -> $98.99 cell edit in the invoice fixture
+    // raises element-content-changed (warn), and the matcher fails on any
+    // severity above info.
+    await expect(layout).toMatchPDFSnapshot({ snapshotName: 'invoice', contentChanges: true });
   });
 });

@@ -82,7 +82,7 @@ describe('demo template regressions (/templates)', () => {
 
       // Pass LayoutInfo directly — the authoritative FormePDF fast path
       // (no PDF parsing, every node at confidence 1.0).
-      await expect(layout).toMatchPDFSnapshot({ snapshotName: `demo-${name}` });
+      await expect(layout).toMatchPDFSnapshot({ snapshotName: `demo-${name}`, contentChanges: true });
     },
   );
 
@@ -94,7 +94,7 @@ describe('demo template regressions (/templates)', () => {
       // above) clean on machines without it.
       const { default: GridDashboard } = await import('../../../templates/grid-dashboard');
       const { layout } = await renderDocumentWithLayout(GridDashboard(gridDashboardData));
-      await expect(layout).toMatchPDFSnapshot({ snapshotName: 'demo-grid-dashboard' });
+      await expect(layout).toMatchPDFSnapshot({ snapshotName: 'demo-grid-dashboard', contentChanges: true });
     },
   );
 });
