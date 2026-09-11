@@ -246,6 +246,27 @@ pub fn resolve(css: &CssStyle, parent_font_size: f64, warnings: &mut Vec<String>
         }
     });
 
+    // box-sizing (CSS default: content-box). The engine's Fixed dimension
+    // is always the BORDER box (its Auto path adds padding + border; Fixed
+    // is the whole box), so content-box Pt dimensions grow by padding +
+    // border on their axis here — the values were computed three lines up
+    // and the height calculation never asked. A declared border-box passes
+    // through untouched: the Bootstrap-reset corpus templates depend on
+    // today's output not moving. Percent dimensions pass through on both
+    // settings (a "percent of parent content plus points" box is not
+    // expressible in the engine's dimension model; border-box percent is
+    // exact, content-box percent-with-padding stays the historical
+    // approximation).
+    let border_box = css.border_box == Some(true);
+    let extra_h = padding[1] + padding[3] + border_width[1] + border_width[3];
+    let extra_v = padding[0] + padding[2] + border_width[0] + border_width[2];
+    let grow = |d: Option<Dimension>, extra: f64| -> Option<Dimension> {
+        match d {
+            Some(Dimension::Pt(v)) if !border_box && extra > 0.0 => Some(Dimension::Pt(v + extra)),
+            other => other,
+        }
+    };
+
     Computed {
         font_size,
         font_size_explicit,
@@ -255,8 +276,8 @@ pub fn resolve(css: &CssStyle, parent_font_size: f64, warnings: &mut Vec<String>
         border_style,
         border_color: css.border_color,
         border_radius: css.border_radius,
-        width: dim(css.width),
-        height: dim(css.height),
+        width: grow(dim(css.width), extra_h),
+        height: grow(dim(css.height), extra_v),
         font_family: css.font_family.clone(),
         font_weight: css.font_weight,
         italic: css.italic,
@@ -308,9 +329,9 @@ pub fn resolve(css: &CssStyle, parent_font_size: f64, warnings: &mut Vec<String>
         grid_column: css.grid_column,
         grid_row: css.grid_row,
         vertical_align: css.vertical_align,
-        max_width: dim(css.max_width),
-        min_width: dim(css.min_width),
-        min_height: dim(css.min_height),
+        max_width: grow(dim(css.max_width), extra_h),
+        min_width: grow(dim(css.min_width), extra_h),
+        min_height: grow(dim(css.min_height), extra_v),
         position_absolute: css.position_absolute == Some(true),
         position_relative: css.position_relative == Some(true),
         position_running: css.position_running == Some(true),

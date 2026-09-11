@@ -142,6 +142,11 @@ pub struct CssStyle {
     /// `overflow-x: hidden|clip` (or via the `overflow` shorthand).
     /// Honored on `body` only, as a page-level horizontal clip.
     pub overflow_x_hidden: Option<bool>,
+    /// box-sizing: true = border-box (dimensions ARE the border box),
+    /// false = content-box (the CSS default; dimensions grow by
+    /// padding + border on the way to the engine, whose Fixed is always
+    /// the border box). Not inherited, per CSS.
+    pub border_box: Option<bool>,
     /// `position: running(<ident>)` — out of subset, but per CSS GCPM the
     /// element leaves normal flow, so the mapper must SUPPRESS it (the
     /// in-flow render was the bug, not the missing feature).
@@ -245,6 +250,7 @@ impl CssStyle {
             position_relative,
             position_running,
             overflow_x_hidden,
+            border_box,
             top,
             right,
             bottom,
@@ -790,6 +796,15 @@ pub(crate) fn apply_declaration(
         // the mapper warns. The vertical axis has a fixed answer in a
         // paged renderer — content paginates — so `overflow-y: hidden`
         // is refused by name rather than clipping pages away.
+        "box-sizing" => {
+            if let Ok(id) = p.expect_ident() {
+                match id.to_ascii_lowercase().as_str() {
+                    "border-box" => style.border_box = Some(true),
+                    "content-box" => style.border_box = Some(false),
+                    other => warnings.push(format!("unsupported box-sizing value '{other}'")),
+                }
+            }
+        }
         "overflow-x" | "overflow" => {
             if let Ok(id) = p.expect_ident() {
                 match id.to_ascii_lowercase().as_str() {
