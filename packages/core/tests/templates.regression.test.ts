@@ -54,7 +54,7 @@ describe('shipped template regressions (@formepdf/templates)', () => {
 
       // Pass LayoutInfo directly — the authoritative FormePDF fast path
       // (no PDF parsing, every node at confidence 1.0).
-      await expect(layout).toMatchPDFSnapshot({ snapshotName: `template-${name}` });
+      await expect(layout).toMatchPDFSnapshot({ snapshotName: `template-${name}`, contentChanges: true });
     },
   );
 
