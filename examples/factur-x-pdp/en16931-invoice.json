@@ -1,0 +1,159 @@
+{
+  "number": "FA-2026-0417",
+  "issue_date": "2026-09-07",
+  "type_code": 380,
+  "currency_code": "EUR",
+  "payment_due_date": "2026-10-07",
+  "payment_terms": "Net 30 days",
+  "purchase_order_reference": "BC-0091 / 44-7712",
+  "process_control": {
+    "specification_identifier": "urn:cen.eu:en16931:2017",
+    "business_process_type": "B1"
+  },
+  "seller": {
+    "name": "Ateliers Verneuil SARL",
+    "postal_address": {
+      "address_line1": "12 rue de la Fonderie",
+      "city": "Lyon",
+      "post_code": "69003",
+      "country_code": "FR"
+    },
+    "electronic_address": {
+      "value": "842019456",
+      "scheme": "0002"
+    },
+    "legal_registration_identifier": {
+      "value": "842019456",
+      "scheme": "0002"
+    },
+    "vat_identifier": "FR94842019456",
+    "contact": {
+      "email_address": "facturation@ateliers-verneuil.fr"
+    }
+  },
+  "buyer": {
+    "name": "Brasserie du Canal SAS",
+    "postal_address": {
+      "address_line1": "48 quai des Chartrons",
+      "city": "Bordeaux",
+      "post_code": "33000",
+      "country_code": "FR"
+    },
+    "electronic_address": {
+      "value": "512076383",
+      "scheme": "0002"
+    },
+    "legal_registration_identifier": {
+      "value": "512076383",
+      "scheme": "0002"
+    }
+  },
+  "deliver_to_address": {
+    "address_line1": "Entrepôt 2 — Quai de réception 4",
+    "address_line2": "14 rue Lucien-Faure",
+    "city": "Bordeaux",
+    "post_code": "33300",
+    "country_code": "FR"
+  },
+  "lines": [
+    {
+      "identifier": "001",
+      "invoiced_quantity": "1200",
+      "invoiced_quantity_code": "EA",
+      "net_amount": "2220.00",
+      "item_information": {
+        "name": "Fastener set, stainless 316, M8 × 40 mm, hex flange"
+      },
+      "price_details": {
+        "item_net_price": "1.85"
+      },
+      "vat_information": {
+        "invoiced_item_vat_category_code": "S",
+        "invoiced_item_vat_rate": "20"
+      }
+    },
+    {
+      "identifier": "002",
+      "invoiced_quantity": "24",
+      "invoiced_quantity_code": "EA",
+      "net_amount": "1116.00",
+      "item_information": {
+        "name": "Gasket sheet, neoprene, 1/8 in × 36 in × 36 in"
+      },
+      "price_details": {
+        "item_net_price": "46.50"
+      },
+      "vat_information": {
+        "invoiced_item_vat_category_code": "S",
+        "invoiced_item_vat_rate": "20"
+      }
+    },
+    {
+      "identifier": "003",
+      "invoiced_quantity": "6",
+      "invoiced_quantity_code": "EA",
+      "net_amount": "768.00",
+      "item_information": {
+        "name": "Conveyor belt lacing kit, No. 2 rivet, with tooling"
+      },
+      "price_details": {
+        "item_net_price": "128.00"
+      },
+      "vat_information": {
+        "invoiced_item_vat_category_code": "S",
+        "invoiced_item_vat_rate": "20"
+      }
+    },
+    {
+      "identifier": "004",
+      "invoiced_quantity": "1",
+      "invoiced_quantity_code": "EA",
+      "net_amount": "214.75",
+      "item_information": {
+        "name": "Outbound freight — road, Lyon to Bordeaux"
+      },
+      "price_details": {
+        "item_net_price": "214.75"
+      },
+      "vat_information": {
+        "invoiced_item_vat_category_code": "S",
+        "invoiced_item_vat_rate": "20"
+      }
+    }
+  ],
+  "vat_break_down": [
+    {
+      "vat_category_code": "S",
+      "vat_category_rate": "20",
+      "vat_category_taxable_amount": "4318.75",
+      "vat_category_tax_amount": "863.75"
+    }
+  ],
+  "totals": {
+    "sum_invoice_lines_amount": "4318.75",
+    "total_without_vat": "4318.75",
+    "total_vat_amount": {
+      "value": "863.75",
+      "currency_code": "EUR"
+    },
+    "total_with_vat": "5182.50",
+    "amount_due_for_payment": "5182.50"
+  },
+  "notes": [
+    {
+      "note": "Indemnite forfaitaire pour frais de recouvrement en cas de retard de paiement : 40 EUR",
+      "subject_code": "PMT"
+    },
+    {
+      "note": "Penalites de retard : trois fois le taux d'interet legal",
+      "subject_code": "PMD"
+    },
+    {
+      "note": "Pas d'escompte pour paiement anticipe",
+      "subject_code": "AAB"
+    }
+  ],
+  "delivery_information": {
+    "actual_delivery_date": "2026-09-05"
+  }
+}

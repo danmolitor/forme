@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- **`pdfa` alone now embeds the fonts-standard substitutes.** The Liberation substitution for base-14 families was gated on `pdfUa` (or PDF 2.0), while pdfa's own embedded-fonts check counts a base-14 family as embedded only via that substitution — so `pdfa` without `pdfUa` errored "'Helvetica' is not [embedded]" even with `@formepdf/fonts-standard` registered. The substitute was registered and never consulted. Found by the Factur-X PDP example, whose pipeline renders `pdfa: "3b"` with no accessibility claim.
+
 ## [0.22.0] - 2026-09-10
 
 ### Added

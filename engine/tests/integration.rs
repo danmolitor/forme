@@ -13208,3 +13208,30 @@ fn align_items_center_respects_max_width() {
         "block centered: x={x}, expected≈{expected} (w={w})"
     );
 }
+
+#[test]
+fn pdfa_alone_embeds_the_standard_font_substitute() {
+    // pdfa's embedded-fonts check counts a base-14 family as embedded only
+    // via the fonts-standard substitution path, but that path was gated on
+    // pdfUa — so pdfa WITHOUT pdfUa errored "'Helvetica' is not [embedded]"
+    // even with the substitute registered. The substitute was registered
+    // and never consulted. Found by the Factur-X PDP example, whose
+    // pipeline renders pdfa "3b" with no accessibility claim.
+    use base64::Engine as _;
+    let font = base64::engine::general_purpose::STANDARD
+        .encode(include_bytes!("../fonts/NotoSans-Regular.ttf"));
+    let json = format!(
+        r#"{{ "children": [
+            {{ "kind": {{ "type": "Text", "content": "Invoice 2026-001" }}, "style": {{}}, "children": [] }}
+        ],
+        "metadata": {{ "title": "A3b Doc" }},
+        "fonts": [{{ "family": "Liberation Sans", "src": "{font}", "weight": 400, "italic": false }}],
+        "pdfa": "3b" }}"#
+    );
+    let bytes = forme::render_json(&json).expect("pdfa 3b + registered substitute renders");
+    let text = String::from_utf8_lossy(&bytes);
+    assert!(
+        text.contains("/FontFile2"),
+        "the substitute is embedded as a font program"
+    );
+}

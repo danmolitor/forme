@@ -331,7 +331,14 @@ impl PdfWriter {
 
         // Register the fonts actually used across all pages
         builder.pdf_version = pdf_version;
-        self.register_fonts(&mut builder, pages, font_context, pdf_ua, pdf_version)?;
+        self.register_fonts(
+            &mut builder,
+            pages,
+            font_context,
+            pdf_ua,
+            pdfa.is_some(),
+            pdf_version,
+        )?;
 
         // PDF/A: validate that all fonts are embedded. A font counts as
         // embedded if the caller registered custom bytes for it OR it's a
@@ -3005,12 +3012,14 @@ impl PdfWriter {
         true
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn register_fonts(
         &self,
         builder: &mut PdfBuilder,
         pages: &[LayoutPage],
         font_context: &FontContext,
         pdf_ua: bool,
+        pdfa: bool,
         pdf_version: crate::model::PdfVersion,
     ) -> Result<(), FormeError> {
         // Collect font usage: glyph IDs, chars, and glyph→char mapping per font
@@ -3055,7 +3064,13 @@ impl PdfWriter {
                     // WinAnsiEncoding — the content stream is untouched (same
                     // `(text) Tj` WinAnsi path, same positions), only the font
                     // dictionary gains an embedded program.
-                    if pdf_ua || pdf_version == crate::model::PdfVersion::V2_0 {
+                    // pdfa alone needs the same substitution: its own
+                    // embedded-fonts check (below the call site) counts a
+                    // base-14 family as embedded ONLY via this path, so
+                    // gating on pdfUa made pdfa-without-pdfUa error even
+                    // with fonts-standard registered — the substitute was
+                    // registered and never consulted.
+                    if pdf_ua || pdfa || pdf_version == crate::model::PdfVersion::V2_0 {
                         if Self::emit_pdfua_embedded_standard(
                             builder,
                             key,
