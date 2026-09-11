@@ -51,6 +51,7 @@ class _FormeEngine:
         self._alloc = self._instance.exports(self._store)["forme_alloc"]
         self._dealloc = self._instance.exports(self._store)["forme_dealloc"]
         self._render = self._instance.exports(self._store)["forme_render_pdf"]
+        self._render_html = self._instance.exports(self._store)["forme_render_html"]
         self._certify = self._instance.exports(self._store)["forme_certify_pdf"]
         self._result_ptr = self._instance.exports(self._store)["forme_get_result_ptr"]
         self._result_len = self._instance.exports(self._store)["forme_get_result_len"]
@@ -113,6 +114,54 @@ class _FormeEngine:
         finally:
             # Free input buffer
             self._dealloc(self._store, input_ptr, length, 1)
+
+
+    def render_html(self, html_str: str, options_json: str = "{}") -> bytes:
+        """Render an HTML + print-CSS string to PDF bytes.
+
+        `options_json` is the same camelCase options blob the JS path uses
+        (``"{}"`` for defaults). Byte-identical to `@formepdf/html`'s
+        `renderHtml(html, options)` — same engine, run as wasm32-wasip1.
+        """
+        html_bytes = html_str.encode("utf-8")
+        opts_bytes = options_json.encode("utf-8")
+        html_len = len(html_bytes)
+        opts_len = len(opts_bytes)
+
+        html_ptr = self._alloc(self._store, html_len, 1)
+        if not html_ptr:
+            raise FormeRenderError("Failed to allocate WASM memory for html")
+        opts_ptr = self._alloc(self._store, opts_len, 1)
+        if not opts_ptr:
+            self._dealloc(self._store, html_ptr, html_len, 1)
+            raise FormeRenderError("Failed to allocate WASM memory for options")
+
+        try:
+            self._write_memory(html_ptr, html_bytes)
+            self._write_memory(opts_ptr, opts_bytes)
+
+            status = self._render_html(self._store, html_ptr, html_len, opts_ptr, opts_len)
+
+            if status != 0:
+                err_ptr = self._error_ptr(self._store)
+                err_len = self._error_len(self._store)
+                if err_ptr and err_len > 0:
+                    error_msg = self._read_memory(err_ptr, err_len).decode("utf-8")
+                else:
+                    error_msg = "Unknown render error"
+                raise FormeRenderError(error_msg)
+
+            res_ptr = self._result_ptr(self._store)
+            res_len = self._result_len(self._store)
+            if not res_ptr or res_len == 0:
+                raise FormeRenderError("Render returned empty result")
+
+            pdf_bytes = self._read_memory(res_ptr, res_len)
+            self._free_result(self._store)
+            return pdf_bytes
+        finally:
+            self._dealloc(self._store, html_ptr, html_len, 1)
+            self._dealloc(self._store, opts_ptr, opts_len, 1)
 
 
     def certify_pdf(self, pdf_bytes: bytes, config_json: str) -> bytes:
@@ -186,6 +235,91 @@ def render_pdf(json_str: str) -> bytes:
         FileNotFoundError: If the WASM binary is not found.
     """
     return _get_engine().render_pdf(json_str)
+
+
+def render_html(
+    html_str: str,
+    *,
+    page_size: Optional[str] = None,
+    page_margin: Optional[float] = None,
+    css: Optional[str] = None,
+    fonts: Optional[list] = None,
+    tagged: bool = False,
+    pdf_ua: bool = False,
+    lang: Optional[str] = None,
+    pdfa: Optional[str] = None,
+    audit_content: bool = False,
+) -> bytes:
+    """Render an HTML + print-CSS string to PDF bytes locally.
+
+    Runs the same engine as ``@formepdf/html`` — byte-identical to
+    ``renderHtml(html, options)`` — as a wasm32-wasip1 module via wasmtime. No
+    browser, no system libraries.
+
+    Args:
+        html_str: An HTML document (with optional print CSS: ``@page``,
+            page counters, break control, etc.).
+        page_size: ``"A4"``, ``"Letter"``, … — overrides ``@page size``.
+        page_margin: Uniform page margin in points — overrides ``@page margin``.
+        css: Extra CSS appended after the document's own stylesheets.
+        fonts: TTFs to embed, as
+            ``[{"family": str, "data": bytes | base64_str, "weight": int,
+            "italic": bool}]``. Required for PDF/UA and PDF/A. Use bytes (the
+            same bytes your server registers) — the option surface mirrors
+            ``@formepdf/html`` so preview/server/Python stay in lockstep.
+        tagged: Emit a tagged PDF (structure tree). Implied by ``pdf_ua``.
+        pdf_ua: Emit PDF/UA-1 (accessibility). Register a metric-compatible
+            font and set ``lang``.
+        lang: Document language for PDF/UA (``/Lang``), e.g. ``"en"``.
+        pdfa: PDF/A level — ``"2b"``, ``"2u"``, ``"2a"``, ``"3b"``, ``"3u"``,
+            ``"3a"``. Needs an embeddable font via ``fonts``.
+        audit_content: Report dropped/off-page/invisible content as warnings.
+
+    Returns:
+        Raw PDF file bytes.
+
+    Raises:
+        FormeRenderError: If the engine returns an error.
+        ImportError: If wasmtime is not installed.
+        FileNotFoundError: If the WASM binary is not found.
+    """
+    import base64 as _base64
+    import json as _json
+
+    opts: dict = {}
+    if page_size is not None:
+        opts["pageSize"] = page_size
+    if page_margin is not None:
+        opts["pageMargin"] = page_margin
+    if css is not None:
+        opts["css"] = css
+    if tagged:
+        opts["tagged"] = True
+    if pdf_ua:
+        opts["pdfUa"] = True
+    if lang is not None:
+        opts["lang"] = lang
+    if pdfa is not None:
+        opts["pdfA"] = pdfa
+    if audit_content:
+        opts["auditContent"] = True
+    if fonts:
+        wire_fonts = []
+        for f in fonts:
+            data = f["data"]
+            if isinstance(data, (bytes, bytearray)):
+                data = _base64.b64encode(bytes(data)).decode("ascii")
+            wire_fonts.append(
+                {
+                    "family": f["family"],
+                    "data": data,
+                    "weight": f.get("weight", 400),
+                    "italic": f.get("italic", False),
+                }
+            )
+        opts["fonts"] = wire_fonts
+
+    return _get_engine().render_html(html_str, _json.dumps(opts))
 
 
 def certify_pdf(pdf_bytes: bytes, config_json: str) -> bytes:

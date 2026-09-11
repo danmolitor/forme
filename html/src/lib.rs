@@ -24,6 +24,14 @@
 #[cfg(feature = "wasm")]
 mod wasm;
 
+#[cfg(feature = "wasm-raw")]
+mod wasm_raw;
+
+// Shared camelCase options parsing for both C-ABIs (JS + Python), so the option
+// surface can't drift between languages.
+#[cfg(any(feature = "wasm", feature = "wasm-raw"))]
+mod options_wire;
+
 mod css;
 mod dom;
 mod map;
