@@ -24,6 +24,9 @@
 #[cfg(feature = "wasm")]
 mod wasm;
 
+#[cfg(feature = "wasm-raw")]
+mod wasm_raw;
+
 mod css;
 mod dom;
 mod map;

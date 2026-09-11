@@ -51,6 +51,7 @@ class _FormeEngine:
         self._alloc = self._instance.exports(self._store)["forme_alloc"]
         self._dealloc = self._instance.exports(self._store)["forme_dealloc"]
         self._render = self._instance.exports(self._store)["forme_render_pdf"]
+        self._render_html = self._instance.exports(self._store)["forme_render_html"]
         self._certify = self._instance.exports(self._store)["forme_certify_pdf"]
         self._result_ptr = self._instance.exports(self._store)["forme_get_result_ptr"]
         self._result_len = self._instance.exports(self._store)["forme_get_result_len"]
@@ -112,6 +113,45 @@ class _FormeEngine:
             return pdf_bytes
         finally:
             # Free input buffer
+            self._dealloc(self._store, input_ptr, length, 1)
+
+
+    def render_html(self, html_str: str) -> bytes:
+        """Render an HTML + print-CSS string to PDF bytes (default options).
+
+        Byte-identical to `@formepdf/html`'s `renderHtml(html, {})` — same
+        engine, run as wasm32-wasip1.
+        """
+        html_bytes = html_str.encode("utf-8")
+        length = len(html_bytes)
+
+        input_ptr = self._alloc(self._store, length, 1)
+        if not input_ptr:
+            raise FormeRenderError("Failed to allocate WASM memory for input")
+
+        try:
+            self._write_memory(input_ptr, html_bytes)
+
+            status = self._render_html(self._store, input_ptr, length)
+
+            if status != 0:
+                err_ptr = self._error_ptr(self._store)
+                err_len = self._error_len(self._store)
+                if err_ptr and err_len > 0:
+                    error_msg = self._read_memory(err_ptr, err_len).decode("utf-8")
+                else:
+                    error_msg = "Unknown render error"
+                raise FormeRenderError(error_msg)
+
+            res_ptr = self._result_ptr(self._store)
+            res_len = self._result_len(self._store)
+            if not res_ptr or res_len == 0:
+                raise FormeRenderError("Render returned empty result")
+
+            pdf_bytes = self._read_memory(res_ptr, res_len)
+            self._free_result(self._store)
+            return pdf_bytes
+        finally:
             self._dealloc(self._store, input_ptr, length, 1)
 
 
@@ -186,6 +226,28 @@ def render_pdf(json_str: str) -> bytes:
         FileNotFoundError: If the WASM binary is not found.
     """
     return _get_engine().render_pdf(json_str)
+
+
+def render_html(html_str: str) -> bytes:
+    """Render an HTML + print-CSS string to PDF bytes locally.
+
+    Runs the same engine as ``@formepdf/html`` — byte-identical to
+    ``renderHtml(html, {})`` — as a wasm32-wasip1 module via wasmtime. No
+    browser, no system libraries.
+
+    Args:
+        html_str: An HTML document (with optional print CSS: ``@page``,
+            page counters, break control, etc.).
+
+    Returns:
+        Raw PDF file bytes.
+
+    Raises:
+        FormeRenderError: If the engine returns an error.
+        ImportError: If wasmtime is not installed.
+        FileNotFoundError: If the WASM binary is not found.
+    """
+    return _get_engine().render_html(html_str)
 
 
 def certify_pdf(pdf_bytes: bytes, config_json: str) -> bytes:
