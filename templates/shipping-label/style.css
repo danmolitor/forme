@@ -6,7 +6,7 @@
   margin: 0;
 }
 .labelframe {
-  height: 430.5pt; /* 432 minus the border × 2 */
+  height: 432pt; /* the 4x6in die-cut border box (design: 576px) */
   border: 0.75pt solid #111111;
   padding: 12pt; /* 16px */
   display: flex;

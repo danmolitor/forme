@@ -1,5 +1,15 @@
 # Changelog — @formepdf/html
 
+## [Unreleased]
+
+### Added
+
+- **`box-sizing`** joins the CSS subset. CSS dimensions are content-box by default, and the engine's fixed dimension is always the border box — so a padded, bordered `height: 615pt` frame rendered 69pt short, everywhere, since the HTML path shipped (found on the certificate template's nested frames: the bottom border sat well above the page margin). Point-valued `width`/`height`/`min-*`/`max-*` now grow by padding + border under content-box; a declared `border-box` (the Bootstrap reset) passes through untouched and renders byte-identically to before. Percentage dimensions are unchanged on both settings (documented limitation).
+
+### Changed (behavior)
+
+- Any content-box document pairing fixed point dimensions with padding or border gets bigger boxes, matching Chrome: fixed-width table columns include their padding (a squeezed flexible column may wrap differently), bordered checkboxes render at their true size, framed certificate stacks reach the margin they were designed to reach.
+
 ## [0.22.0] - 2026-09-10
 
 ### Added

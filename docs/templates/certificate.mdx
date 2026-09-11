@@ -106,10 +106,10 @@ npx @formepdf/html templates/certificate/index.html -o certificate.pdf
 .atop { position: absolute; top: -52.5pt; left: -63pt; right: -63pt; height: 4.5pt; background-color: #7B2233; }
 /* Content box: 792 − 52.5 − 45 = 694.5pt. */
 .certfill { height: 694.5pt; display: flex; flex-direction: column; }
-.cert-outer { border: 0.75pt solid #7B2233; padding: 4.5pt; height: 684pt; display: flex; flex-direction: column; } /* 694.5 − borders − padding (content-box heights) */
+.cert-outer { border: 0.75pt solid #7B2233; padding: 4.5pt; height: 694.5pt; display: flex; flex-direction: column; } /* border box fills .certfill exactly */
 .cert-inner {
   border: 1.5pt solid #7B2233;
-  height: 615pt; /* 684 − borders − 66pt vertical padding */
+  height: 684pt; /* border box = the outer frame's content height */
   display: flex;
   flex-direction: column;
   align-items: center;

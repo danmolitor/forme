@@ -22,6 +22,13 @@
  * not.
  */
 
+/* The design prototype declares `* { box-sizing: border-box }` — every
+ * dimension in the handoff is a border box. The port originally dropped
+ * the reset (the engine had no box-sizing) and hand-compensated a few
+ * rules; now that the subset supports the property, the reset is
+ * declared and the compensated rules carry the design's true numbers. */
+* { box-sizing: border-box; }
+
 body {
   margin: 0;
   background-color: #FDFCFA;
