@@ -32,6 +32,6 @@
 }
 .mast-divider { margin-top: 15pt; }
 .meta-ack { grid-template-columns: 1fr 1fr 1fr 1fr; }
-.sig-ack { margin-top: 9pt; } /* 15pt design; see .sigline note */
-.sig-ack .sigline { margin-top: 12pt; } /* 30px design; pen room absorbs 10.5pt of engine/prototype metric drift (4.5pt more since box-sizing made the fixed policy columns content-box-correct, narrowing the title column and wrapping two rows) so the form stays one page */
+.sig-ack { margin-top: 15pt; }
+.sig-ack .sigline { margin-top: 16.5pt; } /* 30px design; pen room absorbs 6pt of engine/prototype metric drift so the form stays one page */
 .datebox { flex: 0.6; }
