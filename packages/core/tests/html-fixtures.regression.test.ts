@@ -41,7 +41,7 @@ describe('html fixture regressions (the byte-wall corpus, structurally)', () => 
         'utf8',
       );
       const { layout } = renderHtmlWithLayout(html);
-      await expect(layout).toMatchPDFSnapshot({ snapshotName: `html-fixture-${name}` });
+      await expect(layout).toMatchPDFSnapshot({ snapshotName: `html-fixture-${name}`, contentChanges: true });
     },
   );
 });
