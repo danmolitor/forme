@@ -1,9 +1,16 @@
 # Changelog — @formepdf/html
 
-## [Unreleased]
+## [0.23.0] - 2026-09-11
 
 ### Added
 
+- **Shared option parser for the WASM paths.** The camelCase render options
+  surface (`pageSize`, `pageMargin`, `css`, `fonts`, `tagged`, `pdfUa`,
+  `pdfUa2`, `lang`, `pdfA`, `auditContent`) is now parsed by one crate module
+  used by both the wasm-bindgen (JS) build and the wasm32-wasip1 C-ABI build
+  the Python and Go SDKs load — the two front-ends agree by construction. This
+  is what lets the Python SDK's `render_html` produce byte-identical output to
+  `@formepdf/html` (enforced in CI).
 - **`box-sizing`** joins the CSS subset. CSS dimensions are content-box by default, and the engine's fixed dimension is always the border box — so a padded, bordered `height: 615pt` frame rendered 69pt short, everywhere, since the HTML path shipped (found on the certificate template's nested frames: the bottom border sat well above the page margin). Point-valued `width`/`height`/`min-*`/`max-*` now grow by padding + border under content-box; a declared `border-box` (the Bootstrap reset) passes through untouched and renders byte-identically to before. Percentage dimensions are unchanged on both settings (documented limitation).
 
 ### Changed (behavior)
