@@ -2615,10 +2615,20 @@ impl LayoutEngine {
                         let intrinsic = self
                             .measure_intrinsic_width(child, &child_style, font_context)
                             .min(available_width);
+                        // max-width participates in the used width, exactly
+                        // as in the auto-margin arm above: a long paragraph's
+                        // intrinsic width is the full measure, so without the
+                        // clamp the centering offset degenerated to zero and
+                        // a max-width'd block sat flush left while its LINES
+                        // wrapped at max-width (layout_node consults the
+                        // clamp for wrapping; this offset must consult it
+                        // too).
                         let w = match child_style.width {
                             SizeConstraint::Fixed(fw) => fw,
                             SizeConstraint::Auto => intrinsic,
-                        };
+                        }
+                        .min(child_style.max_width)
+                        .max(child_style.min_width);
                         let lw = if has_explicit_width {
                             available_width
                         } else {
