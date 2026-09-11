@@ -289,12 +289,36 @@ const meta = Object.fromEntries(ALL_SLUGS.map((s) => [s, parseReadme(s)]));
 
 if (CHECK) {
   const manifest = JSON.parse(readFileSync(MANIFEST, 'utf8'));
+  // The input hash proves the inputs are unchanged — but that only implies the
+  // images are current IF hashes are written solely by a full regeneration. A
+  // hash refreshed by hand (e.g. to unblock an unrelated change) silently
+  // blesses a stale image, and page-count drift then rides through: the input
+  // hash is fine because it's the *current* inputs, but the committed image
+  // predates a renderer change that moved the page count. So verify page count
+  // by rendering — PDF only, no rasterization, so this stays cross-platform and
+  // needs no pdftoppm/sharp — catching drift regardless of how the hash got
+  // written. (A file-count check would miss it: the image count and the
+  // manifest agree; only the current render disagrees.)
+  const { renderHtmlWithLayout } = await import('@formepdf/html');
   let stale = 0;
   for (const slug of ALL_SLUGS) {
     const rec = manifest[slug];
     if (!rec) { console.error(`FAIL ${slug}: not in manifest`); stale++; continue; }
     if (rec.hash !== inputHash(slug)) {
       console.error(`FAIL ${slug}: inputs changed since images were generated`);
+      stale++;
+      continue;
+    }
+    const { layout, warnings } = renderHtmlWithLayout(inlined(slug), {});
+    if (warnings.length) {
+      console.error(`FAIL ${slug}: renders with warnings: ${warnings.join(' | ')}`);
+      stale++;
+      continue;
+    }
+    if (layout.pages.length !== rec.pages) {
+      console.error(
+        `FAIL ${slug}: renders ${layout.pages.length} page(s) but the committed gallery has ${rec.pages} — image is stale (regenerate)`,
+      );
       stale++;
       continue;
     }
