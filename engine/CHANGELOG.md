@@ -4,6 +4,7 @@
 
 ### Changed (behavior)
 
+- **A flex row that can fragment starts in the space that is there.** A row taller than the space left used to relocate whole to the next page, abandoning whatever remained (587pt of a 690pt page, in the report that prompted this) and, for a row taller than any page, buying nothing — it still overflowed after the move. It now begins where it is and continues on the next page, matching the page count a browser prints. The slivers the old rule prevented are prevented per column instead: each column's own widow/orphan control decides whether a line stays. Wrapped rows, which cannot fragment, keep the old rule.
 - **A flex row crossing a page boundary now continues as parallel columns.** Its children used to serialize: when one column's own layout ran out of page, every sibling after it started on the new page, so a two-column document became two pages in the wrong reading order. Each column now continues at its own x on every page the row spans. Scoped to single-line rows — `flex-wrap: wrap` keeps the previous behavior and the render defect that names it. Documents whose rows fit a page are byte-identical.
 
 ### Fixed
