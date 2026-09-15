@@ -3253,10 +3253,45 @@ impl LayoutEngine {
                 let saved_y = cursor.y;
                 cursor.y = row_start_y + y_offset;
 
+                // Parallel fragmentation, phase 1 — the fan-out plumbing,
+                // with today's semantics preserved exactly.
+                //
+                // Each item now lays out into its OWN cursor and its OWN
+                // page list instead of the row's shared ones. The rejoin
+                // below is deliberately still sequential: the item's pages
+                // append in order and the shared cursor BECOMES the item's
+                // cursor, so the next sibling continues wherever this one
+                // finished, on whatever page it finished on. Output is
+                // byte-identical by construction; the byte-wall is the
+                // proof, not the claim.
+                //
+                // Phase 2 replaces only the rejoin — clone from the row's
+                // start instead of the previous sibling's end, and merge
+                // each column's fragments onto shared pages at their own x.
+                // Two facts that phase must respect, verified in the code
+                // rather than assumed: page furniture (headers, footers,
+                // margin boxes, watermarks) becomes elements only in
+                // `inject_fixed_elements`, once, over the finished page
+                // list — so merging flow elements cannot duplicate it; but
+                // each LayoutPage CARRIES those declarations and a resolved
+                // config cloned from its cursor, so a merge must take them
+                // from one side, and must finalize with the page index the
+                // page will actually occupy, because `new_page` derives
+                // :left/:right parity from `page_index` (the `<Page>`
+                // boundary already resyncs it the same way).
+                //
+                // Cloning a cursor is not free — it carries page configs,
+                // named page sets, fixed elements and watermarks — which is
+                // why this phase stands alone: proving the clone/rejoin
+                // round trip is byte-neutral is the risk, and it is
+                // provable by itself.
+                let mut item_cursor = cursor.clone();
+                let mut item_pages: Vec<LayoutPage> = Vec::new();
+
                 self.layout_node(
                     item.node,
-                    cursor,
-                    pages,
+                    &mut item_cursor,
+                    &mut item_pages,
                     x,
                     available_width,
                     parent_style,
@@ -3264,6 +3299,9 @@ impl LayoutEngine {
                     cross_h,
                     Some(fw),
                 );
+
+                pages.extend(item_pages);
+                *cursor = item_cursor;
 
                 cursor.y = saved_y;
                 x += fw;
