@@ -13390,3 +13390,78 @@ fn a_flex_row_continues_as_parallel_columns_across_a_page() {
         "a fragmented row is not a sequential split: {warnings:?}"
     );
 }
+
+#[test]
+fn a_fragmenting_row_starts_in_the_space_that_is_there() {
+    // The reported symptom: a two-column row under a header rendered its
+    // first page nearly empty. The row was taller than the space left, so
+    // it relocated WHOLE to the next page — abandoning 587pt of a 690pt
+    // page — even though it could have started there and continued. A row
+    // that can fragment now starts where it is.
+    let para = "Typography is the art of arranging type to make written language legible, \
+                readable, and appealing when displayed. The arrangement of type involves \
+                selecting typefaces, point sizes, line lengths, and line spacing. ";
+    let col = |n: usize| {
+        (0..n)
+            .map(|_| {
+                format!(
+                    r#"{{ "kind": {{ "type": "Text", "content": "{}" }}, "style": {{ "fontSize": 9.0 }}, "children": [] }}"#,
+                    para.repeat(6)
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(",")
+    };
+    let json = format!(
+        r#"{{ "children": [
+            {{ "kind": {{ "type": "Heading", "content": "The Art of Digital Typography", "level": 1 }},
+               "style": {{ "fontSize": 26.0 }}, "children": [] }},
+            {{ "kind": {{ "type": "View" }}, "style": {{ "flexDirection": "Row", "gap": 24.0 }}, "children": [
+                {{ "kind": {{ "type": "View" }}, "style": {{ "flexGrow": 1.0, "flexBasis": {{ "Pt": 0.0 }} }}, "children": [ {} ] }},
+                {{ "kind": {{ "type": "View" }}, "style": {{ "flexGrow": 1.0, "flexBasis": {{ "Pt": 0.0 }} }}, "children": [ {} ] }}
+            ] }}
+        ], "metadata": {{ "title": "Header over columns" }} }}"#,
+        col(3),
+        col(3)
+    );
+    let (_, layout, _) =
+        forme::render_with_layout(&serde_json::from_str(&json).unwrap()).unwrap();
+
+    // Page 1 carries the header AND both columns — not the header alone.
+    let mut kinds = Vec::new();
+    fn walk(els: &[forme::layout::ElementInfo], out: &mut Vec<(String, f64)>) {
+        for e in els {
+            if e.node_type == "TextLine" {
+                out.push((e.node_type.clone(), e.x.round()));
+            }
+            walk(&e.children, out);
+        }
+    }
+    walk(&layout.pages[0].elements, &mut kinds);
+    let mut xs: Vec<f64> = kinds.iter().map(|(_, x)| *x).collect();
+    xs.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    xs.dedup();
+    assert!(
+        xs.len() >= 2,
+        "page 1 must carry both columns, not just the header: {xs:?}"
+    );
+
+    // And the page is actually used: content reaches well past the header.
+    let deepest = {
+        let mut ys: Vec<f64> = Vec::new();
+        fn walk_y(els: &[forme::layout::ElementInfo], ys: &mut Vec<f64>) {
+            for e in els {
+                if e.node_type == "TextLine" {
+                    ys.push(e.y + e.height);
+                }
+                walk_y(&e.children, ys);
+            }
+        }
+        walk_y(&layout.pages[0].elements, &mut ys);
+        ys.into_iter().fold(0.0_f64, f64::max)
+    };
+    assert!(
+        deepest > 500.0,
+        "page 1 is filled, not abandoned after the header: content ends at y={deepest:.0}"
+    );
+}

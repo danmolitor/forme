@@ -2971,6 +2971,10 @@ impl LayoutEngine {
         let flex_wrap = parent_style
             .map(|s| s.flex_wrap)
             .unwrap_or(FlexWrap::NoWrap);
+        // Single-line rows fragment as parallel columns (phase 2); wrapped
+        // rows keep the older sequential behavior, so they also keep the
+        // older page-fit rule below.
+        let parallel = matches!(flex_wrap, FlexWrap::NoWrap);
 
         // Phase 1: resolve styles and measure base widths for all items
         // flex_basis takes precedence over width for flex items (per CSS spec)
@@ -3130,13 +3134,28 @@ impl LayoutEngine {
                 }
             }
 
-            // Page break check for this line. The `cursor.y > 0.0` guard
-            // matches the other break sites: when the current page is
-            // already empty, moving to a fresh page can't gain space — a
-            // line taller than a full page would otherwise emit a blank
-            // page and then overflow anyway (found by the HTML spike's
-            // taller-than-page flex item).
-            if line_height > cursor.remaining_height() && cursor.y > 0.0 {
+            // Page-fit check for this line.
+            //
+            // A row that can fragment does NOT relocate: it starts in the
+            // space that is there and continues on the next page, which is
+            // what a browser prints and what the page is for. Relocating it
+            // whole was the old cost of not being able to fragment — it
+            // abandoned whatever was left of the page (586pt of a 690pt
+            // page, in the report that prompted this) and, for a row taller
+            // than any page, bought nothing at all: it still overflowed
+            // after the move.
+            //
+            // The slivers this guard used to prevent are now prevented
+            // where they belong, per column: each column's own text layout
+            // applies widow/orphan control, so a column with room for one
+            // line pushes that line rather than stranding it. If every
+            // column pushes, the row simply begins on the next page — the
+            // old outcome, reached by the columns' own rules instead of a
+            // blanket one.
+            //
+            // Wrapped rows keep the old rule: they cannot fragment, so for
+            // them relocating whole is still the best available answer.
+            if !parallel && line_height > cursor.remaining_height() && cursor.y > 0.0 {
                 pages.push(cursor.finalize());
                 *cursor = cursor.new_page();
             }
@@ -3181,13 +3200,7 @@ impl LayoutEngine {
             // The shared cursor's existing elements come out of the way
             // first so an item's clone starts empty; they go back onto
             // fragment 0, which is the page the row starts on.
-            // Scoped deliberately to single-line rows. `flex-wrap: wrap`
-            // plus fragmentation multiplies the state space, no document in
-            // any gated set wraps a row that also fragments, and wrapped
-            // lines have their own align-content redistribution to answer
-            // for — so a wrapped row keeps the sequential behavior AND the
-            // render defect that names it.
-            let parallel = matches!(flex_wrap, FlexWrap::NoWrap);
+            // (`parallel` is decided once, above the loop.)
             let base_page_elements = if parallel {
                 std::mem::take(&mut cursor.elements)
             } else {
