@@ -163,11 +163,14 @@ fn bootstrap_print_display_values_no_longer_warn() {
 }
 
 #[test]
-fn page_tall_column_row_reports_the_sequential_split_defect() {
-    // 09's real shape: the single equal-height row is taller than a
-    // page. The engine lays the split row's children sequentially (not
-    // as parallel columns on every page) — that divergence must report
-    // itself through the render-defect channel, never degrade silently.
+fn page_tall_column_row_continues_as_parallel_columns() {
+    // 09's real shape: the single equal-height row is taller than a page.
+    // It used to serialize — the wide column took the following pages to
+    // itself and the sidebar was displaced past it — and the engine could
+    // only report that through the render-defect channel. It now
+    // fragments: each column continues on the next page at its own x, so
+    // the row's columns appear TOGETHER on every page it spans, and there
+    // is no defect left to report.
     let tall: String = (0..120)
         .map(|i| format!("<p>content line {i}</p>"))
         .collect();
@@ -183,11 +186,51 @@ fn page_tall_column_row_reports_the_sequential_split_defect() {
     let out = render(&html);
     assert!(out.layout.pages.len() > 1, "the row must actually split");
     assert!(
+        !out.warnings.iter().any(|w| w.contains("sequentially")),
+        "a fragmented row is not a sequential split: {:?}",
         out.warnings
-            .iter()
-            .any(|w| w.contains("render defect") && w.contains("sequentially")),
-        "the sequential-split defect must be reported: {:?}",
-        out.warnings
+    );
+
+    // The proof the columns are parallel rather than serialized: the wide
+    // column's text keeps its own x on the continuation page, and it is
+    // not the sidebar's x.
+    let xs = |page: usize| -> Vec<f64> {
+        let mut xs = Vec::new();
+        fn walk(els: &[forme::layout::ElementInfo], xs: &mut Vec<f64>) {
+            for e in els {
+                if e.node_type == "TextLine" {
+                    xs.push(e.x.round());
+                }
+                walk(&e.children, xs);
+            }
+        }
+        walk(&out.layout.pages[page].elements, &mut xs);
+        xs.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        xs.dedup();
+        xs
+    };
+    // Page-relative on purpose: a row taller than the remaining space
+    // still relocates whole today (that is the next phase), so the row may
+    // begin on page 2. What this pins is that wherever it begins, both
+    // columns are there, and the next page carries them both on too.
+    let start = (0..out.layout.pages.len())
+        .find(|&i| xs(i).len() >= 2)
+        .expect("some page carries both columns side by side");
+    let at_start = xs(start);
+    let sidebar_x = at_start[0];
+    let wide_x = *at_start.last().unwrap();
+    assert!(
+        wide_x > sidebar_x,
+        "the two columns occupy different x: {at_start:?}"
+    );
+    assert!(
+        start + 1 < out.layout.pages.len(),
+        "the row spans past its first page"
+    );
+    assert!(
+        xs(start + 1).contains(&wide_x),
+        "the wide column continues at its own x on the next page: {:?}",
+        xs(start + 1)
     );
 }
 
@@ -215,34 +258,5 @@ fn row_that_relocates_whole_does_not_report_sequential_split() {
         !out.warnings.iter().any(|w| w.contains("sequentially")),
         "a relocated-whole row is not a sequential split: {:?}",
         out.warnings
-    );
-}
-
-#[test]
-fn sequential_split_defect_names_the_offending_row() {
-    // Diagnosing the false positive required rect-dumping because the
-    // deduped message carried no element identification. It now names the
-    // row by its first text content.
-    let tall: String = (0..120)
-        .map(|i| format!("<p>content line {i}</p>"))
-        .collect();
-    let html = format!(
-        "<html><head><style>.t {{ display: table }} .c {{ display: table-cell }}\
-         .a {{ width: 33% }} .b {{ width: 67% }}</style></head><body><div class=\"t\">\
-         <div class=\"c a\"><p>sidebar heading</p></div>\
-         <div class=\"c b\">{tall}</div>\
-         </div></body></html>"
-    );
-    let out = render(&html);
-    let defect = out.warnings.iter().find(|w| w.contains("sequentially"));
-    assert!(
-        defect.is_some(),
-        "true positive must still fire: {:?}",
-        out.warnings
-    );
-    assert!(
-        defect.unwrap().contains("sidebar heading"),
-        "the defect must name the row: {}",
-        defect.unwrap()
     );
 }

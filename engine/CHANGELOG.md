@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed (behavior)
+
+- **A flex row crossing a page boundary now continues as parallel columns.** Its children used to serialize: when one column's own layout ran out of page, every sibling after it started on the new page, so a two-column document became two pages in the wrong reading order. Each column now continues at its own x on every page the row spans. Scoped to single-line rows — `flex-wrap: wrap` keeps the previous behavior and the render defect that names it. Documents whose rows fit a page are byte-identical.
+
 ### Fixed
 
 - **A table whose fractional columns sum to exactly 1.0 no longer reports itself as clamped.** `0.6 + 0.4` of the available width leaves a float remainder of ±3e-14 depending on that width (486.75 lands negative, 487.25 positive), and the bare `remaining < 0.0` check reported half of those as an over-full table — "widths total 487pt but only 487pt is available". The threshold is now a hundredth of a point, and the remainder is floored before Auto columns divide it. A genuinely over-full table still reports.
