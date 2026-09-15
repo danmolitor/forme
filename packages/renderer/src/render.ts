@@ -149,8 +149,8 @@ export async function renderFromElement(
 /// The format-agnostic render tail: page-size override → asset resolution →
 /// WASM render. Every input that produces a Forme document lands here — JSX
 /// via `renderFromElement`, `.svelte`/`.vue` via the SFC paths — so the
-/// RenderResult shape and the (present-and-empty) warnings contract stay
-/// identical across inputs. Reused, not copied.
+/// RenderResult shape and the warnings contract stay identical across
+/// inputs. Reused, not copied.
 export async function renderDocToResult(
   doc: Record<string, unknown>,
   options: { pageSize?: { width: number; height: number }; basePath?: string; startTime: number },
@@ -161,12 +161,17 @@ export async function renderDocToResult(
 
   await resolveAllSources(doc, options.basePath);
 
-  const { pdf, layout } = await renderPdfWithLayout(JSON.stringify(doc));
+  const { pdf, layout, warnings } = await renderPdfWithLayout(JSON.stringify(doc));
   const renderTimeMs = Math.round(performance.now() - options.startTime);
 
-  // The core WASM binding surfaces no warnings today; keep the field present
-  // and empty so both input paths share one RenderResult shape.
-  return { pdf, layout, renderTimeMs, warnings: [] };
+  // Pass the engine's warnings through. They were dropped here for as long as
+  // the comment claiming "the core WASM binding surfaces no warnings today"
+  // outlived its truth — so every render defect (sequential flex-row splits,
+  // missing glyphs, clamped table columns, content-audit findings) was
+  // invisible to `forme build`, `forme dev`, and the VS Code preview, which
+  // all render through this function. The HTML path next door never had the
+  // bug; it destructured `warnings` from the start.
+  return { pdf, layout, renderTimeMs, warnings: warnings ?? [] };
 }
 
 function applyPageSizeOverride(

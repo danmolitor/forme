@@ -7160,7 +7160,16 @@ impl LayoutEngine {
             }
         }
 
-        if remaining < 0.0 {
+        // Sub-point slack is float noise, not an over-full table: columns
+        // declared as fractions summing to exactly 1.0 leave a remainder of
+        // ±3e-14 depending on the available width (487.25 lands positive,
+        // 486.75 negative), and the bare `< 0.0` reported half of those as
+        // a clamped table — "widths total 487pt but only 487pt is
+        // available". A warning that cries wolf is worse than none, so the
+        // threshold is a hundredth of a point: far below anything visible,
+        // far above the noise.
+        const OVERFULL_EPS: f64 = 0.01;
+        if remaining < -OVERFULL_EPS {
             // Fixed/fraction widths exceed the table: Auto columns would
             // have gone NEGATIVE. Clamp, and report the defect.
             self.defect(format!(
@@ -7170,6 +7179,9 @@ impl LayoutEngine {
             ));
             remaining = 0.0;
         }
+        // Floor the noise too: a -3e-14 remainder must not reach the Auto
+        // distribution below, warning or no warning.
+        remaining = remaining.max(0.0);
 
         if auto_count > 0 {
             let auto_width = remaining / auto_count as f64;

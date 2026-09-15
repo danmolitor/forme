@@ -13235,3 +13235,50 @@ fn pdfa_alone_embeds_the_standard_font_substitute() {
         "the substitute is embedded as a font program"
     );
 }
+
+#[test]
+fn fractional_columns_summing_to_one_do_not_report_a_clamped_table() {
+    // Columns declared as fractions summing to exactly 1.0 leave a float
+    // remainder of ±3e-14 depending on the available width — 486.75 lands
+    // negative, 487.25 positive — and the bare `remaining < 0.0` check
+    // reported half of those as an over-full table ("widths total 487pt but
+    // only 487pt is available"). The defect channel's value is that a
+    // warning means something; this one cried wolf at a table that fits.
+    // Found when @formepdf/renderer stopped dropping warnings and three
+    // renderer smoke tests lit up on a fixture whose table is correct.
+    let doc = |width: f64| {
+        format!(
+            r#"{{ "children": [
+                {{ "kind": {{ "type": "View" }}, "style": {{ "width": {{ "Pt": {width} }} }}, "children": [
+                    {{ "kind": {{ "type": "Table", "columns": [
+                        {{ "width": {{ "Fraction": 0.6 }} }}, {{ "width": {{ "Fraction": 0.4 }} }}
+                    ] }}, "style": {{}}, "children": [
+                        {{ "kind": {{ "type": "TableRow" }}, "style": {{}}, "children": [
+                            {{ "kind": {{ "type": "TableCell" }}, "style": {{}}, "children": [
+                                {{ "kind": {{ "type": "Text", "content": "left" }}, "style": {{}}, "children": [] }} ] }},
+                            {{ "kind": {{ "type": "TableCell" }}, "style": {{}}, "children": [
+                                {{ "kind": {{ "type": "Text", "content": "right" }}, "style": {{}}, "children": [] }} ] }}
+                        ] }}
+                    ] }}
+                ] }}
+            ], "metadata": {{ "title": "Fractions" }} }}"#
+        )
+    };
+    for width in [486.75, 487.25, 495.0] {
+        let (_, _, warnings) =
+            forme::render_with_layout(&serde_json::from_str(&doc(width)).unwrap()).unwrap();
+        let clamped: Vec<_> = warnings.iter().filter(|w| w.contains("clamped")).collect();
+        assert!(
+            clamped.is_empty(),
+            "width {width}: fractions summing to 1.0 fit exactly, got {clamped:?}"
+        );
+    }
+    // A genuinely over-full table still reports: 0.8 + 0.4 = 1.2 of the width.
+    let overfull = doc(487.0).replace("\"Fraction\": 0.6", "\"Fraction\": 0.8");
+    let (_, _, warnings) =
+        forme::render_with_layout(&serde_json::from_str(&overfull).unwrap()).unwrap();
+    assert!(
+        warnings.iter().any(|w| w.contains("clamped")),
+        "a 120%-wide table must still report: {warnings:?}"
+    );
+}

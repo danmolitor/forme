@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- **`forme build` prints render warnings.** They were being dropped upstream in `@formepdf/renderer`; with that fixed, the build command now reports what the engine did that you didn't ask for instead of writing the PDF in silence.
+
 ## [0.20.1] - 2026-09-07
 
 ### Changed

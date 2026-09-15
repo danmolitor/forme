@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- **Engine warnings reach the caller again.** `renderDocToResult` — the shared tail for every JSX and SFC render — dropped the warnings the core binding returns, behind a comment claiming it surfaced none. Every render defect (a flex row that serialized across a page break, a character with no glyph, a clamped table column, content-audit findings) was therefore invisible to `forme build`, `forme dev`, and the VS Code preview. The HTML path never had the bug.
+
 ## [0.20.1] - 2026-09-07
 
 ### Changed
