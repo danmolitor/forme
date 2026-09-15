@@ -13424,8 +13424,7 @@ fn a_fragmenting_row_starts_in_the_space_that_is_there() {
         col(3),
         col(3)
     );
-    let (_, layout, _) =
-        forme::render_with_layout(&serde_json::from_str(&json).unwrap()).unwrap();
+    let (_, layout, _) = forme::render_with_layout(&serde_json::from_str(&json).unwrap()).unwrap();
 
     // Page 1 carries the header AND both columns — not the header alone.
     let mut kinds = Vec::new();
