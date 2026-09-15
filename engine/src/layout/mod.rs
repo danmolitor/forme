@@ -3176,6 +3176,25 @@ impl LayoutEngine {
             let line_elem_start = cursor.elements.len();
             let mut x = content_x + start_offset;
 
+            // Phase 2: every item starts from the row's own page state and
+            // contributes FRAGMENTS — one element list per page it spans.
+            // The shared cursor's existing elements come out of the way
+            // first so an item's clone starts empty; they go back onto
+            // fragment 0, which is the page the row starts on.
+            // Scoped deliberately to single-line rows. `flex-wrap: wrap`
+            // plus fragmentation multiplies the state space, no document in
+            // any gated set wraps a row that also fragments, and wrapped
+            // lines have their own align-content redistribution to answer
+            // for — so a wrapped row keeps the sequential behavior AND the
+            // render defect that names it.
+            let parallel = matches!(flex_wrap, FlexWrap::NoWrap);
+            let base_page_elements = if parallel {
+                std::mem::take(&mut cursor.elements)
+            } else {
+                Vec::new()
+            };
+            let mut item_frags: Vec<ItemFragments> = Vec::with_capacity(line_items.len());
+
             // Sequential-split detection, precise form: the genuinely
             // sequential outcome is an ITEM's own layout breaking the
             // page while siblings share its line — the siblings don't
@@ -3300,24 +3319,120 @@ impl LayoutEngine {
                     Some(fw),
                 );
 
-                pages.extend(item_pages);
-                *cursor = item_cursor;
+                if parallel {
+                    // The item's fragments: one per finished page, plus the
+                    // tail still sitting on its unfinished page.
+                    let final_y = item_cursor.y;
+                    let tail = std::mem::take(&mut item_cursor.elements);
+                    item_frags.push(ItemFragments {
+                        pages: item_pages,
+                        tail,
+                        cursor: item_cursor,
+                        final_y,
+                    });
+                } else {
+                    // Wrapped row: today's sequential rejoin, unchanged.
+                    pages.extend(item_pages);
+                    *cursor = item_cursor;
+                }
 
                 cursor.y = saved_y;
                 x += fw;
             }
 
-            if line_items.len() > 1 && pages.len() > line_start_pages {
-                let near = line_items
-                    .iter()
-                    .find_map(|it| first_text_snippet(it.node))
-                    .map(|t| format!(" (row beginning \"{t}\")"))
-                    .unwrap_or_default();
-                self.defect(format!(
-                    "render defect: a flex row crossing a page boundary lays its children sequentially — a column taller than the page does not continue side by side{near}"
-                ));
+            // ── Merge the fragments ────────────────────────────────
+            // Fragment k of the row is page k of the row's span: every
+            // item's fragment k composes onto it, each at the x it was
+            // laid out with, so columns continue SIDE BY SIDE instead of
+            // one after another. An item shorter than the row contributes
+            // to early fragments only and simply stops.
+            if !parallel {
+                // Wrapped rows keep the outcome — and the warning that
+                // names it. The signature is unchanged: page growth during
+                // the item loop means an item's own layout broke the page
+                // while siblings shared its line.
+                if line_items.len() > 1 && pages.len() > line_start_pages {
+                    let near = line_items
+                        .iter()
+                        .find_map(|it| first_text_snippet(it.node))
+                        .map(|t| format!(" (row beginning \"{t}\")"))
+                        .unwrap_or_default();
+                    self.defect(format!(
+                        "render defect: a wrapped flex row crossing a page boundary lays its children sequentially — a column taller than the page does not continue side by side{near}"
+                    ));
+                }
+                cursor.y = row_start_y + line_height;
+                line_infos.push((line_elem_start, cursor.elements.len(), line_height));
+                continue;
             }
-            cursor.y = row_start_y + line_height;
+
+            let frag_count = item_frags
+                .iter()
+                .map(|f| f.pages.len() + 1)
+                .max()
+                .unwrap_or(1);
+
+            let mut merged: Vec<Vec<LayoutElement>> = vec![Vec::new(); frag_count];
+            // Whatever was already on the row's first page paints first.
+            merged[0] = base_page_elements;
+            for f in item_frags.iter_mut() {
+                for (k, page) in f.pages.iter_mut().enumerate() {
+                    merged[k].append(&mut page.elements);
+                }
+                // The tail sits on the fragment after this item's last
+                // finished page.
+                let tail_index = f.pages.len();
+                let mut tail = std::mem::take(&mut f.tail);
+                merged[tail_index].append(&mut tail);
+            }
+
+            if frag_count == 1 {
+                // The row fits one page: nothing fragmented, so this is
+                // today's shape exactly — base elements, then each item's
+                // elements in order, on the cursor's current page.
+                cursor.elements = std::mem::take(&mut merged[0]);
+                cursor.y = row_start_y + line_height;
+            } else {
+                // The row spans pages. One item's cursor carries the page
+                // sequence the row actually occupies — its finished pages
+                // hold the config, the :left/:right parity resolved from
+                // their own page_index, and the furniture declarations —
+                // so the item that spans FURTHEST is the carrier, and the
+                // other items' fragments compose onto its pages. Taking
+                // the carrier's pages (rather than concatenating every
+                // item's) is what keeps headers, footers and watermarks
+                // single: they are declarations on the page, injected
+                // once at the end of layout.
+                let carrier_idx = item_frags
+                    .iter()
+                    .enumerate()
+                    .max_by_key(|(_, f)| f.pages.len())
+                    .map(|(i, _)| i)
+                    .expect("a flex line has at least one item");
+                let mut carrier = item_frags.swap_remove(carrier_idx);
+
+                for (k, page) in carrier.pages.iter_mut().enumerate() {
+                    page.elements = std::mem::take(&mut merged[k]);
+                }
+                pages.append(&mut carrier.pages);
+
+                // Flow continues below the deepest column ON THE LAST
+                // page — columns that ended earlier don't hold it down.
+                let last = frag_count - 1;
+                let end_y = item_frags
+                    .iter()
+                    .chain(std::iter::once(&carrier))
+                    .filter(|f| f.pages.len() == last)
+                    .map(|f| f.final_y)
+                    .fold(f64::MIN, f64::max);
+
+                let mut merged_tail = std::mem::take(&mut merged[last]);
+                *cursor = carrier.cursor;
+                cursor.elements.clear();
+                cursor.elements.append(&mut merged_tail);
+                cursor.y = end_y;
+            }
+
             line_infos.push((line_elem_start, cursor.elements.len(), line_height));
         }
 
@@ -7653,6 +7768,18 @@ impl LayoutEngine {
             cursor.y -= row_gap;
         }
     }
+}
+
+/// One flex item's contribution to a row that may span pages: the
+/// elements it placed on each page it crossed (`pages`, finished), the
+/// elements still on its unfinished page (`tail`), the cursor it ended
+/// with, and the y it reached there. Phase 2 composes fragment k of
+/// every item onto page k of the row.
+struct ItemFragments {
+    pages: Vec<LayoutPage>,
+    tail: Vec<LayoutElement>,
+    cursor: PageCursor,
+    final_y: f64,
 }
 
 struct FlexItem<'a> {

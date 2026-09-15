@@ -13282,3 +13282,111 @@ fn fractional_columns_summing_to_one_do_not_report_a_clamped_table() {
         "a 120%-wide table must still report: {warnings:?}"
     );
 }
+
+#[test]
+fn wrapped_flex_rows_keep_the_sequential_split_defect() {
+    // Parallel fragmentation is scoped to single-line rows: `flex-wrap:
+    // wrap` plus fragmentation multiplies the state space, and wrapped
+    // lines have align-content redistribution to answer for. A wrapped
+    // row therefore keeps both the sequential outcome and the defect that
+    // names it — the pin lives here rather than in the html crate because
+    // `flex-wrap` is not in the HTML CSS subset, so that path cannot
+    // express a wrapped row at all.
+    let tall: String = (0..120)
+        .map(|i| {
+            format!(
+                r#"{{ "kind": {{ "type": "Text", "content": "content line {i}" }}, "style": {{}}, "children": [] }}"#
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(",");
+    let json = format!(
+        r#"{{ "children": [
+            {{ "kind": {{ "type": "View" }},
+               "style": {{ "flexDirection": "Row", "flexWrap": "Wrap" }},
+               "children": [
+                 {{ "kind": {{ "type": "View" }}, "style": {{ "width": {{ "Percent": 33.0 }} }}, "children": [
+                     {{ "kind": {{ "type": "Text", "content": "sidebar heading" }}, "style": {{}}, "children": [] }} ] }},
+                 {{ "kind": {{ "type": "View" }}, "style": {{ "width": {{ "Percent": 67.0 }} }}, "children": [ {tall} ] }}
+               ] }}
+        ], "metadata": {{ "title": "Wrapped" }} }}"#
+    );
+    let (_, layout, warnings) =
+        forme::render_with_layout(&serde_json::from_str(&json).unwrap()).unwrap();
+    assert!(layout.pages.len() > 1, "the row must actually split");
+    let defect = warnings
+        .iter()
+        .find(|w| w.contains("sequentially"))
+        .unwrap_or_else(|| panic!("wrapped rows still report the split: {warnings:?}"));
+    assert!(
+        defect.contains("sidebar heading"),
+        "the defect names the row: {defect}"
+    );
+}
+
+#[test]
+fn a_flex_row_continues_as_parallel_columns_across_a_page() {
+    // The reported shape: two columns of prose in a `flexDirection: row`.
+    // Before fragmentation the left column took the next page to itself
+    // and the right column began after it finished — two columns became
+    // two pages, in the wrong reading order. Each column now continues at
+    // its own x on every page the row spans.
+    let para = "Typography is the art of arranging type to make written language legible, \
+                readable, and appealing when displayed. The arrangement of type involves \
+                selecting typefaces, point sizes, line lengths, and line spacing. ";
+    let col = |n: usize| {
+        (0..n)
+            .map(|_| {
+                format!(
+                    r#"{{ "kind": {{ "type": "Text", "content": "{}" }}, "style": {{ "fontSize": 9.0 }}, "children": [] }}"#,
+                    para.repeat(6)
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(",")
+    };
+    let json = format!(
+        r#"{{ "children": [
+            {{ "kind": {{ "type": "View" }}, "style": {{ "flexDirection": "Row", "gap": 24.0 }}, "children": [
+                {{ "kind": {{ "type": "View" }}, "style": {{ "flexGrow": 1.0, "flexBasis": {{ "Pt": 0.0 }} }}, "children": [ {} ] }},
+                {{ "kind": {{ "type": "View" }}, "style": {{ "flexGrow": 1.0, "flexBasis": {{ "Pt": 0.0 }} }}, "children": [ {} ] }}
+            ] }}
+        ], "metadata": {{ "title": "Two column" }} }}"#,
+        col(3),
+        col(3)
+    );
+    let (_, layout, warnings) =
+        forme::render_with_layout(&serde_json::from_str(&json).unwrap()).unwrap();
+    assert!(layout.pages.len() > 1, "the row must span pages");
+
+    let xs = |page: usize| -> Vec<f64> {
+        fn walk(els: &[forme::layout::ElementInfo], xs: &mut Vec<f64>) {
+            for e in els {
+                if e.node_type == "TextLine" {
+                    xs.push(e.x.round());
+                }
+                walk(&e.children, xs);
+            }
+        }
+        let mut v = Vec::new();
+        walk(&layout.pages[page].elements, &mut v);
+        v.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        v.dedup();
+        v
+    };
+
+    // Both columns on page 1, and both still there on page 2 — the whole
+    // point: the right column does not wait for the left one to finish.
+    let first = xs(0);
+    assert!(first.len() >= 2, "both columns on page 1: {first:?}");
+    let (left, right) = (first[0], *first.last().unwrap());
+    let second = xs(1);
+    assert!(
+        second.contains(&left) && second.contains(&right),
+        "both columns continue on page 2: {second:?} (page 1 had {first:?})"
+    );
+    assert!(
+        !warnings.iter().any(|w| w.contains("sequentially")),
+        "a fragmented row is not a sequential split: {warnings:?}"
+    );
+}
