@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- **A table whose fractional columns sum to exactly 1.0 no longer reports itself as clamped.** `0.6 + 0.4` of the available width leaves a float remainder of ±3e-14 depending on that width (486.75 lands negative, 487.25 positive), and the bare `remaining < 0.0` check reported half of those as an over-full table — "widths total 487pt but only 487pt is available". The threshold is now a hundredth of a point, and the remainder is floored before Auto columns divide it. A genuinely over-full table still reports.
+
+
 ## [0.23.0] - 2026-09-11
 
 ### Fixed
