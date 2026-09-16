@@ -13529,3 +13529,51 @@ fn a_stretched_column_fills_the_fragment_it_appears_on() {
          left ends {left_bottom:.0}, right ends {right_bottom:.0}"
     );
 }
+
+#[test]
+fn the_template_path_reports_the_render_defects_it_hits() {
+    // `render_template_with_layout` discarded the engine's warnings for its
+    // whole life — `.map(|(pdf, layout, _warnings)| (pdf, layout))` — so
+    // `renderTemplateWithLayout` answered "warnings: none" on every render
+    // while its declared TypeScript type promised `string[]`. Every
+    // font-embedding warning under pdfUa, every missing glyph, every clamped
+    // table column and sequential row split was silenced on that path.
+    //
+    // A template with no expression nodes evaluates to itself, so the same
+    // document that provokes a defect through `render_with_layout` must
+    // provoke the identical one here. That equality is the assertion: the
+    // template path is not a quieter renderer, it is the same renderer.
+    let tall: String = (0..120)
+        .map(|i| {
+            format!(
+                r#"{{ "kind": {{ "type": "Text", "content": "content line {i}" }}, "style": {{}}, "children": [] }}"#
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(",");
+    let json = format!(
+        r#"{{ "children": [
+            {{ "kind": {{ "type": "View" }},
+               "style": {{ "flexDirection": "Row", "flexWrap": "Wrap" }},
+               "children": [
+                 {{ "kind": {{ "type": "View" }}, "style": {{ "width": {{ "Percent": 33.0 }} }}, "children": [
+                     {{ "kind": {{ "type": "Text", "content": "sidebar heading" }}, "style": {{}}, "children": [] }} ] }},
+                 {{ "kind": {{ "type": "View" }}, "style": {{ "width": {{ "Percent": 67.0 }} }}, "children": [ {tall} ] }}
+               ] }}
+        ], "metadata": {{ "title": "Wrapped" }} }}"#
+    );
+
+    let (_, layout, warnings) = forme::render_template_with_layout(&json, "{}").unwrap();
+    assert!(layout.pages.len() > 1, "the row must actually split");
+    assert!(
+        warnings.iter().any(|w| w.contains("sequentially")),
+        "the template path reports the split it made: {warnings:?}"
+    );
+
+    // And it reports exactly what the direct path reports, not a subset.
+    let (_, _, direct) = forme::render_with_layout(&serde_json::from_str(&json).unwrap()).unwrap();
+    assert_eq!(
+        warnings, direct,
+        "the template path's warnings match the direct render's"
+    );
+}

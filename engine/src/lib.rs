@@ -518,16 +518,23 @@ pub fn render_template(template_json: &str, data_json: &str) -> Result<Vec<u8>, 
     render(&document)
 }
 
-/// Render a template with data to PDF bytes along with layout metadata.
+/// Render a template with data to PDF bytes along with layout metadata and
+/// the render's warnings.
+///
+/// The warnings are part of the return tuple rather than an `_and_warnings`
+/// variant on purpose: this function discarded them for its whole life, which
+/// made `renderTemplateWithLayout` report "warnings: none" on every render
+/// while its declared type promised a list. Matching [`render_with_layout`]'s
+/// shape means a caller has to name the value to drop it.
 pub fn render_template_with_layout(
     template_json: &str,
     data_json: &str,
-) -> Result<(Vec<u8>, LayoutInfo), FormeError> {
+) -> Result<(Vec<u8>, LayoutInfo, Vec<String>), FormeError> {
     let template: serde_json::Value = serde_json::from_str(template_json)?;
     let data: serde_json::Value = serde_json::from_str(data_json)?;
     let resolved = template::evaluate_template(&template, &data)?;
     let document: Document = serde_json::from_value(resolved)?;
-    render_with_layout(&document).map(|(pdf, layout, _warnings)| (pdf, layout))
+    render_with_layout(&document)
 }
 
 #[cfg(test)]

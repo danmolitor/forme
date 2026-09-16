@@ -20,6 +20,7 @@ export function startDevServer(inputPath: string, options: DevOptions): void {
   let currentPdf: Uint8Array | null = null;
   let currentLayout: RenderResult['layout'] | null = null;
   let lastRenderTime = 0;
+  let lastWarnings: string[] = [];
   let lastError: string | null = null;
   let firstRender = true;
 
@@ -91,6 +92,10 @@ export function startDevServer(inputPath: string, options: DevOptions): void {
       hasData: !!dataPath,
       dataContent,
       pageSizeOverride,
+      // The first render finishes before the browser is opened, so its
+      // warnings only ever arrive on `init`. Without this the badge stays
+      // empty until the user happens to save the file again.
+      warnings: lastWarnings,
     };
     if (ws.readyState === ws.OPEN) {
       ws.send(JSON.stringify(initMsg));
@@ -159,6 +164,11 @@ export function startDevServer(inputPath: string, options: DevOptions): void {
       currentLayout = result.layout;
       lastError = null;
       lastRenderTime = result.renderTimeMs;
+      // The preview's warnings badge shipped complete — CSS, markup, element
+      // lookups — and this file never read `warnings`, so the flagship
+      // surface showed nothing while `forme build` and the VS Code panel
+      // both reported correctly.
+      lastWarnings = result.warnings ?? [];
 
       const pageCount = result.layout?.pages?.length ?? 0;
 
@@ -174,7 +184,7 @@ export function startDevServer(inputPath: string, options: DevOptions): void {
         console.log(`Rebuilt in ${lastRenderTime}ms (${pageCount} page${pageCount !== 1 ? 's' : ''})`);
       }
 
-      broadcast({ type: 'reload', renderTime: lastRenderTime });
+      broadcast({ type: 'reload', renderTime: lastRenderTime, warnings: lastWarnings });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       lastError = message;

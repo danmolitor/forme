@@ -35,9 +35,15 @@ export interface RenderResult {
   pdf: Uint8Array;
   layout: LayoutInfo;
   renderTimeMs: number;
-  /// Unsupported-subset notices from the input path. The core/JSX pipeline
-  /// surfaces none today, so it's always `[]` here; the HTML path populates
-  /// it from the mapper. Same field, both paths.
+  /// Notices from the render: unsupported-subset notices from the HTML
+  /// mapper, and `render defect:` warnings from the layout engine, which
+  /// the JSX path emits too. Same field, both paths, both non-empty.
+  ///
+  /// This comment used to say the JSX pipeline surfaced none and the array
+  /// was always `[]`. That was true once, stopped being true, and was then
+  /// read as licence to drop the field — which is how warnings went missing
+  /// on the JSX path for months. A stale claim about what a field contains
+  /// is how this field gets discarded again.
   warnings: string[];
 }
 

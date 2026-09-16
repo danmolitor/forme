@@ -83,11 +83,27 @@ pub fn render_pdf_with_layout(
         crate::render_json_with_layout_and_options(json, options)
             .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
+    layout_result(&pdf_bytes, &layout_info, &warnings)
+}
+
+/// The ONE place a render's outputs become a JS layout result.
+///
+/// Both bindings used to build this object by hand, and the template one
+/// never set `warnings` — so `renderTemplateWithLayout` reported "warnings:
+/// none" on every render, forever, while the binding twenty lines up set it
+/// correctly. Every field now reaches every caller by construction, which is
+/// what `@formepdf/core`'s `toRenderWithLayoutResult` already does one layer
+/// up. A new field is added exactly here.
+fn layout_result(
+    pdf_bytes: &[u8],
+    layout_info: &crate::LayoutInfo,
+    warnings: &[String],
+) -> Result<JsValue, JsValue> {
     let result = js_sys::Object::new();
-    let pdf_array = js_sys::Uint8Array::from(pdf_bytes.as_slice());
-    let layout = serde_wasm_bindgen::to_value(&layout_info)
+    let pdf_array = js_sys::Uint8Array::from(pdf_bytes);
+    let layout = serde_wasm_bindgen::to_value(layout_info)
         .map_err(|e| JsValue::from_str(&format!("Layout serialization error: {}", e)))?;
-    let warnings_arr = serde_wasm_bindgen::to_value(&warnings)
+    let warnings_arr = serde_wasm_bindgen::to_value(warnings)
         .map_err(|e| JsValue::from_str(&format!("Warnings serialization error: {}", e)))?;
 
     js_sys::Reflect::set(&result, &JsValue::from_str("pdf"), &pdf_array)?;
@@ -107,16 +123,9 @@ pub fn render_template_pdf_with_layout(
     template_json: &str,
     data_json: &str,
 ) -> Result<JsValue, JsValue> {
-    let (pdf_bytes, layout_info) = crate::render_template_with_layout(template_json, data_json)
-        .map_err(|e| JsValue::from_str(&e.to_string()))?;
+    let (pdf_bytes, layout_info, warnings) =
+        crate::render_template_with_layout(template_json, data_json)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
-    let result = js_sys::Object::new();
-    let pdf_array = js_sys::Uint8Array::from(pdf_bytes.as_slice());
-    let layout = serde_wasm_bindgen::to_value(&layout_info)
-        .map_err(|e| JsValue::from_str(&format!("Layout serialization error: {}", e)))?;
-
-    js_sys::Reflect::set(&result, &JsValue::from_str("pdf"), &pdf_array)?;
-    js_sys::Reflect::set(&result, &JsValue::from_str("layout"), &layout)?;
-
-    Ok(result.into())
+    layout_result(&pdf_bytes, &layout_info, &warnings)
 }
