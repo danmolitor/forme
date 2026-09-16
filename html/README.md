@@ -137,13 +137,22 @@ print`, comma lists with a match) join the cascade with normal
 specificity; `@media screen` is excluded silently, exactly like Chrome's
 print path. Templates styled for Puppeteer's print-default render
 correctly. **Feature queries** `min-width` / `max-width` / `width` and
-`orientation` are evaluated against the **page box** (the full page
-size), per Media Queries Level 4's definition of `width` for paged
-media. A4 is 794 CSS px wide, so `(min-width: 768px)` is true on A4 —
-matching Chrome's print path, where Bootstrap desktop grids activate.
-(Earlier versions evaluated against the content box — page size minus
-margins — under a "the content box is the only honest viewport"
-rationale; that was a misreading of the spec, corrected here.)
+`orientation` are evaluated against the **page content box** (page size
+minus margins). A4 is 487pt = 650 CSS px, so `(min-width: 768px)` is
+false on A4, and none of Bootstrap's three desktop breakpoints activate
+in print.
+
+This briefly evaluated against the page box instead, citing Media
+Queries Level 4 and a claim that Chrome's print path agrees. The Chrome
+claim was never verified and is false. Measured with Chrome 153,
+`(min-width: 768px)` does not match on A4 or Letter, and bisecting puts
+Chrome's print viewport at ~741 CSS px, unchanged when the `@page` margin
+goes from `0pt` to `100pt`. That is neither the page box (794px) nor the
+content box, and is consistent with Chrome fixing the viewport from its
+own default paper minus default margins before `@page` applies — a
+browser artifact rather than a spec value, which is why it is not
+emulated. The content box reproduces Chrome's observable outcome at every
+Bootstrap breakpoint without pretending to match its number.
 `orientation` derives from the page's own dimensions.
 `print and (min-width: 600px)` and `and`-chains of evaluable features
 evaluate fully. Anything still unmodeled (`prefers-color-scheme`, `not`,

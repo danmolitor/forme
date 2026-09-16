@@ -222,15 +222,35 @@ pub fn html_to_document(html: &str, options: &HtmlOptions) -> (forme::Document, 
         probe.append(sheet::parse_stylesheet(css, &mut probe_warn));
     }
     let probe_config = page_config(options, probe.page.as_ref(), &mut probe_warn);
-    // Media Queries Level 4: in paged media the `width` feature is the width
-    // of the PAGE BOX, not the content area. A4 = 794 CSS px, so
-    // `(min-width: 768px)` is true on A4 — Chrome's print path agrees
-    // (Bootstrap desktop grids activate in print). We previously evaluated
-    // against the content box; that was a spec misreading.
+    // The viewport for `@media` feature queries is the page CONTENT box.
+    //
+    // This was briefly the page box instead, on the reasoning that Media
+    // Queries Level 4 defines the `width` feature against the page box and
+    // that "Chrome's print path agrees (Bootstrap desktop grids activate in
+    // print)". THE CHROME HALF OF THAT WAS NEVER VERIFIED AND IS FALSE.
+    // Measured with Chrome 153, on a page whose only variable is a media
+    // query flipping a background colour:
+    //
+    //   `(min-width: 768px)` does NOT match, on A4 or on Letter.
+    //
+    // Bisecting the breakpoint puts Chrome's print viewport at ~741 CSS px,
+    // and it does not move when the `@page` margin changes from 0pt to
+    // 100pt. So it is neither the page box (794px on A4) nor the content box
+    // (650px). It is consistent with Chrome fixing the print viewport from
+    // its OWN default paper minus default margins (816 - 2*38.4 = 739.2px)
+    // before the document's `@page` is applied. That is a browser artifact,
+    // not a spec value: emulating the number would hard-code one browser's
+    // default paper into a paged engine and be wrong on A3.
+    //
+    // The content box reproduces Chrome's observable OUTCOME at every
+    // Bootstrap breakpoint (768, 992, 1200 all fail to match on A4 and
+    // Letter) without pretending to match its number. Do not "correct" this
+    // back to the page box from the spec text alone; measure first.
     let (pw, ph) = probe_config.size.dimensions();
+    let margin = &probe_config.margin;
     let viewport = sheet::Viewport {
-        width: pw,
-        height: ph,
+        width: (pw - margin.left - margin.right).max(0.0),
+        height: (ph - margin.top - margin.bottom).max(0.0),
     };
 
     // Pass 2 (real): parse with the viewport bound so feature queries evaluate.
