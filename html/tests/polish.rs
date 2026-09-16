@@ -402,13 +402,21 @@ fn running_position_removes_the_element_from_flow() {
 }
 
 #[test]
-fn media_width_evaluates_against_the_page_box() {
-    // MQ Level 4: for paged media, the width feature is the width of the
-    // PAGE BOX — the full page, not the content area. A4 is 595.28pt =
-    // 794 CSS px, so (min-width: 768px) is TRUE on A4 (Chrome print
-    // agrees; Bootstrap desktop grids activate). We evaluated against
-    // the content box (487pt = 650px) under a "the page content box is
-    // the only honest viewport" doctrine that was a spec misreading.
+fn media_width_evaluates_against_the_page_content_box() {
+    // The viewport for feature queries is the page CONTENT box, so on A4
+    // with default margins it is 487pt = 650 CSS px.
+    //
+    // This test previously asserted the opposite, citing a claim that
+    // Chrome's print path matches `(min-width: 768px)` on A4. That claim
+    // was never verified and is false: measured with Chrome 153, the
+    // breakpoint does not match on A4 or Letter, and Chrome's print
+    // viewport bisects to ~741px independent of the `@page` margin. The
+    // test pinned the wrong behaviour and cited the unverified claim as
+    // its justification, which is how it survived.
+    //
+    // Bootstrap's three breakpoints are the reason this matters: at 768,
+    // 992 and 1200 none of them may activate in print, because none of
+    // them activate in a browser printing the same document.
     let (doc, _) = html_to_document(
         "<html><head><style>\
          p { color: rgb(0, 0, 0) }\
@@ -418,11 +426,12 @@ fn media_width_evaluates_against_the_page_box() {
         &HtmlOptions::default(),
     );
     let text = first_text_color(&doc.children).expect("styled text");
-    // 768px = 576pt <= 595.28 page width -> red applies.
-    // 900px = 675pt > 595.28 -> green does not.
+    // 768px = 576pt > 487pt content box -> neither rule applies, so the
+    // paragraph keeps its base black.
     assert!(
-        text.r > 0.9 && text.g < 0.1,
-        "min-width:768px must pass on A4 (page box 794px): got rgb({},{},{})",
+        text.r < 0.1 && text.g < 0.1 && text.b < 0.1,
+        "min-width:768px must NOT match on A4 (content box 650px), matching \
+         what Chrome does when printing the same document: got rgb({},{},{})",
         text.r,
         text.g,
         text.b
@@ -460,5 +469,57 @@ fn flex_grow_spacer_pushes_footer_to_page_bottom() {
     assert!(
         !warnings.iter().any(|w| w.contains("flex")),
         "flex-grow and flex:<n> are in-subset: {warnings:?}"
+    );
+}
+
+#[test]
+fn bootstrap_desktop_breakpoints_do_not_activate_in_print() {
+    // The shape from the original report: a Bootstrap-derived template whose
+    // `.container` takes a desktop width from a `min-width` breakpoint and
+    // then overruns the page. None of the three breakpoints may match, on
+    // either common paper, because none of them match in a browser printing
+    // the same document (measured, Chrome 153).
+    for (paper, size) in [("A4", ""), ("Letter", "size: Letter;")] {
+        let (doc, _) = html_to_document(
+            &format!(
+                "<html><head><style>\
+                 @page {{ {size} }}\
+                 p {{ color: rgb(0, 0, 0) }}\
+                 @media (min-width: 768px) {{ p {{ color: rgb(255, 0, 0) }} }}\
+                 @media (min-width: 992px) {{ p {{ color: rgb(0, 255, 0) }} }}\
+                 @media (min-width: 1200px) {{ p {{ color: rgb(0, 0, 255) }} }}\
+                 </style></head><body><p>gated</p></body></html>"
+            ),
+            &HtmlOptions::default(),
+        );
+        let text = first_text_color(&doc.children).expect("styled text");
+        assert!(
+            text.r < 0.1 && text.g < 0.1 && text.b < 0.1,
+            "no Bootstrap breakpoint may activate in print on {paper}: got rgb({},{},{})",
+            text.r,
+            text.g,
+            text.b
+        );
+    }
+}
+
+#[test]
+fn a_narrow_breakpoint_still_matches_against_the_content_box() {
+    // The complement, so the fix cannot be "never match anything". A4's
+    // content box is 487pt = 650 CSS px, so a 600px breakpoint applies.
+    let (doc, _) = html_to_document(
+        "<html><head><style>\
+         p { color: rgb(0, 0, 0) }\
+         @media (min-width: 600px) { p { color: rgb(255, 0, 0) } }\
+         </style></head><body><p>gated</p></body></html>",
+        &HtmlOptions::default(),
+    );
+    let text = first_text_color(&doc.children).expect("styled text");
+    assert!(
+        text.r > 0.9 && text.g < 0.1,
+        "min-width:600px matches a 650px content box: got rgb({},{},{})",
+        text.r,
+        text.g,
+        text.b
     );
 }
