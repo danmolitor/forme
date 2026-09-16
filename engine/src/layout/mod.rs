@@ -123,6 +123,7 @@ pub struct ElementStyleInfo {
     pub line_height: f64,
     pub text_align: TextAlign,
     pub letter_spacing: f64,
+    pub word_spacing: f64,
     pub text_decoration: TextDecoration,
     pub text_transform: TextTransform,
     // Visual
@@ -205,6 +206,7 @@ impl ElementStyleInfo {
             line_height: style.line_height,
             text_align: style.text_align,
             letter_spacing: style.letter_spacing,
+            word_spacing: style.word_spacing,
             text_decoration: style.text_decoration,
             text_transform: style.text_transform,
             color: style.color,
@@ -258,6 +260,7 @@ impl Default for ElementStyleInfo {
             line_height: 1.4,
             text_align: TextAlign::default(),
             letter_spacing: 0.0,
+            word_spacing: 0.0,
             text_decoration: TextDecoration::None,
             text_transform: TextTransform::None,
             color: Color::BLACK,
@@ -4542,6 +4545,7 @@ impl LayoutEngine {
                 style.font_weight,
                 style.font_style,
                 style.letter_spacing,
+                style.word_spacing,
                 style.hyphens,
                 style.lang.as_deref(),
                 justify,
@@ -4555,6 +4559,7 @@ impl LayoutEngine {
                 style.font_weight,
                 style.font_style,
                 style.letter_spacing,
+                style.word_spacing,
                 style.hyphens,
                 style.lang.as_deref(),
             ),
@@ -4571,6 +4576,7 @@ impl LayoutEngine {
                 style.font_weight,
                 style.font_style,
                 style.letter_spacing,
+                style.word_spacing,
             ),
             TextOverflow::Clip => self.text_layout.truncate_clip(
                 font_context,
@@ -4581,6 +4587,7 @@ impl LayoutEngine {
                 style.font_weight,
                 style.font_style,
                 style.letter_spacing,
+                style.word_spacing,
             ),
             TextOverflow::Wrap => lines,
         };
@@ -4849,6 +4856,7 @@ impl LayoutEngine {
                     href: run_href.map(|s| s.to_string()),
                     text_decoration: run_style.text_decoration,
                     letter_spacing: run_style.letter_spacing,
+                    word_spacing: run_style.word_spacing,
                 });
             }
         }
@@ -6404,6 +6412,7 @@ impl LayoutEngine {
                                 href: None,
                                 text_decoration: run_style.text_decoration,
                                 letter_spacing: run_style.letter_spacing,
+                                word_spacing: run_style.word_spacing,
                             });
                         }
                     }
@@ -6441,6 +6450,7 @@ impl LayoutEngine {
                             style.font_weight,
                             style.font_style,
                             style.letter_spacing,
+                            style.word_spacing,
                             style.hyphens,
                             style.lang.as_deref(),
                             justify,
@@ -6454,6 +6464,7 @@ impl LayoutEngine {
                             style.font_weight,
                             style.font_style,
                             style.letter_spacing,
+                            style.word_spacing,
                             style.hyphens,
                             style.lang.as_deref(),
                         ),
@@ -7034,6 +7045,7 @@ impl LayoutEngine {
                                 run_style.font_weight,
                                 run_style.font_style,
                                 run_style.letter_spacing,
+                                run_style.word_spacing,
                                 style.hyphens,
                                 style.lang.as_deref(),
                             )
@@ -7050,6 +7062,7 @@ impl LayoutEngine {
                         style.font_weight,
                         style.font_style,
                         style.letter_spacing,
+                        style.word_spacing,
                         style.hyphens,
                         style.lang.as_deref(),
                     )
