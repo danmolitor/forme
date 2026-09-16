@@ -13464,3 +13464,68 @@ fn a_fragmenting_row_starts_in_the_space_that_is_there() {
         "page 1 is filled, not abandoned after the header: content ends at y={deepest:.0}"
     );
 }
+
+#[test]
+fn a_stretched_column_fills_the_fragment_it_appears_on() {
+    // `align-items: stretch` sizes a column to the row's cross size, but a
+    // fragmenting row has a different cross size on every page it crosses.
+    // The cross size handed to the item before layout is the WHOLE row's
+    // height, which says nothing about where any one page ends, so a column
+    // that ran out of content early painted its background to its content
+    // instead of to the bottom of the page the row crosses. Measured
+    // against Chrome on a two-column document with column backgrounds:
+    // Chrome fills 95% of page 1 in BOTH columns; before this fix Forme
+    // filled 95% and 57%.
+    let para = "Typography is the art of arranging type to make written language legible \
+                and readable. The arrangement involves selecting typefaces and sizes. ";
+    let col = |n: usize| {
+        (0..n)
+            .map(|_| {
+                format!(
+                    r#"{{ "kind": {{ "type": "Text", "content": "{}" }}, "style": {{ "fontSize": 9.0 }}, "children": [] }}"#,
+                    para.repeat(4)
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(",")
+    };
+    // A tall left column and a short right one, both with a background so
+    // the painted box is observable.
+    let json = format!(
+        r#"{{ "children": [
+            {{ "kind": {{ "type": "View" }}, "style": {{ "flexDirection": "Row", "gap": 20.0 }}, "children": [
+                {{ "kind": {{ "type": "View" }},
+                   "style": {{ "flexGrow": 1.0, "flexBasis": {{ "Pt": 0.0 }},
+                              "backgroundColor": {{ "r": 0.93, "g": 0.94, "b": 0.96, "a": 1.0 }} }},
+                   "children": [ {} ] }},
+                {{ "kind": {{ "type": "View" }},
+                   "style": {{ "flexGrow": 1.0, "flexBasis": {{ "Pt": 0.0 }},
+                              "backgroundColor": {{ "r": 0.93, "g": 0.94, "b": 0.96, "a": 1.0 }} }},
+                   "children": [ {} ] }}
+            ] }}
+        ], "metadata": {{ "title": "Stretch" }} }}"#,
+        col(9),
+        col(2)
+    );
+    let (_, layout, _) = forme::render_with_layout(&serde_json::from_str(&json).unwrap()).unwrap();
+    assert!(layout.pages.len() > 1, "the row must fragment");
+
+    // On page 1 both column boxes reach the same depth: the page's bottom.
+    let mut boxes: Vec<(f64, f64)> = Vec::new();
+    for e in &layout.pages[0].elements {
+        if e.node_type == "View" && e.height > 100.0 {
+            boxes.push((e.x.round(), e.y + e.height));
+        }
+    }
+    boxes.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+    assert!(
+        boxes.len() >= 2,
+        "both column boxes are on page 1: {boxes:?}"
+    );
+    let (left_bottom, right_bottom) = (boxes[0].1, boxes[boxes.len() - 1].1);
+    assert!(
+        (left_bottom - right_bottom).abs() < 1.0,
+        "a short column stretches to the same fragment bottom as a tall one: \
+         left ends {left_bottom:.0}, right ends {right_bottom:.0}"
+    );
+}

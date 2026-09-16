@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **A stretched column fills the fragment it appears on.** `align-items: stretch` sizes a column to the row's cross size, but a fragmenting row has a different cross size on every page it crosses — and the cross size handed to the item before layout is the whole row's height, which says nothing about where any one page ends. A column that ran out of content early therefore painted its background or border to its content rather than to the bottom of the page. Measured against Chrome on a two-column document with column backgrounds: Chrome fills 95% of page 1 in both columns, Forme filled 95% and 57%; it now fills both. Known remaining gap: a column with no content left on a later page paints nothing there, where a browser continues its band.
+
 ### Changed (behavior)
 
 - **A flex row that can fragment starts in the space that is there.** A row taller than the space left used to relocate whole to the next page, abandoning whatever remained (587pt of a 690pt page, in the report that prompted this) and, for a row taller than any page, buying nothing — it still overflowed after the move. It now begins where it is and continues on the next page, matching the page count a browser prints. The slivers the old rule prevented are prevented per column instead: each column's own widow/orphan control decides whether a line stays. Wrapped rows, which cannot fragment, keep the old rule.

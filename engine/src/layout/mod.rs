@@ -3342,6 +3342,9 @@ impl LayoutEngine {
                         tail,
                         cursor: item_cursor,
                         final_y,
+                        stretches: matches!(align, AlignItems::Stretch)
+                            && matches!(item.style.height, SizeConstraint::Auto)
+                            && !has_auto_v,
                     });
                 } else {
                     // Wrapped row: today's sequential rejoin, unchanged.
@@ -3384,6 +3387,39 @@ impl LayoutEngine {
                 .map(|f| f.pages.len() + 1)
                 .max()
                 .unwrap_or(1);
+
+            // A stretched column is grown to the bottom of every fragment it
+            // appears on, which is what a browser paints: on a page the row
+            // crosses, each column's box reaches the page's content bottom;
+            // on the row's last page, it reaches the row's own bottom. The
+            // cross size handed to the item before layout is the WHOLE row's
+            // height, which says nothing about where any one page ends, so a
+            // column that ran out of content early painted its background to
+            // its content instead of to the fragment. Measured against
+            // Chrome on a two-column document with column backgrounds:
+            // Chrome fills 95%/95% of page 1 then 51%/51% of page 2; before
+            // this, Forme filled 95%/57% then 52%/none.
+            if frag_count > 1 {
+                let page_bottom = cursor.content_y + cursor.content_height;
+                let last = frag_count - 1;
+                let row_end = cursor.content_y + end_y_of(&item_frags, last);
+                for f in item_frags.iter_mut() {
+                    if !f.stretches {
+                        continue;
+                    }
+                    let own_last = f.pages.len();
+                    for (k, page) in f.pages.iter_mut().enumerate() {
+                        let bottom = if k == last { row_end } else { page_bottom };
+                        stretch_fragment(&mut page.elements, bottom);
+                    }
+                    let bottom = if own_last == last {
+                        row_end
+                    } else {
+                        page_bottom
+                    };
+                    stretch_fragment(&mut f.tail, bottom);
+                }
+            }
 
             let mut merged: Vec<Vec<LayoutElement>> = vec![Vec::new(); frag_count];
             // Whatever was already on the row's first page paints first.
@@ -7783,6 +7819,29 @@ impl LayoutEngine {
     }
 }
 
+/// The row's bottom on its last fragment: the deepest y reached by any
+/// column that actually ends there. Columns that finished on an earlier
+/// page do not hold it down.
+fn end_y_of(frags: &[ItemFragments], last: usize) -> f64 {
+    frags
+        .iter()
+        .filter(|f| f.pages.len() == last)
+        .map(|f| f.final_y)
+        .fold(f64::MIN, f64::max)
+}
+
+/// Grow a stretched column's box on one fragment down to `bottom`. Only the
+/// item's own top-level boxes move; their children keep their positions,
+/// exactly as a taller container would have held them.
+fn stretch_fragment(elements: &mut [LayoutElement], bottom: f64) {
+    for el in elements.iter_mut() {
+        let grown = bottom - el.y;
+        if grown > el.height {
+            el.height = grown;
+        }
+    }
+}
+
 /// One flex item's contribution to a row that may span pages: the
 /// elements it placed on each page it crossed (`pages`, finished), the
 /// elements still on its unfinished page (`tail`), the cursor it ended
@@ -7793,6 +7852,11 @@ struct ItemFragments {
     tail: Vec<LayoutElement>,
     cursor: PageCursor,
     final_y: f64,
+    /// True when this item is stretching to the row's cross size
+    /// (`align-items: stretch` with an auto height and no auto margins).
+    /// A stretched column's box is grown to the bottom of each fragment it
+    /// appears on, which is what a browser paints.
+    stretches: bool,
 }
 
 struct FlexItem<'a> {
