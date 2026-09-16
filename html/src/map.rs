@@ -136,9 +136,21 @@ pub fn map_html(
     if mapper.body_clip_x {
         page.clip_content_x = true;
     }
+    // `<html lang>` (copied down to <body> by the parser, as HTML inherits it)
+    // is the document declaring its own language. `options.lang` overrides it
+    // later in lib.rs; this is the value that override has to beat, and it was
+    // never read at all before.
+    let mut metadata = Metadata::default();
+    if let Some(lang) = body.attr("lang") {
+        let lang = lang.trim();
+        if !lang.is_empty() {
+            metadata.lang = Some(lang.to_string());
+        }
+    }
+
     let doc = Document {
         children,
-        metadata: Metadata::default(),
+        metadata,
         default_page: page,
         first_page: None,
         left_page: None,

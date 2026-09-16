@@ -30,7 +30,15 @@ REF="${1:?usage: byte-wall.sh <baseline-ref> [fixture ...]}"
 shift || true
 FIXTURES=("$@")
 if [ ${#FIXTURES[@]} -eq 0 ]; then
-  FIXTURES=(letterhead report zebra-invoice statement dashed-borders invoice)
+  # styled-text-blocks covers the box/text split and relative units on
+  # gap/border-radius/border-width. Both were real defects that the other six
+  # fixtures could not see: no fixture put a border on a text-bearing block,
+  # and none wrote `gap: 1rem` or `border: 0.5em`. Two consecutive fixes
+  # reported 6/6 IDENTICAL while changing real output, which is a coverage
+  # result being read as a no-change result. A wall is only as wide as its
+  # corpus — when a fix lands with the wall silent, add the fixture that
+  # would have spoken.
+  FIXTURES=(letterhead report zebra-invoice statement dashed-borders invoice styled-text-blocks)
 fi
 
 OUT="$(mktemp -d /tmp/byte-wall.XXXXXX)"
