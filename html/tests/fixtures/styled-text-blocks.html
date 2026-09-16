@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<!--
+  Byte-wall coverage for two paths the rest of the corpus does not reach.
+
+  1. THE BOX/TEXT SPLIT. A text-bearing block only gets a wrapping box when
+     it has a border, padding or a background. Every styled block below is
+     therefore a <p> or a heading that carries BOTH a box property and a
+     text property, because the defect this guards was that the first
+     silently cancelled the second. `dashed-borders.html` has 13 dashed and
+     dotted borders and not one of them is on a text-bearing block, which is
+     exactly how that bug survived a green wall.
+
+  2. RELATIVE UNITS on gap, border-radius and border-width. No other fixture
+     and no shipped template writes `gap: 1rem` or `border: 0.5em`, so the
+     wall could not see those either.
+
+  Written as a plausible document rather than a property matrix: the wall
+  renders whole pages, and a page of disconnected swatches would not
+  exercise flow, wrapping or margin collapse around these blocks.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Field Services Bulletin</title>
+    <style>
+      @page { size: A4; margin: 48pt; }
+      body { font-family: Helvetica, sans-serif; font-size: 10.5pt; color: #23262b; }
+
+      /* Split path: text-transform + letter-spacing on a bordered heading. */
+      h1 {
+        font-size: 17pt;
+        text-transform: uppercase;
+        letter-spacing: 1.2pt;
+        border-bottom: 2pt solid #7a3b1d;
+        padding-bottom: 6pt;
+        margin: 0 0 14pt 0;
+      }
+
+      /* Split path: text-transform on a heading with a background. */
+      h2 {
+        font-size: 11pt;
+        text-transform: uppercase;
+        letter-spacing: 0.8pt;
+        background-color: #efece7;
+        padding: 5pt 8pt;
+        margin: 18pt 0 8pt 0;
+      }
+
+      /* Split path: a dashed border on a paragraph. */
+      p.notice {
+        border: 1.5pt dashed #7a3b1d;
+        padding: 9pt;
+        margin: 0 0 10pt 0;
+      }
+
+      /* Split path: max-width on a bordered paragraph. */
+      p.pull {
+        max-width: 280pt;
+        border-left: 3pt solid #7a3b1d;
+        padding: 4pt 0 4pt 10pt;
+        margin: 0 0 10pt 0;
+        font-style: italic;
+      }
+
+      /* Split path: letter-spacing + a background, plus text-align. */
+      p.stamp {
+        letter-spacing: 2.5pt;
+        text-align: center;
+        background-color: #efece7;
+        padding: 7pt;
+        margin: 0 0 10pt 0;
+      }
+
+      /* Relative units: gap in rem. */
+      .row { display: flex; flex-direction: row; gap: 1rem; margin: 0 0 12pt 0; }
+      .row > div { background-color: #f4f2ee; padding: 8pt; }
+
+      /* Relative units: border-radius in rem, border-width in em. */
+      .card {
+        border-radius: 0.5rem;
+        background-color: #eef1f0;
+        padding: 10pt;
+        margin: 0 0 12pt 0;
+      }
+      .rule {
+        font-size: 11pt;
+        border: 0.4em solid #7a3b1d;
+        padding: 8pt;
+        margin: 0 0 12pt 0;
+      }
+
+      p { margin: 0 0 8pt 0; }
+      ul { margin: 0 0 10pt 0; padding-left: 16pt; }
+      li { margin-bottom: 3pt; }
+    </style>
+  </head>
+  <body>
+    <h1>Field services bulletin</h1>
+
+    <p>This bulletin summarises the quarter's inspection results and the
+    changes to reporting that follow from them. It is circulated to all
+    regional coordinators and to the compliance desk.</p>
+
+    <p class="notice">Reports submitted after the fifteenth of the month are
+    carried into the following period and do not count toward the current
+    quarter's totals.</p>
+
+    <h2>Inspection summary</h2>
+
+    <p>Coverage improved across every region except the northern corridor,
+    where two scheduled visits were deferred at the operator's request. Both
+    have been rebooked within the following period.</p>
+
+    <div class="row">
+      <div>Region A &mdash; 41 visits</div>
+      <div>Region B &mdash; 38 visits</div>
+      <div>Region C &mdash; 29 visits</div>
+    </div>
+
+    <p class="pull">Deferred visits are not failures, but a deferral that is
+    not rebooked within thirty days becomes one.</p>
+
+    <h2>Reporting changes</h2>
+
+    <div class="card">
+      <p style="margin:0">From the next cycle, the site reference and the
+      operator reference are both required on submission. Reports missing
+      either are returned automatically.</p>
+    </div>
+
+    <ul>
+      <li>Site reference is now mandatory on every form</li>
+      <li>Operator reference replaces the free-text operator field</li>
+      <li>Photographs are retained for twenty-four months</li>
+    </ul>
+
+    <p class="rule">Queries about the new fields should go to the compliance
+    desk before the cycle opens, not after a report has been returned.</p>
+
+    <p class="stamp">INTERNAL CIRCULATION ONLY</p>
+  </body>
+</html>
