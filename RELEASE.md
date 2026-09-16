@@ -92,11 +92,21 @@ cd packages/sdk && npm run build       # TypeScript hosted API client
 cd packages/tailwind && npm run build  # tw() function, Tailwind v3
 cd packages/templates && npm run build # shared templates + Zod schemas
 
-# 9. Python SDK — rebuild WASM (only if engine/ changed)
+# 9. Python SDK — rebuild WASM. ALWAYS, not "if engine/ changed".
+#
+# This step used to be conditional, which made it a judgement call every
+# release, and the failure is silent in the worst way: the SDK keeps a
+# WASM built from whatever engine it last saw, and its byte-parity test
+# still PASSES — against a @formepdf/html that has since moved. Two
+# packages that agree with themselves and disagree with each other, with
+# a green suite on both sides. Rebuilding costs a couple of minutes and
+# removes the judgement entirely.
 cd packages/python-sdk
 bash build_wasm.sh   # builds wasm32-wasip1 target, copies to formepdf/forme.wasm
 
-# 10. Go SDK — rebuild WASM (only if engine/ changed)
+# 10. Go SDK — rebuild WASM. ALWAYS, for the same reason: it embeds a
+# compiled engine, so a version bump that leaves it on the old binary
+# ships the previous engine under a new number.
 # The Go SDK is a SEPARATE git repo at ../forme-go (sibling of this repo).
 # It uses //go:embed for the WASM binary (tracked in that repo).
 # Its build_wasm.sh has a stale path (see Common Mistakes) — use the
@@ -534,7 +544,7 @@ printf '<h1>hi</h1>' > t.html && npx forme-html t.html && head -c5 t.pdf  # %PDF
 
 ## Common Mistakes
 
-- **Stale WASM**: If `engine/` changed, must rebuild `packages/core` (`npm run build`) before anything else. The WASM binary is ~5.1MB (grew from 4.8MB in 0.7.x when signatures were added). **Also rebuild** the Python SDK (`packages/python-sdk/build_wasm.sh`) and Go SDK (`../forme-go/templates/build_wasm.sh`) WASM binaries — these are separate wasm32-wasip1 builds, not the wasm-pack JS build.
+- **Stale WASM**: Rebuild every time, not "if `engine/` changed" — see step 9. The SDKs keep a WASM from whatever engine they last saw and their byte-parity tests still PASS, against a JS package that has since moved: two sides that agree with themselves, disagree with each other, and are green on both. There are four separate builds and rebuilding the wrong one measures nothing: `packages/core` (JSX path), `packages/html` (HTML path AND the docs gallery gate), `packages/python-sdk/build_wasm.sh` and the Go SDK (both wasm32-wasip1, not the wasm-pack JS build). Must rebuild `packages/core` (`npm run build`) before anything else. The WASM binary is ~5.1MB (grew from 4.8MB in 0.7.x when signatures were added). **Also rebuild** the Python SDK (`packages/python-sdk/build_wasm.sh`) and Go SDK (`../forme-go/templates/build_wasm.sh`) WASM binaries — these are separate wasm32-wasip1 builds, not the wasm-pack JS build.
 - **SDK WASM is gitignored**: `packages/python-sdk/formepdf/forme.wasm` is gitignored (`git add -f`); `../forme-go/templates/forme.wasm` is tracked in that repo. Use `git add -f` to stage them. The Go SDK is a separate git repo — commit and tag there independently.
 - **Stale dist/**: Always rebuild `packages/renderer` before VS Code or CLI. A stale `dist/` can silently ship broken code.
 - **VS Code copies**: The VS Code esbuild config copies WASM from `packages/core/pkg/` and preview HTML from `packages/renderer/dist/preview/`. These are snapshots — rebuild VS Code after rebuilding core or renderer.
