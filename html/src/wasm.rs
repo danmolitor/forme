@@ -124,3 +124,22 @@ pub fn render_html_wasm_with_layout(
         passes: out.passes,
     })
 }
+
+/// The hash of the engine and mapper source this wasm was compiled from, or
+/// an empty string when it was built without one.
+///
+/// The docs gallery gate hashes `engine/src` + `html/src` to decide whether
+/// the committed images are stale. It then RENDERED through whatever wasm
+/// happened to be built, and never checked that the two corresponded. A wasm
+/// older than the source satisfied the gate completely: the input hash
+/// matched, the render produced no warnings, and the page count agreed with
+/// the record, because the same stale wasm had produced both. 27 of 30
+/// gallery images were stale on main when that was finally measured.
+///
+/// This lets the gate ask the renderer which source it came from, rather than
+/// assuming. `scripts/lib/source-hash.mjs` is the single definition of the
+/// value, computed by `packages/html/build.sh` and passed in at compile time.
+#[wasm_bindgen]
+pub fn source_hash() -> String {
+    option_env!("FORME_SOURCE_HASH").unwrap_or("").to_string()
+}

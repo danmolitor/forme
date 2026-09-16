@@ -28,6 +28,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { sourceHash } from './lib/source-hash.mjs';
 import { fileURLToPath } from 'node:url';
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -106,21 +107,33 @@ const selfHash = sha(readFileSync(fileURLToPath(import.meta.url)));
 // and nothing failed). Hash the render-affecting source trees, not build
 // artifacts: wasm bytes differ between local and CI toolchains, source
 // bytes don't.
-function treeHash(dir) {
-  const h = createHash('sha256');
-  const walkDir = (d) => {
-    for (const ent of readdirSync(d, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
-      const p = join(d, ent.name);
-      if (ent.isDirectory()) walkDir(p);
-      else if (ent.name.endsWith('.rs')) { h.update(p.slice(REPO.length)); h.update(readFileSync(p)); }
-    }
-  };
-  walkDir(dir);
-  return h.digest('hex');
+const engineHash = sourceHash();
+
+/**
+ * Fail unless the renderer about to be used was built from the source this
+ * script just hashed.
+ *
+ * Hashing the source and rendering with the binary, without checking that the
+ * two correspond, is how this gate could pass while the images were stale: a
+ * wasm older than the source matched the input hash, rendered without
+ * warnings, and agreed with the recorded page count, because the same stale
+ * wasm had produced the committed images. A check that can only ever agree
+ * with itself. 27 of 30 images were stale on main when it was measured.
+ */
+function assertRendererMatchesSource(mod) {
+  const got = typeof mod.sourceHash === 'function' ? mod.sourceHash() : '';
+  if (got === engineHash) return;
+  const detail = got
+    ? `built from ${got.slice(0, 12)}, sources are ${engineHash.slice(0, 12)}`
+    : 'the renderer reports no source hash at all (built before this check, or from a published package)';
+  throw new Error(
+    `@formepdf/html is stale: ${detail}.\n` +
+      `Rebuild it before generating or checking the gallery:\n` +
+      `  (cd packages/html && npm run build)\n` +
+      `Rendering through a stale build produces images from whichever engine ` +
+      `that build came from, which is exactly what this gate exists to catch.`,
+  );
 }
-const engineHash = sha(
-  Buffer.from(treeHash(join(REPO, 'engine', 'src')) + treeHash(join(REPO, 'html', 'src')))
-);
 
 /** Parse a template README: h1 title, description paragraph,
  *  "Engine features:" line, "Render:" line. The format is the contract —
@@ -299,7 +312,9 @@ if (CHECK) {
   // needs no pdftoppm/sharp — catching drift regardless of how the hash got
   // written. (A file-count check would miss it: the image count and the
   // manifest agree; only the current render disagrees.)
-  const { renderHtmlWithLayout } = await import('@formepdf/html');
+  const html = await import('@formepdf/html');
+  assertRendererMatchesSource(html);
+  const { renderHtmlWithLayout } = html;
   let stale = 0;
   for (const slug of ALL_SLUGS) {
     const rec = manifest[slug];
@@ -339,7 +354,9 @@ if (CHECK) {
 }
 
 // Full generation: render each template, rasterize, emit images + MDX.
-const { renderHtmlWithLayout } = await import('@formepdf/html');
+const htmlMod = await import('@formepdf/html');
+assertRendererMatchesSource(htmlMod);
+const { renderHtmlWithLayout } = htmlMod;
 const sharp = (await import('sharp')).default;
 
 mkdirSync(IMG_DIR, { recursive: true });

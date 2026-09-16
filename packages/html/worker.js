@@ -20,6 +20,7 @@
 import __wbg_init, {
   render_html_wasm,
   render_html_wasm_with_layout,
+  source_hash,
 } from './pkg-web/forme_pdf_html.js';
 import { toWireOptions } from './wire.js';
 import { toRenderResult, toLayoutResult } from './result.js';
@@ -75,4 +76,20 @@ export function renderHtml(html, options = {}) {
 export function renderHtmlWithLayout(html, options = {}) {
   ensureInit();
   return toLayoutResult(render_html_wasm_with_layout(html, JSON.stringify(toWireOptions(options))));
+}
+
+/**
+ * Hash of the `engine/src` + `html/src` source this wasm was built from, or
+ * an empty string if it was built without one.
+ *
+ * Build provenance, not part of the render API. It exists so a caller can ask
+ * which engine a build came from instead of assuming: the docs gallery gate
+ * hashed the source, rendered with whatever wasm happened to be built, and
+ * never checked the two corresponded, which let it pass while the committed
+ * images were stale. Exposed on all three entries so the surface stays
+ * identical across targets.
+ * @returns {string}
+ */
+export function sourceHash() {
+  return source_hash();
 }
