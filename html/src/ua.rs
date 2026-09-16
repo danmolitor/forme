@@ -61,8 +61,8 @@ pub fn ua_style(tag: &str) -> CssStyle {
         "hr" => {
             s.margin[0] = Some(Length::Em(0.5));
             s.margin[2] = Some(Length::Em(0.5));
-            s.border_width = [Some(0.75); 4].map(|w| w.map(|_| 0.0));
-            s.border_width[0] = Some(0.75);
+            s.border_width = [Some(Length::Pt(0.0)); 4];
+            s.border_width[0] = Some(Length::Pt(0.75));
             s.border_color = Some(Color::hex("#808080"));
         }
         _ => {}

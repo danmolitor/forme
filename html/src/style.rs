@@ -219,7 +219,10 @@ pub fn resolve(css: &CssStyle, parent_font_size: f64, warnings: &mut Vec<String>
         None => 0.0,
         Some(l) => to_pt(l, warnings, "padding"),
     });
-    let border_width = [0, 1, 2, 3].map(|i| css.border_width[i].unwrap_or(0.0));
+    let border_width = [0, 1, 2, 3].map(|i| match css.border_width[i] {
+        None => 0.0,
+        Some(l) => to_pt(l, warnings, "border-width"),
+    });
     let border_style = [0, 1, 2, 3].map(|i| css.border_style[i].unwrap_or(BorderStyle::Solid));
 
     let dim = |l: Option<Length>| -> Option<Dimension> {
@@ -275,7 +278,9 @@ pub fn resolve(css: &CssStyle, parent_font_size: f64, warnings: &mut Vec<String>
         border_width,
         border_style,
         border_color: css.border_color,
-        border_radius: css.border_radius,
+        border_radius: css
+            .border_radius
+            .map(|l| to_pt(l, warnings, "border-radius")),
         width: grow(dim(css.width), extra_h),
         height: grow(dim(css.height), extra_v),
         font_family: css.font_family.clone(),
@@ -307,9 +312,9 @@ pub fn resolve(css: &CssStyle, parent_font_size: f64, warnings: &mut Vec<String>
         flex_basis: css.flex_basis.map(|l| to_pt(l, warnings, "flex-basis")),
         justify_content: css.justify_content,
         align_items: css.align_items,
-        gap: css.gap,
-        row_gap: css.row_gap,
-        column_gap: css.column_gap,
+        gap: css.gap.map(|l| to_pt(l, warnings, "gap")),
+        row_gap: css.row_gap.map(|l| to_pt(l, warnings, "row-gap")),
+        column_gap: css.column_gap.map(|l| to_pt(l, warnings, "column-gap")),
         grid_template_columns: css
             .grid_template_columns
             .as_ref()
