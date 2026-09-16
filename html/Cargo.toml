@@ -39,6 +39,12 @@ name = "forme-html"
 path = "src/main.rs"
 
 [dev-dependencies]
+# Inflate PDF content streams in tests. `word-spacing` is applied at PDF-write
+# time via the `Tw` operator and is NOT part of text measurement, so it is
+# invisible to the layout snapshot; reading the content stream is the only way
+# to assert it arrived.
+miniz_oxide = "0.8"
+
 # Heap profiler for the allocation-churn investigation (Fix 3). Attributes
 # every allocation to a call-site backtrace so we can rank sites by count and
 # bytes. Run via `cargo run --release --example dhatprofile`.
