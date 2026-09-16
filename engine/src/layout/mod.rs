@@ -4456,6 +4456,17 @@ impl LayoutEngine {
             SizeConstraint::Fixed(w) => (w - margin.horizontal()).max(0.0),
             SizeConstraint::Auto => available_width - margin.horizontal(),
         };
+        // ...then clamp it, exactly as a View does. This line was missing, so
+        // `width` was honoured on a leaf text box and `max-width`/`min-width`
+        // were not — the constraint reached the node and nothing consulted it.
+        //
+        // The HTML symptom was the visible one: a `<p>` only gets a wrapping
+        // box when it has something to paint, so `<p style="max-width:120pt">`
+        // ran the full column at 475pt while the same declaration on a `<div>`
+        // gave 120pt. Fixing it here rather than by making the mapper emit a
+        // box covers the JSX path too, where a `<Text maxWidth>` had the
+        // identical hole, and it changes no node tree.
+        let text_width = text_width.min(style.max_width).max(style.min_width);
 
         cursor.y += margin.top;
 

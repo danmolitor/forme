@@ -13577,3 +13577,53 @@ fn the_template_path_reports_the_render_defects_it_hits() {
         "the template path's warnings match the direct render's"
     );
 }
+
+#[test]
+fn a_text_node_honours_its_width_constraints_not_only_width() {
+    // `layout_text` derived its box from `style.width` and stopped there, so a
+    // leaf text node honoured `width` while `max_width` and `min_width` were
+    // carried onto the node and never consulted. A View clamps; text did not.
+    //
+    // The visible symptom was on the HTML path, where a `<p>` only gets a
+    // wrapping box when it has something to paint, so `max-width` worked on a
+    // `<div>` and did nothing on a paragraph. It is pinned here, at the
+    // engine, because the JSX path had the identical hole through
+    // `<Text style={{ maxWidth }}>`.
+    let long = "the quick brown fox jumps over the lazy dog and keeps on running";
+
+    let width_of = |style: &str| -> f64 {
+        let json = format!(
+            r#"{{ "children": [ {{ "kind": {{ "type": "Text", "content": "{long}" }},
+                 "style": {style}, "children": [] }} ] }}"#
+        );
+        let (_, layout, _) =
+            forme::render_with_layout(&serde_json::from_str(&json).unwrap()).unwrap();
+        layout.pages[0].elements[0].width
+    };
+
+    let unconstrained = width_of("{}");
+    assert!(
+        unconstrained > 200.0,
+        "control: an unconstrained line is wide ({unconstrained:.1}pt)"
+    );
+
+    let capped = width_of(r#"{ "maxWidth": { "Pt": 120.0 } }"#);
+    assert!(
+        (capped - 120.0).abs() < 0.5,
+        "maxWidth clamps a text box: {capped:.1}pt, cap 120pt"
+    );
+
+    // `width` still wins where it is set, and the clamp does not disturb it.
+    let fixed = width_of(r#"{ "width": { "Pt": 150.0 } }"#);
+    assert!(
+        (fixed - 150.0).abs() < 0.5,
+        "an explicit width is unchanged by the clamp: {fixed:.1}pt"
+    );
+
+    // minWidth floors a box that would otherwise be narrower.
+    let floored = width_of(r#"{ "width": { "Pt": 80.0 }, "minWidth": { "Pt": 300.0 } }"#);
+    assert!(
+        (floored - 300.0).abs() < 0.5,
+        "minWidth floors a text box: {floored:.1}pt, floor 300pt"
+    );
+}
