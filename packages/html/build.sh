@@ -10,6 +10,11 @@
 #               via fs.readFileSync at require time.
 set -e
 cd "$(dirname "$0")/../../html"
+
+# Bake in which source this build came from, so the docs gallery gate can ask
+# a renderer rather than assume. One definition of the value, in
+# scripts/lib/source-hash.mjs, shared with the gate that checks it.
+export FORME_SOURCE_HASH="$(node ../scripts/lib/source-hash.mjs)"
 wasm-pack build --target bundler --out-dir ../packages/html/pkg      -- --features wasm
 wasm-pack build --target web     --out-dir ../packages/html/pkg-web  -- --features wasm
 wasm-pack build --target nodejs  --out-dir ../packages/html/pkg-node -- --features wasm
