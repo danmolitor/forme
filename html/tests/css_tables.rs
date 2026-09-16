@@ -260,3 +260,47 @@ fn row_that_relocates_whole_does_not_report_sequential_split() {
         out.warnings
     );
 }
+
+#[test]
+fn the_background_shorthand_resets_the_colour() {
+    // `background` is a SHORTHAND: any value resets every background
+    // property to its initial value, and the initial background-color is
+    // transparent. Bootstrap's print reset depends on exactly that —
+    // `*,:after,:before { background: 0 0 !important }`, where `0 0` is a
+    // background POSITION and the colour reset is the whole point. Treating
+    // the declaration as merely unparseable left the screen colour painted,
+    // so Bootstrap invoices printed grey panels a browser leaves white.
+    let doc = |rule: &str| {
+        format!(
+            "<html><head><style>\
+             .box {{ background-color: #dcdddf; padding: 10pt }}\
+             {rule}\
+             </style></head><body><div class=\"box\">panel</div></body></html>"
+        )
+    };
+    // Read the resolved style, not the PDF bytes: content streams are
+    // compressed, and a `Rect` element exists whether or not it fills.
+    let painted = |html: &str| -> bool {
+        let out = render(html);
+        fn walk(els: &[forme::layout::ElementInfo]) -> bool {
+            els.iter()
+                .any(|e| e.style.background_color.is_some_and(|c| c.a > 0.0) || walk(&e.children))
+        }
+        out.layout.pages.iter().any(|p| walk(&p.elements))
+    };
+
+    assert!(
+        painted(&doc("/* no reset */")),
+        "control: the panel paints its background"
+    );
+    assert!(
+        !painted(&doc(
+            "@media print { *,:after,:before { background: 0 0 !important } }"
+        )),
+        "Bootstrap's print reset strips it"
+    );
+    assert!(
+        painted(&doc("@media screen { .box { background: 0 0 } }")),
+        "a screen-only reset must not apply to print"
+    );
+}
