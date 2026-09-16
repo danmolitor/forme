@@ -60,6 +60,7 @@ pub struct Computed {
     pub text_transform: Option<TextTransform>,
     /// Resolved to points (em against the element's own font size).
     pub letter_spacing: Option<f64>,
+    pub word_spacing: Option<f64>,
 
     pub display: CssDisplay,
     pub flex_direction: Option<FlexDirection>,
@@ -295,6 +296,7 @@ pub fn resolve(css: &CssStyle, parent_font_size: f64, warnings: &mut Vec<String>
         letter_spacing: css
             .letter_spacing
             .map(|l| to_pt(l, warnings, "letter-spacing")),
+        word_spacing: css.word_spacing.map(|l| to_pt(l, warnings, "word-spacing")),
         display: {
             let d = css.display.unwrap_or(CssDisplay::Block);
             if d == CssDisplay::Grid && css.grid_template_columns.is_none() {

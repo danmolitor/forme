@@ -133,6 +133,10 @@ pub struct CssStyle {
     pub text_decoration: Option<TextDecoration>,
     pub text_transform: Option<TextTransform>,
     pub letter_spacing: Option<Length>,
+    /// `word-spacing`. Block-level only: the engine reads it off the text
+    /// node's own style in both `layout_text` and `layout_text_runs`, never
+    /// per-run, so it is deliberately NOT carried on `RunStyle`.
+    pub word_spacing: Option<Length>,
     pub vertical_align: Option<VerticalAlign>,
     pub max_width: Option<Length>,
     pub min_width: Option<Length>,
@@ -242,6 +246,7 @@ impl CssStyle {
             text_decoration,
             text_transform,
             letter_spacing,
+            word_spacing,
             vertical_align,
             max_width,
             min_width,
@@ -722,6 +727,16 @@ pub(crate) fn apply_declaration(
                     }
                 };
             }
+        }
+        "word-spacing" => {
+            let tok = p.next().ok().cloned();
+            style.word_spacing = match tok.as_ref() {
+                Some(Token::Ident(id)) if id.eq_ignore_ascii_case("normal") => {
+                    Some(Length::Pt(0.0))
+                }
+                Some(t) => token_to_length(t),
+                None => None,
+            };
         }
         "letter-spacing" => {
             let tok = p.next().ok().cloned();

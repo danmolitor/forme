@@ -67,6 +67,13 @@
          if the text layout consults the constraint itself. */
       p.measure { max-width: 300pt; margin: 0 0 10pt 0; }
 
+      /* Applied through the PDF Tw operator, not through measurement, so
+         only a byte comparison can see it at all. */
+      p.terms {
+        word-spacing: 4pt;
+        margin: 0 0 10pt 0;
+      }
+
       /* Split path: letter-spacing + a background, plus text-align. */
       p.stamp {
         letter-spacing: 2.5pt;
@@ -145,6 +152,9 @@
     <p class="measure">Prose set to a fixed measure rather than the full
     column width, so that the line length stays readable independently of the
     page size the document is rendered at.</p>
+
+    <p class="terms">Payment terms remain net thirty days from the date of
+    issue, unless a different arrangement is recorded on the order.</p>
 
     <p class="stamp">INTERNAL CIRCULATION ONLY</p>
   </body>
