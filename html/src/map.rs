@@ -1727,30 +1727,51 @@ fn to_engine_style(c: &Computed) -> Style {
 /// Split a paragraph's style into box props (for a wrapping View) and text
 /// props (for the inner Text node). Margins go on the View so the collapse
 /// pass sees them.
+///
+/// EXPRESSED AS SUBTRACTION, DELIBERATELY. This used to be two hand-written
+/// allow-lists — eight properties kept for the box, eight for the text, and
+/// everything else in `Style` silently discarded. It was written when those
+/// sixteen were most of the struct, and every property added since landed in
+/// neither list: `border_style`, `text_transform`, `letter_spacing`,
+/// `word_spacing`, orphans and widows, `position` and its offsets,
+/// `max_width`, the flex fields, `grid_placement`, `vertical_align`,
+/// `overflow`, `opacity`, `transform`. All of them are documented as
+/// supported, and all of them vanished from any paragraph that also had a
+/// border, padding or a background — so `h2 { text-transform: uppercase;
+/// border-bottom: 1px solid }` rendered lower-case.
+///
+/// So the text node names what it needs, and the box keeps THE REST. A
+/// property added to `Style` tomorrow lands on the box without anyone
+/// remembering this function: possibly the wrong half, which is a visible
+/// bug, rather than no half, which is not.
 fn split_box_and_text_style(c: &Computed) -> (Style, Style) {
-    let full = to_engine_style(c);
-    let box_style = Style {
-        margin: full.margin,
-        padding: full.padding,
-        border_width: full.border_width,
-        border_color: full.border_color,
-        border_radius: full.border_radius,
-        background_color: full.background_color,
-        width: full.width,
-        height: full.height,
-        ..Default::default()
-    };
+    let mut box_style = to_engine_style(c);
+
+    // Glyph- and line-level properties: the ones `layout_text` reads off the
+    // Text node itself. Taken out of the box rather than copied, keeping the
+    // existing division of labour — the box is a container, not a text run.
     let text_style = Style {
-        font_family: full.font_family,
-        font_size: full.font_size,
-        font_weight: full.font_weight,
-        font_style: full.font_style,
-        line_height: full.line_height,
-        text_align: full.text_align,
-        color: full.color,
-        text_decoration: full.text_decoration,
+        font_family: box_style.font_family.take(),
+        font_size: box_style.font_size.take(),
+        font_weight: box_style.font_weight.take(),
+        font_style: box_style.font_style.take(),
+        line_height: box_style.line_height.take(),
+        text_align: box_style.text_align.take(),
+        color: box_style.color.take(),
+        text_decoration: box_style.text_decoration.take(),
+        text_transform: box_style.text_transform.take(),
+        letter_spacing: box_style.letter_spacing.take(),
+        word_spacing: box_style.word_spacing.take(),
+        hyphens: box_style.hyphens.take(),
+        lang: box_style.lang.take(),
+        direction: box_style.direction.take(),
+        text_overflow: box_style.text_overflow.take(),
+        line_breaking: box_style.line_breaking.take(),
+        min_widow_lines: box_style.min_widow_lines.take(),
+        min_orphan_lines: box_style.min_orphan_lines.take(),
         ..Default::default()
     };
+
     (box_style, text_style)
 }
 
