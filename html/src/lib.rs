@@ -97,9 +97,9 @@ pub struct HtmlOptions {
     /// embedded) and tagging with the 2.0 structure namespace. Contradicts
     /// `pdf_ua` and the 2x/3x `pdf_a` levels; composes with `pdf_a: "4"`.
     pub pdf_ua2: bool,
-    /// Document language for PDF/UA (`/Lang`). If `pdf_ua` is set and this is
-    /// `None`, the `<html lang>` attribute is used, else it defaults to "en"
-    /// with a warning.
+    /// Document language (`/Lang`). Overrides the document's own `<html lang>`
+    /// (or `<body lang>`); with neither, `pdf_ua`/`pdf_ua2` fall back to "en"
+    /// with a warning. Applies to every render, not only conformance ones.
     pub lang: Option<String>,
     /// PDF/A conformance level: `"2b"`, `"2u"`, or `"2a"`. Like `pdf_ua`, this
     /// needs an embeddable font registered via `fonts`
@@ -822,15 +822,27 @@ pub fn html_to_document(html: &str, options: &HtmlOptions) -> (forme::Document, 
     doc.tagged = options.tagged || options.pdf_ua || options.pdf_ua2;
     doc.pdf_ua = options.pdf_ua;
     doc.pdf_ua2 = options.pdf_ua2;
+
+    // Language precedence, applied to every render: an explicit option beats
+    // the document's own <html lang> (set by the mapper), which beats nothing.
+    // The option lived inside the PDF/UA branch before, so it had no effect
+    // on an ordinary render — honouring the attribute everywhere while the
+    // option only worked under a conformance claim would be a worse split
+    // than the one being fixed.
+    if let Some(lang) = &options.lang {
+        doc.metadata.lang = Some(lang.clone());
+    }
+
     if options.pdf_ua || options.pdf_ua2 {
         let claim = if options.pdf_ua2 { "pdf_ua2" } else { "pdf_ua" };
+        // The "en" default is a last resort. This warning used to fire on a
+        // document that had plainly declared its language, telling the user
+        // to do the thing they had already done.
         if doc.metadata.lang.is_none() {
-            doc.metadata.lang = Some(options.lang.clone().unwrap_or_else(|| {
-                warnings.push(format!(
-                    "{claim}: no document language set — defaulting /Lang to \"en\". Set options.lang or an <html lang> attribute."
-                ));
-                "en".to_string()
-            }));
+            warnings.push(format!(
+                "{claim}: no document language set — defaulting /Lang to \"en\". Set options.lang or an <html lang> attribute."
+            ));
+            doc.metadata.lang = Some("en".to_string());
         }
         // Informational images must carry alt text; decorative ones should be
         // marked decorative (not yet expressible in HTML input — see README).
