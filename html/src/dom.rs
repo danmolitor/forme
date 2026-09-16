@@ -64,11 +64,20 @@ pub fn parse_html_with_styles(html: &str) -> (Element, Vec<String>, Vec<String>)
     let mut styles = Vec::new();
     let mut links = Vec::new();
     collect_style_sources(&root, &mut styles, &mut links);
-    // `dir` set on <html> inherits to <body> in HTML; the body-only mapper
-    // would otherwise never see it (used for the RTL page-progression
-    // warning on @page :left/:right).
+    // `dir` and `lang` set on <html> inherit to <body> in HTML; the body-only
+    // mapper would otherwise never see them. `dir` drives the RTL
+    // page-progression warning on @page :left/:right; `lang` becomes the
+    // document's /Lang.
+    //
+    // `lang` was walked for neither for a long time, while three places —
+    // the option's doc comment, the TypeScript type, and the PDF/UA warning
+    // telling users to set it — all said it was consulted. A PDF/UA file
+    // whose /Lang contradicts its own content is a false conformance claim.
     let html_dir = find_tag(&root, "html")
         .and_then(|h| h.attr("dir"))
+        .map(str::to_string);
+    let html_lang = find_tag(&root, "html")
+        .and_then(|h| h.attr("lang"))
         .map(str::to_string);
     let mut body = find_body(&root).unwrap_or(Element {
         tag: "body".to_string(),
@@ -82,6 +91,11 @@ pub fn parse_html_with_styles(html: &str) -> (Element, Vec<String>, Vec<String>)
     if body.attr("dir").is_none() {
         if let Some(dir) = html_dir {
             body.attrs.push(("dir".to_string(), dir));
+        }
+    }
+    if body.attr("lang").is_none() {
+        if let Some(lang) = html_lang {
+            body.attrs.push(("lang".to_string(), lang));
         }
     }
     (body, styles, links)

@@ -30,8 +30,9 @@ export interface RenderHtmlOptions {
    * `pdfUa` and the 2x/3x `pdfA` levels; composes with `pdfA: "4"`.
    */
   pdfUa2?: boolean;
-  /** Document language for PDF/UA (`/Lang`), e.g. `"en"` or `"en-US"`. Falls
-   *  back to the `<html lang>` attribute, then `"en"` with a warning. */
+  /** Document language (`/Lang`), e.g. `"en"` or `"en-US"`. Overrides the
+   *  document's own `<html lang>`; with neither, PDF/UA falls back to `"en"`
+   *  with a warning. Applies to every render, not only conformance ones. */
   lang?: string;
   /**
    * PDF/A conformance level: `"2b"` (visual), `"2u"` (+ Unicode mapping), or
