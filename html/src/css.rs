@@ -99,11 +99,11 @@ pub enum BreakInsideVal {
 pub struct CssStyle {
     pub margin: [Option<Length>; 4],
     pub padding: [Option<Length>; 4],
-    pub border_width: [Option<f64>; 4],
+    pub border_width: [Option<Length>; 4],
     pub border_color: Option<Color>,
     /// Per-side border line style (top, right, bottom, left).
     pub border_style: [Option<BorderStyle>; 4],
-    pub border_radius: Option<f64>,
+    pub border_radius: Option<Length>,
     pub width: Option<Length>,
     pub height: Option<Length>,
     pub font_family: Option<String>,
@@ -121,9 +121,9 @@ pub struct CssStyle {
     pub flex_basis: Option<Length>,
     pub justify_content: Option<JustifyContent>,
     pub align_items: Option<AlignItems>,
-    pub gap: Option<f64>,
-    pub row_gap: Option<f64>,
-    pub column_gap: Option<f64>,
+    pub gap: Option<Length>,
+    pub row_gap: Option<Length>,
+    pub column_gap: Option<Length>,
     pub grid_template_columns: Option<Vec<CssTrack>>,
     pub grid_template_rows: Option<Vec<CssTrack>>,
     pub grid_auto_rows: Option<CssTrack>,
@@ -420,11 +420,7 @@ pub(crate) fn apply_declaration(
                     Some(border_style_keyword(id.as_ref()).unwrap_or(BorderStyle::Solid));
             }
         }
-        "border-radius" => {
-            if let Some(Length::Pt(v)) = parse_length(p) {
-                style.border_radius = Some(v);
-            }
-        }
+        "border-radius" => style.border_radius = parse_length(p),
 
         "width" => style.width = parse_length(p),
         "height" => style.height = parse_length(p),
@@ -571,12 +567,12 @@ pub(crate) fn apply_declaration(
             let first = parse_length(p);
             let second = parse_length(p);
             match (first, second) {
-                (Some(Length::Pt(row)), Some(Length::Pt(col))) => {
+                (Some(row), Some(col)) => {
                     style.row_gap = Some(row);
                     style.column_gap = Some(col);
                     style.gap = Some(row);
                 }
-                (Some(Length::Pt(v)), None) => {
+                (Some(v), None) => {
                     style.gap = Some(v);
                     style.row_gap = Some(v);
                     style.column_gap = Some(v);
@@ -584,16 +580,8 @@ pub(crate) fn apply_declaration(
                 _ => {}
             }
         }
-        "row-gap" => {
-            if let Some(Length::Pt(v)) = parse_length(p) {
-                style.row_gap = Some(v);
-            }
-        }
-        "column-gap" => {
-            if let Some(Length::Pt(v)) = parse_length(p) {
-                style.column_gap = Some(v);
-            }
-        }
+        "row-gap" => style.row_gap = parse_length(p),
+        "column-gap" => style.column_gap = parse_length(p),
         "grid-template-columns" => {
             style.grid_template_columns = parse_track_list(p, name, warnings);
         }
@@ -1204,24 +1192,28 @@ fn expand4(vals: &[Length]) -> [Length; 4] {
 
 /// `border: 1px solid #000` — width, style keyword (recognized, ignored),
 /// and color in any order. `none`/`hidden` zero the width.
-fn parse_border_shorthand(p: &mut Parser<'_, '_>) -> (f64, Option<Color>, Option<BorderStyle>) {
-    let mut width = 3.0 * 0.75; // CSS `medium`
+fn parse_border_shorthand(p: &mut Parser<'_, '_>) -> (Length, Option<Color>, Option<BorderStyle>) {
+    let mut width = Length::Pt(3.0 * 0.75); // CSS `medium`
     let mut color = None;
     let mut style = None;
     while let Ok(tok) = p.next() {
         let tok = tok.clone();
         match &tok {
+            // Keep the unit. Matching only `Pt` here was worse than a drop:
+            // `border: 0.5em solid red` left `width` at its `medium` default,
+            // so the border painted at 2.25pt instead of 6pt — a wrong value
+            // rather than a missing one, and nothing said so.
             Token::Dimension { value, unit, .. } => {
-                if let Some(Length::Pt(v)) = unit_to_length(*value as f64, unit) {
-                    width = v;
+                if let Some(l) = unit_to_length(*value as f64, unit) {
+                    width = l;
                 }
             }
-            Token::Number { value, .. } if *value == 0.0 => width = 0.0,
+            Token::Number { value, .. } if *value == 0.0 => width = Length::Pt(0.0),
             Token::Ident(id) => match id.to_ascii_lowercase().as_str() {
-                "thin" => width = 0.75,
-                "medium" => width = 2.25,
-                "thick" => width = 3.75,
-                "none" | "hidden" => width = 0.0,
+                "thin" => width = Length::Pt(0.75),
+                "medium" => width = Length::Pt(2.25),
+                "thick" => width = Length::Pt(3.75),
+                "none" | "hidden" => width = Length::Pt(0.0),
                 "solid" => style = Some(BorderStyle::Solid),
                 "dashed" => style = Some(BorderStyle::Dashed),
                 "dotted" => style = Some(BorderStyle::Dotted),
@@ -1256,18 +1248,18 @@ fn border_style_keyword(id: &str) -> Option<BorderStyle> {
     }
 }
 
-fn parse_border_width_token(p: &mut Parser<'_, '_>) -> Option<f64> {
+fn parse_border_width_token(p: &mut Parser<'_, '_>) -> Option<Length> {
     let tok = p.next().ok()?.clone();
     match &tok {
-        Token::Dimension { value, unit, .. } => match unit_to_length(*value as f64, unit) {
-            Some(Length::Pt(v)) => Some(v),
-            _ => None,
-        },
-        Token::Number { value, .. } if *value == 0.0 => Some(0.0),
+        // Keep whatever unit was written. Matching only `Pt` here meant
+        // `border-width: 0.25em` parsed cleanly and then fell off the end of
+        // the match, producing no border and no warning.
+        Token::Dimension { value, unit, .. } => unit_to_length(*value as f64, unit),
+        Token::Number { value, .. } if *value == 0.0 => Some(Length::Pt(0.0)),
         Token::Ident(id) => match id.to_ascii_lowercase().as_str() {
-            "thin" => Some(0.75),
-            "medium" => Some(2.25),
-            "thick" => Some(3.75),
+            "thin" => Some(Length::Pt(0.75)),
+            "medium" => Some(Length::Pt(2.25)),
+            "thick" => Some(Length::Pt(3.75)),
             _ => None,
         },
         _ => None,
@@ -1430,7 +1422,7 @@ mod tests {
     #[test]
     fn border_shorthand() {
         let (s, _) = parse("border: 1px solid #333");
-        assert_eq!(s.border_width[0], Some(0.75));
+        assert_eq!(s.border_width[0], Some(Length::Pt(0.75)));
         assert!(s.border_color.is_some());
     }
 
