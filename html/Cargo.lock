@@ -361,6 +361,7 @@ dependencies = [
  "getrandom",
  "html5ever",
  "markup5ever_rcdom",
+ "miniz_oxide 0.8.9",
  "serde",
  "serde_json",
  "wasm-bindgen",
