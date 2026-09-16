@@ -97,3 +97,11 @@ export function renderHtmlWithLayout(
   html: string,
   options?: RenderHtmlOptions,
 ): RenderHtmlLayoutResult;
+
+/**
+ * Hash of the `engine/src` + `html/src` source this wasm was built from, or an
+ * empty string if it was built without one. Build provenance, not part of the
+ * render API: it exists so a caller can ask which engine a build came from
+ * rather than assume. Present on all three entries.
+ */
+export function sourceHash(): string;
