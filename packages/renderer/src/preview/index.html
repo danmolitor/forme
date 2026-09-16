@@ -2505,6 +2505,9 @@
         if (msg.pageSizeOverride) {
           // Server already has override; UI should already match via localStorage
         }
+        // The first render's warnings arrive here, not on 'reload' — the
+        // browser is opened after that render has already finished.
+        setWarnings(msg.warnings);
       }
 
       if (msg.type === 'reload') {
@@ -2512,6 +2515,7 @@
           renderTimeEl.textContent = msg.renderTime + 'ms';
           renderBadge.style.display = 'inline-flex';
         }
+        setWarnings(msg.warnings);
         await reload();
         // Auto-zoom to fit after page size changes
         setTimeout(zoomToFit, 300);
@@ -2535,36 +2539,43 @@
     });
   }
 
+  // -- Warnings badge (BOTH hosts) -----------------------------------
+  // Two kinds of notice arrive here: unsupported-CSS notices from the HTML
+  // input path, and `render defect:` warnings, which the JSX path emits too.
+  // The badge in the status strip shows the count; clicking it expands the
+  // full list.
+  //
+  // This lived inside `if (isVSCode)` while the markup, CSS and element
+  // lookups all shipped unconditionally — so `forme dev`, the flagship
+  // surface, served a complete warnings UI wired to nothing. Defining it in
+  // shared scope is the fix: a host that forgets to CALL it shows an empty
+  // badge, but a host can no longer be structurally unable to.
+  function setWarnings(warnings) {
+    const list = Array.isArray(warnings) ? warnings : [];
+    if (list.length === 0) {
+      warningsBadge.style.display = 'none';
+      warningsPopover.style.display = 'none';
+      return;
+    }
+    warningsCountEl.textContent = String(list.length);
+    warningsBadge.style.display = 'inline-flex';
+    warningsPopoverTitle.textContent =
+      list.length === 1 ? '1 warning' : list.length + ' warnings';
+    warningsListEl.innerHTML = list
+      .map((w) => '<div class="warn-item">' + escapeHtml(String(w)) + '</div>')
+      .join('');
+  }
+
+  warningsBadge.addEventListener('click', () => {
+    warningsPopover.style.display =
+      warningsPopover.style.display === 'none' ? 'block' : 'none';
+  });
+  warningsDismiss.addEventListener('click', () => {
+    warningsPopover.style.display = 'none';
+  });
+
   // -- VS Code message handler --------------------------------------
   if (isVSCode) {
-    // Unsupported-CSS notices from the HTML input path (empty for JSX). The
-    // badge in the status strip shows the count; clicking it expands the
-    // full list. This is the subset table as a live experience — an
-    // unsupported property in the user's CSS shows up here within one render.
-    function setWarnings(warnings) {
-      const list = Array.isArray(warnings) ? warnings : [];
-      if (list.length === 0) {
-        warningsBadge.style.display = 'none';
-        warningsPopover.style.display = 'none';
-        return;
-      }
-      warningsCountEl.textContent = String(list.length);
-      warningsBadge.style.display = 'inline-flex';
-      warningsPopoverTitle.textContent =
-        list.length === 1 ? '1 unsupported property' : list.length + ' unsupported properties';
-      warningsListEl.innerHTML = list
-        .map((w) => '<div class="warn-item">' + escapeHtml(String(w)) + '</div>')
-        .join('');
-    }
-
-    warningsBadge.addEventListener('click', () => {
-      warningsPopover.style.display =
-        warningsPopover.style.display === 'none' ? 'block' : 'none';
-    });
-    warningsDismiss.addEventListener('click', () => {
-      warningsPopover.style.display = 'none';
-    });
-
     window.addEventListener('message', async (event) => {
       const msg = event.data;
       if (!msg || !msg.type) return;

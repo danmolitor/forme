@@ -560,48 +560,100 @@ function serializeText(element: ReactElement): FormeNode {
  * builder can pick up the semantic role. Default styles per level are
  * merged BEFORE the user's `style` prop, so user values win.
  */
-function serializeHeading(
+// ─── One builder, two paths ──────────────────────────────────────────
+//
+// `serialize()` and `serializeTemplate()` are two dispatch chains over the
+// same components. Everything below the dispatch used to be written twice,
+// and the second copy fell behind: headings and lists never got template
+// arms at all, so `serializeTemplate` deleted them and their subtrees in
+// silence for as long as templates have existed.
+//
+// Adding the nine missing arms would reset that clock rather than stop it.
+// These builders instead take a context describing how the CURRENT path
+// flattens children, maps styles and recurses, so there is one
+// implementation and the paths cannot say different things about a
+// component. A new component needs one builder, not two.
+interface SerializerCtx {
+  flatten: (children: unknown) => unknown[];
+  style: (style?: Style) => Record<string, unknown>;
+  /** Plain text content — a string, or a `$ref` marker on the template path. */
+  textContent: (children: unknown) => unknown;
+  /** Does this child contribute a formatted run rather than plain text? */
+  isRunChild: (c: ReactElement) => boolean;
+  buildRuns: (children: unknown) => unknown[];
+  child: (c: ReactElement, parent: ParentContext) => unknown;
+  /** Source locations are a dev-server affordance; templates carry none. */
+  sourceLocation: (element: ReactElement) => unknown;
+}
+
+const MAIN_CTX: SerializerCtx = {
+  flatten: (c) => flattenChildren(c),
+  style: (s) => mapStyle(s) as Record<string, unknown>,
+  textContent: (c) => flattenTextContent(c),
+  isRunChild: (c) => inlineDefaults(c.type) !== null,
+  buildRuns: (c) => buildTextRuns(c) as unknown[],
+  child: (c, parent) => serializeChild(c, parent),
+  sourceLocation: (e) => extractSourceLocation(e),
+};
+
+const TEMPLATE_CTX: SerializerCtx = {
+  flatten: (c) => flattenTemplateChildren(c),
+  style: (s) => mapTemplateStyle(s),
+  textContent: (c) => flattenTemplateTextContent(c),
+  // The template path's own convention for Text, kept exactly: a nested
+  // <Text> becomes a run. (<Strong>/<Em> inside a <Text> still flatten to
+  // plain content on this path — a fidelity gap, tracked separately, not
+  // the deletion this refactor fixes.)
+  isRunChild: (c) => c.type === Text,
+  buildRuns: (c) => buildTemplateTextRuns(c),
+  child: (c, parent) => serializeTemplateChild(c, parent),
+  sourceLocation: () => undefined,
+};
+
+function buildHeading(
   element: ReactElement,
   level: 1 | 2 | 3 | 4 | 5 | 6,
-): FormeNode {
+  ctx: SerializerCtx,
+): Record<string, unknown> {
   const props = element.props as any as {
     style?: Style;
     href?: string;
     bookmark?: string;
     children?: unknown;
   };
-  const childElements = flattenChildren(props.children);
-  const hasInlineChild = childElements.some(
-    (c) => isValidElement(c) && inlineDefaults(c.type) !== null,
+  const childElements = ctx.flatten(props.children);
+  const hasRunChild = childElements.some(
+    (c) => isValidElement(c as ReactElement) && ctx.isRunChild(c as ReactElement),
   );
 
-  const kind: FormeNodeKind & { type: 'Heading' } = {
-    type: 'Heading',
-    level,
-    content: '',
-  };
-  if (hasInlineChild) {
-    kind.runs = buildTextRuns(props.children);
+  const kind: Record<string, unknown> = { type: 'Heading', level, content: '' };
+  if (hasRunChild) {
+    kind.runs = ctx.buildRuns(props.children);
   } else {
-    kind.content = flattenTextContent(props.children);
+    kind.content = ctx.textContent(props.children);
   }
   if (props.href) kind.href = props.href;
 
   // Defaults underlay; user style wins on conflicting keys.
   const mergedStyle: Style = { ...HEADING_DEFAULTS[level], ...(props.style || {}) };
 
-  const node: FormeNode = {
+  const node: Record<string, unknown> = {
     kind,
-    style: mapStyle(mergedStyle),
+    style: ctx.style(mergedStyle),
     children: [],
-    sourceLocation: extractSourceLocation(element),
   };
+  const loc = ctx.sourceLocation(element);
+  if (loc !== undefined) node.sourceLocation = loc;
   if (props.bookmark) node.bookmark = props.bookmark;
 
   return node;
 }
 
-function serializeList(element: ReactElement, ordered: boolean): FormeNode {
+function buildList(
+  element: ReactElement,
+  ordered: boolean,
+  ctx: SerializerCtx,
+): Record<string, unknown> {
   const props = element.props as any as {
     type?: string;
     marker?: string;
@@ -620,49 +672,64 @@ function serializeList(element: ReactElement, ordered: boolean): FormeNode {
   // Children must be ListItems — anything else is silently dropped to
   // keep the serializer tolerant. (We don't throw on stray content because
   // a Fragment / null child in JSX is too common to be a real error.)
-  const childElements = flattenChildren(props.children).filter(
-    (c) => isValidElement(c) && c.type === ListItem,
+  const childElements = ctx.flatten(props.children).filter(
+    (c) => isValidElement(c as ReactElement) && (c as ReactElement).type === ListItem,
   ) as ReactElement[];
-  const children = childElements.map((c) => serializeListItem(c));
+  const children = childElements.map((c) => buildListItem(c, ctx));
 
-  const node: FormeNode = {
+  const node: Record<string, unknown> = {
     kind: { type: 'List', ordered, marker_type: markerType, start },
-    style: mapStyle(props.style),
+    style: ctx.style(props.style),
     children,
-    sourceLocation: extractSourceLocation(element),
   };
+  const loc = ctx.sourceLocation(element);
+  if (loc !== undefined) node.sourceLocation = loc;
   if (props.bookmark) node.bookmark = props.bookmark;
   return node;
 }
 
-function serializeListItem(element: ReactElement): FormeNode {
+function buildListItem(element: ReactElement, ctx: SerializerCtx): Record<string, unknown> {
   const props = element.props as any as { style?: Style; children?: unknown };
   // ListItem content is layed out by the engine using layout_children, so
   // we serialize whatever the user put inside as the node's children. This
   // covers plain strings, JSX text, nested lists, formatted runs via
   // <Text>, etc.
-  const rawChildren = flattenChildren(props.children);
-  const children: FormeNode[] = [];
+  const rawChildren = ctx.flatten(props.children);
+  const children: unknown[] = [];
   for (const c of rawChildren) {
     if (typeof c === 'string' || typeof c === 'number') {
       // Auto-wrap raw strings in a Text node so the engine has something
       // concrete to render. Matches the convention everywhere else.
       children.push({
-        kind: { type: 'Text', content: String(c) },
+        kind: { type: 'Text', content: ctx.textContent(c) },
         style: {},
         children: [],
       });
-    } else if (isValidElement(c)) {
-      const node = serializeChild(c, null);
+    } else if (isValidElement(c as ReactElement)) {
+      const node = ctx.child(c as ReactElement, null);
       if (node) children.push(node);
     }
   }
-  return {
+  const node: Record<string, unknown> = {
     kind: { type: 'ListItem' },
-    style: mapStyle(props.style),
+    style: ctx.style(props.style),
     children,
-    sourceLocation: extractSourceLocation(element),
   };
+  const loc = ctx.sourceLocation(element);
+  if (loc !== undefined) node.sourceLocation = loc;
+  return node;
+}
+
+function serializeHeading(element: ReactElement, level: 1 | 2 | 3 | 4 | 5 | 6): FormeNode {
+  return buildHeading(element, level, MAIN_CTX) as unknown as FormeNode;
+}
+
+function serializeList(element: ReactElement, ordered: boolean): FormeNode {
+  return buildList(element, ordered, MAIN_CTX) as unknown as FormeNode;
+}
+
+function serializeListItem(element: ReactElement): FormeNode {
+  return buildListItem(element, MAIN_CTX) as unknown as FormeNode;
 }
 
 function serializeImage(element: ReactElement): FormeNode {
@@ -1233,6 +1300,19 @@ function serializeTemplateChild(child: unknown, parent: ParentContext = null): u
 
   if (element.type === View) return serializeTemplateView(element, parent);
   if (element.type === Text) return serializeTemplateText(element);
+  // Headings and lists reached this dispatch with no arm at all: they are
+  // function components returning null, so they fell through to the
+  // "unknown function component" fallback below and were deleted along with
+  // their subtrees. Same builders as `serialize()`, different context.
+  if (element.type === H1) return buildHeading(element, 1, TEMPLATE_CTX);
+  if (element.type === H2) return buildHeading(element, 2, TEMPLATE_CTX);
+  if (element.type === H3) return buildHeading(element, 3, TEMPLATE_CTX);
+  if (element.type === H4) return buildHeading(element, 4, TEMPLATE_CTX);
+  if (element.type === H5) return buildHeading(element, 5, TEMPLATE_CTX);
+  if (element.type === H6) return buildHeading(element, 6, TEMPLATE_CTX);
+  if (element.type === OrderedList) return buildList(element, true, TEMPLATE_CTX);
+  if (element.type === UnorderedList) return buildList(element, false, TEMPLATE_CTX);
+  if (element.type === ListItem) return buildListItem(element, TEMPLATE_CTX);
   if (element.type === Image) return serializeTemplateImage(element);
   if (element.type === Table) return serializeTemplateTable(element, parent);
   if (element.type === Row) {
@@ -1291,6 +1371,30 @@ function serializeTemplateView(element: ReactElement, _parent: ParentContext = n
   return node;
 }
 
+/**
+ * Formatted runs on the template path. Extracted from `serializeTemplateText`
+ * so headings can build runs the same way text does — the two used to be one
+ * inline block, which is why headings had no way to produce runs at all.
+ */
+function buildTemplateTextRuns(children: unknown): Record<string, unknown>[] {
+  const runs: Record<string, unknown>[] = [];
+  for (const child of flattenTemplateChildren(children)) {
+    if (typeof child === 'string' || typeof child === 'number') {
+      const processed = typeof child === 'string' ? processTemplateString(child) : null;
+      runs.push({ content: processed !== null ? processed : String(child) });
+    } else if (isValidElement(child) && child.type === Text) {
+      const childProps = child.props as { style?: Style; href?: string; children?: unknown };
+      const run: Record<string, unknown> = {
+        content: flattenTemplateTextContent(childProps.children),
+      };
+      if (childProps.style) run.style = mapTemplateStyle(childProps.style);
+      if (childProps.href) run.href = childProps.href;
+      runs.push(run);
+    }
+  }
+  return runs;
+}
+
 function serializeTemplateText(element: ReactElement): Record<string, unknown> {
   const props = element.props as any as { style?: Style; href?: string; bookmark?: string; children?: unknown };
   const childElements = flattenTemplateChildren(props.children);
@@ -1302,26 +1406,7 @@ function serializeTemplateText(element: ReactElement): Record<string, unknown> {
   const kind: Record<string, unknown> = { type: 'Text', content: '' };
 
   if (hasTextChild) {
-    const runs: Record<string, unknown>[] = [];
-    for (const child of childElements) {
-      if (typeof child === 'string' || typeof child === 'number') {
-        const processed = typeof child === 'string' ? processTemplateString(child) : null;
-        if (processed !== null) {
-          runs.push({ content: processed });
-        } else {
-          runs.push({ content: String(child) });
-        }
-      } else if (isValidElement(child) && child.type === Text) {
-        const childProps = child.props as { style?: Style; href?: string; children?: unknown };
-        const run: Record<string, unknown> = {
-          content: flattenTemplateTextContent(childProps.children),
-        };
-        if (childProps.style) run.style = mapTemplateStyle(childProps.style);
-        if (childProps.href) run.href = childProps.href;
-        runs.push(run);
-      }
-    }
-    kind.runs = runs;
+    kind.runs = buildTemplateTextRuns(props.children);
   } else {
     kind.content = flattenTemplateTextContent(props.children);
   }
