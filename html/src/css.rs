@@ -451,11 +451,29 @@ pub(crate) fn apply_declaration(
         }
         "color" => style.color = parse_color(p),
         "background-color" | "background" => {
-            // `background` shorthand: spike accepts a bare color, anything
-            // fancier (gradients, images) is a warning.
+            // `background` shorthand: a bare color is understood; anything
+            // fancier (gradients, images, positions) is warned.
             match parse_color(p) {
                 Some(c) => style.background_color = Some(c),
-                None => warnings.push(format!("unsupported value for '{name}'")),
+                None => {
+                    // `background` is a SHORTHAND, so a value we cannot
+                    // otherwise use still resets every background property
+                    // to its initial value — and the initial
+                    // background-color is transparent. Bootstrap's print
+                    // reset depends on exactly this: `*,:after,:before {
+                    // background: 0 0 !important }` strips screen
+                    // backgrounds for print, where `0 0` is a background
+                    // POSITION and the colour reset is the whole point.
+                    // Treating the declaration as merely unparseable left
+                    // the screen colour painted, so a Bootstrap invoice
+                    // printed grey panels a browser leaves white.
+                    // `background-color` is not a shorthand: an
+                    // unparseable value there is ignored, as before.
+                    if name == "background" {
+                        style.background_color = Some(Color::TRANSPARENT);
+                    }
+                    warnings.push(format!("unsupported value for '{name}'"));
+                }
             }
         }
 

@@ -1,5 +1,11 @@
 # Changelog — @formepdf/html
 
+
+## [Unreleased]
+
+### Fixed
+
+- **The `background` shorthand resets the colour.** `background` is a shorthand, so any value resets every background property to its initial value — and the initial `background-color` is transparent. Bootstrap's print stylesheet relies on exactly that (`*,:after,:before { background: 0 0 !important }`, where `0 0` is a background *position*), so Bootstrap documents printed grey panels a browser leaves white. Measured as coloured pixels on page 1 against Chrome across the compat corpus: 09 went 5317 → 711 (Chrome 1121), 08 went 6978 → 5208 (Chrome 5366), 07 went 8243 → 8067 (Chrome 7101). `background-color` is not a shorthand and is unchanged: an unparseable value there is still ignored.
 ## [0.23.0] - 2026-09-11
 
 ### Added
