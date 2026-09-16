@@ -38,6 +38,12 @@ pub struct StyledChar {
     pub href: Option<String>,
     pub text_decoration: TextDecoration,
     pub letter_spacing: f64,
+    /// Added to the advance of word-separator characters (the space).
+    /// Measured here, alongside letter_spacing, so line breaking sees it:
+    /// it used to be applied only at PDF-write time via `Tw`, so a
+    /// word-spaced line was broken as though it had no word spacing and
+    /// then rendered wider than the box it was measured into.
+    pub word_spacing: f64,
 }
 
 /// A line of text from multi-style (runs) line breaking.
@@ -68,6 +74,19 @@ fn fix_sentinel_widths(
                 + letter_spacing;
         }
     }
+}
+
+/// The per-character advance a spacing pair contributes.
+///
+/// CSS applies `word-spacing` to word-separator characters; the space is the
+/// only one in this subset. Kept as one function so every measurement site
+/// answers the question identically: `word_spacing` used to be absent from
+/// this file entirely, applied only at PDF-write time through `Tw`, so lines
+/// were broken as though it were zero and then rendered wider than the box
+/// they were measured into.
+#[inline]
+fn extra_advance(ch: char, letter_spacing: f64, word_spacing: f64) -> f64 {
+    letter_spacing + if ch == ' ' { word_spacing } else { 0.0 }
 }
 
 /// Compute UAX#14 break opportunities indexed by char position.
@@ -199,6 +218,7 @@ impl TextLayout {
         font_weight: u32,
         font_style: FontStyle,
         letter_spacing: f64,
+        word_spacing: f64,
         hyphens: Hyphens,
         lang: Option<&str>,
     ) -> Vec<BrokenLine> {
@@ -219,6 +239,7 @@ impl TextLayout {
             font_weight,
             font_style,
             letter_spacing,
+            word_spacing,
         );
 
         let hyphen_width = font_context.char_width(
@@ -522,6 +543,7 @@ impl TextLayout {
         font_weight: u32,
         font_style: FontStyle,
         letter_spacing: f64,
+        word_spacing: f64,
     ) -> Vec<f64> {
         let italic = matches!(font_style, FontStyle::Italic | FontStyle::Oblique);
         let chars: Vec<char> = text.chars().collect();
@@ -564,13 +586,14 @@ impl TextLayout {
                             }
                         } else {
                             for i in bidi_run.char_start..bidi_run.char_end {
-                                widths[i] = font_context.char_width(
-                                    chars[i],
-                                    font_family,
-                                    font_weight,
-                                    italic,
-                                    font_size,
-                                ) + letter_spacing;
+                                widths[i] =
+                                    font_context.char_width(
+                                        chars[i],
+                                        font_family,
+                                        font_weight,
+                                        italic,
+                                        font_size,
+                                    ) + extra_advance(chars[i], letter_spacing, word_spacing);
                             }
                         }
                     }
@@ -614,7 +637,7 @@ impl TextLayout {
                 .chars()
                 .map(|ch| {
                     font_context.char_width(ch, font_family, font_weight, italic, font_size)
-                        + letter_spacing
+                        + extra_advance(ch, letter_spacing, word_spacing)
                 })
                 .collect();
         }
@@ -629,7 +652,7 @@ impl TextLayout {
             .iter()
             .map(|&ch| {
                 font_context.char_width(ch, font_family, font_weight, italic, font_size)
-                    + letter_spacing
+                    + extra_advance(ch, letter_spacing, word_spacing)
             })
             .collect()
     }
@@ -712,7 +735,11 @@ impl TextLayout {
                                 chars[j].font_weight,
                                 italic,
                                 chars[j].font_size,
-                            ) + chars[j].letter_spacing;
+                            ) + extra_advance(
+                                chars[j].ch,
+                                chars[j].letter_spacing,
+                                chars[j].word_spacing,
+                            );
                         }
                     }
                     i = run_end;
@@ -727,7 +754,7 @@ impl TextLayout {
                 sc.font_weight,
                 italic,
                 sc.font_size,
-            ) + sc.letter_spacing;
+            ) + extra_advance(sc.ch, sc.letter_spacing, sc.word_spacing);
             i += 1;
         }
 
@@ -887,7 +914,11 @@ impl TextLayout {
                             chars[line_start].font_weight,
                             italic,
                             chars[line_start].font_size,
-                        ) + chars[line_start].letter_spacing
+                        ) + extra_advance(
+                            chars[line_start].ch,
+                            chars[line_start].letter_spacing,
+                            chars[line_start].word_spacing,
+                        )
                     } else {
                         0.0
                     };
@@ -1013,6 +1044,7 @@ impl TextLayout {
         font_weight: u32,
         font_style: FontStyle,
         letter_spacing: f64,
+        word_spacing: f64,
         hyphens: Hyphens,
         lang: Option<&str>,
     ) -> f64 {
@@ -1034,6 +1066,7 @@ impl TextLayout {
                                     font_weight,
                                     font_style,
                                     letter_spacing,
+                                    word_spacing,
                                 )
                             })
                             .collect::<Vec<_>>()
@@ -1052,6 +1085,7 @@ impl TextLayout {
                     font_weight,
                     font_style,
                     letter_spacing,
+                    word_spacing,
                 )
             })
             .fold(0.0f64, f64::max)
@@ -1068,6 +1102,7 @@ impl TextLayout {
         font_weight: u32,
         font_style: FontStyle,
         letter_spacing: f64,
+        word_spacing: f64,
     ) -> f64 {
         self.measure_chars(
             font_context,
@@ -1077,6 +1112,7 @@ impl TextLayout {
             font_weight,
             font_style,
             letter_spacing,
+            word_spacing,
         )
         .iter()
         .sum()
@@ -1096,6 +1132,7 @@ impl TextLayout {
         font_weight: u32,
         font_style: FontStyle,
         letter_spacing: f64,
+        word_spacing: f64,
         hyphens: Hyphens,
         lang: Option<&str>,
         justify: bool,
@@ -1117,6 +1154,7 @@ impl TextLayout {
             font_weight,
             font_style,
             letter_spacing,
+            word_spacing,
         );
 
         let hyphen_width = font_context.char_width(
@@ -1184,6 +1222,7 @@ impl TextLayout {
                     font_weight,
                     font_style,
                     letter_spacing,
+                    word_spacing,
                     hyphens,
                     lang,
                     justify,
@@ -1227,6 +1266,7 @@ impl TextLayout {
                 font_weight,
                 font_style,
                 letter_spacing,
+                word_spacing,
                 hyphens,
                 lang,
             )
@@ -1374,6 +1414,7 @@ impl TextLayout {
         font_weight: u32,
         font_style: FontStyle,
         letter_spacing: f64,
+        word_spacing: f64,
     ) -> Vec<BrokenLine> {
         if lines.is_empty() {
             return lines;
@@ -1402,6 +1443,7 @@ impl TextLayout {
             font_weight,
             font_style,
             letter_spacing,
+            word_spacing,
         );
 
         let total_width: f64 = char_widths.iter().sum();
@@ -1478,6 +1520,7 @@ impl TextLayout {
         font_weight: u32,
         font_style: FontStyle,
         letter_spacing: f64,
+        word_spacing: f64,
     ) -> Vec<BrokenLine> {
         if lines.is_empty() {
             return lines;
@@ -1497,6 +1540,7 @@ impl TextLayout {
             font_weight,
             font_style,
             letter_spacing,
+            word_spacing,
         );
 
         let total_width: f64 = char_widths.iter().sum();
@@ -1737,6 +1781,7 @@ mod tests {
             400,
             FontStyle::Normal,
             0.0,
+            0.0,
             Hyphens::Manual,
             None,
         );
@@ -1757,6 +1802,7 @@ mod tests {
             400,
             FontStyle::Normal,
             0.0,
+            0.0,
             Hyphens::Manual,
             None,
         );
@@ -1775,6 +1821,7 @@ mod tests {
             "Helvetica",
             400,
             FontStyle::Normal,
+            0.0,
             0.0,
             Hyphens::Manual,
             None,
@@ -1797,6 +1844,7 @@ mod tests {
             400,
             FontStyle::Normal,
             0.0,
+            0.0,
             Hyphens::Manual,
             None,
         );
@@ -1816,6 +1864,7 @@ mod tests {
             400,
             FontStyle::Normal,
             0.0,
+            0.0,
         );
         let bold = tl.measure_width(
             &fc,
@@ -1824,6 +1873,7 @@ mod tests {
             "Helvetica",
             700,
             FontStyle::Normal,
+            0.0,
             0.0,
         );
         assert!(
@@ -1845,6 +1895,7 @@ mod tests {
             "Helvetica",
             400,
             FontStyle::Normal,
+            0.0,
             0.0,
             Hyphens::Auto,
             None,
@@ -1876,6 +1927,7 @@ mod tests {
             400,
             FontStyle::Normal,
             0.0,
+            0.0,
             Hyphens::None,
             None,
         );
@@ -1902,6 +1954,7 @@ mod tests {
             "Helvetica",
             400,
             FontStyle::Normal,
+            0.0,
             0.0,
             Hyphens::Manual,
             None,
@@ -1940,6 +1993,7 @@ mod tests {
             400,
             FontStyle::Normal,
             0.0,
+            0.0,
             Hyphens::Auto,
             None,
         );
@@ -1964,6 +2018,7 @@ mod tests {
             400,
             FontStyle::Normal,
             0.0,
+            0.0,
             Hyphens::Auto,
             None,
         );
@@ -1974,6 +2029,7 @@ mod tests {
             "Helvetica",
             400,
             FontStyle::Normal,
+            0.0,
             0.0,
             Hyphens::Manual,
             None,
@@ -2013,6 +2069,7 @@ mod tests {
             "Helvetica",
             400,
             FontStyle::Normal,
+            0.0,
             0.0,
             Hyphens::Auto,
             Some("de"),
@@ -2087,6 +2144,7 @@ mod tests {
             400,
             FontStyle::Normal,
             0.0,
+            0.0,
             Hyphens::Manual,
             None,
             false,
@@ -2109,6 +2167,7 @@ mod tests {
             400,
             FontStyle::Normal,
             0.0,
+            0.0,
             Hyphens::Manual,
             None,
         );
@@ -2119,6 +2178,7 @@ mod tests {
             "Helvetica",
             400,
             FontStyle::Normal,
+            0.0,
             0.0,
         );
         assert!(
@@ -2140,6 +2200,7 @@ mod tests {
             400,
             FontStyle::Normal,
             0.0,
+            0.0,
             Hyphens::Manual,
             None,
         );
@@ -2154,6 +2215,7 @@ mod tests {
             "Helvetica",
             400,
             FontStyle::Normal,
+            0.0,
             0.0,
         );
         assert_eq!(truncated.len(), 1, "Should be single line");
@@ -2181,6 +2243,7 @@ mod tests {
             400,
             FontStyle::Normal,
             0.0,
+            0.0,
             Hyphens::Manual,
             None,
         );
@@ -2192,6 +2255,7 @@ mod tests {
             "Helvetica",
             400,
             FontStyle::Normal,
+            0.0,
             0.0,
         );
         assert_eq!(truncated.len(), 1);
@@ -2214,6 +2278,7 @@ mod tests {
             400,
             FontStyle::Normal,
             0.0,
+            0.0,
             Hyphens::Manual,
             None,
         );
@@ -2225,6 +2290,7 @@ mod tests {
             "Helvetica",
             400,
             FontStyle::Normal,
+            0.0,
             0.0,
         );
         assert_eq!(truncated.len(), 1, "Should be single line");
@@ -2262,6 +2328,7 @@ mod tests {
                 400,
                 FontStyle::Normal,
                 0.0,
+                0.0,
                 Hyphens::Auto,
                 Some("en"),
             );
@@ -2273,6 +2340,7 @@ mod tests {
                 "Helvetica",
                 400,
                 FontStyle::Normal,
+                0.0,
                 0.0,
                 Hyphens::Auto,
                 Some("en"),
@@ -2322,6 +2390,7 @@ mod tests {
                 400,
                 FontStyle::Normal,
                 0.0,
+                0.0,
                 Hyphens::Auto,
                 Some(lang),
             );
@@ -2333,6 +2402,7 @@ mod tests {
                 "Helvetica",
                 400,
                 FontStyle::Normal,
+                0.0,
                 0.0,
                 Hyphens::Auto,
                 Some(lang),
