@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<!--
+  Byte-wall coverage for a flex row that fragments across pages while its
+  columns have unequal content.
+
+  The left column crosses the page boundary; the right one ends on page 1.
+  Under `align-items: stretch` a browser continues BOTH bands to the bottom of
+  the row on every page it crosses, so the right column's band must appear on
+  page 2 even though it has nothing to say there. That band is synthesised
+  rather than laid out, which is precisely the kind of thing a byte comparison
+  catches and a passing test suite might not.
+
+  Both columns carry a background so the bands are in the output at all: a
+  column with nothing to paint needs no band, and this fixture would then be
+  measuring nothing.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Fragmented Columns</title>
+    <style>
+      @page { size: Letter; margin: 40pt; }
+      body { font-family: Helvetica, sans-serif; font-size: 9pt; color: #23262b; }
+      .row { display: flex; flex-direction: row; align-items: stretch; gap: 18pt; }
+      .col { flex: 1 1 0; padding: 8pt; }
+      .long { background-color: #eef0f5; }
+      .short { background-color: #f5eeee; border-left: 2pt solid #7a3b1d; }
+      p { margin: 0 0 6pt 0; }
+    </style>
+  </head>
+  <body>
+    <div class="row">
+      <div class="col long">
+      <p>Typography is the art of arranging type to make written language legible and readable. The arrangement involves selecting typefaces, point sizes, line lengths, line spacing and letter spacing.</p>
+      <p>Typography is the art of arranging type to make written language legible and readable. The arrangement involves selecting typefaces, point sizes, line lengths, line spacing and letter spacing.</p>
+      <p>Typography is the art of arranging type to make written language legible and readable. The arrangement involves selecting typefaces, point sizes, line lengths, line spacing and letter spacing.</p>
+      <p>Typography is the art of arranging type to make written language legible and readable. The arrangement involves selecting typefaces, point sizes, line lengths, line spacing and letter spacing.</p>
+      <p>Typography is the art of arranging type to make written language legible and readable. The arrangement involves selecting typefaces, point sizes, line lengths, line spacing and letter spacing.</p>
+      <p>Typography is the art of arranging type to make written language legible and readable. The arrangement involves selecting typefaces, point sizes, line lengths, line spacing and letter spacing.</p>
+      <p>Typography is the art of arranging type to make written language legible and readable. The arrangement involves selecting typefaces, point sizes, line lengths, line spacing and letter spacing.</p>
+      <p>Typography is the art of arranging type to make written language legible and readable. The arrangement involves selecting typefaces, point sizes, line lengths, line spacing and letter spacing.</p>
+      <p>Typography is the art of arranging type to make written language legible and readable. The arrangement involves selecting typefaces, point sizes, line lengths, line spacing and letter spacing.</p>
+      <p>Typography is the art of arranging type to make written language legible and readable. The arrangement involves selecting typefaces, point sizes, line lengths, line spacing and letter spacing.</p>
+      <p>Typography is the art of arranging type to make written language legible and readable. The arrangement involves selecting typefaces, point sizes, line lengths, line spacing and letter spacing.</p>
+      <p>Typography is the art of arranging type to make written language legible and readable. The arrangement involves selecting typefaces, point sizes, line lengths, line spacing and letter spacing.</p>
+      <p>Typography is the art of arranging type to make written language legible and readable. The arrangement involves selecting typefaces, point sizes, line lengths, line spacing and letter spacing.</p>
+      <p>Typography is the art of arranging type to make written language legible and readable. The arrangement involves selecting typefaces, point sizes, line lengths, line spacing and letter spacing.</p>
+      <p>Typography is the art of arranging type to make written language legible and readable. The arrangement involves selecting typefaces, point sizes, line lengths, line spacing and letter spacing.</p>
+      <p>Typography is the art of arranging type to make written language legible and readable. The arrangement involves selecting typefaces, point sizes, line lengths, line spacing and letter spacing.</p>
+      <p>Typography is the art of arranging type to make written language legible and readable. The arrangement involves selecting typefaces, point sizes, line lengths, line spacing and letter spacing.</p>
+      <p>Typography is the art of arranging type to make written language legible and readable. The arrangement involves selecting typefaces, point sizes, line lengths, line spacing and letter spacing.</p>
+      <p>Typography is the art of arranging type to make written language legible and readable. The arrangement involves selecting typefaces, point sizes, line lengths, line spacing and letter spacing.</p>
+      <p>Typography is the art of arranging type to make written language legible and readable. The arrangement involves selecting typefaces, point sizes, line lengths, line spacing and letter spacing.</p>
+      <p>Typography is the art of arranging type to make written language legible and readable. The arrangement involves selecting typefaces, point sizes, line lengths, line spacing and letter spacing.</p>
+      <p>Typography is the art of arranging type to make written language legible and readable. The arrangement involves selecting typefaces, point sizes, line lengths, line spacing and letter spacing.</p>
+      </div>
+      <div class="col short">
+        <p>A single note, which ends well before the column beside it.</p>
+      </div>
+    </div>
+  </body>
+</html>
