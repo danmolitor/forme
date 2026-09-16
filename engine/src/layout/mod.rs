@@ -3402,6 +3402,7 @@ impl LayoutEngine {
             // Chrome on a two-column document with column backgrounds:
             // Chrome fills 95%/95% of page 1 then 51%/51% of page 2; before
             // this, Forme filled 95%/57% then 52%/none.
+            let mut empty_bands: Vec<(usize, LayoutElement)> = Vec::new();
             if frag_count > 1 {
                 let page_bottom = cursor.content_y + cursor.content_height;
                 let last = frag_count - 1;
@@ -3421,12 +3422,51 @@ impl LayoutEngine {
                         page_bottom
                     };
                     stretch_fragment(&mut f.tail, bottom);
+
+                    // A column that ended before the row did appears on no
+                    // later fragment, so there is nothing for
+                    // stretch_fragment to grow and nothing gets painted,
+                    // while a browser continues the band to the bottom of
+                    // the row on every page the row crosses.
+                    //
+                    // The band is CLONED from the item's own painted box
+                    // rather than constructed, so it keeps that column's
+                    // fill, border, radius, shadow and opacity without this
+                    // code having to know their shapes. Children are dropped:
+                    // the band is the box, and repeating its content would
+                    // duplicate text onto later pages.
+                    if own_last < last {
+                        let template = f
+                            .tail
+                            .iter()
+                            .chain(f.pages.iter().flat_map(|p| p.elements.iter()))
+                            .find(|el| paints_a_box(el))
+                            .cloned();
+                        if let Some(t) = template {
+                            for k in (own_last + 1)..=last {
+                                let bottom = if k == last { row_end } else { page_bottom };
+                                let mut band = t.clone();
+                                band.children.clear();
+                                band.y = cursor.content_y;
+                                band.height = (bottom - cursor.content_y).max(0.0);
+                                // Behind whatever the other columns put on
+                                // this fragment, matching paint order on the
+                                // fragments where the column does appear.
+                                empty_bands.push((k, band));
+                            }
+                        }
+                    }
                 }
             }
 
             let mut merged: Vec<Vec<LayoutElement>> = vec![Vec::new(); frag_count];
             // Whatever was already on the row's first page paints first.
             merged[0] = base_page_elements;
+            // Then any band standing in for a column that has no content on
+            // this fragment, so it sits behind the columns that do.
+            for (k, band) in empty_bands {
+                merged[k].push(band);
+            }
             for f in item_frags.iter_mut() {
                 for (k, page) in f.pages.iter_mut().enumerate() {
                     merged[k].append(&mut page.elements);
@@ -7857,6 +7897,27 @@ fn end_y_of(frags: &[ItemFragments], last: usize) -> f64 {
 /// Grow a stretched column's box on one fragment down to `bottom`. Only the
 /// item's own top-level boxes move; their children keep their positions,
 /// exactly as a taller container would have held them.
+/// Does this element paint a box of its own (a fill or a visible border)?
+///
+/// Used to find the element that represents a stretched column's band, so an
+/// empty fragment can clone it. A column with nothing to paint needs no band.
+fn paints_a_box(el: &LayoutElement) -> bool {
+    match &el.draw {
+        DrawCommand::Rect {
+            background,
+            border_width,
+            ..
+        } => {
+            background.is_some()
+                || border_width.top > 0.0
+                || border_width.right > 0.0
+                || border_width.bottom > 0.0
+                || border_width.left > 0.0
+        }
+        _ => false,
+    }
+}
+
 fn stretch_fragment(elements: &mut [LayoutElement], bottom: f64) {
     for el in elements.iter_mut() {
         let grown = bottom - el.y;

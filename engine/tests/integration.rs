@@ -13627,3 +13627,62 @@ fn a_text_node_honours_its_width_constraints_not_only_width() {
         "minWidth floors a text box: {floored:.1}pt, floor 300pt"
     );
 }
+
+#[test]
+fn a_stretched_column_paints_its_band_on_every_page_the_row_crosses() {
+    // The sub-case #123 left open. `align-items: stretch` grows a column to
+    // the row's cross size, and phase 4 made it fill the fragment it APPEARS
+    // on. A column that runs out of content earlier than its neighbour
+    // appears on no later fragment at all, so there was nothing to grow and
+    // nothing was painted, where a browser continues the band to the bottom
+    // of the row on every page the row crosses.
+    let para = "Typography is the art of arranging type to make written language legible \
+                and readable. The arrangement involves selecting typefaces and sizes. ";
+    let tall: String = (0..6)
+        .map(|_| {
+            format!(
+                r#"{{ "kind": {{ "type": "Text", "content": "{}" }}, "style": {{ "fontSize": 9.0 }}, "children": [] }}"#,
+                para.repeat(4)
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(",");
+    let json = format!(
+        r#"{{ "children": [
+            {{ "kind": {{ "type": "View" }}, "style": {{ "flexDirection": "Row", "gap": 20.0 }}, "children": [
+                {{ "kind": {{ "type": "View" }},
+                   "style": {{ "flexGrow": 1.0, "flexBasis": {{ "Pt": 0.0 }},
+                              "backgroundColor": {{ "r": 0.93, "g": 0.94, "b": 0.96, "a": 1.0 }} }},
+                   "children": [ {tall} ] }},
+                {{ "kind": {{ "type": "View" }},
+                   "style": {{ "flexGrow": 1.0, "flexBasis": {{ "Pt": 0.0 }},
+                              "backgroundColor": {{ "r": 0.96, "g": 0.93, "b": 0.93, "a": 1.0 }} }},
+                   "children": [
+                     {{ "kind": {{ "type": "Text", "content": "One short paragraph." }},
+                        "style": {{ "fontSize": 9.0 }}, "children": [] }} ] }}
+            ] }}
+        ] }}"#
+    );
+    let (_, layout, _) = forme::render_with_layout(&serde_json::from_str(&json).unwrap()).unwrap();
+    assert!(layout.pages.len() >= 2, "the row must cross a page");
+
+    // On page 2 the short column has no content. Both bands must still be
+    // painted: count distinct painted boxes wide enough to be a column.
+    let page2 = &layout.pages[1];
+    let mut bands = 0;
+    fn walk(el: &forme::layout::ElementInfo, bands: &mut i32) {
+        if el.style.background_color.is_some() && el.width > 100.0 && el.height > 10.0 {
+            *bands += 1;
+        }
+        for c in &el.children {
+            walk(c, bands);
+        }
+    }
+    for el in &page2.elements {
+        walk(el, &mut bands);
+    }
+    assert_eq!(
+        bands, 2,
+        "both columns paint a band on page 2, not just the one with content"
+    );
+}
