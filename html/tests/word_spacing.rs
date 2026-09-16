@@ -135,3 +135,107 @@ fn word_spacing_no_longer_warns_as_unsupported() {
         out.warnings
     );
 }
+
+// ─── Measurement (issue #135) ────────────────────────────────────────
+//
+// `word_spacing` was applied at PDF-write time through `Tw` and appeared
+// nowhere in `engine/src/text/mod.rs`, so lines were broken as though it were
+// zero and the drawn text came out wider than the box it was measured into.
+// `letter_spacing` was threaded through that file in 36 places; this one in
+// none. These assert on LAYOUT, which is now the right instrument: before the
+// fix the property could not be observed there at all.
+
+fn layout_of(html: &str) -> forme_pdf_html::HtmlLayoutOutput {
+    forme_pdf_html::render_html_with_layout(html, &HtmlOptions::default()).expect("renders")
+}
+
+/// Every drawn line's width, in order.
+fn line_widths(out: &forme_pdf_html::HtmlLayoutOutput) -> Vec<f64> {
+    fn walk(el: &forme::layout::ElementInfo, into: &mut Vec<f64>) {
+        if el.text_content.is_some() {
+            into.push(el.width);
+        }
+        for c in &el.children {
+            walk(c, into);
+        }
+    }
+    let mut v = Vec::new();
+    for p in &out.layout.pages {
+        for el in &p.elements {
+            walk(el, &mut v);
+        }
+    }
+    v
+}
+
+const EIGHT_WORDS: &str = "alpha beta gamma delta epsilon zeta eta theta";
+
+#[test]
+fn word_spacing_changes_where_lines_break() {
+    // The reported shape: text that fits on one line unspaced must wrap once
+    // the spacing is counted, instead of being drawn past the box edge.
+    let plain = layout_of(&format!(
+        r#"<div style="width:260pt; font-size:12pt">{EIGHT_WORDS}</div>"#
+    ));
+    let spaced = layout_of(&format!(
+        r#"<div style="width:260pt; font-size:12pt; word-spacing:12pt">{EIGHT_WORDS}</div>"#
+    ));
+    assert_eq!(
+        line_widths(&plain).len(),
+        1,
+        "control: unspaced, this fits one line"
+    );
+    let spaced_lines = line_widths(&spaced);
+    assert_eq!(
+        spaced_lines.len(),
+        2,
+        "seven spaces at 12pt add 84pt, which cannot fit: {spaced_lines:?}"
+    );
+}
+
+#[test]
+fn the_measured_width_includes_the_word_spacing() {
+    // Asserting that every line fits its box would be VACUOUS here, and the
+    // first version of this test did exactly that: before the fix the layout
+    // reported ~246pt for a line the PDF drew 74pt wider, so a fits-the-box
+    // assertion passed while reading the engine's own wrong belief. The
+    // measurable claim is that the reported width now CONTAINS the spacing.
+    //
+    // A wide box so nothing wraps and the comparison is line-for-line: six
+    // words, five spaces, 10pt each, so exactly 50pt wider.
+    let words = "alpha beta gamma delta epsilon zeta";
+    let plain = layout_of(&format!(
+        r#"<div style="width:520pt; font-size:12pt">{words}</div>"#
+    ));
+    let spaced = layout_of(&format!(
+        r#"<div style="width:520pt; font-size:12pt; word-spacing:10pt">{words}</div>"#
+    ));
+    let (a, b) = (line_widths(&plain)[0], line_widths(&spaced)[0]);
+    assert_eq!(line_widths(&spaced).len(), 1, "control: still one line");
+    let delta = b - a;
+    assert!(
+        (delta - 50.0).abs() < 1.0,
+        "five spaces at 10pt must widen the measured line by 50pt: \
+         {a:.1}pt -> {b:.1}pt, delta {delta:.1}pt"
+    );
+}
+
+/// Passes with or without the fix, by construction: without it nothing
+/// changes at all. It is here to stop the advance being applied per
+/// character, which would be a larger and far less obvious error than not
+/// applying it. Not evidence that the feature works.
+#[test]
+fn word_spacing_only_widens_spaces() {
+    // A single word has no spaces, so the property must not touch it. Guards
+    // against applying the advance per character, which would be a much
+    // larger and much less obvious error than not applying it at all.
+    let plain = layout_of(r#"<div style="font-size:12pt">antidisestablishmentarianism</div>"#);
+    let spaced = layout_of(
+        r#"<div style="font-size:12pt; word-spacing:12pt">antidisestablishmentarianism</div>"#,
+    );
+    let (a, b) = (line_widths(&plain)[0], line_widths(&spaced)[0]);
+    assert!(
+        (a - b).abs() < 0.5,
+        "a word with no spaces is unaffected: {a:.1}pt vs {b:.1}pt"
+    );
+}
