@@ -388,3 +388,65 @@ fn attribute_selectors_apply_end_to_end() {
         "no skip warning any more: {warnings:?}"
     );
 }
+
+/// CSS 2.1 10.3.3: a block-level box in normal flow with `width: auto`
+/// FILLS its containing block, and its `auto` horizontal margins compute
+/// to zero. Auto margins only center a box whose width is constrained.
+///
+/// Bootstrap 3's `.container` is the case that matters: its width lives
+/// inside `@media (min-width: 768px)`, so on the print path it is exactly
+/// this shape. Shrink-to-fitting it collapsed a whole invoice to a 22.5pt
+/// column rendering one character per line, because its percentage-width
+/// children then measured against nothing.
+///
+/// Chrome renders the paragraph below on one line flush left at the
+/// padding edge; measured 2026-09-17.
+#[test]
+fn an_auto_width_block_fills_and_its_auto_margins_do_not_center_it() {
+    let html = r#"<!doctype html><html><head><style>
+        .container { padding-left: 15px; padding-right: 15px; margin-left: auto; margin-right: auto; }
+        .half { width: 50%; }
+      </style></head>
+      <body><div class="container"><div class="half"><p>Left column text here.</p></div></div></body></html>"#;
+    let out =
+        forme_pdf_html::render_html_with_layout(html, &HtmlOptions::default()).expect("render");
+    let page = &out.layout.pages[0];
+
+    fn deepest_view(el: &forme::layout::ElementInfo) -> &forme::layout::ElementInfo {
+        el.children
+            .iter()
+            .find(|c| c.node_type == "View")
+            .map(deepest_view)
+            .unwrap_or(el)
+    }
+    let body = &page.elements[0];
+    let container = body
+        .children
+        .iter()
+        .find(|c| c.node_type == "View")
+        .expect("container");
+
+    // The container fills its parent rather than shrinking to its content.
+    assert!(
+        (container.width - body.width).abs() < 0.01,
+        "auto-width block must fill: container {} != body {}",
+        container.width,
+        body.width
+    );
+    // ... and is not centered: it starts where its parent's content starts.
+    assert!(
+        (container.x - body.x).abs() < 0.01,
+        "auto margins must not center an auto-width block: x {} != {}",
+        container.x,
+        body.x
+    );
+    // The percentage child now has a real width to resolve against, which
+    // is what keeps the text off the one-character-per-line path.
+    let half = deepest_view(container);
+    let expected = (container.width - 22.5) * 0.5;
+    assert!(
+        (half.width - expected).abs() < 0.5,
+        "50% child must halve the container's content box: {} != {expected}",
+        half.width
+    );
+}

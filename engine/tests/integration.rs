@@ -12570,7 +12570,12 @@ fn wrap_row_relocating_lines_at_the_boundary_is_not_a_sequential_split() {
     // stay side by side, so the precise check must remain silent. (An
     // ITEM breaking mid-line stays a true positive.) Engine-level
     // because the html css subset does not map flex-wrap.
-    let pairs: String = (1..=4)
+    //
+    // Eight pairs rather than four since wrapped-row phase 2: lines now
+    // fragment as parallel columns, so four pairs no longer reach the
+    // boundary at all and the test's own precondition stopped holding.
+    // Deepening the content keeps it testing what it says it tests.
+    let pairs: String = (1..=8)
         .map(|i| {
             format!(
                 r#"{{ "kind": {{ "type": "View" }}, "style": {{ "width": {{ "Percent": 40 }}, "height": {{ "Pt": 100 }} }},
@@ -12602,10 +12607,22 @@ fn wrap_row_relocating_lines_at_the_boundary_is_not_a_sequential_split() {
         layout.pages.iter().position(|p| has(&p.elements, needle))
     }
     assert!(layout.pages.len() > 1, "the row must cross the boundary");
+    // pair1 vs pair8, not pair1 vs pair4. Chrome, printing this exact
+    // geometry, puts pairs 1-6 on the first page and 7-8 on the second
+    // (measured 2026-09-17), so pair1 and pair4 SHARE a page and the old
+    // assertion was wrong about a browser as well as about this engine.
+    // What both agree on is that the row crosses: its last line is on a
+    // later page than its first.
+    //
+    // Forme keeps pairs 1-4 on the first page where Chrome keeps 1-6. That
+    // gap is orphan control, not fragmentation: line 3 starts in the 13.9pt
+    // that are left, and Forme's per-column text layout pushes a lone
+    // stranded line where Chrome paints it. With the spacer at 500pt, so
+    // the crossing line has room for its text, the two agree exactly.
     assert_ne!(
         page_of(&layout, "pair1 cell"),
-        page_of(&layout, "pair4 cell"),
-        "wrap lines must land on different pages"
+        page_of(&layout, "pair8 cell"),
+        "the row's last line must land past its first"
     );
     assert!(
         !warnings.iter().any(|w| w.contains("sequentially")),
@@ -13284,14 +13301,16 @@ fn fractional_columns_summing_to_one_do_not_report_a_clamped_table() {
 }
 
 #[test]
-fn wrapped_flex_rows_keep_the_sequential_split_defect() {
-    // Parallel fragmentation is scoped to single-line rows: `flex-wrap:
-    // wrap` plus fragmentation multiplies the state space, and wrapped
-    // lines have align-content redistribution to answer for. A wrapped
-    // row therefore keeps both the sequential outcome and the defect that
-    // names it — the pin lives here rather than in the html crate because
-    // `flex-wrap` is not in the HTML CSS subset, so that path cannot
-    // express a wrapped row at all.
+fn wrapped_flex_rows_also_fragment_as_parallel_columns() {
+    // Inverted at wrapped-row fragmentation phase 2. This used to pin the
+    // OPPOSITE: that a wrapped row kept the sequential outcome and the
+    // defect that named it, because parallel fragmentation was scoped to
+    // single-line rows. A real document reopened that boundary (#127): a
+    // Bootstrap invoice on its mobile layout stacks with wrapped rows, and
+    // sequential layout turned Chrome's 1 page into 12.
+    //
+    // A wrapped row's lines now each fragment as parallel columns, so the
+    // defect must NOT be reported and the columns must stay side by side.
     let tall: String = (0..120)
         .map(|i| {
             format!(
@@ -13314,13 +13333,9 @@ fn wrapped_flex_rows_keep_the_sequential_split_defect() {
     let (_, layout, warnings) =
         forme::render_with_layout(&serde_json::from_str(&json).unwrap()).unwrap();
     assert!(layout.pages.len() > 1, "the row must actually split");
-    let defect = warnings
-        .iter()
-        .find(|w| w.contains("sequentially"))
-        .unwrap_or_else(|| panic!("wrapped rows still report the split: {warnings:?}"));
     assert!(
-        defect.contains("sidebar heading"),
-        "the defect names the row: {defect}"
+        !warnings.iter().any(|w| w.contains("sequentially")),
+        "a wrapped row no longer splits sequentially, so nothing reports it: {warnings:?}"
     );
 }
 
@@ -13543,6 +13558,13 @@ fn the_template_path_reports_the_render_defects_it_hits() {
     // document that provokes a defect through `render_with_layout` must
     // provoke the identical one here. That equality is the assertion: the
     // template path is not a quieter renderer, it is the same renderer.
+    //
+    // The provoker used to be a wrapped row's sequential-split warning.
+    // That warning is gone because wrapped rows now fragment as parallel
+    // columns, so this test needs a defect the engine still reports; an
+    // unpaintable border on a text node is one, pinned in its own right by
+    // `border_or_background_on_text_node_reports_render_defect`. Swapping
+    // the provoker keeps the equality, which is what this test is for.
     let tall: String = (0..120)
         .map(|i| {
             format!(
@@ -13557,17 +13579,21 @@ fn the_template_path_reports_the_render_defects_it_hits() {
                "style": {{ "flexDirection": "Row", "flexWrap": "Wrap" }},
                "children": [
                  {{ "kind": {{ "type": "View" }}, "style": {{ "width": {{ "Percent": 33.0 }} }}, "children": [
-                     {{ "kind": {{ "type": "Text", "content": "sidebar heading" }}, "style": {{}}, "children": [] }} ] }},
+                     {{ "kind": {{ "type": "Text", "content": "sidebar heading" }},
+                        "style": {{ "borderWidth": {{ "top": 0, "right": 0, "bottom": 1, "left": 0 }} }},
+                        "children": [] }} ] }},
                  {{ "kind": {{ "type": "View" }}, "style": {{ "width": {{ "Percent": 67.0 }} }}, "children": [ {tall} ] }}
                ] }}
         ], "metadata": {{ "title": "Wrapped" }} }}"#
     );
 
     let (_, layout, warnings) = forme::render_template_with_layout(&json, "{}").unwrap();
-    assert!(layout.pages.len() > 1, "the row must actually split");
+    assert!(layout.pages.len() > 1, "the row must actually cross pages");
     assert!(
-        warnings.iter().any(|w| w.contains("sequentially")),
-        "the template path reports the split it made: {warnings:?}"
+        warnings
+            .iter()
+            .any(|w| w.contains("render defect") && w.contains("border on a text node")),
+        "the template path reports the defect it hit: {warnings:?}"
     );
 
     // And it reports exactly what the direct path reports, not a subset.

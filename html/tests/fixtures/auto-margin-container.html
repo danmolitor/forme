@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<!--
+  Byte-wall coverage for CSS 2.1 10.3.3: a block-level box in normal flow
+  with `width: auto` fills its containing block, and its `auto` horizontal
+  margins compute to ZERO. Auto margins only center a box whose width is
+  constrained.
+
+  `.container` is Bootstrap's, verbatim in shape: its width lives inside
+  `@media (min-width: 768px)`, so on the print path it is exactly an
+  auto-width block with `margin: 0 auto`. Shrink-to-fitting it collapsed a
+  real invoice to a 22.5pt column rendering one character per line, because
+  its percentage-width children then measured against nothing. None of the
+  eight fixtures that preceded this one could see that fix.
+
+  `.sheet` is the other half of the same rule and must NOT change: with
+  `max-width` set, 10.4 re-runs the width rules with the clamped width as
+  the used width, so the auto margins do center it. A fixture that only
+  covered the first half would let a fix for it silently break the second.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Auto Margin Container</title>
+    <style>
+      @page { size: Letter; margin: 40pt; }
+      body { font-family: Helvetica, sans-serif; font-size: 9pt; color: #23262b; }
+      .container { padding-left: 15px; padding-right: 15px; margin-left: auto; margin-right: auto; }
+      @media (min-width: 768px) { .container { width: 750px; } }
+      .half { width: 50%; background-color: #eef0f5; padding: 6pt; }
+      .sheet { max-width: 300pt; margin-left: auto; margin-right: auto;
+               background-color: #f5eeee; padding: 6pt; }
+      p { margin: 0 0 6pt 0; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="half">
+        <p>Half of the container's content box, which only has a width because
+           the container filled rather than shrank to fit.</p>
+      </div>
+      <p>Full-width paragraph inside the same container.</p>
+    </div>
+    <div class="sheet">
+      <p>Constrained width, so the auto margins center this one.</p>
+    </div>
+  </body>
+</html>

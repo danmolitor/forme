@@ -3048,9 +3048,11 @@ impl LayoutEngine {
             // therefore removing a `lines.len() == 1` assumption, not adding a
             // second mechanism.
             //
-            // Phase 1 keeps the VALUE exactly as it was, so a single-line row
-            // renders byte for byte as before; only where it is computed moved.
-            let parallel = matches!(flex_wrap, FlexWrap::NoWrap);
+            // Phase 2 makes it true for every line. The chaining a wrapped
+            // row needs was already here: after a line fragments, the cursor
+            // becomes the carrier's cursor on the LAST page with `y` at the
+            // deepest column's end, so the next line starts exactly there.
+            let parallel = true;
             let line_items = &items[line.start..line.end];
             let line_count = line.end - line.start;
             let line_gap = column_gap * (line_count as f64 - 1.0).max(0.0);
