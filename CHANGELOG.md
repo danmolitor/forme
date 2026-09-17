@@ -11,7 +11,7 @@ while this file lapsed. They are reproduced, not rewritten.
 Parallel flex-row fragmentation, and the results of a systematic sweep for
 values the engine computed and never read.
 
-### Changed — these move existing documents
+### Changed: these move existing documents
 
 Four fixes make declarations take effect that were previously discarded. If a
 document relies on any of them, its layout will change, and that is the point.
@@ -24,7 +24,7 @@ document relies on any of them, its layout will change, and that is the point.
   not. Affects the JSX path equally, through `<Text style={{ maxWidth }}>`
 - **`word-spacing` is part of text measurement.** It was applied only at
   PDF-write time through the `Tw` operator, so lines were broken as though it
-  were zero and then drawn wider — text could run past its container. Lines
+  were zero and then drawn wider, so text could run past its container. Lines
   now break where a browser breaks them
 - **Print media queries evaluate against the page CONTENT box.** They briefly
   evaluated against the page box, on an unverified claim that a browser agrees.
@@ -72,7 +72,7 @@ document relies on any of them, its layout will change, and that is the point.
 
 - The docs gallery freshness gate now verifies which engine build produced the
   images. It hashed the source and rendered with the binary without checking
-  they corresponded, so a stale build satisfied it completely — 27 of 30 images
+  they corresponded, so a stale build satisfied it completely. 27 of 30 images
   were stale when that was finally measured
 - Byte-wall fixtures for the box/text split, relative units, word-spacing and
   fragmented columns. Each was verified to fail before being trusted
