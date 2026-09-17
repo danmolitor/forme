@@ -1,6 +1,6 @@
 [project]
 name = "formepdf"
-version = "0.23.0"
+version = "0.24.0"
 description = "Generate PDFs from HTML or a component DSL in pure Python — same engine as the JS packages, no system libraries"
 readme = "README.md"
 license = "MIT"

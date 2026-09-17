@@ -2,6 +2,81 @@
 
 All notable changes to the Forme monorepo are documented in this file.
 
+## [0.24.0] - 2026-09-17
+
+Parallel flex-row fragmentation, and the results of a systematic sweep for
+values the engine computed and never read.
+
+### Changed — these move existing documents
+
+Four fixes make declarations take effect that were previously discarded. If a
+document relies on any of them, its layout will change, and that is the point.
+
+- **`max-width` / `min-width` on a text block with no border, padding or
+  background.** A leaf text node honoured `width` and ignored the min/max
+  family, so `<p style="max-width: 315pt">` ran the full column. Eight of the
+  thirty shipped template images move because of this alone: the Northmoor
+  set's prose-measure classes (`.intro`, `.measure78`) were inert and now are
+  not. Affects the JSX path equally, through `<Text style={{ maxWidth }}>`
+- **`word-spacing` is part of text measurement.** It was applied only at
+  PDF-write time through the `Tw` operator, so lines were broken as though it
+  were zero and then drawn wider — text could run past its container. Lines
+  now break where a browser breaks them
+- **Print media queries evaluate against the page CONTENT box.** They briefly
+  evaluated against the page box, on an unverified claim that a browser agrees.
+  Measured, Chrome matches none of Bootstrap's `768`/`992`/`1200` breakpoints
+  when printing A4 or Letter, and neither does Forme now. A Bootstrap
+  `.container` that took a desktop width and overran the page no longer does
+- **A stretched column paints its band on every page the row crosses.** Under
+  `align-items: stretch`, a column whose content ended before its neighbour's
+  painted nothing on later pages; a browser continues the band
+
+### Added
+
+- **Parallel flex-row fragmentation.** A `flex-direction: row` that crosses a
+  page now continues as parallel columns on each page, instead of laying its
+  children out sequentially. Wrapped rows (`flex-wrap: wrap`) keep the
+  sequential behaviour and say so through a named render defect
+- **`word-spacing` in the HTML CSS subset**, block-level, with `em`/`rem`
+- **`<html lang>` reaches `/Lang`.** The attribute was parsed and never read,
+  so a PDF/UA file could carry a language contradicting its own content while
+  the warning told the author to set the attribute they already had. `lang`
+  precedence is now uniform on every render: an explicit option, then the
+  document's own declaration, then `"en"` with a warning
+- **`em` and `rem` on `gap`, `border-radius` and `border-width`**, which parsed
+  correctly and did nothing. `border: 0.5em solid` painted at the `medium`
+  default rather than the width asked for
+
+### Fixed
+
+- **Render warnings reach every surface.** `renderTemplateWithLayout()`
+  reported "warnings: none" on every render since it shipped, and `forme dev`
+  served a complete warnings badge that nothing populated. Font-embedding
+  warnings under `pdfUa`, missing glyphs, clamped table columns and sequential
+  row splits were all silent on those paths
+- **A border no longer cancels the rest of an element's style.** A paragraph
+  with a border, padding or background lost roughly fifteen other properties,
+  among them `border-style`, `text-transform`, `letter-spacing`, orphan and
+  widow control, `position` and its offsets, and `vertical-align`
+- **Per-side border colours** on the HTML path, which collapsed to one colour
+- **Inline elements** keep their background, padding and border
+- **`dir="rtl"` as an attribute** now reaches the engine's BiDi
+- **`border-style` with no explicit width** paints, per CSS's `medium` initial
+- **`border-collapse`** is honoured on `display: table` elements
+
+### Internal
+
+- The docs gallery freshness gate now verifies which engine build produced the
+  images. It hashed the source and rendered with the binary without checking
+  they corresponded, so a stale build satisfied it completely — 27 of 30 images
+  were stale when that was finally measured
+- Byte-wall fixtures for the box/text split, relative units, word-spacing and
+  fragmented columns. Each was verified to fail before being trusted
+- The SDK WASM rebuild is unconditional in `RELEASE.md`. Conditional on
+  "if `engine/` changed", it was a judgement call whose failure is silent: an
+  SDK keeps a stale WASM and its byte-parity test still passes, against a JS
+  package that has moved
+
 ## [0.9.2] - 2026-04-28
 
 ### Fixed
