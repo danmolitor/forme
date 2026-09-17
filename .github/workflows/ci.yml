@@ -405,8 +405,20 @@ jobs:
         # than re-reporting what `Test Core` already covered.
         #
         # Output is teed for the semantic-diff summary step below (the
-        # dogfood experiment); pipefail keeps this step the authoritative
-        # gate exactly as before.
+        # dogfood experiment).
+        #
+        # `shell: bash` IS LOAD-BEARING. GitHub's default shell for `run:` on
+        # Linux is `bash -e {0}`, WITHOUT pipefail, so `vitest | tee` exits
+        # with tee's status and this step passed no matter what the tests
+        # did. A comment here previously asserted that pipefail kept it
+        # authoritative; it did not, because nothing set pipefail. Naming
+        # `bash` explicitly is what GitHub turns into
+        # `bash --noprofile --norc -eo pipefail`.
+        #
+        # It went unnoticed because the step is the ONLY one that runs these
+        # suites, so its green check was the only signal, and it was green
+        # unconditionally. Four template baselines had drifted behind it.
+        shell: bash
         working-directory: packages/core
         run: npm run test:templates 2>&1 | tee /tmp/templates-regression.log
       - name: Semantic diff summary (dogfood experiment, non-gating)

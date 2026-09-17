@@ -1,7 +1,7 @@
 {
   "version": 1,
   "producer": "formepdf",
-  "createdAt": "2026-09-09T18:11:46.477Z",
+  "createdAt": "2026-09-17T15:42:09.380Z",
   "pageCount": 2,
   "pages": [
     {
@@ -118,78 +118,78 @@
       },
       "nodeIds": [
         "1:container:0",
-        "1:heading:0",
         "1:container:1",
         "1:container:2",
         "1:container:3",
         "1:container:4",
         "1:container:5",
-        "1:text:0",
+        "1:heading:0",
         "1:container:6",
-        "1:image:0",
-        "1:text:1",
         "1:container:7",
-        "1:image:1",
-        "1:text:2",
         "1:container:8",
-        "1:text:3",
         "1:container:9",
+        "1:image:0",
+        "1:container:10",
+        "1:text:0",
+        "1:text:1",
+        "1:container:11",
+        "1:image:1",
+        "1:container:12",
+        "1:text:2",
+        "1:text:3",
+        "1:container:13",
+        "1:image:2",
+        "1:container:14",
         "1:text:4",
         "1:text:5",
-        "1:text:6",
-        "1:container:10",
-        "1:container:11",
-        "1:container:12",
-        "1:container:13",
-        "1:text:7",
-        "1:container:14",
-        "1:image:2",
-        "1:text:8",
         "1:container:15",
         "1:image:3",
-        "1:text:9",
         "1:container:16",
+        "1:text:6",
+        "1:text:7",
+        "1:text:8",
+        "1:text:9",
         "1:text:10",
-        "1:container:17",
         "1:text:11",
-        "1:text:12",
-        "1:text:13",
+        "1:container:17",
         "1:container:18",
+        "1:text:12",
         "1:container:19",
         "1:container:20",
-        "1:heading:1",
         "1:container:21",
         "1:container:22",
         "1:container:23",
-        "1:container:24",
         "1:image:4",
+        "1:container:24",
+        "1:text:13",
         "1:text:14",
         "1:container:25",
         "1:image:5",
-        "1:text:15",
         "1:container:26",
+        "1:text:15",
         "1:text:16",
         "1:container:27",
+        "1:image:6",
+        "1:container:28",
         "1:text:17",
         "1:text:18",
-        "1:text:19",
-        "1:container:28",
         "1:container:29",
-        "1:text:20",
+        "1:image:7",
         "1:container:30",
+        "1:text:19",
+        "1:text:20",
+        "1:text:21",
+        "1:text:22",
+        "1:text:23",
+        "1:text:24",
         "1:container:31",
         "1:container:32",
-        "1:image:6",
-        "1:text:21",
         "1:container:33",
-        "1:image:7",
-        "1:text:22",
         "1:container:34",
-        "1:text:23",
-        "1:container:35",
-        "1:text:24",
         "1:text:25",
         "1:text:26",
+        "1:container:35",
+        "1:heading:1",
         "1:container:36",
         "1:container:37",
         "1:text:27",
@@ -2340,9 +2340,9 @@
       "pageIndex": 1,
       "bbox": {
         "x": 48,
-        "y": 48,
+        "y": null,
         "width": 516,
-        "height": 27.6
+        "height": 230
       },
       "order": 0,
       "parentId": null,
@@ -2359,41 +2359,17 @@
       "confidence": 1
     },
     {
-      "id": "1:heading:0",
-      "role": "heading",
-      "pageIndex": 1,
-      "bbox": {
-        "x": 48,
-        "y": 48,
-        "width": 516,
-        "height": 19.6
-      },
-      "order": 1,
-      "parentId": "1:container:0",
-      "text": "WRITING INSTRUMENTS",
-      "normText": "writing instruments",
-      "font": {
-        "size": 14,
-        "weight": 700,
-        "family": "Helvetica",
-        "italic": false
-      },
-      "headingLevel": 2,
-      "overflow": null,
-      "confidence": 1
-    },
-    {
       "id": "1:container:1",
       "role": "container",
       "pageIndex": 1,
       "bbox": {
-        "x": 525.7,
-        "y": 80.6,
-        "width": 32.7,
-        "height": 13.8
+        "x": 48,
+        "y": null,
+        "width": 247.7,
+        "height": 100
       },
-      "order": 2,
-      "parentId": "1:container:5",
+      "order": 1,
+      "parentId": "1:container:0",
       "text": null,
       "normText": null,
       "font": {
@@ -2411,13 +2387,13 @@
       "role": "container",
       "pageIndex": 1,
       "bbox": {
-        "x": 525.7,
-        "y": 80.6,
-        "width": 32.7,
-        "height": 13.8
+        "x": 48,
+        "y": null,
+        "width": 247.7,
+        "height": 100
       },
-      "order": 3,
-      "parentId": "1:container:1",
+      "order": 2,
+      "parentId": "1:container:0",
       "text": null,
       "normText": null,
       "font": {
@@ -2436,11 +2412,11 @@
       "pageIndex": 1,
       "bbox": {
         "x": 48,
-        "y": 85.6,
+        "y": null,
         "width": 516,
-        "height": 230
+        "height": 267.6
       },
-      "order": 4,
+      "order": 3,
       "parentId": null,
       "text": null,
       "normText": null,
@@ -2460,11 +2436,11 @@
       "pageIndex": 1,
       "bbox": {
         "x": 48,
-        "y": 85.6,
-        "width": 247.7,
-        "height": 100
+        "y": null,
+        "width": 0,
+        "height": 0
       },
-      "order": 5,
+      "order": 4,
       "parentId": "1:container:3",
       "text": null,
       "normText": null,
@@ -2483,12 +2459,12 @@
       "role": "container",
       "pageIndex": 1,
       "bbox": {
-        "x": 305.7,
-        "y": 85.6,
-        "width": 247.7,
-        "height": 100
+        "x": 48,
+        "y": null,
+        "width": 516,
+        "height": 27.6
       },
-      "order": 6,
+      "order": 5,
       "parentId": "1:container:3",
       "text": null,
       "normText": null,
@@ -2503,22 +2479,50 @@
       "confidence": 1
     },
     {
-      "id": "1:text:0",
-      "role": "text",
+      "id": "1:heading:0",
+      "role": "heading",
       "pageIndex": 1,
       "bbox": {
-        "x": 531.7,
-        "y": 82.6,
-        "width": 20.7,
-        "height": 9.8
+        "x": 48,
+        "y": null,
+        "width": 516,
+        "height": 0
+      },
+      "order": 6,
+      "parentId": "1:container:5",
+      "text": "NOTEBOOKS & PAPER",
+      "normText": "notebooks & paper",
+      "font": {
+        "size": 14,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": 2,
+      "overflow": {
+        "axis": "y",
+        "overflowPts": null,
+        "container": "page-content"
+      },
+      "confidence": 1
+    },
+    {
+      "id": "1:container:6",
+      "role": "container",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 48,
+        "y": null,
+        "width": 516,
+        "height": 230
       },
       "order": 7,
-      "parentId": "1:container:2",
-      "text": "SALE",
-      "normText": "sale",
+      "parentId": "1:container:3",
+      "text": null,
+      "normText": null,
       "font": {
-        "size": 7,
-        "weight": 700,
+        "size": 12,
+        "weight": 400,
         "family": "Helvetica",
         "italic": false
       },
@@ -2527,17 +2531,65 @@
       "confidence": 1
     },
     {
-      "id": "1:container:6",
+      "id": "1:container:7",
+      "role": "container",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 48,
+        "y": null,
+        "width": 247.7,
+        "height": 100
+      },
+      "order": 8,
+      "parentId": "1:container:6",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:container:8",
+      "role": "container",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 48,
+        "y": null,
+        "width": 247.7,
+        "height": 100
+      },
+      "order": 9,
+      "parentId": "1:container:6",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:container:9",
       "role": "container",
       "pageIndex": 1,
       "bbox": {
         "x": 61,
-        "y": 98.6,
+        "y": null,
         "width": 221.7,
         "height": 14
       },
-      "order": 8,
-      "parentId": "1:container:4",
+      "order": 10,
+      "parentId": "1:container:1",
       "text": null,
       "normText": null,
       "font": {
@@ -2556,12 +2608,12 @@
       "pageIndex": 1,
       "bbox": {
         "x": 61,
-        "y": 98.6,
+        "y": null,
         "width": 14,
         "height": 14
       },
-      "order": 9,
-      "parentId": "1:container:6",
+      "order": 11,
+      "parentId": "1:container:9",
       "text": null,
       "normText": null,
       "font": {
@@ -2575,22 +2627,22 @@
       "confidence": 1
     },
     {
-      "id": "1:text:1",
-      "role": "text",
+      "id": "1:container:10",
+      "role": "container",
       "pageIndex": 1,
       "bbox": {
-        "x": 81,
-        "y": 98.6,
-        "width": 201.7,
+        "x": 61,
+        "y": null,
+        "width": 221.7,
         "height": 14
       },
-      "order": 10,
-      "parentId": "1:container:6",
-      "text": "Titanium Ballpoint Pen",
-      "normText": "titanium ballpoint pen",
+      "order": 12,
+      "parentId": "1:container:1",
+      "text": null,
+      "normText": null,
       "font": {
-        "size": 10,
-        "weight": 700,
+        "size": 12,
+        "weight": 400,
         "family": "Helvetica",
         "italic": false
       },
@@ -2599,17 +2651,73 @@
       "confidence": 1
     },
     {
-      "id": "1:container:7",
+      "id": "1:text:0",
+      "role": "text",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 61,
+        "y": null,
+        "width": 221.7,
+        "height": 0
+      },
+      "order": 13,
+      "parentId": "1:container:10",
+      "text": "$72.00",
+      "normText": "$72.00",
+      "font": {
+        "size": 10,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": {
+        "axis": "y",
+        "overflowPts": null,
+        "container": "page-content"
+      },
+      "confidence": 1
+    },
+    {
+      "id": "1:text:1",
+      "role": "text",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 61,
+        "y": null,
+        "width": 221.7,
+        "height": 0
+      },
+      "order": 14,
+      "parentId": "1:container:1",
+      "text": "CNC-machined titanium body with ceramic ball tip. Accepts standard Parker-style refills.",
+      "normText": "cnc-machined titanium body with ceramic ball tip. accepts standard parker-style refills.",
+      "font": {
+        "size": 8,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": {
+        "axis": "y",
+        "overflowPts": null,
+        "container": "page-content"
+      },
+      "confidence": 1
+    },
+    {
+      "id": "1:container:11",
       "role": "container",
       "pageIndex": 1,
       "bbox": {
-        "x": 318.7,
-        "y": 98.6,
+        "x": 61,
+        "y": null,
         "width": 221.7,
         "height": 14
       },
-      "order": 11,
-      "parentId": "1:container:5",
+      "order": 15,
+      "parentId": "1:container:2",
       "text": null,
       "normText": null,
       "font": {
@@ -2627,229 +2735,13 @@
       "role": "image",
       "pageIndex": 1,
       "bbox": {
-        "x": 318.7,
-        "y": 98.6,
+        "x": 61,
+        "y": null,
         "width": 14,
         "height": 14
       },
-      "order": 12,
-      "parentId": "1:container:7",
-      "text": null,
-      "normText": null,
-      "font": {
-        "size": 12,
-        "weight": 400,
-        "family": "Helvetica",
-        "italic": false
-      },
-      "headingLevel": null,
-      "overflow": null,
-      "confidence": 1
-    },
-    {
-      "id": "1:text:2",
-      "role": "text",
-      "pageIndex": 1,
-      "bbox": {
-        "x": 338.7,
-        "y": 98.6,
-        "width": 201.7,
-        "height": 14
-      },
-      "order": 13,
-      "parentId": "1:container:7",
-      "text": "Fountain Pen Starter Set",
-      "normText": "fountain pen starter set",
-      "font": {
-        "size": 10,
-        "weight": 700,
-        "family": "Helvetica",
-        "italic": false
-      },
-      "headingLevel": null,
-      "overflow": null,
-      "confidence": 1
-    },
-    {
-      "id": "1:container:8",
-      "role": "container",
-      "pageIndex": 1,
-      "bbox": {
-        "x": 61,
-        "y": 118.6,
-        "width": 221.7,
-        "height": 14
-      },
-      "order": 14,
-      "parentId": "1:container:4",
-      "text": null,
-      "normText": null,
-      "font": {
-        "size": 12,
-        "weight": 400,
-        "family": "Helvetica",
-        "italic": false
-      },
-      "headingLevel": null,
-      "overflow": null,
-      "confidence": 1
-    },
-    {
-      "id": "1:text:3",
-      "role": "text",
-      "pageIndex": 1,
-      "bbox": {
-        "x": 61,
-        "y": 118.6,
-        "width": 221.7,
-        "height": 14
-      },
-      "order": 15,
-      "parentId": "1:container:8",
-      "text": "$72.00",
-      "normText": "$72.00",
-      "font": {
-        "size": 10,
-        "weight": 700,
-        "family": "Helvetica",
-        "italic": false
-      },
-      "headingLevel": null,
-      "overflow": null,
-      "confidence": 1
-    },
-    {
-      "id": "1:container:9",
-      "role": "container",
-      "pageIndex": 1,
-      "bbox": {
-        "x": 318.7,
-        "y": 118.6,
-        "width": 221.7,
-        "height": 14
-      },
       "order": 16,
-      "parentId": "1:container:5",
-      "text": null,
-      "normText": null,
-      "font": {
-        "size": 12,
-        "weight": 400,
-        "family": "Helvetica",
-        "italic": false
-      },
-      "headingLevel": null,
-      "overflow": null,
-      "confidence": 1
-    },
-    {
-      "id": "1:text:4",
-      "role": "text",
-      "pageIndex": 1,
-      "bbox": {
-        "x": 318.7,
-        "y": 118.6,
-        "width": 221.7,
-        "height": 14
-      },
-      "order": 17,
-      "parentId": "1:container:9",
-      "text": "$55.00 $68.00",
-      "normText": "$55.00 $68.00",
-      "font": {
-        "size": 10,
-        "weight": 400,
-        "family": "Helvetica",
-        "italic": false
-      },
-      "headingLevel": null,
-      "overflow": null,
-      "confidence": 1
-    },
-    {
-      "id": "1:text:5",
-      "role": "text",
-      "pageIndex": 1,
-      "bbox": {
-        "x": 61,
-        "y": 136.6,
-        "width": 221.7,
-        "height": 22.4
-      },
-      "order": 18,
-      "parentId": "1:container:4",
-      "text": "CNC-machined titanium body with ceramic ball tip. Accepts standard Parker-style refills.",
-      "normText": "cnc-machined titanium body with ceramic ball tip. accepts standard parker-style refills.",
-      "font": {
-        "size": 8,
-        "weight": 400,
-        "family": "Helvetica",
-        "italic": false
-      },
-      "headingLevel": null,
-      "overflow": null,
-      "confidence": 1
-    },
-    {
-      "id": "1:text:6",
-      "role": "text",
-      "pageIndex": 1,
-      "bbox": {
-        "x": 318.7,
-        "y": 136.6,
-        "width": 221.7,
-        "height": 22.4
-      },
-      "order": 19,
-      "parentId": "1:container:5",
-      "text": "Includes pen body, converter, and three ink cartridges. Medium nib suitable for everyday writing.",
-      "normText": "includes pen body, converter, and three ink cartridges. medium nib suitable for everyday writing.",
-      "font": {
-        "size": 8,
-        "weight": 400,
-        "family": "Helvetica",
-        "italic": false
-      },
-      "headingLevel": null,
-      "overflow": null,
-      "confidence": 1
-    },
-    {
-      "id": "1:container:10",
-      "role": "container",
-      "pageIndex": 1,
-      "bbox": {
-        "x": 528.5,
-        "y": 200.6,
-        "width": 29.8,
-        "height": 13.8
-      },
-      "order": 20,
-      "parentId": "1:container:13",
-      "text": null,
-      "normText": null,
-      "font": {
-        "size": 12,
-        "weight": 400,
-        "family": "Helvetica",
-        "italic": false
-      },
-      "headingLevel": null,
-      "overflow": null,
-      "confidence": 1
-    },
-    {
-      "id": "1:container:11",
-      "role": "container",
-      "pageIndex": 1,
-      "bbox": {
-        "x": 528.5,
-        "y": 200.6,
-        "width": 29.8,
-        "height": 13.8
-      },
-      "order": 21,
-      "parentId": "1:container:10",
+      "parentId": "1:container:11",
       "text": null,
       "normText": null,
       "font": {
@@ -2867,13 +2759,13 @@
       "role": "container",
       "pageIndex": 1,
       "bbox": {
-        "x": 48,
-        "y": 205.6,
-        "width": 247.7,
-        "height": 100
+        "x": 61,
+        "y": null,
+        "width": 221.7,
+        "height": 14
       },
-      "order": 22,
-      "parentId": "1:container:3",
+      "order": 17,
+      "parentId": "1:container:2",
       "text": null,
       "normText": null,
       "font": {
@@ -2884,6 +2776,62 @@
       },
       "headingLevel": null,
       "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:text:2",
+      "role": "text",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 61,
+        "y": null,
+        "width": 221.7,
+        "height": 0
+      },
+      "order": 18,
+      "parentId": "1:container:12",
+      "text": "$24.00",
+      "normText": "$24.00",
+      "font": {
+        "size": 10,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": {
+        "axis": "y",
+        "overflowPts": null,
+        "container": "page-content"
+      },
+      "confidence": 1
+    },
+    {
+      "id": "1:text:3",
+      "role": "text",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 61,
+        "y": null,
+        "width": 221.7,
+        "height": 0
+      },
+      "order": 19,
+      "parentId": "1:container:2",
+      "text": "Weighted brass barrel with retractable tip. Built-in sharpener under the cap eraser.",
+      "normText": "weighted brass barrel with retractable tip. built-in sharpener under the cap eraser.",
+      "font": {
+        "size": 8,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": {
+        "axis": "y",
+        "overflowPts": null,
+        "container": "page-content"
+      },
       "confidence": 1
     },
     {
@@ -2891,61 +2839,13 @@
       "role": "container",
       "pageIndex": 1,
       "bbox": {
-        "x": 305.7,
-        "y": 205.6,
-        "width": 247.7,
-        "height": 100
-      },
-      "order": 23,
-      "parentId": "1:container:3",
-      "text": null,
-      "normText": null,
-      "font": {
-        "size": 12,
-        "weight": 400,
-        "family": "Helvetica",
-        "italic": false
-      },
-      "headingLevel": null,
-      "overflow": null,
-      "confidence": 1
-    },
-    {
-      "id": "1:text:7",
-      "role": "text",
-      "pageIndex": 1,
-      "bbox": {
-        "x": 534.5,
-        "y": 202.6,
-        "width": 17.8,
-        "height": 9.8
-      },
-      "order": 24,
-      "parentId": "1:container:11",
-      "text": "NEW",
-      "normText": "new",
-      "font": {
-        "size": 7,
-        "weight": 700,
-        "family": "Helvetica",
-        "italic": false
-      },
-      "headingLevel": null,
-      "overflow": null,
-      "confidence": 1
-    },
-    {
-      "id": "1:container:14",
-      "role": "container",
-      "pageIndex": 1,
-      "bbox": {
         "x": 61,
-        "y": 218.6,
+        "y": null,
         "width": 221.7,
         "height": 14
       },
-      "order": 25,
-      "parentId": "1:container:12",
+      "order": 20,
+      "parentId": "1:container:7",
       "text": null,
       "normText": null,
       "font": {
@@ -2964,12 +2864,12 @@
       "pageIndex": 1,
       "bbox": {
         "x": 61,
-        "y": 218.6,
+        "y": null,
         "width": 14,
         "height": 14
       },
-      "order": 26,
-      "parentId": "1:container:14",
+      "order": 21,
+      "parentId": "1:container:13",
       "text": null,
       "normText": null,
       "font": {
@@ -2983,22 +2883,22 @@
       "confidence": 1
     },
     {
-      "id": "1:text:8",
-      "role": "text",
+      "id": "1:container:14",
+      "role": "container",
       "pageIndex": 1,
       "bbox": {
-        "x": 81,
-        "y": 218.6,
-        "width": 201.7,
+        "x": 61,
+        "y": null,
+        "width": 221.7,
         "height": 14
       },
-      "order": 27,
-      "parentId": "1:container:14",
-      "text": "Mechanical Pencil 0.5mm",
-      "normText": "mechanical pencil 0.5mm",
+      "order": 22,
+      "parentId": "1:container:7",
+      "text": null,
+      "normText": null,
       "font": {
-        "size": 10,
-        "weight": 700,
+        "size": 12,
+        "weight": 400,
         "family": "Helvetica",
         "italic": false
       },
@@ -3007,17 +2907,73 @@
       "confidence": 1
     },
     {
+      "id": "1:text:4",
+      "role": "text",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 61,
+        "y": null,
+        "width": 221.7,
+        "height": 0
+      },
+      "order": 23,
+      "parentId": "1:container:14",
+      "text": "$32.00",
+      "normText": "$32.00",
+      "font": {
+        "size": 10,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": {
+        "axis": "y",
+        "overflowPts": null,
+        "container": "page-content"
+      },
+      "confidence": 1
+    },
+    {
+      "id": "1:text:5",
+      "role": "text",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 61,
+        "y": null,
+        "width": 221.7,
+        "height": 0
+      },
+      "order": 24,
+      "parentId": "1:container:7",
+      "text": "192 pages of acid-free, fountain-pen-friendly paper. Lay-flat binding with ribbon bookmark.",
+      "normText": "192 pages of acid-free, fountain-pen-friendly paper. lay-flat binding with ribbon bookmark.",
+      "font": {
+        "size": 8,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": {
+        "axis": "y",
+        "overflowPts": null,
+        "container": "page-content"
+      },
+      "confidence": 1
+    },
+    {
       "id": "1:container:15",
       "role": "container",
       "pageIndex": 1,
       "bbox": {
-        "x": 318.7,
-        "y": 218.6,
+        "x": 61,
+        "y": null,
         "width": 221.7,
         "height": 14
       },
-      "order": 28,
-      "parentId": "1:container:13",
+      "order": 25,
+      "parentId": "1:container:8",
       "text": null,
       "normText": null,
       "font": {
@@ -3035,42 +2991,18 @@
       "role": "image",
       "pageIndex": 1,
       "bbox": {
-        "x": 318.7,
-        "y": 218.6,
+        "x": 61,
+        "y": null,
         "width": 14,
         "height": 14
       },
-      "order": 29,
+      "order": 26,
       "parentId": "1:container:15",
       "text": null,
       "normText": null,
       "font": {
         "size": 12,
         "weight": 400,
-        "family": "Helvetica",
-        "italic": false
-      },
-      "headingLevel": null,
-      "overflow": null,
-      "confidence": 1
-    },
-    {
-      "id": "1:text:9",
-      "role": "text",
-      "pageIndex": 1,
-      "bbox": {
-        "x": 338.7,
-        "y": 218.6,
-        "width": 201.7,
-        "height": 14
-      },
-      "order": 30,
-      "parentId": "1:container:15",
-      "text": "Archival Ink Set",
-      "normText": "archival ink set",
-      "font": {
-        "size": 10,
-        "weight": 700,
         "family": "Helvetica",
         "italic": false
       },
@@ -3084,12 +3016,12 @@
       "pageIndex": 1,
       "bbox": {
         "x": 61,
-        "y": 238.6,
+        "y": null,
         "width": 221.7,
         "height": 14
       },
-      "order": 31,
-      "parentId": "1:container:12",
+      "order": 27,
+      "parentId": "1:container:8",
       "text": null,
       "normText": null,
       "font": {
@@ -3100,6 +3032,118 @@
       },
       "headingLevel": null,
       "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:text:6",
+      "role": "text",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 61,
+        "y": null,
+        "width": 221.7,
+        "height": 0
+      },
+      "order": 28,
+      "parentId": "1:container:16",
+      "text": "$22.00 $30.00",
+      "normText": "$22.00 $30.00",
+      "font": {
+        "size": 10,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": {
+        "axis": "y",
+        "overflowPts": null,
+        "container": "page-content"
+      },
+      "confidence": 1
+    },
+    {
+      "id": "1:text:7",
+      "role": "text",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 61,
+        "y": null,
+        "width": 221.7,
+        "height": 0
+      },
+      "order": 29,
+      "parentId": "1:container:8",
+      "text": "Soft-cover notebooks with five-millimeter dot grid. Ideal for bullet journaling and sketches.",
+      "normText": "soft-cover notebooks with five-millimeter dot grid. ideal for bullet journaling and sketches.",
+      "font": {
+        "size": 8,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": {
+        "axis": "y",
+        "overflowPts": null,
+        "container": "page-content"
+      },
+      "confidence": 1
+    },
+    {
+      "id": "1:text:8",
+      "role": "text",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 81,
+        "y": null,
+        "width": 201.7,
+        "height": 0
+      },
+      "order": 30,
+      "parentId": "1:container:9",
+      "text": "Titanium Ballpoint Pen",
+      "normText": "titanium ballpoint pen",
+      "font": {
+        "size": 10,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": {
+        "axis": "y",
+        "overflowPts": null,
+        "container": "page-content"
+      },
+      "confidence": 1
+    },
+    {
+      "id": "1:text:9",
+      "role": "text",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 81,
+        "y": null,
+        "width": 201.7,
+        "height": 0
+      },
+      "order": 31,
+      "parentId": "1:container:11",
+      "text": "Mechanical Pencil 0.5mm",
+      "normText": "mechanical pencil 0.5mm",
+      "font": {
+        "size": 10,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": {
+        "axis": "y",
+        "overflowPts": null,
+        "container": "page-content"
+      },
       "confidence": 1
     },
     {
@@ -3107,15 +3151,15 @@
       "role": "text",
       "pageIndex": 1,
       "bbox": {
-        "x": 61,
-        "y": 238.6,
-        "width": 221.7,
-        "height": 14
+        "x": 81,
+        "y": null,
+        "width": 201.7,
+        "height": 0
       },
       "order": 32,
-      "parentId": "1:container:16",
-      "text": "$24.00",
-      "normText": "$24.00",
+      "parentId": "1:container:13",
+      "text": "Linen Hardcover Journal",
+      "normText": "linen hardcover journal",
       "font": {
         "size": 10,
         "weight": 700,
@@ -3123,31 +3167,11 @@
         "italic": false
       },
       "headingLevel": null,
-      "overflow": null,
-      "confidence": 1
-    },
-    {
-      "id": "1:container:17",
-      "role": "container",
-      "pageIndex": 1,
-      "bbox": {
-        "x": 318.7,
-        "y": 238.6,
-        "width": 221.7,
-        "height": 14
+      "overflow": {
+        "axis": "y",
+        "overflowPts": null,
+        "container": "page-content"
       },
-      "order": 33,
-      "parentId": "1:container:13",
-      "text": null,
-      "normText": null,
-      "font": {
-        "size": 12,
-        "weight": 400,
-        "family": "Helvetica",
-        "italic": false
-      },
-      "headingLevel": null,
-      "overflow": null,
       "confidence": 1
     },
     {
@@ -3155,15 +3179,15 @@
       "role": "text",
       "pageIndex": 1,
       "bbox": {
-        "x": 318.7,
-        "y": 238.6,
-        "width": 221.7,
-        "height": 14
+        "x": 81,
+        "y": null,
+        "width": 201.7,
+        "height": 0
       },
-      "order": 34,
-      "parentId": "1:container:17",
-      "text": "$36.00",
-      "normText": "$36.00",
+      "order": 33,
+      "parentId": "1:container:15",
+      "text": "Dotted Notebook 3-Pack",
+      "normText": "dotted notebook 3-pack",
       "font": {
         "size": 10,
         "weight": 700,
@@ -3171,49 +3195,29 @@
         "italic": false
       },
       "headingLevel": null,
-      "overflow": null,
+      "overflow": {
+        "axis": "y",
+        "overflowPts": null,
+        "container": "page-content"
+      },
       "confidence": 1
     },
     {
-      "id": "1:text:12",
-      "role": "text",
+      "id": "1:container:17",
+      "role": "container",
       "pageIndex": 1,
       "bbox": {
-        "x": 61,
-        "y": 256.6,
-        "width": 221.7,
-        "height": 22.4
+        "x": 268,
+        "y": null,
+        "width": 32.7,
+        "height": 13.8
       },
-      "order": 35,
-      "parentId": "1:container:12",
-      "text": "Weighted brass barrel with retractable tip. Built-in sharpener under the cap eraser.",
-      "normText": "weighted brass barrel with retractable tip. built-in sharpener under the cap eraser.",
+      "order": 34,
+      "parentId": "1:container:8",
+      "text": null,
+      "normText": null,
       "font": {
-        "size": 8,
-        "weight": 400,
-        "family": "Helvetica",
-        "italic": false
-      },
-      "headingLevel": null,
-      "overflow": null,
-      "confidence": 1
-    },
-    {
-      "id": "1:text:13",
-      "role": "text",
-      "pageIndex": 1,
-      "bbox": {
-        "x": 318.7,
-        "y": 256.6,
-        "width": 221.7,
-        "height": 22.4
-      },
-      "order": 36,
-      "parentId": "1:container:13",
-      "text": "Five bottles of fade-resistant, waterproof ink. Colors include black, blue, sepia, green, and red.",
-      "normText": "five bottles of fade-resistant, waterproof ink. colors include black, blue, sepia, green, and red.",
-      "font": {
-        "size": 8,
+        "size": 12,
         "weight": 400,
         "family": "Helvetica",
         "italic": false
@@ -3227,13 +3231,13 @@
       "role": "container",
       "pageIndex": 1,
       "bbox": {
-        "x": 48,
-        "y": 335.6,
-        "width": 516,
-        "height": 267.6
+        "x": 268,
+        "y": null,
+        "width": 32.7,
+        "height": 13.8
       },
-      "order": 37,
-      "parentId": null,
+      "order": 35,
+      "parentId": "1:container:17",
       "text": null,
       "normText": null,
       "font": {
@@ -3247,17 +3251,45 @@
       "confidence": 1
     },
     {
+      "id": "1:text:12",
+      "role": "text",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 274,
+        "y": null,
+        "width": 20.7,
+        "height": 0
+      },
+      "order": 36,
+      "parentId": "1:container:18",
+      "text": "SALE",
+      "normText": "sale",
+      "font": {
+        "size": 7,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": {
+        "axis": "y",
+        "overflowPts": null,
+        "container": "page-content"
+      },
+      "confidence": 1
+    },
+    {
       "id": "1:container:19",
       "role": "container",
       "pageIndex": 1,
       "bbox": {
-        "x": 48,
-        "y": 335.6,
-        "width": 0,
-        "height": 0
+        "x": 305.7,
+        "y": null,
+        "width": 247.7,
+        "height": 100
       },
-      "order": 38,
-      "parentId": "1:container:18",
+      "order": 37,
+      "parentId": "1:container:0",
       "text": null,
       "normText": null,
       "font": {
@@ -3275,13 +3307,13 @@
       "role": "container",
       "pageIndex": 1,
       "bbox": {
-        "x": 48,
-        "y": 335.6,
-        "width": 516,
-        "height": 27.6
+        "x": 305.7,
+        "y": null,
+        "width": 247.7,
+        "height": 100
       },
-      "order": 39,
-      "parentId": "1:container:18",
+      "order": 38,
+      "parentId": "1:container:0",
       "text": null,
       "normText": null,
       "font": {
@@ -3295,41 +3327,17 @@
       "confidence": 1
     },
     {
-      "id": "1:heading:1",
-      "role": "heading",
-      "pageIndex": 1,
-      "bbox": {
-        "x": 48,
-        "y": 335.6,
-        "width": 516,
-        "height": 19.6
-      },
-      "order": 40,
-      "parentId": "1:container:20",
-      "text": "NOTEBOOKS & PAPER",
-      "normText": "notebooks & paper",
-      "font": {
-        "size": 14,
-        "weight": 700,
-        "family": "Helvetica",
-        "italic": false
-      },
-      "headingLevel": 2,
-      "overflow": null,
-      "confidence": 1
-    },
-    {
       "id": "1:container:21",
       "role": "container",
       "pageIndex": 1,
       "bbox": {
-        "x": 48,
-        "y": 373.2,
-        "width": 516,
-        "height": 230
+        "x": 305.7,
+        "y": null,
+        "width": 247.7,
+        "height": 100
       },
-      "order": 41,
-      "parentId": "1:container:18",
+      "order": 39,
+      "parentId": "1:container:6",
       "text": null,
       "normText": null,
       "font": {
@@ -3347,13 +3355,13 @@
       "role": "container",
       "pageIndex": 1,
       "bbox": {
-        "x": 48,
-        "y": 373.2,
+        "x": 305.7,
+        "y": null,
         "width": 247.7,
         "height": 100
       },
-      "order": 42,
-      "parentId": "1:container:21",
+      "order": 40,
+      "parentId": "1:container:6",
       "text": null,
       "normText": null,
       "font": {
@@ -3371,37 +3379,13 @@
       "role": "container",
       "pageIndex": 1,
       "bbox": {
-        "x": 305.7,
-        "y": 373.2,
-        "width": 247.7,
-        "height": 100
-      },
-      "order": 43,
-      "parentId": "1:container:21",
-      "text": null,
-      "normText": null,
-      "font": {
-        "size": 12,
-        "weight": 400,
-        "family": "Helvetica",
-        "italic": false
-      },
-      "headingLevel": null,
-      "overflow": null,
-      "confidence": 1
-    },
-    {
-      "id": "1:container:24",
-      "role": "container",
-      "pageIndex": 1,
-      "bbox": {
-        "x": 61,
-        "y": 386.2,
+        "x": 318.7,
+        "y": null,
         "width": 221.7,
         "height": 14
       },
-      "order": 44,
-      "parentId": "1:container:22",
+      "order": 41,
+      "parentId": "1:container:19",
       "text": null,
       "normText": null,
       "font": {
@@ -3419,13 +3403,13 @@
       "role": "image",
       "pageIndex": 1,
       "bbox": {
-        "x": 61,
-        "y": 386.2,
+        "x": 318.7,
+        "y": null,
         "width": 14,
         "height": 14
       },
-      "order": 45,
-      "parentId": "1:container:24",
+      "order": 42,
+      "parentId": "1:container:23",
       "text": null,
       "normText": null,
       "font": {
@@ -3439,22 +3423,22 @@
       "confidence": 1
     },
     {
-      "id": "1:text:14",
-      "role": "text",
+      "id": "1:container:24",
+      "role": "container",
       "pageIndex": 1,
       "bbox": {
-        "x": 81,
-        "y": 386.2,
-        "width": 201.7,
+        "x": 318.7,
+        "y": null,
+        "width": 221.7,
         "height": 14
       },
-      "order": 46,
-      "parentId": "1:container:24",
-      "text": "Linen Hardcover Journal",
-      "normText": "linen hardcover journal",
+      "order": 43,
+      "parentId": "1:container:19",
+      "text": null,
+      "normText": null,
       "font": {
-        "size": 10,
-        "weight": 700,
+        "size": 12,
+        "weight": 400,
         "family": "Helvetica",
         "italic": false
       },
@@ -3463,17 +3447,73 @@
       "confidence": 1
     },
     {
+      "id": "1:text:13",
+      "role": "text",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 318.7,
+        "y": null,
+        "width": 221.7,
+        "height": 0
+      },
+      "order": 44,
+      "parentId": "1:container:24",
+      "text": "$55.00 $68.00",
+      "normText": "$55.00 $68.00",
+      "font": {
+        "size": 10,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": {
+        "axis": "y",
+        "overflowPts": null,
+        "container": "page-content"
+      },
+      "confidence": 1
+    },
+    {
+      "id": "1:text:14",
+      "role": "text",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 318.7,
+        "y": null,
+        "width": 221.7,
+        "height": 0
+      },
+      "order": 45,
+      "parentId": "1:container:19",
+      "text": "Includes pen body, converter, and three ink cartridges. Medium nib suitable for everyday writing.",
+      "normText": "includes pen body, converter, and three ink cartridges. medium nib suitable for everyday writing.",
+      "font": {
+        "size": 8,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": {
+        "axis": "y",
+        "overflowPts": null,
+        "container": "page-content"
+      },
+      "confidence": 1
+    },
+    {
       "id": "1:container:25",
       "role": "container",
       "pageIndex": 1,
       "bbox": {
         "x": 318.7,
-        "y": 386.2,
+        "y": null,
         "width": 221.7,
         "height": 14
       },
-      "order": 47,
-      "parentId": "1:container:23",
+      "order": 46,
+      "parentId": "1:container:20",
       "text": null,
       "normText": null,
       "font": {
@@ -3492,12 +3532,36 @@
       "pageIndex": 1,
       "bbox": {
         "x": 318.7,
-        "y": 386.2,
+        "y": null,
         "width": 14,
         "height": 14
       },
-      "order": 48,
+      "order": 47,
       "parentId": "1:container:25",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:container:26",
+      "role": "container",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 318.7,
+        "y": null,
+        "width": 221.7,
+        "height": 14
+      },
+      "order": 48,
+      "parentId": "1:container:20",
       "text": null,
       "normText": null,
       "font": {
@@ -3515,15 +3579,15 @@
       "role": "text",
       "pageIndex": 1,
       "bbox": {
-        "x": 338.7,
-        "y": 386.2,
-        "width": 201.7,
-        "height": 14
+        "x": 318.7,
+        "y": null,
+        "width": 221.7,
+        "height": 0
       },
       "order": 49,
-      "parentId": "1:container:25",
-      "text": "Graph Paper Pad",
-      "normText": "graph paper pad",
+      "parentId": "1:container:26",
+      "text": "$36.00",
+      "normText": "$36.00",
       "font": {
         "size": 10,
         "weight": 700,
@@ -3531,21 +3595,53 @@
         "italic": false
       },
       "headingLevel": null,
-      "overflow": null,
+      "overflow": {
+        "axis": "y",
+        "overflowPts": null,
+        "container": "page-content"
+      },
       "confidence": 1
     },
     {
-      "id": "1:container:26",
+      "id": "1:text:16",
+      "role": "text",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 318.7,
+        "y": null,
+        "width": 221.7,
+        "height": 0
+      },
+      "order": 50,
+      "parentId": "1:container:20",
+      "text": "Five bottles of fade-resistant, waterproof ink. Colors include black, blue, sepia, green, and red.",
+      "normText": "five bottles of fade-resistant, waterproof ink. colors include black, blue, sepia, green, and red.",
+      "font": {
+        "size": 8,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": {
+        "axis": "y",
+        "overflowPts": null,
+        "container": "page-content"
+      },
+      "confidence": 1
+    },
+    {
+      "id": "1:container:27",
       "role": "container",
       "pageIndex": 1,
       "bbox": {
-        "x": 61,
-        "y": 406.2,
+        "x": 318.7,
+        "y": null,
         "width": 221.7,
         "height": 14
       },
-      "order": 50,
-      "parentId": "1:container:22",
+      "order": 51,
+      "parentId": "1:container:21",
       "text": null,
       "normText": null,
       "font": {
@@ -3559,22 +3655,22 @@
       "confidence": 1
     },
     {
-      "id": "1:text:16",
-      "role": "text",
+      "id": "1:image:6",
+      "role": "image",
       "pageIndex": 1,
       "bbox": {
-        "x": 61,
-        "y": 406.2,
-        "width": 221.7,
+        "x": 318.7,
+        "y": null,
+        "width": 14,
         "height": 14
       },
-      "order": 51,
-      "parentId": "1:container:26",
-      "text": "$32.00",
-      "normText": "$32.00",
+      "order": 52,
+      "parentId": "1:container:27",
+      "text": null,
+      "normText": null,
       "font": {
-        "size": 10,
-        "weight": 700,
+        "size": 12,
+        "weight": 400,
         "family": "Helvetica",
         "italic": false
       },
@@ -3583,17 +3679,17 @@
       "confidence": 1
     },
     {
-      "id": "1:container:27",
+      "id": "1:container:28",
       "role": "container",
       "pageIndex": 1,
       "bbox": {
         "x": 318.7,
-        "y": 406.2,
+        "y": null,
         "width": 221.7,
         "height": 14
       },
-      "order": 52,
-      "parentId": "1:container:23",
+      "order": 53,
+      "parentId": "1:container:21",
       "text": null,
       "normText": null,
       "font": {
@@ -3612,12 +3708,12 @@
       "pageIndex": 1,
       "bbox": {
         "x": 318.7,
-        "y": 406.2,
+        "y": null,
         "width": 221.7,
-        "height": 14
+        "height": 0
       },
-      "order": 53,
-      "parentId": "1:container:27",
+      "order": 54,
+      "parentId": "1:container:28",
       "text": "$14.00",
       "normText": "$14.00",
       "font": {
@@ -3627,7 +3723,11 @@
         "italic": false
       },
       "headingLevel": null,
-      "overflow": null,
+      "overflow": {
+        "axis": "y",
+        "overflowPts": null,
+        "container": "page-content"
+      },
       "confidence": 1
     },
     {
@@ -3635,37 +3735,13 @@
       "role": "text",
       "pageIndex": 1,
       "bbox": {
-        "x": 61,
-        "y": 424.2,
-        "width": 221.7,
-        "height": 22.4
-      },
-      "order": 54,
-      "parentId": "1:container:22",
-      "text": "192 pages of acid-free, fountain-pen-friendly paper. Lay-flat binding with ribbon bookmark.",
-      "normText": "192 pages of acid-free, fountain-pen-friendly paper. lay-flat binding with ribbon bookmark.",
-      "font": {
-        "size": 8,
-        "weight": 400,
-        "family": "Helvetica",
-        "italic": false
-      },
-      "headingLevel": null,
-      "overflow": null,
-      "confidence": 1
-    },
-    {
-      "id": "1:text:19",
-      "role": "text",
-      "pageIndex": 1,
-      "bbox": {
         "x": 318.7,
-        "y": 424.2,
+        "y": null,
         "width": 221.7,
-        "height": 22.4
+        "height": 0
       },
       "order": 55,
-      "parentId": "1:container:23",
+      "parentId": "1:container:21",
       "text": "Five-millimeter grid on eighty-pound stock. Micro-perforated for clean tear-out.",
       "normText": "five-millimeter grid on eighty-pound stock. micro-perforated for clean tear-out.",
       "font": {
@@ -3675,31 +3751,11 @@
         "italic": false
       },
       "headingLevel": null,
-      "overflow": null,
-      "confidence": 1
-    },
-    {
-      "id": "1:container:28",
-      "role": "container",
-      "pageIndex": 1,
-      "bbox": {
-        "x": 268,
-        "y": 488.2,
-        "width": 32.7,
-        "height": 13.8
+      "overflow": {
+        "axis": "y",
+        "overflowPts": null,
+        "container": "page-content"
       },
-      "order": 56,
-      "parentId": "1:container:30",
-      "text": null,
-      "normText": null,
-      "font": {
-        "size": 12,
-        "weight": 400,
-        "family": "Helvetica",
-        "italic": false
-      },
-      "headingLevel": null,
-      "overflow": null,
       "confidence": 1
     },
     {
@@ -3707,181 +3763,13 @@
       "role": "container",
       "pageIndex": 1,
       "bbox": {
-        "x": 268,
-        "y": 488.2,
-        "width": 32.7,
-        "height": 13.8
-      },
-      "order": 57,
-      "parentId": "1:container:28",
-      "text": null,
-      "normText": null,
-      "font": {
-        "size": 12,
-        "weight": 400,
-        "family": "Helvetica",
-        "italic": false
-      },
-      "headingLevel": null,
-      "overflow": null,
-      "confidence": 1
-    },
-    {
-      "id": "1:text:20",
-      "role": "text",
-      "pageIndex": 1,
-      "bbox": {
-        "x": 274,
-        "y": 490.2,
-        "width": 20.7,
-        "height": 9.8
-      },
-      "order": 58,
-      "parentId": "1:container:29",
-      "text": "SALE",
-      "normText": "sale",
-      "font": {
-        "size": 7,
-        "weight": 700,
-        "family": "Helvetica",
-        "italic": false
-      },
-      "headingLevel": null,
-      "overflow": null,
-      "confidence": 1
-    },
-    {
-      "id": "1:container:30",
-      "role": "container",
-      "pageIndex": 1,
-      "bbox": {
-        "x": 48,
-        "y": 493.2,
-        "width": 247.7,
-        "height": 100
-      },
-      "order": 59,
-      "parentId": "1:container:21",
-      "text": null,
-      "normText": null,
-      "font": {
-        "size": 12,
-        "weight": 400,
-        "family": "Helvetica",
-        "italic": false
-      },
-      "headingLevel": null,
-      "overflow": null,
-      "confidence": 1
-    },
-    {
-      "id": "1:container:31",
-      "role": "container",
-      "pageIndex": 1,
-      "bbox": {
-        "x": 305.7,
-        "y": 493.2,
-        "width": 247.7,
-        "height": 100
-      },
-      "order": 60,
-      "parentId": "1:container:21",
-      "text": null,
-      "normText": null,
-      "font": {
-        "size": 12,
-        "weight": 400,
-        "family": "Helvetica",
-        "italic": false
-      },
-      "headingLevel": null,
-      "overflow": null,
-      "confidence": 1
-    },
-    {
-      "id": "1:container:32",
-      "role": "container",
-      "pageIndex": 1,
-      "bbox": {
-        "x": 61,
-        "y": 506.2,
-        "width": 221.7,
-        "height": 14
-      },
-      "order": 61,
-      "parentId": "1:container:30",
-      "text": null,
-      "normText": null,
-      "font": {
-        "size": 12,
-        "weight": 400,
-        "family": "Helvetica",
-        "italic": false
-      },
-      "headingLevel": null,
-      "overflow": null,
-      "confidence": 1
-    },
-    {
-      "id": "1:image:6",
-      "role": "image",
-      "pageIndex": 1,
-      "bbox": {
-        "x": 61,
-        "y": 506.2,
-        "width": 14,
-        "height": 14
-      },
-      "order": 62,
-      "parentId": "1:container:32",
-      "text": null,
-      "normText": null,
-      "font": {
-        "size": 12,
-        "weight": 400,
-        "family": "Helvetica",
-        "italic": false
-      },
-      "headingLevel": null,
-      "overflow": null,
-      "confidence": 1
-    },
-    {
-      "id": "1:text:21",
-      "role": "text",
-      "pageIndex": 1,
-      "bbox": {
-        "x": 81,
-        "y": 506.2,
-        "width": 201.7,
-        "height": 14
-      },
-      "order": 63,
-      "parentId": "1:container:32",
-      "text": "Dotted Notebook 3-Pack",
-      "normText": "dotted notebook 3-pack",
-      "font": {
-        "size": 10,
-        "weight": 700,
-        "family": "Helvetica",
-        "italic": false
-      },
-      "headingLevel": null,
-      "overflow": null,
-      "confidence": 1
-    },
-    {
-      "id": "1:container:33",
-      "role": "container",
-      "pageIndex": 1,
-      "bbox": {
         "x": 318.7,
-        "y": 506.2,
+        "y": null,
         "width": 221.7,
         "height": 14
       },
-      "order": 64,
-      "parentId": "1:container:31",
+      "order": 56,
+      "parentId": "1:container:22",
       "text": null,
       "normText": null,
       "font": {
@@ -3900,12 +3788,12 @@
       "pageIndex": 1,
       "bbox": {
         "x": 318.7,
-        "y": 506.2,
+        "y": null,
         "width": 14,
         "height": 14
       },
-      "order": 65,
-      "parentId": "1:container:33",
+      "order": 57,
+      "parentId": "1:container:29",
       "text": null,
       "normText": null,
       "font": {
@@ -3919,22 +3807,262 @@
       "confidence": 1
     },
     {
+      "id": "1:container:30",
+      "role": "container",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 318.7,
+        "y": null,
+        "width": 221.7,
+        "height": 14
+      },
+      "order": 58,
+      "parentId": "1:container:22",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:text:19",
+      "role": "text",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 318.7,
+        "y": null,
+        "width": 221.7,
+        "height": 0
+      },
+      "order": 59,
+      "parentId": "1:container:30",
+      "text": "$12.00",
+      "normText": "$12.00",
+      "font": {
+        "size": 10,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": {
+        "axis": "y",
+        "overflowPts": null,
+        "container": "page-content"
+      },
+      "confidence": 1
+    },
+    {
+      "id": "1:text:20",
+      "role": "text",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 318.7,
+        "y": null,
+        "width": 221.7,
+        "height": 0
+      },
+      "order": 60,
+      "parentId": "1:container:22",
+      "text": "Repositionable adhesive on heavyweight stock. Six pads in warm neutral tones.",
+      "normText": "repositionable adhesive on heavyweight stock. six pads in warm neutral tones.",
+      "font": {
+        "size": 8,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": {
+        "axis": "y",
+        "overflowPts": null,
+        "container": "page-content"
+      },
+      "confidence": 1
+    },
+    {
+      "id": "1:text:21",
+      "role": "text",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 338.7,
+        "y": null,
+        "width": 201.7,
+        "height": 0
+      },
+      "order": 61,
+      "parentId": "1:container:23",
+      "text": "Fountain Pen Starter Set",
+      "normText": "fountain pen starter set",
+      "font": {
+        "size": 10,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": {
+        "axis": "y",
+        "overflowPts": null,
+        "container": "page-content"
+      },
+      "confidence": 1
+    },
+    {
       "id": "1:text:22",
       "role": "text",
       "pageIndex": 1,
       "bbox": {
         "x": 338.7,
-        "y": 506.2,
+        "y": null,
         "width": 201.7,
-        "height": 14
+        "height": 0
       },
-      "order": 66,
-      "parentId": "1:container:33",
+      "order": 62,
+      "parentId": "1:container:25",
+      "text": "Archival Ink Set",
+      "normText": "archival ink set",
+      "font": {
+        "size": 10,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": {
+        "axis": "y",
+        "overflowPts": null,
+        "container": "page-content"
+      },
+      "confidence": 1
+    },
+    {
+      "id": "1:text:23",
+      "role": "text",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 338.7,
+        "y": null,
+        "width": 201.7,
+        "height": 0
+      },
+      "order": 63,
+      "parentId": "1:container:27",
+      "text": "Graph Paper Pad",
+      "normText": "graph paper pad",
+      "font": {
+        "size": 10,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": {
+        "axis": "y",
+        "overflowPts": null,
+        "container": "page-content"
+      },
+      "confidence": 1
+    },
+    {
+      "id": "1:text:24",
+      "role": "text",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 338.7,
+        "y": null,
+        "width": 201.7,
+        "height": 0
+      },
+      "order": 64,
+      "parentId": "1:container:29",
       "text": "Premium Sticky Notes",
       "normText": "premium sticky notes",
       "font": {
         "size": 10,
         "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": {
+        "axis": "y",
+        "overflowPts": null,
+        "container": "page-content"
+      },
+      "confidence": 1
+    },
+    {
+      "id": "1:container:31",
+      "role": "container",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 525.7,
+        "y": null,
+        "width": 32.7,
+        "height": 13.8
+      },
+      "order": 65,
+      "parentId": "1:container:19",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:container:32",
+      "role": "container",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 525.7,
+        "y": null,
+        "width": 32.7,
+        "height": 13.8
+      },
+      "order": 66,
+      "parentId": "1:container:31",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
+      "id": "1:container:33",
+      "role": "container",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 528.5,
+        "y": null,
+        "width": 29.8,
+        "height": 13.8
+      },
+      "order": 67,
+      "parentId": "1:container:20",
+      "text": null,
+      "normText": null,
+      "font": {
+        "size": 12,
+        "weight": 400,
         "family": "Helvetica",
         "italic": false
       },
@@ -3947,90 +4075,18 @@
       "role": "container",
       "pageIndex": 1,
       "bbox": {
-        "x": 61,
-        "y": 526.2,
-        "width": 221.7,
-        "height": 14
-      },
-      "order": 67,
-      "parentId": "1:container:30",
-      "text": null,
-      "normText": null,
-      "font": {
-        "size": 12,
-        "weight": 400,
-        "family": "Helvetica",
-        "italic": false
-      },
-      "headingLevel": null,
-      "overflow": null,
-      "confidence": 1
-    },
-    {
-      "id": "1:text:23",
-      "role": "text",
-      "pageIndex": 1,
-      "bbox": {
-        "x": 61,
-        "y": 526.2,
-        "width": 221.7,
-        "height": 14
+        "x": 528.5,
+        "y": null,
+        "width": 29.8,
+        "height": 13.8
       },
       "order": 68,
-      "parentId": "1:container:34",
-      "text": "$22.00 $30.00",
-      "normText": "$22.00 $30.00",
-      "font": {
-        "size": 10,
-        "weight": 400,
-        "family": "Helvetica",
-        "italic": false
-      },
-      "headingLevel": null,
-      "overflow": null,
-      "confidence": 1
-    },
-    {
-      "id": "1:container:35",
-      "role": "container",
-      "pageIndex": 1,
-      "bbox": {
-        "x": 318.7,
-        "y": 526.2,
-        "width": 221.7,
-        "height": 14
-      },
-      "order": 69,
-      "parentId": "1:container:31",
+      "parentId": "1:container:33",
       "text": null,
       "normText": null,
       "font": {
         "size": 12,
         "weight": 400,
-        "family": "Helvetica",
-        "italic": false
-      },
-      "headingLevel": null,
-      "overflow": null,
-      "confidence": 1
-    },
-    {
-      "id": "1:text:24",
-      "role": "text",
-      "pageIndex": 1,
-      "bbox": {
-        "x": 318.7,
-        "y": 526.2,
-        "width": 221.7,
-        "height": 14
-      },
-      "order": 70,
-      "parentId": "1:container:35",
-      "text": "$12.00",
-      "normText": "$12.00",
-      "font": {
-        "size": 10,
-        "weight": 700,
         "family": "Helvetica",
         "italic": false
       },
@@ -4043,17 +4099,73 @@
       "role": "text",
       "pageIndex": 1,
       "bbox": {
-        "x": 61,
-        "y": 544.2,
-        "width": 221.7,
-        "height": 22.4
+        "x": 531.7,
+        "y": null,
+        "width": 20.7,
+        "height": 0
+      },
+      "order": 69,
+      "parentId": "1:container:32",
+      "text": "SALE",
+      "normText": "sale",
+      "font": {
+        "size": 7,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": {
+        "axis": "y",
+        "overflowPts": null,
+        "container": "page-content"
+      },
+      "confidence": 1
+    },
+    {
+      "id": "1:text:26",
+      "role": "text",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 534.5,
+        "y": null,
+        "width": 17.8,
+        "height": 0
+      },
+      "order": 70,
+      "parentId": "1:container:34",
+      "text": "NEW",
+      "normText": "new",
+      "font": {
+        "size": 7,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": {
+        "axis": "y",
+        "overflowPts": null,
+        "container": "page-content"
+      },
+      "confidence": 1
+    },
+    {
+      "id": "1:container:35",
+      "role": "container",
+      "pageIndex": 1,
+      "bbox": {
+        "x": 48,
+        "y": 48,
+        "width": 516,
+        "height": null
       },
       "order": 71,
-      "parentId": "1:container:30",
-      "text": "Soft-cover notebooks with five-millimeter dot grid. Ideal for bullet journaling and sketches.",
-      "normText": "soft-cover notebooks with five-millimeter dot grid. ideal for bullet journaling and sketches.",
+      "parentId": null,
+      "text": null,
+      "normText": null,
       "font": {
-        "size": 8,
+        "size": 12,
         "weight": 400,
         "family": "Helvetica",
         "italic": false
@@ -4063,26 +4175,26 @@
       "confidence": 1
     },
     {
-      "id": "1:text:26",
-      "role": "text",
+      "id": "1:heading:1",
+      "role": "heading",
       "pageIndex": 1,
       "bbox": {
-        "x": 318.7,
-        "y": 544.2,
-        "width": 221.7,
-        "height": 22.4
+        "x": 48,
+        "y": 48,
+        "width": 516,
+        "height": 19.6
       },
       "order": 72,
-      "parentId": "1:container:31",
-      "text": "Repositionable adhesive on heavyweight stock. Six pads in warm neutral tones.",
-      "normText": "repositionable adhesive on heavyweight stock. six pads in warm neutral tones.",
+      "parentId": "1:container:35",
+      "text": "WRITING INSTRUMENTS",
+      "normText": "writing instruments",
       "font": {
-        "size": 8,
-        "weight": 400,
+        "size": 14,
+        "weight": 700,
         "family": "Helvetica",
         "italic": false
       },
-      "headingLevel": null,
+      "headingLevel": 2,
       "overflow": null,
       "confidence": 1
     },
@@ -4183,5 +4295,5 @@
       "confidence": 1
     }
   ],
-  "contentHash": "sha256:478351cd8bf8f5a48e1c2ddcbb0e929a39d4694045788c62ee687b97eb5adb67"
+  "contentHash": "sha256:99ab3260f2fc33633215ecf5d7bc50f2e7c57649a287ba162d37aba388edcbe8"
 }
