@@ -2975,11 +2975,6 @@ impl LayoutEngine {
             .map(|s| s.flex_wrap)
             .unwrap_or(FlexWrap::NoWrap);
 
-        // Single-line rows fragment as parallel columns (phase 2); wrapped
-        // rows keep the older sequential behavior, so they also keep the
-        // older page-fit rule below.
-        let parallel = matches!(flex_wrap, FlexWrap::NoWrap);
-
         // Phase 1: resolve styles and measure base widths for all items
         // flex_basis takes precedence over width for flex items (per CSS spec)
         let items: Vec<FlexItem> = children
@@ -3014,6 +3009,12 @@ impl LayoutEngine {
                     end: items.len(),
                 }]
             }
+            // Line assignment depends on base widths, the column gap and
+            // available WIDTH. A page fragment changes available HEIGHT; the
+            // width is the page's and does not move, so recomputing this per
+            // fragment would return an identical partition. Lines are decided
+            // once, here, on purpose: per-fragment recomputation would buy
+            // nothing and could only introduce nondeterminism.
             FlexWrap::Wrap => flex::partition_into_lines(&base_widths, column_gap, available_width),
             FlexWrap::WrapReverse => {
                 let mut l = flex::partition_into_lines(&base_widths, column_gap, available_width);
@@ -3037,6 +3038,19 @@ impl LayoutEngine {
         let mut line_infos: Vec<(usize, usize, f64)> = Vec::new();
 
         for (line_idx, line) in lines.iter().enumerate() {
+            // Whether THIS LINE fragments as parallel columns.
+            //
+            // The machinery below has always been per-line: item_frags, the
+            // merge, the stretch pass and the band synthesis are all scoped to
+            // one iteration. What was not per-line was the decision, which sat
+            // above the loop as `matches!(flex_wrap, NoWrap)` and so could
+            // never be true for a wrapped row. Extending wrapped rows is
+            // therefore removing a `lines.len() == 1` assumption, not adding a
+            // second mechanism.
+            //
+            // Phase 1 keeps the VALUE exactly as it was, so a single-line row
+            // renders byte for byte as before; only where it is computed moved.
+            let parallel = matches!(flex_wrap, FlexWrap::NoWrap);
             let line_items = &items[line.start..line.end];
             let line_count = line.end - line.start;
             let line_gap = column_gap * (line_count as f64 - 1.0).max(0.0);
