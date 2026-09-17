@@ -13686,3 +13686,60 @@ fn a_stretched_column_paints_its_band_on_every_page_the_row_crosses() {
         "both columns paint a band on page 2, not just the one with content"
     );
 }
+
+#[test]
+fn a_list_that_crosses_a_page_does_not_panic() {
+    // `layout_list_item` saved `cursor.elements.len()` before laying out the
+    // item's children and drained from it afterwards. When a child finished a
+    // page, `new_page()` installed a fresh empty vector, so the saved index
+    // pointed past the end and the drain panicked:
+    //
+    //   range start index 15 out of range for slice of length 1
+    //
+    // A plain unordered list long enough to cross a page was enough. It
+    // panicked in every release up to and including 0.23.0, on every input
+    // path, and was found by the release corpus rather than by any test.
+    //
+    // Thirteen call sites shared that pattern; all now go through
+    // `drain_since`, so the pin covers the shape rather than this one caller.
+    let items: Vec<String> = (0..30)
+        .map(|i| {
+            format!(
+                r#"{{ "kind": {{ "type": "ListItem" }}, "style": {{}}, "children": [
+                     {{ "kind": {{ "type": "Text", "content": "Item {i}. {}" }},
+                        "style": {{ "fontSize": 11.0 }}, "children": [] }} ] }}"#,
+                "word ".repeat(40)
+            )
+        })
+        .collect();
+    let json = format!(
+        r#"{{ "children": [ {{ "kind": {{ "type": "List", "ordered": false,
+             "marker_type": "disc", "start": 1 }}, "style": {{}},
+             "children": [ {} ] }} ] }}"#,
+        items.join(",")
+    );
+    let (_, layout, _) = forme::render_with_layout(&serde_json::from_str(&json).unwrap()).unwrap();
+    assert!(
+        layout.pages.len() >= 2,
+        "the list must actually cross a page for this to test anything"
+    );
+    // Every item survives the break: none is swallowed by the clamp.
+    let mut items_seen = 0;
+    fn walk(el: &forme::layout::ElementInfo, n: &mut usize) {
+        if el.node_type == "ListItem" {
+            *n += 1;
+        }
+        for c in &el.children {
+            walk(c, n);
+        }
+    }
+    for p in &layout.pages {
+        for el in &p.elements {
+            walk(el, &mut items_seen);
+        }
+    }
+    assert_eq!(
+        items_seen, 30,
+        "all 30 list items are present after the break"
+    );
+}
