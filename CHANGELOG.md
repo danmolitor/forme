@@ -13,8 +13,9 @@ values the engine computed and never read.
 
 ### Changed: these move existing documents
 
-Four fixes make declarations take effect that were previously discarded. If a
-document relies on any of them, its layout will change, and that is the point.
+Five fixes make declarations take effect that were previously discarded, or
+apply a CSS rule the engine had wrong. If a document relies on any of them, its
+layout will change, and that is the point.
 
 - **`max-width` / `min-width` on a text block with no border, padding or
   background.** A leaf text node honoured `width` and ignored the min/max
@@ -34,13 +35,27 @@ document relies on any of them, its layout will change, and that is the point.
 - **A stretched column paints its band on every page the row crosses.** Under
   `align-items: stretch`, a column whose content ended before its neighbour's
   painted nothing on later pages; a browser continues the band
+- **An auto-width block fills, and its auto margins are zero.** CSS 2.1 10.3.3:
+  a block-level box in normal flow with `width: auto` fills its containing
+  block, and any `auto` horizontal margin computes to zero; auto margins only
+  center a box whose width is constrained, which `max-width` still does. Forme
+  shrank these to fit and centered them. Bootstrap's `.container` is again the
+  shape that suffers, for the same reason as the media-query fix above and with
+  the opposite symptom: with its width absent when printing it is exactly an
+  auto-width block, so it collapsed to its own padding, and its
+  percentage-width children then measured against nothing. If you relied on an
+  auto-width block centering, give it a `max-width`
 
 ### Added
 
 - **Parallel flex-row fragmentation.** A `flex-direction: row` that crosses a
   page now continues as parallel columns on each page, instead of laying its
-  children out sequentially. Wrapped rows (`flex-wrap: wrap`) keep the
-  sequential behaviour and say so through a named render defect
+  children out sequentially. This includes wrapped rows (`flex-wrap: wrap`),
+  so the render defect that used to report the sequential outcome is gone
+  along with the outcome. A row that crosses no longer relocates whole either:
+  it starts in the space that is there, and the slivers the old relocation
+  guard prevented are now prevented per column, by each column's own
+  widow/orphan control
 - **`word-spacing` in the HTML CSS subset**, block-level, with `em`/`rem`
 - **`<html lang>` reaches `/Lang`.** The attribute was parsed and never read,
   so a PDF/UA file could carry a language contradicting its own content while
