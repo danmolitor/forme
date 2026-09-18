@@ -217,3 +217,70 @@ fn rtl_page_progression_warns_rather_than_silently_assuming_ltr() {
     let out = render(&html);
     warned(&out, "page progression");
 }
+
+/// A running footer is the case every multi-page document hits, and the one
+/// pre-existing margin-box boundary test only checks that `:left`/`:right`
+/// resolve per side. Nothing asserted that a margin box appears on EVERY page
+/// a document spans, or that `counter(page)` actually counts.
+///
+/// Read from the CONTENT STREAM, not the layout. `counter(page)` and
+/// `counter(pages)` survive layout as sentinel bytes (U+0002, U+0003) and are
+/// substituted when the PDF is written, because the page total is not known
+/// until then. A layout-level assertion would compare sentinels to sentinels
+/// and pass however the counters behaved.
+#[test]
+fn a_running_footer_appears_on_every_page_and_counts() {
+    let html = doc(
+        "@page { @bottom-center { content: \"Page \" counter(page) \" of \" counter(pages) } }",
+        &many_paragraphs(120),
+    );
+    let out = render(&html);
+    let n = out.layout.pages.len();
+    assert!(
+        n >= 3,
+        "the document must span several pages for a running footer to be tested, got {n}"
+    );
+
+    let pdf = forme_pdf_html::render_html(&html, &HtmlOptions::default())
+        .expect("must render")
+        .pdf;
+    let text = content_text(&pdf);
+
+    for i in 0..n {
+        let want = format!("Page {} of {n}", i + 1);
+        assert!(
+            text.contains(&want),
+            "the footer {want:?} must be written; a margin box that stops after the \
+             first page, or a counter that does not count, both fail here"
+        );
+    }
+    // And it is the footer repeating, not one page carrying them all.
+    assert_eq!(
+        text.matches("Page 1 of ").count(),
+        1,
+        "each page carries its own footer exactly once"
+    );
+}
+
+/// All decompressed content-stream text in a PDF, concatenated.
+fn content_text(pdf: &[u8]) -> String {
+    let mut out = String::new();
+    let mut rest = pdf;
+    while let Some(i) = rest.windows(b"stream".len()).position(|w| w == b"stream") {
+        let after = &rest[i + b"stream".len()..];
+        let body = match after.first() {
+            Some(b'\r') => &after[2..],
+            Some(b'\n') => &after[1..],
+            _ => after,
+        };
+        let end = body
+            .windows(b"endstream".len())
+            .position(|w| w == b"endstream")
+            .unwrap_or(body.len());
+        if let Ok(bytes) = miniz_oxide::inflate::decompress_to_vec_zlib(&body[..end]) {
+            out.push_str(&String::from_utf8_lossy(&bytes));
+        }
+        rest = &rest[i + b"stream".len()..];
+    }
+    out
+}

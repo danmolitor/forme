@@ -13769,3 +13769,404 @@ fn a_list_that_crosses_a_page_does_not_panic() {
         "all 30 list items are present after the break"
     );
 }
+
+// ---------------------------------------------------------------------------
+// Page-boundary coverage for containers that had one crossing test or none.
+//
+// A coverage audit over every #[test] in this repo asked one question per
+// container type: is there a test where THAT container crosses a page, and
+// does an assertion actually demand more than one page? Five containers
+// rested on a single such test, and three of those were written only after a
+// bug had already shipped. Grid, the table row/cell pair and the absolute
+// containing block are the three filled in here.
+//
+// Each test asserts its own precondition — that the container really does
+// cross — because a boundary test that does not reach the boundary measures
+// nothing and looks exactly like one that passes. The byte-wall fixture for
+// wrapped rows reported IDENTICAL for that reason: fourteen cards fit on one
+// page. Every test below was checked by shrinking its spacer until nothing
+// crossed, and confirming the precondition assertion is what fires.
+// ---------------------------------------------------------------------------
+
+/// Every (page index, x) a labelled box was laid out at, in document order.
+fn placements_of(layout: &forme::layout::LayoutInfo, needle: &str) -> Vec<(usize, f64)> {
+    fn walk(
+        els: &[forme::layout::ElementInfo],
+        needle: &str,
+        page: usize,
+        out: &mut Vec<(usize, f64)>,
+    ) {
+        for e in els {
+            // Exact match, not `contains`: with labels like a1..a80, a
+            // substring match makes "a1" find a10 through a19 as well, and
+            // the count assertions below then measure the matcher rather
+            // than the layout.
+            if e.text_content
+                .as_deref()
+                .is_some_and(|t| t.trim() == needle)
+            {
+                out.push((page, e.x));
+            }
+            walk(&e.children, needle, page, out);
+        }
+    }
+    let mut out = Vec::new();
+    for (i, p) in layout.pages.iter().enumerate() {
+        walk(&p.elements, needle, i, &mut out);
+    }
+    out
+}
+
+#[test]
+fn a_grid_that_spans_pages_keeps_its_columns_in_the_same_places() {
+    // A grid taller than the space left on the page breaks BY ROW, and the
+    // rows that land on the next page must sit in the same columns as the
+    // rows before the break. The one pre-existing grid boundary test covers
+    // a grid RELOCATING whole, so the case where a grid genuinely spans two
+    // pages — the one a multi-page report hits — was unasserted, in a
+    // feature the README advertises.
+    let cells: String = (1..=9)
+        .map(|i| {
+            format!(
+                r#"{{ "kind": {{ "type": "View" }}, "style": {{ "height": {{ "Pt": 200 }} }},
+                     "children": [ {{ "kind": {{ "type": "Text", "content": "cell{i}" }}, "style": {{}}, "children": [] }} ] }},"#
+            )
+        })
+        .collect();
+    let json = format!(
+        r#"{{
+        "children": [
+            {{ "kind": {{ "type": "View" }}, "style": {{ "height": {{ "Pt": 500 }} }}, "children": [] }},
+            {{ "kind": {{ "type": "View" }},
+               "style": {{ "display": "Grid",
+                           "gridTemplateColumns": [{{ "Fr": 1.0 }}, {{ "Fr": 1.0 }}, {{ "Fr": 1.0 }}] }},
+               "children": [ {} ] }}
+        ],
+        "metadata": {{}}
+    }}"#,
+        cells.trim_end_matches(',')
+    );
+    let (_pdf, layout, _w) = forme::render_json_with_layout(&json).expect("grid renders");
+
+    // Precondition: the grid must actually cross. Without this the rest of
+    // the test passes vacuously on a single page.
+    assert!(
+        layout.pages.len() > 1,
+        "the grid must span pages for this test to mean anything, got {} page(s)",
+        layout.pages.len()
+    );
+
+    // Column x for each of the three columns, taken from row 1 on page 0.
+    let col_x: Vec<f64> = (1..=3)
+        .map(|i| placements_of(&layout, &format!("cell{i}"))[0].1)
+        .collect();
+    assert!(
+        col_x[0] < col_x[1] && col_x[1] < col_x[2],
+        "columns must be distinct and ordered: {col_x:?}"
+    );
+
+    // Every later cell sits in its own column, whichever page it landed on.
+    let mut pages_seen = std::collections::BTreeSet::new();
+    for i in 1..=9 {
+        let places = placements_of(&layout, &format!("cell{i}"));
+        assert_eq!(places.len(), 1, "cell{i} must be laid out exactly once");
+        let (page, x) = places[0];
+        pages_seen.insert(page);
+        let expected = col_x[(i - 1) % 3];
+        assert!(
+            (x - expected).abs() < 0.01,
+            "cell{i} is in column {} on page {page}: x {x} != {expected}",
+            (i - 1) % 3
+        );
+    }
+    assert!(
+        pages_seen.len() > 1,
+        "the grid's own cells must land on more than one page, not just the document"
+    );
+}
+
+#[test]
+fn a_table_that_breaks_keeps_its_cells_in_their_columns() {
+    // Both pre-existing table boundary tests are about a row NOT breaking:
+    // an unbreakable table relocating whole, and `break-inside: avoid` on a
+    // row. The ordinary case — a long table that simply continues on the
+    // next page — had no assertion that its cells still line up under their
+    // headers once it does, which is the thing a reader would notice first.
+    let rows: String = (1..=80)
+        .map(|i| {
+            format!(
+                r#"{{ "kind": {{ "type": "TableRow", "is_header": false }}, "style": {{}}, "children": [
+                     {{ "kind": {{ "type": "TableCell", "col_span": 1, "row_span": 1 }}, "style": {{}},
+                        "children": [ {{ "kind": {{ "type": "Text", "content": "a{i}" }}, "style": {{}}, "children": [] }} ] }},
+                     {{ "kind": {{ "type": "TableCell", "col_span": 1, "row_span": 1 }}, "style": {{}},
+                        "children": [ {{ "kind": {{ "type": "Text", "content": "b{i}" }}, "style": {{}}, "children": [] }} ] }},
+                     {{ "kind": {{ "type": "TableCell", "col_span": 1, "row_span": 1 }}, "style": {{}},
+                        "children": [ {{ "kind": {{ "type": "Text", "content": "c{i}" }}, "style": {{}}, "children": [] }} ] }}
+                   ] }},"#
+            )
+        })
+        .collect();
+    let json = format!(
+        r#"{{
+        "children": [
+            {{ "kind": {{ "type": "Table", "columns": [] }}, "style": {{}},
+               "children": [ {} ] }}
+        ],
+        "metadata": {{}}
+    }}"#,
+        rows.trim_end_matches(',')
+    );
+    let (_pdf, layout, _w) = forme::render_json_with_layout(&json).expect("table renders");
+
+    assert!(
+        layout.pages.len() > 1,
+        "the table must break for this test to mean anything, got {} page(s)",
+        layout.pages.len()
+    );
+
+    // The three column positions, from the first row on page 0.
+    let cols = ["a", "b", "c"];
+    let col_x: Vec<f64> = cols
+        .iter()
+        .map(|c| placements_of(&layout, &format!("{c}1"))[0].1)
+        .collect();
+    assert!(
+        col_x[0] < col_x[1] && col_x[1] < col_x[2],
+        "columns must be distinct and ordered: {col_x:?}"
+    );
+
+    // Rows after the break keep their cells under the same columns.
+    let mut rows_past_first_page = 0;
+    for i in 1..=80 {
+        for (c, prefix) in cols.iter().enumerate() {
+            let places = placements_of(&layout, &format!("{prefix}{i}"));
+            assert_eq!(places.len(), 1, "{prefix}{i} must be laid out exactly once");
+            let (page, x) = places[0];
+            if page > 0 && c == 0 {
+                rows_past_first_page += 1;
+            }
+            assert!(
+                (x - col_x[c]).abs() < 0.01,
+                "{prefix}{i} left its column on page {page}: x {x} != {}",
+                col_x[c]
+            );
+        }
+    }
+    assert!(
+        rows_past_first_page > 0,
+        "rows must actually continue past the first page"
+    );
+}
+
+#[test]
+fn an_absolute_child_of_a_split_containing_block_is_emitted_once() {
+    // The pre-existing absolute test asserts WHICH page the badge anchors to.
+    // It does not assert HOW MANY times it is emitted, and duplication is the
+    // live risk now that a container crossing a page produces one fragment
+    // per page: anything that paints per fragment rather than per box gets
+    // repeated. A badge appearing on every page of a long section is the
+    // visible failure.
+    // Content-derived height, not a fixed one: a breakable fixed-height View
+    // that does not fit in the remaining space currently loses its box
+    // entirely, so filler built that way would make this test's precondition
+    // depend on that defect rather than on the containing block splitting.
+    let filler: String = (1..=4)
+        .map(|i| {
+            let lines: String = (1..=45)
+                .map(|j| {
+                    format!(
+                        r#"{{ "kind": {{ "type": "Text", "content": "block{i} line {j}" }}, "style": {{}}, "children": [] }},"#
+                    )
+                })
+                .collect();
+            format!(
+                r#"{{ "kind": {{ "type": "View" }}, "style": {{}}, "children": [ {} ] }},"#,
+                lines.trim_end_matches(',')
+            )
+        })
+        .collect();
+    let json = format!(
+        r#"{{
+        "children": [
+            {{ "kind": {{ "type": "View" }}, "style": {{ "position": "Relative" }},
+               "children": [
+                    {{ "kind": {{ "type": "View" }},
+                       "style": {{ "position": "Absolute", "top": 0, "left": 0, "width": {{ "Pt": 80 }} }},
+                       "children": [ {{ "kind": {{ "type": "Text", "content": "badge" }}, "style": {{}}, "children": [] }} ] }},
+                    {}
+               ] }}
+        ],
+        "metadata": {{}}
+    }}"#,
+        filler.trim_end_matches(',')
+    );
+    let (_pdf, layout, _w) = forme::render_json_with_layout(&json).expect("renders");
+
+    // Precondition: the containing block must span several pages.
+    assert!(
+        layout.pages.len() > 2,
+        "the containing block must span several pages, got {} page(s)",
+        layout.pages.len()
+    );
+    let blocks_on_later_pages = (1..=4)
+        .filter(|i| placements_of(&layout, &format!("block{i} line 1"))[0].0 > 0)
+        .count();
+    assert!(
+        blocks_on_later_pages >= 2,
+        "the block's own children must continue past page 0, not just the document"
+    );
+
+    let badge = placements_of(&layout, "badge");
+    assert_eq!(
+        badge.len(),
+        1,
+        "the badge must be emitted exactly once, not once per fragment; found on pages {:?}",
+        badge.iter().map(|(p, _)| *p).collect::<Vec<_>>()
+    );
+    assert_eq!(
+        badge[0].0, 0,
+        "and on the containing block's first fragment"
+    );
+}
+
+#[test]
+fn a_fixed_height_box_that_does_not_fit_fragments_across_the_boundary() {
+    // A breakable View with a fixed height that did not fit in the remaining
+    // space lost its HEIGHT entirely: `layout_breakable_view` rebuilt the
+    // box's extent from its children and never read `style.height`. With a
+    // background the box was drawn at content height; with none it was not
+    // drawn at all. Either way everything below moved up by the difference,
+    // with no page break and no warning (#147).
+    //
+    // Chrome FRAGMENTS such a box rather than moving it whole. Measured
+    // 2026-09-18 on this exact geometry: 134pt of fill on the first page and
+    // 366pt on the second, with the text at the top of the first part. An
+    // earlier version of this test asserted the box RELOCATED to page 2,
+    // which no browser does; the assertion below is the measurement.
+    let json = r#"{ "children": [
+        { "kind": { "type": "View" }, "style": { "height": { "Pt": 600 } }, "children": [] },
+        { "kind": { "type": "View" },
+          "style": { "height": { "Pt": 500 },
+                     "backgroundColor": { "r": 1, "g": 0, "b": 0, "a": 1 } },
+          "children": [ { "kind": { "type": "Text", "content": "inside" },
+                          "style": {}, "children": [] } ] }
+      ], "metadata": {} }"#;
+    let (_pdf, layout, _w) = forme::render_json_with_layout(json).expect("renders");
+
+    assert_eq!(
+        layout.pages.len(),
+        2,
+        "500pt of box under a 600pt spacer has to reach a second page"
+    );
+
+    // The painted box on each page: the one carrying the background.
+    fn band(els: &[forme::layout::ElementInfo]) -> Option<&forme::layout::ElementInfo> {
+        els.iter()
+            .find(|e| e.node_type == "View" && e.style.background_color.is_some() && e.height > 1.0)
+    }
+    let first = band(&layout.pages[0].elements)
+        .expect("the box must still paint on the page it starts on; losing it is the defect");
+    let second = band(&layout.pages[1].elements)
+        .expect("and must continue on the next page rather than stopping at the boundary");
+
+    // The two parts sum to the declared height, which is the whole point: the
+    // box occupies what it asked for, split over the boundary.
+    let total = first.height + second.height;
+    assert!(
+        (total - 500.0).abs() < 0.5,
+        "the fragments must sum to the declared height: {:.1} + {:.1} = {total:.1}, not 500",
+        first.height,
+        second.height
+    );
+    // Chrome puts ~134pt on the first page, the space that was left there.
+    assert!(
+        (first.height - 133.9).abs() < 1.0,
+        "the first fragment fills the space that was left: {:.1} != 133.9",
+        first.height
+    );
+    assert!(
+        second.y < first.y,
+        "the continuation starts at the top of its page"
+    );
+
+    // The text rides at the top of the first fragment, not stranded or moved.
+    fn has_text(els: &[forme::layout::ElementInfo], needle: &str) -> bool {
+        els.iter().any(|e| {
+            e.text_content
+                .as_deref()
+                .is_some_and(|t| t.trim() == needle)
+                || has_text(&e.children, needle)
+        })
+    }
+    assert!(
+        has_text(&layout.pages[0].elements, "inside"),
+        "the text belongs at the top of the first fragment"
+    );
+    assert!(
+        !has_text(&layout.pages[1].elements, "inside"),
+        "and must not be duplicated onto the continuation"
+    );
+}
+
+#[test]
+fn an_ordered_list_that_crosses_a_page_keeps_counting() {
+    // The one pre-existing list boundary test asserts only that crossing a
+    // page does not PANIC (#134). It says nothing about the numbering, which
+    // is what a reader checks first: a list restarting at 1. on the
+    // continuation page is the classic fragmentation bug, and nothing here
+    // pinned against it.
+    let items: String = (1..=60)
+        .map(|i| {
+            format!(
+                r#"{{ "kind": {{ "type": "ListItem" }}, "style": {{}},
+                     "children": [ {{ "kind": {{ "type": "Text", "content": "item{i}" }}, "style": {{}}, "children": [] }} ] }},"#
+            )
+        })
+        .collect();
+    let json = format!(
+        r#"{{ "children": [
+            {{ "kind": {{ "type": "List", "ordered": true, "marker_type": "decimal", "start": 1 }},
+               "style": {{}}, "children": [ {} ] }}
+        ], "metadata": {{}} }}"#,
+        items.trim_end_matches(',')
+    );
+    let (_pdf, layout, _w) = forme::render_json_with_layout(&json).expect("list renders");
+
+    assert!(
+        layout.pages.len() > 1,
+        "60 items must cross a page for this test to mean anything, got {} page(s)",
+        layout.pages.len()
+    );
+
+    // Every marker, in page then document order.
+    fn markers(els: &[forme::layout::ElementInfo], out: &mut Vec<String>) {
+        for e in els {
+            if let Some(t) = e.text_content.as_deref() {
+                let t = t.trim();
+                if t.ends_with('.') && t[..t.len() - 1].chars().all(|c| c.is_ascii_digit()) {
+                    out.push(t.to_string());
+                }
+            }
+            markers(&e.children, out);
+        }
+    }
+    let mut seen = Vec::new();
+    for p in &layout.pages {
+        markers(&p.elements, &mut seen);
+    }
+    let expected: Vec<String> = (1..=60).map(|i| format!("{i}.")).collect();
+    assert_eq!(
+        seen, expected,
+        "the numbering must run 1 through 60 unbroken across the page boundary"
+    );
+
+    // And the continuation genuinely starts mid-list rather than the list
+    // having simply moved to page 2 whole.
+    let mut first_page_markers = Vec::new();
+    markers(&layout.pages[0].elements, &mut first_page_markers);
+    assert!(
+        !first_page_markers.is_empty() && first_page_markers.len() < 60,
+        "the list must be split, not relocated: {} of 60 markers on page 1",
+        first_page_markers.len()
+    );
+}
