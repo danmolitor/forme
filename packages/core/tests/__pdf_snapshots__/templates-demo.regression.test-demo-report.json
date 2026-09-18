@@ -1,7 +1,7 @@
 {
   "version": 1,
   "producer": "formepdf",
-  "createdAt": "2026-09-09T18:11:46.518Z",
+  "createdAt": "2026-09-17T15:42:09.421Z",
   "pageCount": 7,
   "pages": [
     {
@@ -346,9 +346,9 @@
         "6:text:1",
         "6:container:2",
         "6:container:3",
+        "6:text:2",
         "6:container:4",
         "6:heading:0",
-        "6:text:2",
         "6:text:3",
         "6:container:5",
         "6:container:6",
@@ -6401,7 +6401,7 @@
         "x": 54,
         "y": 90.2,
         "width": 504,
-        "height": 111.1
+        "height": 28
       },
       "order": 4,
       "parentId": null,
@@ -6423,9 +6423,9 @@
       "pageIndex": 6,
       "bbox": {
         "x": 73,
-        "y": 106.2,
+        "y": 90.2,
         "width": 24,
-        "height": 24
+        "height": 12
       },
       "order": 5,
       "parentId": "6:container:2",
@@ -6442,16 +6442,40 @@
       "confidence": 1
     },
     {
+      "id": "6:text:2",
+      "role": "text",
+      "pageIndex": 6,
+      "bbox": {
+        "x": 82.2,
+        "y": 90.2,
+        "width": 5.6,
+        "height": 12
+      },
+      "order": 6,
+      "parentId": "6:container:3",
+      "text": "5",
+      "normText": "5",
+      "font": {
+        "size": 10,
+        "weight": 700,
+        "family": "Helvetica",
+        "italic": false
+      },
+      "headingLevel": null,
+      "overflow": null,
+      "confidence": 1
+    },
+    {
       "id": "6:container:4",
       "role": "container",
       "pageIndex": 6,
       "bbox": {
         "x": 121,
-        "y": 106.2,
+        "y": 90.2,
         "width": 421,
         "height": 79.1
       },
-      "order": 6,
+      "order": 7,
       "parentId": "6:container:2",
       "text": null,
       "normText": null,
@@ -6471,11 +6495,11 @@
       "pageIndex": 6,
       "bbox": {
         "x": 121,
-        "y": 106.2,
+        "y": 90.2,
         "width": 421,
         "height": 15.4
       },
-      "order": 7,
+      "order": 8,
       "parentId": "6:container:4",
       "text": "Customer Success Platform",
       "normText": "customer success platform",
@@ -6490,36 +6514,12 @@
       "confidence": 1
     },
     {
-      "id": "6:text:2",
-      "role": "text",
-      "pageIndex": 6,
-      "bbox": {
-        "x": 82.2,
-        "y": 112.2,
-        "width": 5.6,
-        "height": 12
-      },
-      "order": 8,
-      "parentId": "6:container:3",
-      "text": "5",
-      "normText": "5",
-      "font": {
-        "size": 10,
-        "weight": 700,
-        "family": "Helvetica",
-        "italic": false
-      },
-      "headingLevel": null,
-      "overflow": null,
-      "confidence": 1
-    },
-    {
       "id": "6:text:3",
       "role": "text",
       "pageIndex": 6,
       "bbox": {
         "x": 121,
-        "y": 125.6,
+        "y": 109.6,
         "width": 421,
         "height": 40.5
       },
@@ -6543,7 +6543,7 @@
       "pageIndex": 6,
       "bbox": {
         "x": 121,
-        "y": 174.1,
+        "y": 158.1,
         "width": 421,
         "height": 11.2
       },
@@ -6567,7 +6567,7 @@
       "pageIndex": 6,
       "bbox": {
         "x": 121,
-        "y": 174.1,
+        "y": 158.1,
         "width": 49.4,
         "height": 11.2
       },
@@ -6591,7 +6591,7 @@
       "pageIndex": 6,
       "bbox": {
         "x": 121,
-        "y": 174.1,
+        "y": 158.1,
         "width": 30.7,
         "height": 11.2
       },
@@ -6615,7 +6615,7 @@
       "pageIndex": 6,
       "bbox": {
         "x": 155.7,
-        "y": 174.1,
+        "y": 158.1,
         "width": 14.7,
         "height": 11.2
       },
@@ -6639,7 +6639,7 @@
       "pageIndex": 6,
       "bbox": {
         "x": 186.4,
-        "y": 174.1,
+        "y": 158.1,
         "width": 69.8,
         "height": 11.2
       },
@@ -6663,7 +6663,7 @@
       "pageIndex": 6,
       "bbox": {
         "x": 186.4,
-        "y": 174.1,
+        "y": 158.1,
         "width": 35.1,
         "height": 11.2
       },
@@ -6687,7 +6687,7 @@
       "pageIndex": 6,
       "bbox": {
         "x": 225.5,
-        "y": 174.1,
+        "y": 158.1,
         "width": 30.7,
         "height": 11.2
       },
@@ -6802,5 +6802,5 @@
       "confidence": 1
     }
   ],
-  "contentHash": "sha256:f3c38090a54081365976710691ce25045a93213a29af0e147b709d122fa4f0bf"
+  "contentHash": "sha256:1dd85a5df61f384acca368509d519eb6eabc058d9d75874b369d3d5d4b337a45"
 }

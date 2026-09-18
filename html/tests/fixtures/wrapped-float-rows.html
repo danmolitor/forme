@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<!--
+  Byte-wall coverage for a WRAPPED row that fragments across pages.
+
+  The existing fragmented-columns fixture is `nowrap`, so it cannot see the
+  wrapped case at all: a change that made wrapped rows fragment as parallel
+  columns left the whole eight-fixture wall reporting IDENTICAL. A wall is
+  only as wide as its corpus.
+
+  `flex-wrap` is not in the CSS subset, so the wrapped row is reached the way
+  real templates reach it: a run of floated blocks, which the mapper turns
+  into one wrapping flex row. Twenty-four cards at 33% wrap into eight lines and
+  run well past the bottom of the first page, so the page boundary falls inside
+  the row rather than between rows, which is the case that matters.
+
+  The cards carry a background so every line's band is actually painted; a
+  line with nothing to paint would make this fixture measure nothing.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Wrapped Float Rows</title>
+    <style>
+      @page { size: Letter; margin: 40pt; }
+      body { font-family: Helvetica, sans-serif; font-size: 9pt; color: #23262b; }
+      .card {
+        float: left;
+        width: 33%;
+        height: 96pt;
+        padding: 6pt;
+        background-color: #eef0f5;
+        border-bottom: 1pt solid #8a9099;
+      }
+      h3 { margin: 0 0 4pt 0; font-size: 10pt; }
+      p { margin: 0; }
+    </style>
+  </head>
+  <body>
+    <h1>Bonded entries</h1>
+    <div class="grid">
+      <div class="card"><h3>Line item 01</h3><p>Consignment 01 cleared at the bonded warehouse; duty paid on entry.</p></div>
+      <div class="card"><h3>Line item 02</h3><p>Consignment 02 cleared at the bonded warehouse; duty paid on entry.</p></div>
+      <div class="card"><h3>Line item 03</h3><p>Consignment 03 cleared at the bonded warehouse; duty paid on entry.</p></div>
+      <div class="card"><h3>Line item 04</h3><p>Consignment 04 cleared at the bonded warehouse; duty paid on entry.</p></div>
+      <div class="card"><h3>Line item 05</h3><p>Consignment 05 cleared at the bonded warehouse; duty paid on entry.</p></div>
+      <div class="card"><h3>Line item 06</h3><p>Consignment 06 cleared at the bonded warehouse; duty paid on entry.</p></div>
+      <div class="card"><h3>Line item 07</h3><p>Consignment 07 cleared at the bonded warehouse; duty paid on entry.</p></div>
+      <div class="card"><h3>Line item 08</h3><p>Consignment 08 cleared at the bonded warehouse; duty paid on entry.</p></div>
+      <div class="card"><h3>Line item 09</h3><p>Consignment 09 cleared at the bonded warehouse; duty paid on entry.</p></div>
+      <div class="card"><h3>Line item 10</h3><p>Consignment 10 cleared at the bonded warehouse; duty paid on entry.</p></div>
+      <div class="card"><h3>Line item 11</h3><p>Consignment 11 cleared at the bonded warehouse; duty paid on entry.</p></div>
+      <div class="card"><h3>Line item 12</h3><p>Consignment 12 cleared at the bonded warehouse; duty paid on entry.</p></div>
+      <div class="card"><h3>Line item 13</h3><p>Consignment 13 cleared at the bonded warehouse; duty paid on entry.</p></div>
+      <div class="card"><h3>Line item 14</h3><p>Consignment 14 cleared at the bonded warehouse; duty paid on entry.</p></div>
+      <div class="card"><h3>Line item 15</h3><p>Consignment 15 cleared at the bonded warehouse; duty paid on entry.</p></div>
+      <div class="card"><h3>Line item 16</h3><p>Consignment 16 cleared at the bonded warehouse; duty paid on entry.</p></div>
+      <div class="card"><h3>Line item 17</h3><p>Consignment 17 cleared at the bonded warehouse; duty paid on entry.</p></div>
+      <div class="card"><h3>Line item 18</h3><p>Consignment 18 cleared at the bonded warehouse; duty paid on entry.</p></div>
+      <div class="card"><h3>Line item 19</h3><p>Consignment 19 cleared at the bonded warehouse; duty paid on entry.</p></div>
+      <div class="card"><h3>Line item 20</h3><p>Consignment 20 cleared at the bonded warehouse; duty paid on entry.</p></div>
+      <div class="card"><h3>Line item 21</h3><p>Consignment 21 cleared at the bonded warehouse; duty paid on entry.</p></div>
+      <div class="card"><h3>Line item 22</h3><p>Consignment 22 cleared at the bonded warehouse; duty paid on entry.</p></div>
+      <div class="card"><h3>Line item 23</h3><p>Consignment 23 cleared at the bonded warehouse; duty paid on entry.</p></div>
+      <div class="card"><h3>Line item 24</h3><p>Consignment 24 cleared at the bonded warehouse; duty paid on entry.</p></div>
+    </div>
+  </body>
+</html>

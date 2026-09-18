@@ -2189,7 +2189,7 @@ impl LayoutEngine {
             }
 
             // Collect child elements that were pushed during layout
-            let child_elements: Vec<LayoutElement> = cursor.elements.drain(snapshot..).collect();
+            let child_elements: Vec<LayoutElement> = drain_since(&mut cursor.elements, snapshot);
 
             // Measure/layout agreement check (see the `measure_check` field
             // doc). Only the phantom-space direction is flagged — measured
@@ -2357,7 +2357,7 @@ impl LayoutEngine {
 
         if pages.len() == initial_page_count {
             // No page breaks: simple wrap (same as non-breakable path)
-            let child_elements: Vec<LayoutElement> = cursor.elements.drain(snapshot..).collect();
+            let child_elements: Vec<LayoutElement> = drain_since(&mut cursor.elements, snapshot);
             let rect_height =
                 cursor.content_y + cursor.y + padding.bottom + border.bottom - rect_start_y;
             cursor.elements.push(LayoutElement {
@@ -2392,7 +2392,7 @@ impl LayoutEngine {
             let footer_h: f64 = page.fixed_footer.iter().map(|(_, h)| *h).sum();
             let page_content_bottom =
                 page.config.margin.top + (page.height - page.config.margin.vertical()) - footer_h;
-            let our_elements: Vec<LayoutElement> = page.elements.drain(snapshot..).collect();
+            let our_elements: Vec<LayoutElement> = drain_since(&mut page.elements, snapshot);
             if !our_elements.is_empty() {
                 let rect_height = page_content_bottom - rect_start_y;
                 page.elements.push(LayoutElement {
@@ -2974,10 +2974,6 @@ impl LayoutEngine {
         let flex_wrap = parent_style
             .map(|s| s.flex_wrap)
             .unwrap_or(FlexWrap::NoWrap);
-        // Single-line rows fragment as parallel columns (phase 2); wrapped
-        // rows keep the older sequential behavior, so they also keep the
-        // older page-fit rule below.
-        let parallel = matches!(flex_wrap, FlexWrap::NoWrap);
 
         // Phase 1: resolve styles and measure base widths for all items
         // flex_basis takes precedence over width for flex items (per CSS spec)
@@ -3013,6 +3009,12 @@ impl LayoutEngine {
                     end: items.len(),
                 }]
             }
+            // Line assignment depends on base widths, the column gap and
+            // available WIDTH. A page fragment changes available HEIGHT; the
+            // width is the page's and does not move, so recomputing this per
+            // fragment would return an identical partition. Lines are decided
+            // once, here, on purpose: per-fragment recomputation would buy
+            // nothing and could only introduce nondeterminism.
             FlexWrap::Wrap => flex::partition_into_lines(&base_widths, column_gap, available_width),
             FlexWrap::WrapReverse => {
                 let mut l = flex::partition_into_lines(&base_widths, column_gap, available_width);
@@ -3036,6 +3038,21 @@ impl LayoutEngine {
         let mut line_infos: Vec<(usize, usize, f64)> = Vec::new();
 
         for (line_idx, line) in lines.iter().enumerate() {
+            // Whether THIS LINE fragments as parallel columns.
+            //
+            // The machinery below has always been per-line: item_frags, the
+            // merge, the stretch pass and the band synthesis are all scoped to
+            // one iteration. What was not per-line was the decision, which sat
+            // above the loop as `matches!(flex_wrap, NoWrap)` and so could
+            // never be true for a wrapped row. Extending wrapped rows is
+            // therefore removing a `lines.len() == 1` assumption, not adding a
+            // second mechanism.
+            //
+            // Phase 2 makes it true for every line. The chaining a wrapped
+            // row needs was already here: after a line fragments, the cursor
+            // becomes the carrier's cursor on the LAST page with `y` at the
+            // deepest column's end, so the next line starts exactly there.
+            let parallel = true;
             let line_items = &items[line.start..line.end];
             let line_count = line.end - line.start;
             let line_gap = column_gap * (line_count as f64 - 1.0).max(0.0);
@@ -3656,7 +3673,7 @@ impl LayoutEngine {
         cursor.y += padding.bottom;
 
         // Wrap collected item elements in a List container
-        let item_elements: Vec<LayoutElement> = cursor.elements.drain(snapshot..).collect();
+        let item_elements: Vec<LayoutElement> = drain_since(&mut cursor.elements, snapshot);
         let list_height = cursor.content_y + cursor.y - list_start_y;
         cursor.elements.push(LayoutElement {
             x: list_x,
@@ -3759,7 +3776,7 @@ impl LayoutEngine {
 
         // 3. Wrap marker + content in a ListItem container element
         //    (tagged PDF picks up /LI from the node_type).
-        let item_children: Vec<LayoutElement> = cursor.elements.drain(item_snapshot..).collect();
+        let item_children: Vec<LayoutElement> = drain_since(&mut cursor.elements, item_snapshot);
         let item_height = cursor.content_y + cursor.y - item_start_y;
         let item_width = content_x + content_width - list_inner_x;
         cursor.elements.push(LayoutElement {
@@ -4031,7 +4048,7 @@ impl LayoutEngine {
 
         if pages.len() == initial_page_count {
             // No page breaks: simple wrap.
-            let child_elements: Vec<LayoutElement> = cursor.elements.drain(snapshot..).collect();
+            let child_elements: Vec<LayoutElement> = drain_since(&mut cursor.elements, snapshot);
             cursor.elements.push(make_wrapper(
                 rect_start_y,
                 table_bottom_y - rect_start_y,
@@ -4061,7 +4078,7 @@ impl LayoutEngine {
             let footer_h: f64 = page.fixed_footer.iter().map(|(_, h)| *h).sum();
             let page_content_bottom =
                 page.config.margin.top + (page.height - page.config.margin.vertical()) - footer_h;
-            let our_elements: Vec<LayoutElement> = page.elements.drain(snapshot..).collect();
+            let our_elements: Vec<LayoutElement> = drain_since(&mut page.elements, snapshot);
             if !our_elements.is_empty() {
                 page.elements.push(make_wrapper(
                     rect_start_y,
@@ -4350,7 +4367,7 @@ impl LayoutEngine {
 
             // Collect cell content elements
             let cell_children: Vec<LayoutElement> =
-                cursor.elements.drain(cell_snapshot..).collect();
+                drain_since(&mut cursor.elements, cell_snapshot);
 
             // Always push a cell element (with or without visual styling) to preserve hierarchy
             cursor.elements.push(LayoutElement {
@@ -4392,7 +4409,7 @@ impl LayoutEngine {
         }
 
         // Collect all cell elements as row children
-        let row_children: Vec<LayoutElement> = cursor.elements.drain(row_snapshot..).collect();
+        let row_children: Vec<LayoutElement> = drain_since(&mut cursor.elements, row_snapshot);
         let row_element = LayoutElement {
             x: start_x,
             y: row_y,
@@ -4641,7 +4658,7 @@ impl LayoutEngine {
             if needs_break {
                 first_break_done = true;
                 // Flush accumulated lines into a Text container on this page
-                let line_elements: Vec<LayoutElement> = cursor.elements.drain(snapshot..).collect();
+                let line_elements: Vec<LayoutElement> = drain_since(&mut cursor.elements, snapshot);
                 if !line_elements.is_empty() {
                     let container_height = cursor.content_y + cursor.y - container_start_y;
                     cursor.elements.push(LayoutElement {
@@ -4785,7 +4802,7 @@ impl LayoutEngine {
         }
 
         // Wrap remaining lines into a Text container
-        let line_elements: Vec<LayoutElement> = cursor.elements.drain(snapshot..).collect();
+        let line_elements: Vec<LayoutElement> = drain_since(&mut cursor.elements, snapshot);
         if !line_elements.is_empty() {
             let container_height = cursor.content_y + cursor.y - container_start_y;
             cursor.elements.push(LayoutElement {
@@ -4938,7 +4955,7 @@ impl LayoutEngine {
 
             if needs_break {
                 first_break_done = true;
-                let line_elements: Vec<LayoutElement> = cursor.elements.drain(snapshot..).collect();
+                let line_elements: Vec<LayoutElement> = drain_since(&mut cursor.elements, snapshot);
                 if !line_elements.is_empty() {
                     let container_height = cursor.content_y + cursor.y - container_start_y;
                     cursor.elements.push(LayoutElement {
@@ -5077,7 +5094,7 @@ impl LayoutEngine {
             cursor.y += line_height;
         }
 
-        let line_elements: Vec<LayoutElement> = cursor.elements.drain(snapshot..).collect();
+        let line_elements: Vec<LayoutElement> = drain_since(&mut cursor.elements, snapshot);
         if !line_elements.is_empty() {
             let container_height = cursor.content_y + cursor.y - container_start_y;
             cursor.elements.push(LayoutElement {
@@ -7916,6 +7933,27 @@ fn paints_a_box(el: &LayoutElement) -> bool {
         }
         _ => false,
     }
+}
+
+/// Collect everything pushed onto the cursor since `snapshot`, tolerating a
+/// page break that happened in between.
+///
+/// The snapshot-and-collect pattern takes `cursor.elements.len()` before
+/// laying out children and drains from it afterwards. If a child finished a
+/// page, `finalize()` took those elements and `new_page()` installed a fresh,
+/// EMPTY vector, so the saved index can point past the end and
+/// `drain(snapshot..)` panics. A plain `<ul>` long enough to cross a page did
+/// exactly that, in every release up to and including 0.23.0:
+///
+///   range start index 15 out of range for slice of length 1
+///
+/// Clamping is the correct collection, not a papering-over: after a break the
+/// cursor starts empty and fixed headers and footers are injected separately
+/// at the end, so everything present is this container's own content on the
+/// current page.
+fn drain_since(elements: &mut Vec<LayoutElement>, snapshot: usize) -> Vec<LayoutElement> {
+    let start = snapshot.min(elements.len());
+    elements.drain(start..).collect()
 }
 
 fn stretch_fragment(elements: &mut [LayoutElement], bottom: f64) {

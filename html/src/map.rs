@@ -713,6 +713,11 @@ impl Mapper {
             self.flush_float_run(&mut float_run, &mut out, false);
         }
         self.flush_inline_group(&mut inline_buf, parent, &mut out);
+        if parent.display == CssDisplay::Block {
+            for node in &mut out {
+                zero_auto_margins_on_auto_width_block(node);
+            }
+        }
         out
     }
 
@@ -1580,6 +1585,41 @@ fn text_node_from_runs_kind(mut runs: Vec<TextRun>, style: Style, level: Option<
         },
     };
     make_node(kind, style, vec![])
+}
+
+/// CSS 2.1 10.3.3: for a block-level box in normal flow with `width: auto`,
+/// any `auto` horizontal margin computes to ZERO and the box fills its
+/// containing block. Auto margins only center a box whose width is
+/// constrained.
+///
+/// The engine models block flow as a flex column, where an auto cross-axis
+/// margin on an ITEM absorbs free space instead (CSS Flexbox 9.6, and
+/// correct there). So the engine cannot tell these apart; this mapper can,
+/// because it knows the containing block's `display`, and it is where the
+/// distinction has to be made.
+///
+/// Left unmade, Bootstrap's `.container` was the visible cost: its width
+/// lives inside `@media (min-width: 768px)`, so on the print path it is a
+/// plain auto-width block with `margin: 0 auto`. The engine shrank it to
+/// fit, its percentage-width children then measured zero against that, and
+/// a whole invoice rendered one character per line in a 22.5pt column.
+fn zero_auto_margins_on_auto_width_block(node: &mut Node) {
+    // `max-width` keeps the centering: CSS 2.1 10.4 re-runs the width rules
+    // with the clamped width as the used width, which makes it no longer
+    // auto, so the auto margins split what is left. That is the ubiquitous
+    // centered-column idiom and the engine already implements it.
+    let width_is_auto = node.style.width.is_none() && node.style.max_width.is_none();
+    if !width_is_auto {
+        return;
+    }
+    if let Some(m) = node.style.margin.as_mut() {
+        if m.left.is_auto() {
+            m.left = EdgeValue::Pt(0.0);
+        }
+        if m.right.is_auto() {
+            m.right = EdgeValue::Pt(0.0);
+        }
+    }
 }
 
 fn is_default_style(s: &Style) -> bool {
