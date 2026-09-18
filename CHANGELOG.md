@@ -13,7 +13,7 @@ values the engine computed and never read.
 
 ### Changed: these move existing documents
 
-Five fixes make declarations take effect that were previously discarded, or
+Six fixes make declarations take effect that were previously discarded, or
 apply a CSS rule the engine had wrong. If a document relies on any of them, its
 layout will change, and that is the point.
 
@@ -35,6 +35,15 @@ layout will change, and that is the point.
 - **A stretched column paints its band on every page the row crosses.** Under
   `align-items: stretch`, a column whose content ended before its neighbour's
   painted nothing on later pages; a browser continues the band
+- **A fixed-height box that does not fit fragments instead of vanishing.** A
+  breakable `View` with a fixed `height` that did not fit in the remaining
+  space lost that height entirely: with a background it was drawn at content
+  height, with none it was not drawn at all, and everything below it moved up
+  by the difference. No page break, no warning. It now fragments across the
+  boundary the way a browser does, measured: a 500pt box starting 600pt down a
+  733.9pt page paints 134pt on that page and 366pt on the next. This was
+  corrupting one of the shipped demo templates, whose baseline had recorded a
+  footer with no position at all
 - **An auto-width block fills, and its auto margins are zero.** CSS 2.1 10.3.3:
   a block-level box in normal flow with `width: auto` fills its containing
   block, and any `auto` horizontal margin computes to zero; auto margins only
