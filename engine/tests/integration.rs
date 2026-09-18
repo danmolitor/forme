@@ -14028,3 +14028,82 @@ fn an_absolute_child_of_a_split_containing_block_is_emitted_once() {
         "and on the containing block's first fragment"
     );
 }
+
+#[test]
+fn a_fixed_height_box_that_does_not_fit_fragments_across_the_boundary() {
+    // A breakable View with a fixed height that did not fit in the remaining
+    // space lost its HEIGHT entirely: `layout_breakable_view` rebuilt the
+    // box's extent from its children and never read `style.height`. With a
+    // background the box was drawn at content height; with none it was not
+    // drawn at all. Either way everything below moved up by the difference,
+    // with no page break and no warning (#147).
+    //
+    // Chrome FRAGMENTS such a box rather than moving it whole. Measured
+    // 2026-09-18 on this exact geometry: 134pt of fill on the first page and
+    // 366pt on the second, with the text at the top of the first part. An
+    // earlier version of this test asserted the box RELOCATED to page 2,
+    // which no browser does; the assertion below is the measurement.
+    let json = r#"{ "children": [
+        { "kind": { "type": "View" }, "style": { "height": { "Pt": 600 } }, "children": [] },
+        { "kind": { "type": "View" },
+          "style": { "height": { "Pt": 500 },
+                     "backgroundColor": { "r": 1, "g": 0, "b": 0, "a": 1 } },
+          "children": [ { "kind": { "type": "Text", "content": "inside" },
+                          "style": {}, "children": [] } ] }
+      ], "metadata": {} }"#;
+    let (_pdf, layout, _w) = forme::render_json_with_layout(json).expect("renders");
+
+    assert_eq!(
+        layout.pages.len(),
+        2,
+        "500pt of box under a 600pt spacer has to reach a second page"
+    );
+
+    // The painted box on each page: the one carrying the background.
+    fn band(els: &[forme::layout::ElementInfo]) -> Option<&forme::layout::ElementInfo> {
+        els.iter()
+            .find(|e| e.node_type == "View" && e.style.background_color.is_some() && e.height > 1.0)
+    }
+    let first = band(&layout.pages[0].elements)
+        .expect("the box must still paint on the page it starts on; losing it is the defect");
+    let second = band(&layout.pages[1].elements)
+        .expect("and must continue on the next page rather than stopping at the boundary");
+
+    // The two parts sum to the declared height, which is the whole point: the
+    // box occupies what it asked for, split over the boundary.
+    let total = first.height + second.height;
+    assert!(
+        (total - 500.0).abs() < 0.5,
+        "the fragments must sum to the declared height: {:.1} + {:.1} = {total:.1}, not 500",
+        first.height,
+        second.height
+    );
+    // Chrome puts ~134pt on the first page, the space that was left there.
+    assert!(
+        (first.height - 133.9).abs() < 1.0,
+        "the first fragment fills the space that was left: {:.1} != 133.9",
+        first.height
+    );
+    assert!(
+        second.y < first.y,
+        "the continuation starts at the top of its page"
+    );
+
+    // The text rides at the top of the first fragment, not stranded or moved.
+    fn has_text(els: &[forme::layout::ElementInfo], needle: &str) -> bool {
+        els.iter().any(|e| {
+            e.text_content
+                .as_deref()
+                .is_some_and(|t| t.trim() == needle)
+                || has_text(&e.children, needle)
+        })
+    }
+    assert!(
+        has_text(&layout.pages[0].elements, "inside"),
+        "the text belongs at the top of the first fragment"
+    );
+    assert!(
+        !has_text(&layout.pages[1].elements, "inside"),
+        "and must not be duplicated onto the continuation"
+    );
+}

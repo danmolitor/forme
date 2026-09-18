@@ -2329,6 +2329,55 @@ impl LayoutEngine {
 
         cursor.continuation_top_offset = prev_continuation_offset;
 
+        // A fixed height is a declaration about the BOX, not about its
+        // content, so the box must occupy it even when its children are
+        // shorter. This path rebuilt the box's extent from its children and
+        // never read `style.height` at all, so a breakable fixed-height box
+        // that did not fit lost its height entirely: the box was drawn at
+        // content height (or, with no background to draw, not at all), and
+        // everything below it moved up by the difference. No warning (#147).
+        //
+        // Reserving the balance here, before the wrapper decision below,
+        // fixes both halves: an unstyled box still owes its space even
+        // though it paints nothing.
+        //
+        // Chrome FRAGMENTS such a box rather than moving it whole: measured
+        // 2026-09-18, a 500pt box starting 600pt down a 733.9pt page paints
+        // 133.9pt on that page and 366.1pt on the next, with its text at the
+        // top of the first part. Advancing the cursor through the page
+        // boundary is what reproduces that, since the per-page wrapping
+        // below then paints one band per page crossed.
+        //
+        // Only when the children themselves did not break. If they did, the
+        // box is already spanning pages and its consumed height is spread
+        // across them; measuring what is left would mean summing per-page
+        // extents, which this does not attempt.
+        // Set when the declared height alone carried the box onto later
+        // pages. Those pages hold none of its children, so the per-page
+        // wrapping below would skip them on an is-empty test and the band
+        // would simply not be painted, exactly as a stretched column's band
+        // was not (#126). The box's own height is what says it is there.
+        let mut spans_by_height = false;
+        if pages.len() == initial_page_count {
+            if let SizeConstraint::Fixed(h) = style.height {
+                let consumed =
+                    cursor.content_y + cursor.y + padding.bottom + border.bottom - rect_start_y;
+                let mut owed = h - consumed;
+                while owed > 0.0 {
+                    let room = cursor.remaining_height();
+                    if owed <= room {
+                        cursor.y += owed;
+                        break;
+                    }
+                    owed -= room;
+                    cursor.y += room;
+                    pages.push(cursor.finalize());
+                    *cursor = cursor.new_page();
+                    spans_by_height = true;
+                }
+            }
+        }
+
         // Check if this view has any visual styling worth wrapping
         let has_visual = style.background_color.is_some()
             || style.border_width.top > 0.0
@@ -2427,7 +2476,7 @@ impl LayoutEngine {
                     + (page.height - page.config.margin.vertical())
                     - footer_h;
                 let all_elements: Vec<LayoutElement> = std::mem::take(&mut page.elements);
-                if !all_elements.is_empty() {
+                if !all_elements.is_empty() || spans_by_height {
                     page.elements.push(LayoutElement {
                         x: node_x,
                         y: content_top,
@@ -2453,7 +2502,7 @@ impl LayoutEngine {
 
             // C. Current page (cursor.elements) — wrap ALL elements
             let all_elements: Vec<LayoutElement> = std::mem::take(&mut cursor.elements);
-            if !all_elements.is_empty() {
+            if !all_elements.is_empty() || spans_by_height {
                 let header_h: f64 = cursor.fixed_header.iter().map(|(_, h)| *h).sum();
                 let content_top = cursor.content_y + header_h;
                 let rect_height =
