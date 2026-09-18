@@ -14107,3 +14107,66 @@ fn a_fixed_height_box_that_does_not_fit_fragments_across_the_boundary() {
         "and must not be duplicated onto the continuation"
     );
 }
+
+#[test]
+fn an_ordered_list_that_crosses_a_page_keeps_counting() {
+    // The one pre-existing list boundary test asserts only that crossing a
+    // page does not PANIC (#134). It says nothing about the numbering, which
+    // is what a reader checks first: a list restarting at 1. on the
+    // continuation page is the classic fragmentation bug, and nothing here
+    // pinned against it.
+    let items: String = (1..=60)
+        .map(|i| {
+            format!(
+                r#"{{ "kind": {{ "type": "ListItem" }}, "style": {{}},
+                     "children": [ {{ "kind": {{ "type": "Text", "content": "item{i}" }}, "style": {{}}, "children": [] }} ] }},"#
+            )
+        })
+        .collect();
+    let json = format!(
+        r#"{{ "children": [
+            {{ "kind": {{ "type": "List", "ordered": true, "marker_type": "decimal", "start": 1 }},
+               "style": {{}}, "children": [ {} ] }}
+        ], "metadata": {{}} }}"#,
+        items.trim_end_matches(',')
+    );
+    let (_pdf, layout, _w) = forme::render_json_with_layout(&json).expect("list renders");
+
+    assert!(
+        layout.pages.len() > 1,
+        "60 items must cross a page for this test to mean anything, got {} page(s)",
+        layout.pages.len()
+    );
+
+    // Every marker, in page then document order.
+    fn markers(els: &[forme::layout::ElementInfo], out: &mut Vec<String>) {
+        for e in els {
+            if let Some(t) = e.text_content.as_deref() {
+                let t = t.trim();
+                if t.ends_with('.') && t[..t.len() - 1].chars().all(|c| c.is_ascii_digit()) {
+                    out.push(t.to_string());
+                }
+            }
+            markers(&e.children, out);
+        }
+    }
+    let mut seen = Vec::new();
+    for p in &layout.pages {
+        markers(&p.elements, &mut seen);
+    }
+    let expected: Vec<String> = (1..=60).map(|i| format!("{i}.")).collect();
+    assert_eq!(
+        seen, expected,
+        "the numbering must run 1 through 60 unbroken across the page boundary"
+    );
+
+    // And the continuation genuinely starts mid-list rather than the list
+    // having simply moved to page 2 whole.
+    let mut first_page_markers = Vec::new();
+    markers(&layout.pages[0].elements, &mut first_page_markers);
+    assert!(
+        !first_page_markers.is_empty() && first_page_markers.len() < 60,
+        "the list must be split, not relocated: {} of 60 markers on page 1",
+        first_page_markers.len()
+    );
+}
