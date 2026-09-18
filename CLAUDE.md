@@ -217,6 +217,33 @@ Transform in pdf serializer: `pdf_y = page_height - layout_y - element_height`
 ### Widow/Orphan Control
 `layout_text` and `layout_text_runs` call `page_break::decide_break()` before placing lines. This prevents a single orphan line at the bottom of a page or a single widow line at the top of the next page. Configurable via `minWidowLines` and `minOrphanLines` style properties (default: 2 each). The decision logic returns `Place` (all lines fit), `MoveToNextPage` (move entire paragraph), or `Split { items_on_current_page }` (break at the right point).
 
+### Parallel Flex-Row Fragmentation
+A `flex-direction: row` that crosses a page continues as parallel columns on
+each page, the way a browser fragments it, rather than laying its children out
+sequentially into whatever space remains. Each item gets its own cursor and
+contributes FRAGMENTS — one element list per page it spans — which are then
+merged so fragment *k* lands on page *k*. One item, the carrier, holds the page
+sequence the row produced; afterwards the parent cursor becomes the carrier's
+cursor on the last page, with `y` at the deepest column's end.
+
+A row that can fragment does NOT relocate whole when it does not fit: it starts
+in the space that is there. The slivers the old relocation guard prevented are
+now prevented per column, by each column's own widow/orphan control.
+
+This applies to WRAPPED rows too. `flex-wrap: nowrap` is modelled as a wrapped
+row with exactly one line, so the machinery was always per-line; what was not
+per-line was the *decision*, which sat above the loop. Lines are still decided
+once, before fragmentation, because a fragment changes a line's height and not
+its width.
+
+Under `align-items: stretch`, a column whose content ends early still paints its
+band on every page the row crosses. Those later bands are SYNTHESISED from the
+item's painted box rather than laid out, since there is no content to lay out.
+
+Measured against Chrome (2026-09-17): given room for its text, a wrapped row
+fragments identically. The remaining difference is orphan control — Forme pushes
+a lone stranded line where Chrome paints it — which is deliberate and separate.
+
 ### Flex Wrap + align-content
 `layout_flex_row` supports `flex-wrap: wrap` with cross-axis distribution via `align-content`. Supported values: `flex-start` (default), `flex-end`, `center`, `space-between`, `space-around`, `space-evenly`, `stretch`. Only applies when the container has a fixed height (otherwise there's no slack to distribute). Post-layout adjustment shifts wrap lines vertically based on the chosen alignment.
 
@@ -403,24 +430,6 @@ Named grid areas like `gridTemplateAreas: '"header header" "sidebar main"'`. Nee
 
 **`grid-auto-flow: dense`** (Low effort, niche)
 Auto-placement currently uses row-major order and never backtracks. Dense packing would scan for earlier gaps that fit the item. Small change to the placement loop in `grid.rs`.
-
-**Parallel flex-row fragmentation** (High effort, awaiting a requester)
-A flex row that splits across pages lays its children out sequentially —
-each into the space that remains — not as parallel columns continuing
-side by side on every page the way Chrome fragments them. A render
-defect reports the genuinely sequential outcome — an item's own layout
-breaking the page while siblings share its flex line (`layout_flex_row`
-item loop, naming the row by its first text; a row relocating whole
-stays silent — the earlier path-based check false-positived on that and
-closed a correct PR, 2026-09-07). Finding attached (template-compat 09,
-2026-09-05): the equal-height CSS-table idiom (`display: table` +
-`table-cell` divs) wrapping a whole document is the shape that hits
-this; the corpus's last DEGRADED grade is exactly this gap. Would need
-per-page parallel child cursors in the breakable-row path — genuine
-layout-engine work. Parked three times (Dan: 2026-09-05, and twice
-2026-09-07 — Phase 0 blast-radius scoping found exposure = corpus 09
-only): one narrow-idiom template is not a buyer; scope it when a real
-document with a page-spanning column row shows up.
 
 **Variable font support** (High effort, typography value)
 Would allow a single `.ttf` file to serve multiple weights/widths via `fvar` axis values. Needs: parse `fvar` table in `font/mod.rs`, interpolate glyph outlines (or use `rustybuzz` variation support), and adjust the registration model so a single font file maps to multiple `FontKey` entries. The subsetter would also need to preserve variation tables.
