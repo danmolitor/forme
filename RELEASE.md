@@ -159,6 +159,18 @@ After bumping the engine/server/rasterizer versions, **two Dockerfiles** still r
 - [ ] `forme-dashboard/packages/api/Dockerfile` — `FROM formepdf/rasterizer:{version}`. Different repo; commit + push separately so Railway's next deploy picks up the new tag.
 
 ### SDK WASM binaries (if engine/ changed)
+
+> **Verify by hash, not by commit.** `scripts/verify-sdk-wasm.sh` builds the
+> wasm fresh from current source and compares it against both embedded copies;
+> `--fix` updates them. A rebuild COMMIT existing proves nothing about WHEN it
+> was built: at 0.24.0 the Go SDK carried "Rebuild embedded engine WASM for
+> 0.24.0", dated the day before the release, built from an engine missing two
+> of that release's five document-moving changes. Same message, same file
+> present, `go test` green either way. Run the script; do not read the log.
+
+- [ ] `scripts/verify-sdk-wasm.sh` exits 0 (checks BOTH SDKs; requires
+      `forme-go` checked out beside this repo, and says so rather than passing
+      quietly if it is not)
 - [ ] `packages/python-sdk/formepdf/forme.wasm` — rebuild via `bash build_wasm.sh`
 - [ ] `forme-go/templates/forme.wasm` (separate `forme-go` git repo) — rebuild via `bash templates/build_wasm.sh` OR copy the artifact built by the python-sdk script (same target + flags)
 - Both use the `wasm32-wasip1` target with `--features wasm-raw` (C-ABI exports for non-JS hosts)
@@ -259,6 +271,7 @@ cd forme/packages/html && ./build.sh
 
 # 2b. Copied-artifact verification (stale-copy class — proven live, twice).
 #     vscode bundles snapshots of BOTH wasms; hashes must match sources.
+bash scripts/verify-sdk-wasm.sh   # SDK-embedded wasm vs current engine source
 shasum -a 256 packages/core/pkg-node/forme_bg.wasm packages/vscode/dist/forme_bg.wasm      # identical
 shasum -a 256 packages/html/pkg-node/forme_pdf_html_bg.wasm packages/vscode/dist/forme_pdf_html_bg.wasm  # identical
 cmp packages/renderer/src/preview/index.html packages/renderer/dist/preview/index.html
