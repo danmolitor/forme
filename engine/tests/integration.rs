@@ -14231,3 +14231,47 @@ fn a_too_tall_item_overflows_a_fixed_height_row_equally() {
         "and it must actually overflow, not be clamped to the top"
     );
 }
+
+#[test]
+fn a_flex_item_margin_is_free_space_a_grow_sibling_cannot_take() {
+    // CSS Flexbox 9.7 resolves flexible lengths against the items' OUTER
+    // hypothetical main sizes. Free space was computed from base widths only,
+    // with margins never subtracted, so a flex-grow sibling absorbed space
+    // that belonged to a fixed item's margin and pushed that item clean out
+    // of the row by exactly the margin.
+    //
+    // Found in a document header: a flex:1 title column beside a 48pt logo
+    // with `marginLeft: 16`. The logo overhung the page's content edge by
+    // 16pt, into the margin. Chrome puts its right edge exactly on the row's
+    // right edge; measured 2026-09-18.
+    let json = r#"{ "children": [
+      { "kind": { "type": "View" },
+        "style": { "flexDirection": "Row", "justifyContent": "SpaceBetween",
+                   "alignItems": "Center", "width": { "Pt": 500 } },
+        "children": [
+          { "kind": { "type": "View" }, "style": { "flexGrow": 1, "flexDirection": "Column" },
+            "children": [ { "kind": { "type": "Text", "content": "title" }, "style": {}, "children": [] } ] },
+          { "kind": { "type": "View" },
+            "style": { "width": { "Pt": 48 }, "height": { "Pt": 48 }, "flexShrink": 0,
+                       "margin": { "top": 0, "right": 0, "bottom": 0, "left": 16 } },
+            "children": [] }
+        ] }
+    ], "metadata": {} }"#;
+    let (_pdf, layout, _w) = forme::render_json_with_layout(json).expect("renders");
+    let row = &layout.pages[0].elements[0];
+    let row_right = row.x + row.width;
+    let grower = &row.children[0];
+    let fixed = &row.children[1];
+
+    assert!(
+        (fixed.x + fixed.width) <= row_right + 0.01,
+        "the fixed item must stay inside the row: its right edge {:.2} is past \
+         the row's {row_right:.2}, by exactly the margin the grow sibling ate",
+        fixed.x + fixed.width
+    );
+    assert!(
+        (grower.width - (500.0 - 48.0 - 16.0)).abs() < 0.01,
+        "the grow item takes the free space LESS its sibling's margin: {:.2} != 436",
+        grower.width
+    );
+}

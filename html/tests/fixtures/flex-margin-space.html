@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<!--
+  Byte-wall coverage for CSS Flexbox 9.7: a flex item's margins are main-axis
+  space that a flex-grow sibling may not take.
+
+  Free space was summed from base widths with margins left out, so a grower
+  absorbed space belonging to a fixed item's margin and pushed that item out
+  of the row by exactly the margin. None of the eleven fixtures before this
+  one put a horizontal margin on an item beside a grower, so the fix reported
+  the wall 11/11 IDENTICAL.
+
+  The shape is a document header: a title column that grows, beside a fixed
+  logo block with a left margin. The logo overhung the page's content edge
+  and sat in the margin. Chrome puts its right edge exactly on the row's.
+
+  The second row is the shrink side of the same sum: over-wide items with
+  margins, where understating the deficit left them too wide to fit.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Flex Margin Space</title>
+    <style>
+      @page { size: Letter; margin: 40pt; }
+      body { font-family: Helvetica, sans-serif; font-size: 9pt; color: #23262b; }
+      .header {
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1pt solid #8a9099;
+        padding-bottom: 8pt;
+      }
+      .title { flex: 1; }
+      .logo {
+        flex-shrink: 0;
+        width: 48pt;
+        height: 48pt;
+        margin-left: 16pt;
+        background-color: #23262b;
+      }
+      .cramped { display: flex; flex-direction: row; margin-top: 18pt; }
+      .cramped div {
+        width: 40%;
+        margin-right: 24pt;
+        padding: 6pt;
+        background-color: #eef0f5;
+      }
+      h1 { font-size: 16pt; margin: 0; }
+      p { margin: 2pt 0 0 0; color: #555; }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <div class="title">
+        <h1>Acme Industries</h1>
+        <p>Innovative solutions &middot; Invoice INV-2026-004</p>
+      </div>
+      <div class="logo"></div>
+    </div>
+
+    <div class="cramped">
+      <div>Three 40% items with 24pt right margins overflow the row, so they
+           shrink. The deficit has to count the margins.</div>
+      <div>Second item, same width and margin as the first.</div>
+      <div>Third item, which is where the overflow would show.</div>
+    </div>
+  </body>
+</html>

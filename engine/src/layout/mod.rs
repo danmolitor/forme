@@ -3050,7 +3050,17 @@ impl LayoutEngine {
             .collect();
 
         // Phase 2: determine wrap lines
-        let base_widths: Vec<f64> = items.iter().map(|i| i.base_width).collect();
+        // CSS Flexbox 9.3 collects items into lines by their OUTER hypothetical
+        // main size, so a margin can be what pushes an item onto the next line.
+        // Packing by bare widths over-filled every line whose items had
+        // horizontal margins: six 150pt boxes with 8pt margins fit three to a
+        // line by width alone (450 of 487) but only two by outer size (498
+        // exceeds it), which is what Chrome does. The over-packed line then
+        // produced NEGATIVE slack for justify-content to distribute.
+        let outer_widths: Vec<f64> = items
+            .iter()
+            .map(|i| i.base_width + i.style.margin.horizontal())
+            .collect();
         let lines = match flex_wrap {
             FlexWrap::NoWrap => {
                 vec![flex::WrapLine {
@@ -3064,9 +3074,11 @@ impl LayoutEngine {
             // fragment would return an identical partition. Lines are decided
             // once, here, on purpose: per-fragment recomputation would buy
             // nothing and could only introduce nondeterminism.
-            FlexWrap::Wrap => flex::partition_into_lines(&base_widths, column_gap, available_width),
+            FlexWrap::Wrap => {
+                flex::partition_into_lines(&outer_widths, column_gap, available_width)
+            }
             FlexWrap::WrapReverse => {
-                let mut l = flex::partition_into_lines(&base_widths, column_gap, available_width);
+                let mut l = flex::partition_into_lines(&outer_widths, column_gap, available_width);
                 l.reverse();
                 l
             }
@@ -3107,8 +3119,23 @@ impl LayoutEngine {
             let line_gap = column_gap * (line_count as f64 - 1.0).max(0.0);
             let distributable = available_width - line_gap;
 
-            // Flex distribution for this line
-            let total_base: f64 = line_items.iter().map(|i| i.base_width).sum();
+            // Flex distribution for this line.
+            //
+            // CSS Flexbox 9.7 resolves flexible lengths against each item's
+            // OUTER hypothetical main size, so an item's horizontal margins
+            // are space no sibling may grow into. Summing bare base widths
+            // overstated the free space by the margins, and a flex-grow
+            // sibling took it: a 48pt logo with `marginLeft: 16` next to a
+            // flex:1 column was pushed 16pt clean out of the row, over the
+            // page's content edge. Chrome puts its right edge exactly on the
+            // row's; measured 2026-09-18.
+            //
+            // The same sum feeds the shrink branch below, where understating
+            // the deficit left items equally over-wide.
+            let total_base: f64 = line_items
+                .iter()
+                .map(|i| i.base_width + i.style.margin.horizontal())
+                .sum();
             let remaining = distributable - total_base;
 
             if remaining > 0.0 {
@@ -3242,8 +3269,17 @@ impl LayoutEngine {
 
             let row_start_y = cursor.y;
 
-            // Justify-content for this line
-            let actual_total: f64 = (line.start..line.end).map(|i| final_widths[i]).sum();
+            // Justify-content for this line.
+            //
+            // Outer sizes again, for the same reason free space uses them: an
+            // item's margins occupy main-axis space, so leaving them out
+            // overstates the slack and justify-content hands that phantom
+            // space back out. With space-between and two items the extra
+            // landed between them and pushed the last item past the row's
+            // end by its own margin.
+            let actual_total: f64 = (line.start..line.end)
+                .map(|i| final_widths[i] + items[i].style.margin.horizontal())
+                .sum();
             let slack = available_width - actual_total - line_gap;
 
             let (start_offset, between_extra) = match justify {
@@ -3428,7 +3464,13 @@ impl LayoutEngine {
                 }
 
                 cursor.y = saved_y;
-                x += fw;
+                // The item occupies its border box PLUS its horizontal
+                // margins: `layout_node` insets by `margin.left` itself, so
+                // advancing by the width alone started the next sibling a
+                // margin early and walked the whole line left. With
+                // space-between that showed up as the last item finishing
+                // short of the row's end instead of flush against it.
+                x += fw + item.style.margin.horizontal();
             }
 
             // ── Merge the fragments ────────────────────────────────
