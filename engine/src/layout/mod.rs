@@ -3189,16 +3189,22 @@ impl LayoutEngine {
             // inner cross size, not the tallest item's. Without this,
             // align-items: center / flex-end on a fixed-height row were
             // no-ops — a 36pt logo box "centered" its 20pt text inside a
-            // 20pt line (the launch-demo mark). `max` rather than replace:
-            // when items overspill a too-small container the line keeps
-            // content size (the spec would shrink and overflow; keeping
-            // the larger value is the conservative reading for existing
-            // documents).
+            // 20pt line (the launch-demo mark).
+            //
+            // The line takes that size even when the items are TALLER, which
+            // is the whole point of 8.3's "it will overflow equally in both
+            // directions": a centred item that does not fit spills the same
+            // amount above and below. This used to be `max`, on the reading
+            // that keeping content size was conservative for existing
+            // documents — but it produced output no browser produces. A
+            // fixed-height pill holding text put every overflowing point
+            // BELOW the box, dropping the text onto the bottom border, which
+            // is what #151 reported. Chrome on that geometry overflows 1.26pt
+            // above and 1.26pt below; measured 2026-09-18.
             if let Some(ps) = parent_style {
                 if matches!(ps.flex_wrap, FlexWrap::NoWrap) {
                     if let SizeConstraint::Fixed(h) = ps.height {
-                        let inner = h - ps.padding.vertical() - ps.border_width.vertical();
-                        line_height = line_height.max(inner);
+                        line_height = h - ps.padding.vertical() - ps.border_width.vertical();
                     }
                 }
             }

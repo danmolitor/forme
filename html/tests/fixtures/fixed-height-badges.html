@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<!--
+  Byte-wall coverage for CSS Flexbox 8.3: an item taller than a fixed-height
+  flex row's content box overflows EQUALLY above and below, rather than sitting
+  at the top with all the overflow going downward.
+
+  None of the ten fixtures that preceded this one put over-tall content in a
+  fixed-height row, so a fix for exactly that reported the wall 10/10
+  IDENTICAL. A wall is only as wide as its corpus.
+
+  The shape is a status pill with `height` set so it lines up with its
+  neighbours, holding text whose line box is taller than the height allows.
+  It is a common component and the failure is visible: the text lands on the
+  bottom border. Chrome overflows 1.26pt each way on this geometry.
+
+  The roomy badge below is the other half of the rule and must NOT move: when
+  the box is taller than its content, centring already worked, and a fix for
+  the overspill case must not disturb it.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Fixed Height Badges</title>
+    <style>
+      @page { size: Letter; margin: 40pt; }
+      body { font-family: Helvetica, sans-serif; color: #23262b; }
+      .row { display: flex; flex-direction: row; gap: 12pt; align-items: center; }
+      .pill {
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        padding: 2pt 8pt;
+        border: 2pt solid #2f7d32;
+        background-color: #eaf5ea;
+        font-size: 9pt;
+        line-height: 1.4;
+      }
+      .tight { height: 16pt; }   /* content box 8pt, line box 12.6pt: overspills */
+      .roomy { height: 30pt; }   /* content box 22pt: centres with room to spare */
+      h2 { font-size: 10pt; margin: 14pt 0 6pt 0; }
+    </style>
+  </head>
+  <body>
+    <h2>Overspilling: the line box is taller than the box allows</h2>
+    <div class="row">
+      <div class="pill tight">+14.2% QoQ</div>
+      <div class="pill tight">-3.4% QoQ</div>
+      <div class="pill tight">Stable</div>
+    </div>
+
+    <h2>Roomy: already centred, and must stay put</h2>
+    <div class="row">
+      <div class="pill roomy">+14.2% QoQ</div>
+      <div class="pill roomy">Stable</div>
+    </div>
+  </body>
+</html>
