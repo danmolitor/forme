@@ -14170,3 +14170,64 @@ fn an_ordered_list_that_crosses_a_page_keeps_counting() {
         first_page_markers.len()
     );
 }
+
+#[test]
+fn a_too_tall_item_overflows_a_fixed_height_row_equally() {
+    // CSS Flexbox 8.3: with `align-items: center`, "if the cross size of the
+    // flex line is less than that of the flex item, it will overflow equally
+    // in both directions". The single-line cross-size rule took
+    // `line_height.max(inner)`, so a container SMALLER than its content kept
+    // the content size: the line grew past the box, the centring offset
+    // evaluated to zero, and the item sat at the content-box top with all the
+    // overflow going downward (#151).
+    //
+    // A fixed-height pill holding text is the shape that hits this, and the
+    // text lands on the bottom border. Chrome, measured on this geometry
+    // 2026-09-18, overflows 1.26pt above the top border and 1.26pt below the
+    // bottom one.
+    let json = r#"{ "children": [
+        { "kind": { "type": "View" },
+          "style": { "height": { "Pt": 16 }, "flexDirection": "Row", "alignItems": "Center",
+                     "padding": { "top": 2, "right": 8, "bottom": 2, "left": 8 },
+                     "borderWidth": { "top": 2, "right": 2, "bottom": 2, "left": 2 } },
+          "children": [ { "kind": { "type": "Text", "content": "+14.2% QoQ" },
+                          "style": { "fontSize": 9, "fontWeight": 600 }, "children": [] } ] }
+      ], "metadata": {} }"#;
+    let (_pdf, layout, _w) = forme::render_json_with_layout(json).expect("renders");
+    let badge = &layout.pages[0].elements[0];
+    assert!(
+        (badge.height - 16.0).abs() < 0.01,
+        "the box keeps its declared height: {}",
+        badge.height
+    );
+
+    let text = badge
+        .children
+        .iter()
+        .find(|c| c.node_type == "Text")
+        .expect("the text child");
+
+    // Content box: the 16pt box less its 2pt borders and 2pt padding.
+    let content_top = badge.y + 4.0;
+    let content_bottom = badge.y + badge.height - 4.0;
+    let content_height = content_bottom - content_top;
+    assert!(
+        text.height > content_height,
+        "precondition: the text ({:.2}pt) must be TALLER than the content box \
+         ({content_height:.2}pt), or there is no overspill to centre",
+        text.height
+    );
+
+    let above = content_top - text.y;
+    let below = (text.y + text.height) - content_bottom;
+    assert!(
+        (above - below).abs() < 0.01,
+        "the overspill must be equal on both sides: {above:.2}pt above the \
+         content box, {below:.2}pt below. Sitting at the content-box top \
+         (above = 0) is the defect."
+    );
+    assert!(
+        above > 0.0,
+        "and it must actually overflow, not be clamped to the top"
+    );
+}

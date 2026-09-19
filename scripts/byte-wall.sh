@@ -38,7 +38,7 @@ if [ ${#FIXTURES[@]} -eq 0 ]; then
   # result being read as a no-change result. A wall is only as wide as its
   # corpus — when a fix lands with the wall silent, add the fixture that
   # would have spoken.
-  FIXTURES=(letterhead report zebra-invoice statement dashed-borders invoice styled-text-blocks fragmented-columns wrapped-float-rows auto-margin-container)
+  FIXTURES=(letterhead report zebra-invoice statement dashed-borders invoice styled-text-blocks fragmented-columns wrapped-float-rows auto-margin-container fixed-height-badges)
 fi
 
 OUT="$(mktemp -d /tmp/byte-wall.XXXXXX)"
