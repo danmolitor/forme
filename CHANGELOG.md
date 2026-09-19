@@ -6,6 +6,61 @@ Entries for 0.10.0 through 0.23.0 were backfilled on 2026-09-17 from the
 published GitHub release notes, which were the record of those releases
 while this file lapsed. They are reproduced, not rewritten.
 
+## [0.25.0] - 2026-09-19
+
+Flex geometry, corrected in four places where the engine measured items by
+their border box and CSS measures them by their outer box. All packages share
+the line: engine (crates.io `forme-pdf`), every `@formepdf/*` npm package,
+`formepdf` (PyPI), `forme-go` (tag v0.25.0), and the VS Code extension.
+
+Both fixes came from a real document put side by side with another renderer,
+and both were measured against Chrome rather than argued from the spec alone.
+
+### Changed: these move existing documents
+
+- **An item taller than a fixed-height row overflows it equally, not
+  downward.** CSS Flexbox 8.3: with `align-items: center`, an item whose cross
+  size exceeds the line's "will overflow equally in both directions". The
+  single-line cross-size rule kept the larger of the container's inner size
+  and the content's, so a container SMALLER than its content kept content
+  size: the line grew past the box, the centring offset evaluated to zero, and
+  the item sat at the top with every overflowing point going downward. A
+  status pill with `height` set to align with its neighbours dropped its text
+  onto the bottom border. Chrome overflows 1.26pt above and below on the
+  reported geometry; Forme now splits it the same way. Centring in a box with
+  room to spare is unchanged
+- **A flex item's margins are main-axis space no sibling can take.** CSS
+  Flexbox 9.7 resolves flexible lengths against each item's OUTER hypothetical
+  main size. Four places used the border box instead, and each compounded the
+  last: free space, `justify-content` slack, line packing (9.3, which collects
+  items into lines by outer size), and the per-item cursor advance. A document
+  header with a `flex: 1` title beside a fixed logo with `marginLeft` pushed
+  the logo clean out of the row by exactly that margin, over the page's
+  content edge. Wrapping rows over-packed their lines: six 150pt boxes with
+  8pt margins fit three to a line by width alone but only two by outer size,
+  which is what a browser does, and the over-packed line then handed
+  `justify-content` negative slack to distribute
+
+### Fixed
+
+- **`forme-go` is on the shared version line.** It previously ran its own
+  `v0.9.x` tags and went three engine releases without one, because a separate
+  line gives no signal that the SDK is stale. `RELEASE.md` says so now, along
+  with the rule that `main` is pushed before the tag: branch protection routes
+  a release through a PR, so tagging first points the tag at a commit the
+  remote does not have
+
+### Internal
+
+- `scripts/verify-sdk-wasm.sh` builds the engine WASM fresh and compares it
+  against the copies the Python and Go SDKs embed. Confirming that a rebuild
+  COMMIT exists proves nothing about when it was built: at 0.24.0 the Go SDK
+  carried one dated the day before the release, from an engine missing two of
+  that release's changes. It has since caught the same drift on every engine
+  change
+- Three byte-wall fixtures for shapes the wall could not see: fixed-height
+  badges, flex margins, and wrapped float rows
+
 ## [0.24.0] - 2026-09-17
 
 Parallel flex-row fragmentation, and the results of a systematic sweep for
