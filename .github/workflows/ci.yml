@@ -49,10 +49,16 @@ jobs:
       # because they cannot be regenerated on macOS: cross-platform
       # antialiasing diverges well past the 1% threshold. `|| true` so this
       # step never masks the gate above, which has already run and decided.
+      # `if: always()` is the point: the gate above FAILS whenever a
+      # reference is stale, which is exactly when this needs to run, and
+      # GitHub skips every later step after a failure by default. Without it
+      # these steps never execute and the artifact never exists.
       - name: TEMP regenerate visual references
+        if: always()
         working-directory: engine
         run: FORME_UPDATE_REFERENCES=1 cargo test --features visual-tests --test visual_regression || true
       - name: TEMP upload regenerated references
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: visual-references
