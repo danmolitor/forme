@@ -3050,7 +3050,17 @@ impl LayoutEngine {
             .collect();
 
         // Phase 2: determine wrap lines
-        let base_widths: Vec<f64> = items.iter().map(|i| i.base_width).collect();
+        // CSS Flexbox 9.3 collects items into lines by their OUTER hypothetical
+        // main size, so a margin can be what pushes an item onto the next line.
+        // Packing by bare widths over-filled every line whose items had
+        // horizontal margins: six 150pt boxes with 8pt margins fit three to a
+        // line by width alone (450 of 487) but only two by outer size (498
+        // exceeds it), which is what Chrome does. The over-packed line then
+        // produced NEGATIVE slack for justify-content to distribute.
+        let outer_widths: Vec<f64> = items
+            .iter()
+            .map(|i| i.base_width + i.style.margin.horizontal())
+            .collect();
         let lines = match flex_wrap {
             FlexWrap::NoWrap => {
                 vec![flex::WrapLine {
@@ -3064,9 +3074,11 @@ impl LayoutEngine {
             // fragment would return an identical partition. Lines are decided
             // once, here, on purpose: per-fragment recomputation would buy
             // nothing and could only introduce nondeterminism.
-            FlexWrap::Wrap => flex::partition_into_lines(&base_widths, column_gap, available_width),
+            FlexWrap::Wrap => {
+                flex::partition_into_lines(&outer_widths, column_gap, available_width)
+            }
             FlexWrap::WrapReverse => {
-                let mut l = flex::partition_into_lines(&base_widths, column_gap, available_width);
+                let mut l = flex::partition_into_lines(&outer_widths, column_gap, available_width);
                 l.reverse();
                 l
             }
@@ -3452,7 +3464,13 @@ impl LayoutEngine {
                 }
 
                 cursor.y = saved_y;
-                x += fw;
+                // The item occupies its border box PLUS its horizontal
+                // margins: `layout_node` insets by `margin.left` itself, so
+                // advancing by the width alone started the next sibling a
+                // margin early and walked the whole line left. With
+                // space-between that showed up as the last item finishing
+                // short of the row's end instead of flush against it.
+                x += fw + item.style.margin.horizontal();
             }
 
             // ── Merge the fragments ────────────────────────────────
