@@ -233,6 +233,25 @@ In Forme, each page fragment gets its own flex pass. Items on page 1 fill that p
 
 In tools that use the infinite-canvas-then-slice approach, flex runs once on the full container, then the result is sliced. This produces incorrect widths on both pages because the flex math assumed all items were on one line.
 
+### A row that crosses a page keeps its columns
+
+A `flexDirection: 'row'` taller than the space left on the page continues as **parallel columns** on every page it spans. Each column carries on beneath itself on the next page, in its own track:
+
+```tsx
+<View style={{ flexDirection: 'row', gap: 18 }}>
+  <View style={{ flex: 1 }}>{/* long article text */}</View>
+  <View style={{ flex: 1 }}>{/* long sidebar text */}</View>
+</View>
+```
+
+A two-column layout stays two columns on page 2. The alternative — laying the first column out until it runs out of room, then starting the second wherever that ended — leaves the first page half empty and stops the design being a two-column design at all. This applies to wrapped rows (`flexWrap: 'wrap'`) as well, since 0.24.0.
+
+Three details worth knowing:
+
+- **A row that does not fit starts anyway.** It begins in the space that is there and continues overleaf, rather than moving to the next page whole and abandoning what was left. Each column's own widow and orphan control decides whether its first line is worth placing, so a column with room for one stranded line pushes that line instead.
+- **`alignItems: 'stretch'` continues the band.** A column whose content ends before its neighbour's still paints its background and borders down every page the row crosses, the way a browser does, rather than stopping where its text ran out.
+- **A fixed `height` is honoured across the boundary.** A box with `height: 500` that has only 130pt of page left paints 130pt on that page and the remaining 370 on the next, instead of shrinking to its content.
+
 ## How it differs from react-pdf
 
 react-pdf lays out content on an infinite vertical canvas and then slices it into pages. This causes several problems:

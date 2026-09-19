@@ -7,10 +7,16 @@
 
 ## Version Strategy
 
-- Engine (Cargo) + all npm packages share the same version (e.g. 0.9.0)
+- Engine (Cargo) + all npm packages share the same version (e.g. 0.24.0)
 - Python SDK (`formepdf` on PyPI) follows the same version
 - Rust crate (`forme-pdf` on crates.io) follows the same version
-- Go SDK (`github.com/formepdf/forme-go`) uses a `v0.9.0` git tag
+- Go SDK (`github.com/formepdf/forme-go`) **joined the shared line at 0.24.0** and is
+  versioned by git tag (`v0.24.0`). It previously ran its own `v0.9.x` line, which
+  went three engine releases without a tag (0.22, 0.23, 0.24 shipped while it sat at
+  `v0.9.2`) because a separate line gives no signal that it is stale. `v0.9.3` and
+  `v0.10.0` are both now in the past; the next tag is whatever the monorepo releases.
+  Go module tags are immutable once the proxy caches them, so this direction is
+  one-way.
 - VS Code extension follows the same version as of 0.13.0. It publishes to the Marketplace rather than npm, which is why it used to version itself — but it bundles the engine WASM and `@formepdf/renderer` wholesale, so a number that had drifted three minors behind (0.10.5 against a 0.12.1 monorepo) said nothing about what was in the VSIX. It jumped 0.10.5 → 0.13.0; 0.11.x and 0.12.x have no extension release.
 - `@formepdf/html` + the `forme-pdf-html` crate joined the shared line at 0.14.0 (previously npm 0.1.0 / crate 0.0.1, unpublished). The crate stays `publish = false` — the HTML input path ships via **npm only**; the crate version tracks the line so artifacts describe themselves honestly.
 - `server/` + `rasterizer/` rejoined the shared line at 0.14.0 (previously frozen at 0.10.5 after the hosted-API shutdown — 0.11.x–0.13.x have no image). The unfreeze happened because the 0.10.5 images sat on ~March-era bases and accumulated CVEs (C grade on Docker Hub); publishing rebuilt images made a real version bump honest again. The rule that motivated the freeze still stands: **only bump these crates when you are actually publishing matching Docker images.** The version must always name a tag someone can pull — `server/Dockerfile:5` is `FROM formepdf/rasterizer:{version}` and breaks if the pin points at a phantom tag.
@@ -477,19 +483,25 @@ Note: The Dockerfile requires Rust 1.88+ due to dependencies. Use `rust:latest` 
 
 The Go SDK is published via git tag — pkg.go.dev indexes it automatically.
 
+The tag carries the SHARED version, same as everything else (`v0.24.0`, not
+`v0.9.x` — see Version Strategy).
+
 ```bash
 cd ../forme-go   # separate repo, sibling of forme/
-# Verify tests pass
-go test ./...
 
-# Push to the Go SDK repo
-git add .
-git commit -m "Release v0.9.0"
+# The embedded WASM must match the engine being released. Verify rather than
+# assume: scripts/verify-sdk-wasm.sh (run from the monorepo) builds it fresh
+# and compares hashes. A rebuild COMMIT existing proves nothing about when it
+# was built.
+go clean -testcache && go test ./...
+
+git add templates/forme.wasm
+git commit -m "Release v0.24.0"
 git push origin main
 
 # Tag the release (Go modules use the tag as the version)
-git tag v0.9.0
-git push origin v0.9.0
+git tag v0.24.0
+git push origin v0.24.0
 
 # pkg.go.dev will index it automatically within ~30 minutes
 # Verify at: https://pkg.go.dev/github.com/formepdf/forme-go
@@ -499,11 +511,21 @@ git push origin v0.9.0
 
 ## Git Tag (monorepo)
 
+Tag the commit you actually published from, and push `main` FIRST. Branch
+protection rejects a direct push to `main`, so the release lands through a PR;
+tagging before that merges points the tag at a commit the remote's `main` does
+not contain. At 0.24.0 the tag went up while the `main` push was rejected, and
+had to be moved afterwards.
+
 ```bash
-git tag v0.9.0
+git tag v0.24.0
 git push origin main
-git push origin v0.9.0
+git push origin v0.24.0
 ```
+
+If nothing is published yet, the tag is free to move (`git tag -f` plus a force
+push). Once the registries have the version, it is not: a published package
+naming a tag that has since moved makes the release unreproducible.
 
 ---
 
@@ -532,8 +554,8 @@ cargo add forme-pdf@0.9.0
 # or check https://crates.io/crates/forme-pdf
 
 # Go
-go get github.com/formepdf/forme-go@v0.9.0
-# Check https://pkg.go.dev/github.com/formepdf/forme-go@v0.9.0
+go get github.com/formepdf/forme-go@v0.24.0
+# Check https://pkg.go.dev/github.com/formepdf/forme-go@v0.24.0
 
 # @formepdf/html — the npx flow from a clean room
 mkdir /tmp/test-html && cd /tmp/test-html && npm init -y
