@@ -15784,7 +15784,7 @@ fn test_rtl_marks_keep_the_shapers_offsets() {
 /// The shaper can move a mark vertically (Liberation lowers the stacked
 /// marks of "q̣̇" by 410 units, 8.01pt at 40pt), and the writer never read
 /// a glyph's y offset, so the mark was drawn 8pt off. It is drawn with a
-/// text rise around it, reset afterwards.
+/// text rise that includes the same offset.
 #[test]
 fn test_registered_font_vertical_mark_offsets_are_drawn() {
     let mut text = make_text("q\u{323}\u{307}", 40.0);
@@ -15801,15 +15801,8 @@ fn test_registered_font_vertical_mark_offsets_are_drawn() {
         .filter_map(|l| l.trim().strip_suffix(" Ts"))
         .map(|v| v.trim().parse().unwrap())
         .collect();
-    assert!(
-        rises.iter().any(|r| (r - rise).abs() < 0.01),
-        "a Ts of {rise:.2} for the mark, got {rises:?}:\n{stream}"
-    );
-    assert_eq!(
-        rises.last().copied(),
-        Some(0.0),
-        "the rise is reset: {rises:?}"
-    );
+    assert!(rises.iter().any(|r| (r - rise).abs() < 0.01));
+    assert_eq!(rises.last().copied(), Some(0.0), "text rise must reset");
 }
 
 /// Redaction locates text by replaying the content stream. With registered
@@ -15848,4 +15841,46 @@ fn test_redaction_finds_text_drawn_with_tj_where_it_is_drawn() {
         "region starts at {:.2}, Secret is drawn at {secret_x:.2}",
         regions[0].x
     );
+}
+
+/// Ordinary registered fonts keep their identity CIDs. A repeated shaped
+/// vowel glyph with different source text needs an explicit CID-to-GID map.
+#[test]
+fn test_registered_font_cid_map_is_only_split_for_conflicting_text() {
+    let plain = render_with_ligature_font(
+        r#"{ "type": "Text", "content": "office field flow" }"#,
+        r#"{ "fontFamily": "Lig", "fontSize": 14 }"#,
+    );
+    assert!(String::from_utf8_lossy(&plain).contains("/CIDToGIDMap /Identity"));
+
+    use base64::Engine;
+    let font = std::fs::read("tests/fixtures/fonts/NotoSansDevanagari-Regular.ttf").unwrap();
+    let doc = serde_json::json!({
+        "fonts": [{ "family": "Indic", "src": base64::engine::general_purpose::STANDARD.encode(font) }],
+        "children": [{ "kind": { "type": "Text", "content": "क कि की" }, "style": { "fontFamily": "Indic" } }]
+    });
+    let split = forme::render_json(&doc.to_string()).unwrap();
+    assert!(!String::from_utf8_lossy(&split).contains("/CIDToGIDMap /Identity"));
+}
+
+/// Noto's dot component makes this a genuine more-glyphs-than-characters
+/// cluster; the surplus glyph is drawn as text with an ignorable mapping.
+#[test]
+fn test_surplus_glyphs_have_a_unicode_mapping() {
+    use base64::Engine;
+    let font = std::fs::read("tests/fixtures/fonts/NotoNaskhArabic-Regular.ttf").unwrap();
+    let text = "بًا";
+    let shaped = forme::text::shaping::shape_text_with_direction(text, &font, true).unwrap();
+    assert!(
+        shaped.len() > text.chars().count(),
+        "fixture must produce surplus glyphs"
+    );
+    let doc = serde_json::json!({
+        "fonts": [{ "family": "Arabic", "src": base64::engine::general_purpose::STANDARD.encode(font) }],
+        "children": [{ "kind": { "type": "Text", "content": text }, "style": { "fontFamily": "Arabic", "direction": "rtl" } }]
+    });
+    let pdf = forme::render_json(&doc.to_string()).unwrap();
+    assert!(tounicode_destinations(&pdf)
+        .iter()
+        .any(|text| text == "\u{200B}"));
 }

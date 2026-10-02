@@ -2,7 +2,8 @@
 // PDF/UA-1 conformance gate.
 //
 // Renders the full conformance corpus — the five shipped @formepdf/templates
-// plus the four HTML fixtures — in pdfUa mode with a metric-compatible font
+// plus four HTML fixtures, thirty Northmoor templates and shaped Unicode —
+// in pdfUa mode with a metric-compatible font
 // (@formepdf/fonts-standard) registered, then validates every output with
 // veraPDF against the PDF/UA-1 profile. Exits non-zero if any file fails.
 //
@@ -19,6 +20,8 @@ import { fileURLToPath } from 'node:url';
 import { readFile } from 'node:fs/promises';
 
 import { emitSection, keepLayout, keepReport, veraValidateBatch, veraVersion } from './parity/lib.mjs';
+
+import { unicodeDocument } from './fixtures/unicode.mjs';
 
 import { serialize } from '@formepdf/react';
 import { getTemplate } from '@formepdf/templates';
@@ -162,6 +165,14 @@ async function main() {
     corpus.push({ label: `northmoor/${name}`, path: p, warnings });
   }
 
+  const unicode = unicodeDocument();
+  unicode.pdfUa = true;
+  const { pdf, warnings, layout } = await renderPdfWithLayout(JSON.stringify(unicode));
+  const unicodePath = join(outDir, 'unicode.pdf');
+  writeFileSync(unicodePath, pdf);
+  keepLayout(unicodePath, pdf, layout, '@formepdf/core');
+  corpus.push({ label: 'unicode', path: unicodePath, warnings });
+
   // No font warnings are expected — fonts-standard is registered everywhere.
   const noisy = corpus.filter((c) =>
     (c.warnings ?? []).some((w) => w.startsWith('pdfUa:') && /not embedded/.test(w)),
@@ -182,7 +193,7 @@ async function main() {
     }
     console.log(
       `\n⚠ veraPDF not found (set VERAPDF or install to ~/verapdf/verapdf).` +
-        `\n  Rendered ${corpus.length}/9 corpus files without error; skipping validation.`,
+        `\n  Rendered ${corpus.length} corpus files without error; skipping validation.`,
     );
     process.exit(0);
   }

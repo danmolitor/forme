@@ -1,11 +1,10 @@
 #!/usr/bin/env node
 // PDF/A conformance gate (Track 1 Part 3, Phase 4).
 //
-// Renders the 9-file corpus — five shipped @formepdf/templates + four HTML
-// fixtures — as BOTH PDF/A and PDF/UA-1 at once (fonts-standard registered),
-// and validates each output against veraPDF's PDF/A profile AND its PDF/UA-1
-// profile. Runs the combination at PDF/A-2b and PDF/A-2a (2a ⊃ 2u ⊃ 2b, so
-// passing 2a exercises the strictest path). Exits non-zero on any failure, so
+// Renders five shipped @formepdf/templates, four HTML fixtures and shaped
+// Unicode as BOTH PDF/A and PDF/UA at once (fonts-standard registered),
+// and validates each output against veraPDF's PDF/A and PDF/UA profiles.
+// Runs PDF/A-2b, 2a, 3b, 3a, 4 and 4f. Exits non-zero on any failure, so
 // the "archival + accessible" claim is enforced, not merely reported.
 //
 // veraPDF via VERAPDF env or ~/verapdf/verapdf. REQUIRE_VERAPDF makes a missing
@@ -18,6 +17,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { emitSection, veraValidateBatch, veraVersion } from './parity/lib.mjs';
+
+import { unicodeDocument } from './fixtures/unicode.mjs';
 
 import { serialize } from '@formepdf/react';
 import { getTemplate } from '@formepdf/templates';
@@ -121,6 +122,18 @@ async function main() {
         corpus.push({ label: `html/${name}`, path: p });
       }
     }
+    const unicode = unicodeDocument();
+    unicode.pdfa = level;
+    unicode.pdfUa = !level.startsWith('4');
+    unicode.pdfUa2 = level.startsWith('4');
+    if (level === '4f') {
+      unicode.attachments = [{ name: 'gate.csv', src: Buffer.from('a,b\n1,2\n').toString('base64'), mimeType: 'text/csv', relationship: 'Supplement' }];
+    }
+    const { pdf } = await renderPdfWithLayout(JSON.stringify(unicode));
+    const unicodePath = join(outDir, `${level}-unicode.pdf`);
+    writeFileSync(unicodePath, pdf);
+    corpus.push({ label: 'unicode', path: unicodePath });
+
     // One JVM per profile over the whole corpus (was one per file*profile).
     // The 2.0 levels compose with PDF/UA-2 (rendered with pdfUa2 above)
     // and validate against veraPDF's ua2 profile; the 1.7 levels compose
@@ -155,7 +168,7 @@ async function main() {
     console.error(`\n✗ ${failures.length} corpus/level combination(s) failed: ${failures.join(', ')}`);
     process.exit(1);
   }
-  console.log(`\n✓ All 9 corpus files pass ${LEVELS.map((l) => `PDF/A-${l}`).join(', ')}, and PDF/UA-1 together.`);
+  console.log(`\n✓ All corpus files pass ${LEVELS.map((l) => `PDF/A-${l}`).join(', ')}, and PDF/UA-1 together.`);
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });

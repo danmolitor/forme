@@ -532,6 +532,7 @@ mod tests {
                 text_decoration: TextDecoration::None,
                 letter_spacing: 0.0,
                 cluster_text: None,
+                extraction_text: None,
                 ligature: false,
             })
             .collect();

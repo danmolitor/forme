@@ -891,6 +891,8 @@ pub struct PositionedGlyph {
     /// For glyphs of a cluster spanning several chars, the full cluster text
     /// (e.g., "fi" for an fi ligature). `None` for 1:1 char-to-glyph mappings.
     pub cluster_text: Option<String>,
+    /// The source text assigned to this glyph for PDF extraction.
+    pub extraction_text: Option<String>,
     /// True when this glyph ALONE stands for every char of `cluster_text`: a
     /// many-to-one substitution such as the "ffi" ligature. The PDF writer
     /// maps such a glyph to its whole cluster in the ToUnicode CMap, so text
@@ -939,32 +941,89 @@ fn shaped_glyph_x(
 /// long-standing behaviour: every one of them carries the cluster text when
 /// the run has fewer glyphs than chars (so `LayoutInfo` and the render audit
 /// see those chars), and none is a ligature.
-fn cluster_texts(shaped: &[shaping::ShapedGlyph], chars: &[char]) -> Vec<(Option<String>, bool)> {
+type ClusterText = (Option<String>, bool, Option<String>);
+
+fn cluster_texts(shaped: &[shaping::ShapedGlyph], chars: &[char]) -> Vec<ClusterText> {
     let num_chars = chars.len();
     let fewer_glyphs_than_chars = shaped.len() < num_chars;
     let mut starts: Vec<u32> = shaped.iter().map(|g| g.cluster).collect();
     starts.sort_unstable();
-
+    let mut ordinals = HashMap::<u32, usize>::new();
+    let mut extractions = HashMap::<u32, Vec<String>>::new();
     shaped
         .iter()
         .map(|sg| {
             let first = starts.partition_point(|&c| c < sg.cluster);
             let past = starts.partition_point(|&c| c <= sg.cluster);
             let glyphs_in_cluster = past - first;
-            let start = sg.cluster as usize;
+            let start = (sg.cluster as usize).min(num_chars);
             let end = starts
                 .get(past)
                 .map_or(num_chars, |&c| c as usize)
                 .min(num_chars);
-            if end <= start + 1 {
-                return (None, false);
-            }
-            let ligature = glyphs_in_cluster == 1;
-            if ligature || fewer_glyphs_than_chars {
-                (Some(chars[start..end].iter().collect()), ligature)
+            let ordinal = ordinals.entry(sg.cluster).or_default();
+            let extraction = if glyphs_in_cluster > 1 || end > start + 1 {
+                let texts = extractions.entry(sg.cluster).or_insert_with(|| {
+                    // Keep joiners with a following character; extractors discard
+                    // a CID mapped solely to a format mark.
+                    let mut chunks: Vec<Vec<char>> = chars[start..end]
+                        .split_inclusive(|&ch| ch != '\u{200D}' && ch != '\u{200C}')
+                        .map(|chunk| chunk.to_vec())
+                        .collect();
+                    if chunks.len() > glyphs_in_cluster {
+                        // A combining sequence that contracted must stay together.
+                        // Splitting its NSM onto an advancing glyph makes PDF.js
+                        // ignore that glyph's width and invent or lose spaces.
+                        let mut grouped: Vec<Vec<char>> = Vec::new();
+                        for chunk in chunks {
+                            if chunk.first().is_some_and(|&ch| {
+                                unicode_bidi::bidi_class(ch) == unicode_bidi::BidiClass::NSM
+                            }) && !grouped.is_empty()
+                            {
+                                grouped.last_mut().unwrap().extend(chunk);
+                            } else {
+                                grouped.push(chunk);
+                            }
+                        }
+                        chunks = grouped;
+                    }
+                    let rtl = chars.get(start).is_some_and(|&ch| {
+                        matches!(
+                            unicode_bidi::bidi_class(ch),
+                            unicode_bidi::BidiClass::R | unicode_bidi::BidiClass::AL
+                        )
+                    });
+                    (0..glyphs_in_cluster)
+                        .map(|i| {
+                            let text: String = if i >= chunks.len() {
+                                // Every drawn CID needs Unicode. ZERO WIDTH SPACE is
+                                // ignored by PDF.js; the run's ActualText omits it for Poppler.
+                                "\u{200B}".to_string()
+                            } else if i + 1 == glyphs_in_cluster {
+                                chunks[i..].iter().flat_map(|chunk| chunk.iter()).collect()
+                            } else {
+                                chunks[i].iter().collect()
+                            };
+                            if rtl {
+                                text.chars().rev().collect()
+                            } else {
+                                text
+                            }
+                        })
+                        .collect()
+                });
+                Some(texts[*ordinal].clone())
             } else {
-                (None, false)
-            }
+                None
+            };
+            *ordinal += 1;
+            let ligature = end > start + 1 && glyphs_in_cluster == 1;
+            let cluster_text = if end > start + 1 && (ligature || fewer_glyphs_than_chars) {
+                Some(chars[start..end].iter().collect())
+            } else {
+                None
+            };
+            (cluster_text, ligature, extraction)
         })
         .collect()
 }
@@ -5394,7 +5453,9 @@ impl LayoutEngine {
                             let scale = style.font_size / units_per_em as f64;
 
                             let clusters = cluster_texts(&shaped, &sub_chars);
-                            for (sg, (cluster_text, ligature)) in shaped.iter().zip(clusters) {
+                            for (sg, (cluster_text, ligature, extraction_text)) in
+                                shaped.iter().zip(clusters)
+                            {
                                 let cluster = sg.cluster as usize;
                                 let char_value = sub_chars.get(cluster).copied().unwrap_or(' ');
 
@@ -5417,6 +5478,8 @@ impl LayoutEngine {
                                     text_decoration: style.text_decoration,
                                     letter_spacing: style.letter_spacing,
                                     cluster_text,
+                                    extraction_text,
+
                                     ligature,
                                 });
                                 bidi_levels.push(bidi_run.level);
@@ -5453,6 +5516,7 @@ impl LayoutEngine {
                             text_decoration: style.text_decoration,
                             letter_spacing: style.letter_spacing,
                             cluster_text: None,
+                            extraction_text: None,
                             ligature: false,
                         });
                         bidi_levels.push(bidi_run.level);
@@ -5492,7 +5556,9 @@ impl LayoutEngine {
                         shaping::shape_text_with_direction(&run_text, font_data, run.is_rtl)
                     {
                         let clusters = cluster_texts(&shaped, &run_chars);
-                        for (sg, (cluster_text, ligature)) in shaped.iter().zip(clusters) {
+                        for (sg, (cluster_text, ligature, extraction_text)) in
+                            shaped.iter().zip(clusters)
+                        {
                             let cluster = sg.cluster as usize;
                             let char_value = run_chars.get(cluster).copied().unwrap_or(' ');
 
@@ -5515,6 +5581,8 @@ impl LayoutEngine {
                                 text_decoration: style.text_decoration,
                                 letter_spacing: style.letter_spacing,
                                 cluster_text,
+                                extraction_text,
+
                                 ligature,
                             });
                             bidi_levels.push(run.level);
@@ -5581,6 +5649,7 @@ impl LayoutEngine {
                     text_decoration: style.text_decoration,
                     letter_spacing: style.letter_spacing,
                     cluster_text: None,
+                    extraction_text: None,
                     ligature: false,
                 }
             })
@@ -5744,6 +5813,7 @@ impl LayoutEngine {
                 text_decoration: sc.text_decoration,
                 letter_spacing: sc.letter_spacing,
                 cluster_text: None,
+                extraction_text: None,
                 ligature: false,
             });
             bidi_levels.push(if is_rtl {
@@ -5785,7 +5855,7 @@ impl LayoutEngine {
         let mut prev_cluster: Option<usize> = None;
 
         let clusters = cluster_texts(shaped, chars);
-        for (sg, (cluster_text, ligature)) in shaped.iter().zip(clusters) {
+        for (sg, (cluster_text, ligature, extraction_text)) in shaped.iter().zip(clusters) {
             let cluster = sg.cluster as usize;
             let char_value = chars.get(cluster).copied().unwrap_or(' ');
 
@@ -5812,6 +5882,8 @@ impl LayoutEngine {
                 text_decoration,
                 letter_spacing,
                 cluster_text,
+                extraction_text,
+
                 ligature,
             });
 
@@ -5839,7 +5911,7 @@ impl LayoutEngine {
         let mut prev_cluster: Option<usize> = None;
 
         let clusters = cluster_texts(shaped, chars);
-        for (sg, (cluster_text, ligature)) in shaped.iter().zip(clusters) {
+        for (sg, (cluster_text, ligature, extraction_text)) in shaped.iter().zip(clusters) {
             let cluster = sg.cluster as usize;
             let sc = styled_chars.get(cluster).unwrap_or(&styled_chars[0]);
             let char_value = chars.get(cluster).copied().unwrap_or(' ');
@@ -5871,6 +5943,8 @@ impl LayoutEngine {
                 text_decoration: sc.text_decoration,
                 letter_spacing: sc.letter_spacing,
                 cluster_text,
+                extraction_text,
+
                 ligature,
             });
 
@@ -7686,7 +7760,8 @@ impl LayoutEngine {
                             ) as f64;
 
                             let clusters = cluster_texts(&shaped_glyphs, &text_chars);
-                            for (sg, (cluster_text, ligature)) in shaped_glyphs.iter().zip(clusters)
+                            for (sg, (cluster_text, ligature, extraction_text)) in
+                                shaped_glyphs.iter().zip(clusters)
                             {
                                 let advance = sg.x_advance as f64 / units_per_em * *font_size;
                                 let cluster_idx = sg.cluster as usize;
@@ -7706,6 +7781,8 @@ impl LayoutEngine {
                                     text_decoration: TextDecoration::None,
                                     letter_spacing: style.letter_spacing,
                                     cluster_text,
+                                    extraction_text,
+
                                     ligature,
                                 });
                                 x_pos += advance + style.letter_spacing;
@@ -7735,6 +7812,7 @@ impl LayoutEngine {
                                     text_decoration: TextDecoration::None,
                                     letter_spacing: style.letter_spacing,
                                     cluster_text: None,
+                                    extraction_text: None,
                                     ligature: false,
                                 });
                                 x_pos += w + style.letter_spacing;
@@ -8172,10 +8250,10 @@ mod tests {
         assert_eq!(
             got,
             vec![
-                (None, false),
-                (Some("ffi".to_string()), true),
-                (None, false),
-                (None, false)
+                (None, false, None),
+                (Some("ffi".to_string()), true, Some("ffi".to_string())),
+                (None, false, None),
+                (None, false, None)
             ]
         );
     }
@@ -8191,7 +8269,11 @@ mod tests {
         let got = cluster_texts(&shaped, &chars);
         assert_eq!(
             got,
-            vec![(None, false), (Some("bc".to_string()), true), (None, false)]
+            vec![
+                (None, false, None),
+                (Some("bc".to_string()), true, Some("bc".to_string())),
+                (None, false, None)
+            ]
         );
     }
 
@@ -8204,10 +8286,13 @@ mod tests {
         let chars: Vec<char> = "abcd".chars().collect();
         let shaped = [sg(1, 0), sg(2, 2), sg(3, 3), sg(4, 3)];
         let got = cluster_texts(&shaped, &chars);
-        assert_eq!(got[0], (Some("ab".to_string()), true));
-        assert_eq!(got[1], (None, false));
-        assert_eq!(got[2], (None, false));
-        assert_eq!(got[3], (None, false));
+        assert_eq!(
+            got[0],
+            (Some("ab".to_string()), true, Some("ab".to_string()))
+        );
+        assert_eq!(got[1], (None, false, None));
+        assert_eq!(got[2], (None, false, Some("d".to_string())));
+        assert_eq!(got[3], (None, false, Some("\u{200B}".to_string())));
     }
 
     /// Several glyphs sharing a multi-char cluster: none is a ligature; each
@@ -8219,9 +8304,15 @@ mod tests {
         let chars: Vec<char> = "kixy".chars().collect();
         let shaped = [sg(1, 0), sg(2, 0), sg(3, 3)];
         let got = cluster_texts(&shaped, &chars);
-        assert_eq!(got[0], (Some("kix".to_string()), false));
-        assert_eq!(got[1], (Some("kix".to_string()), false));
-        assert_eq!(got[2], (None, false));
+        assert_eq!(
+            got[0],
+            (Some("kix".to_string()), false, Some("k".to_string()))
+        );
+        assert_eq!(
+            got[1],
+            (Some("kix".to_string()), false, Some("ix".to_string()))
+        );
+        assert_eq!(got[2], (None, false, None));
     }
 
     fn make_text(content: &str, font_size: f64) -> Node {

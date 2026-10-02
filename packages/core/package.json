@@ -79,7 +79,8 @@
     "react": "^19.0.0",
     "typescript": "^5.7.0",
     "vitest": "^4.1.0",
-    "@formepdf/fonts-standard": "0.26.0"
+    "@formepdf/fonts-standard": "0.26.0",
+    "pdfjs-dist": "^4.10.38"
   },
   "files": [
     "dist/",
