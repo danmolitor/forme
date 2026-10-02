@@ -18,12 +18,12 @@ and Latin words where Chrome does.
 - **Combining marks and shaped clusters extract as their source text** (#171).
   A glyph standing for part of a cluster mapped to the wrong character, so
   pointed Hebrew and Arabic copied with letters split or repeated, Devanagari
-  lost or repeated vowel signs, and "q̣̇" copied as "qqq". A glyph that stands for different text in different
-  places now gets a separate character ID with the font's real width, extra
-  glyphs in a cluster map to U+200B, and runs that need it carry
-  `/ActualText`.
-  Checked with PDF.js and Poppler. A registered-font PDF without such
-  clusters is byte-identical to 0.26.0. Contributed by @amruthpillai in #173
+  lost or repeated vowel signs, and "q̣̇" copied as "qqq". A glyph that
+  stands for different text in different places now gets a separate
+  character ID with the font's real width, extra glyphs in a cluster map to
+  U+200B, and runs that need it carry `/ActualText`. Checked with PDF.js and
+  Poppler. A registered-font PDF without such clusters is byte-identical to
+  0.26.0. Contributed by @amruthpillai in #173
 - **Whitespace a font cannot encode falls back like any other character.**
   U+202F, the narrow space French number formatting uses, drew as "?" in
   Helvetica. It now draws in the builtin Noto Sans, in plain text and styled
