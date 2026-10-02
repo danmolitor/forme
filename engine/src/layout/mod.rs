@@ -5698,11 +5698,18 @@ impl LayoutEngine {
 
         let line_text: String = chars.iter().map(|c| c.ch).collect();
         let has_bidi = !bidi::is_pure_ltr(&line_text, direction);
-        let bidi_runs = if has_bidi {
-            Some(bidi::analyze_bidi(&line_text, direction))
-        } else {
-            None
-        };
+        // Each char's real embedding level, as the single-style path uses.
+        // Flattening these to 0/1 put a number inside an RTL paragraph
+        // (level 2) below the line's level 1, so reordering left it at the
+        // wrong end of the line (#175).
+        let mut char_levels = vec![unicode_bidi::Level::ltr(); chars.len()];
+        if has_bidi {
+            for run in bidi::analyze_bidi(&line_text, direction) {
+                for level in &mut char_levels[run.char_start..run.char_end.min(chars.len())] {
+                    *level = run.level;
+                }
+            }
+        }
 
         let mut glyphs = Vec::new();
         let mut bidi_levels = Vec::new();
@@ -5712,33 +5719,25 @@ impl LayoutEngine {
             let sc = &chars[i];
             let italic = matches!(sc.font_style, FontStyle::Italic | FontStyle::Oblique);
             let resolved_family = &resolved_families[i];
-
-            // Determine if this char is in an RTL BiDi run
-            let is_rtl = bidi_runs.as_ref().is_some_and(|runs| {
-                runs.iter()
-                    .any(|r| i >= r.char_start && i < r.char_end && r.is_rtl)
-            });
+            let level = char_levels[i];
+            let is_rtl = level.is_rtl();
 
             // Check for custom font with shaping (using resolved single family)
             if let Some(font_data) = font_context.font_data(resolved_family, sc.font_weight, italic)
             {
-                // Find contiguous run with same resolved font AND same BiDi direction
+                // Find contiguous run with same resolved font AND same BiDi level
                 let run_start = i;
                 let mut run_end = i + 1;
                 while run_end < chars.len() {
                     let next = &chars[run_end];
                     let next_italic =
                         matches!(next.font_style, FontStyle::Italic | FontStyle::Oblique);
-                    let next_is_rtl = bidi_runs.as_ref().is_some_and(|runs| {
-                        runs.iter()
-                            .any(|r| run_end >= r.char_start && run_end < r.char_end && r.is_rtl)
-                    });
                     // Group by resolved family, not original comma chain
                     if resolved_families[run_end] == *resolved_family
                         && next.font_weight == sc.font_weight
                         && next_italic == italic
                         && (next.font_size - sc.font_size).abs() < 0.001
-                        && next_is_rtl == is_rtl
+                        && char_levels[run_end] == level
                     {
                         run_end += 1;
                     } else {
@@ -5775,13 +5774,8 @@ impl LayoutEngine {
                         g.font_family = resolved_family_arc.clone();
                     }
                     // Track BiDi levels for each glyph
-                    let run_level = if is_rtl {
-                        unicode_bidi::Level::rtl()
-                    } else {
-                        unicode_bidi::Level::ltr()
-                    };
                     for _ in &run_glyphs {
-                        bidi_levels.push(run_level);
+                        bidi_levels.push(level);
                     }
                     glyphs.extend(run_glyphs);
                     i = run_end;
@@ -5816,11 +5810,7 @@ impl LayoutEngine {
                 extraction_text: None,
                 ligature: false,
             });
-            bidi_levels.push(if is_rtl {
-                unicode_bidi::Level::rtl()
-            } else {
-                unicode_bidi::Level::ltr()
-            });
+            bidi_levels.push(level);
             i += 1;
         }
 

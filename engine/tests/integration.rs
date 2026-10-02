@@ -15391,6 +15391,12 @@ fn test_tagged_inline_link_wrapping_lines_stays_balanced() {
 /// Lay out one text line in Liberation Sans (in the repo, and covers
 /// Hebrew, so this runs on CI too) and read its glyphs left to right.
 fn visual_order(content: &str, direction: Direction) -> String {
+    visual_order_in(content, direction, false)
+}
+
+/// `visual_order`, with the content as one styled run instead of plain
+/// text when `runs` is set: the two paths reorder separately.
+fn visual_order_in(content: &str, direction: Direction, runs: bool) -> String {
     let font = std::fs::read("../packages/fonts-standard/fonts/LiberationSans-Regular.ttf")
         .expect("Liberation Sans in the repo");
     let mut font_context = FontContext::new();
@@ -15398,6 +15404,17 @@ fn visual_order(content: &str, direction: Direction) -> String {
         .registry_mut()
         .register("Liberation", 400, false, font);
     let mut text = make_text(content, 16.0);
+    if runs {
+        text.kind = NodeKind::Text {
+            content: String::new(),
+            href: None,
+            runs: vec![TextRun {
+                content: content.to_string(),
+                style: Style::default(),
+                href: None,
+            }],
+        };
+    }
     text.style.font_family = Some("Liberation".to_string());
     text.style.direction = Some(direction);
     let doc = default_doc(vec![text]);
@@ -15455,6 +15472,41 @@ fn test_rtl_paragraph_with_embedded_ltr_matches_chrome_order() {
         visual_order("המחיר הוא 120 שקלים עבור ABC בלבד", Direction::Rtl),
         "דבלב ABC רובע םילקש 120 אוה ריחמה"
     );
+}
+
+/// Styled runs must reorder like plain text (#175). They used to flatten
+/// every BiDi level to 0 or 1, so a number in an RTL paragraph (level 2)
+/// sat below the line's level and stayed at the left: "123 שלום עולם"
+/// drew "123" at the wrong end, touching the last word. Expected orders
+/// are the plain-text ones above, read off Chrome; the last is #175's.
+#[test]
+fn test_styled_runs_reorder_like_plain_text() {
+    let cases = [
+        ("שלום עולם", Direction::Rtl, "םלוע םולש"),
+        (
+            "Total: שלום עולם today",
+            Direction::Ltr,
+            "Total: םלוע םולש today",
+        ),
+        (
+            "המחיר הוא 120 שקלים עבור ABC בלבד",
+            Direction::Rtl,
+            "דבלב ABC רובע םילקש 120 אוה ריחמה",
+        ),
+        ("123 שלום עולם", Direction::Rtl, "םלוע םולש 123"),
+    ];
+    for (content, dir, expected) in cases {
+        assert_eq!(
+            visual_order_in(content, dir, false),
+            expected,
+            "plain text: {content:?}"
+        );
+        assert_eq!(
+            visual_order_in(content, dir, true),
+            expected,
+            "styled runs: {content:?}"
+        );
+    }
 }
 
 // ─── #157 follow-up: a link nested inside a link ─────────────────────
