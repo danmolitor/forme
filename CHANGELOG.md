@@ -6,6 +6,54 @@ Entries for 0.10.0 through 0.23.0 were backfilled on 2026-09-17 from the
 published GitHub release notes, which were the record of those releases
 while this file lapsed. They are reproduced, not rewritten.
 
+## [Unreleased]
+
+Text that survives copy and paste. Combining marks and shaped clusters in
+Arabic, Hebrew, Devanagari and Latin now extract as their source text,
+registered emoji fonts are found, and styled right-to-left text puts numbers
+and Latin words where Chrome does.
+
+### Changed: these move existing documents
+
+- **Combining marks and shaped clusters extract as their source text** (#171).
+  A glyph standing for part of a cluster mapped to the wrong character, so
+  pointed Hebrew and Arabic copied with letters split or repeated, Devanagari
+  lost or repeated vowel signs, and "q̣̇" copied as "qqq". A glyph that
+  stands for different text in different places now gets a separate
+  character ID with the font's real width, extra glyphs in a cluster map to
+  U+200B, and runs that need it carry `/ActualText`. Checked with PDF.js and
+  Poppler. A registered-font PDF without such clusters is byte-identical to
+  0.26.0. Contributed by @amruthpillai in #173
+- **Whitespace a font cannot encode falls back like any other character.**
+  U+202F, the narrow space French number formatting uses, drew as "?" in
+  Helvetica. It now draws in the builtin Noto Sans, in plain text and styled
+  runs alike (#170)
+- **Styled right-to-left text reorders like plain text** (#175). A number or
+  Latin word inside a right-to-left paragraph was drawn at the wrong end of
+  the line when the text was written as runs: "123 שלום עולם" drew "123" at
+  the left, touching the last word. Styled runs now use the same BiDi levels
+  as plain text, checked against Chrome
+
+### Fixed
+
+- Registered fonts cover characters above U+FFFF, so emoji fonts are found
+  (#170)
+- Styled text is measured with the font each character is drawn in, so a
+  fallback font no longer changes spacing or line breaks (#170)
+- Joiners, variation selectors and combining marks stay with their base
+  character's font instead of splitting a shaping cluster (#170)
+- A tab or newline in a styled run with a registered font no longer falls
+  back to Helvetica, which broke PDF/A (#170)
+
+Fallback fixes contributed by @amruthpillai in #172.
+
+### Internal
+
+- The conformance corpus gains a Devanagari, Hebrew and Arabic document, so
+  veraPDF checks shaped-cluster widths in CI
+- Fork pull requests skip the Forme Review upload, which needs a secret
+  they do not receive; the validators still gate them
+
 ## [0.26.0] - 2026-09-30
 
 Text drawn where it is laid out. Registered fonts now keep their kerning,
