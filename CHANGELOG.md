@@ -57,6 +57,9 @@ Fallback fixes contributed by @amruthpillai in #172.
   veraPDF checks shaped-cluster widths in CI
 - Fork pull requests skip the Forme Review upload, which needs a secret
   they do not receive; the validators still gate them
+- Styled runs in a single unregistered font family keep Helvetica (#179).
+  An unreleased change during this cycle had moved them to Noto Sans; the
+  template-compat corpus caught it before release
 
 ## [0.26.0] - 2026-09-30
 
