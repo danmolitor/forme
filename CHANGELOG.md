@@ -6,12 +6,16 @@ Entries for 0.10.0 through 0.23.0 were backfilled on 2026-09-17 from the
 published GitHub release notes, which were the record of those releases
 while this file lapsed. They are reproduced, not rewritten.
 
-## [Unreleased]
+## [0.27.0] - 2026-10-02
 
 Text that survives copy and paste. Combining marks and shaped clusters in
 Arabic, Hebrew, Devanagari and Latin now extract as their source text,
 registered emoji fonts are found, and styled right-to-left text puts numbers
-and Latin words where Chrome does.
+and Latin words where Chrome does. All packages share the line: engine
+(crates.io `forme-pdf`), every `@formepdf/*` npm package, `formepdf` (PyPI),
+`forme-go` (tag v0.27.0), and the VS Code extension.
+
+Addresses #170, #171 and #175.
 
 ### Changed: these move existing documents
 

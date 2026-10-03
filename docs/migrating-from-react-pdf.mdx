@@ -169,7 +169,7 @@ Be honest about these gaps before migrating:
 
 2. **`<Note>` component.** react-pdf supports PDF annotations via `<Note>`. Forme does not support this yet.
 
-3. **Emoji rendering.** react-pdf handles emoji via system fonts. Forme does not have special emoji support.
+3. **Emoji rendering.** react-pdf handles emoji via system fonts. In Forme, register an outline emoji font such as Noto Emoji and list it last in `fontFamily` (`"Inter, Noto Emoji"`); each emoji falls back to it and is drawn in one color, as text.
 
 4. **`margin: "auto"`.**  react-pdf supports `margin: "auto"` for centering. In Forme, use flexbox alignment (`justifyContent: 'center'`, `alignItems: 'center'`) instead.
 
