@@ -63,6 +63,20 @@ pub(crate) fn resolved_style_families(
                     && matches!(prev.font_style, FontStyle::Italic | FontStyle::Oblique) == italic
             })
             .map(|j| families[j].as_str());
+        // A single family keeps the char when its font covers it, as plain
+        // text (segment_by_font) and measurement (char_width) do. Per-char
+        // resolution alone skips a family nobody registered, which resolves
+        // to Helvetica, and tries builtin Noto Sans first, so styled text in
+        // an unregistered family drew in Noto Sans while plain text did not.
+        if !sc.font_family.contains(',') {
+            let primary = font_context
+                .registry()
+                .resolve(&sc.font_family, sc.font_weight, italic);
+            if sc.ch.is_control() || primary.has_char(sc.ch) {
+                families.push(sc.font_family.clone());
+                continue;
+            }
+        }
         families.push(crate::font::fallback::resolve_family(
             sc.ch,
             &sc.font_family,

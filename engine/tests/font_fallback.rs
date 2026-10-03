@@ -136,3 +136,29 @@ fn controls_stay_with_a_registered_font_under_pdfa() {
         }
     }
 }
+
+#[test]
+fn styled_runs_keep_an_unregistered_family_its_font_covers() {
+    // A family nobody registered resolves to Helvetica. Styled runs went
+    // through per-char resolution, which skips unregistered families and
+    // tries builtin Noto Sans first, so a table cell or a <b> in
+    // "DejaVu Sans" drew in Noto Sans while plain text stayed Helvetica.
+    let text = "Acme Corp";
+    let plain = serde_json::json!({ "type": "Text", "content": text });
+    let styled = serde_json::json!({
+        "type": "Text", "content": "", "runs": [{ "content": text }]
+    });
+    for (path, kind) in [("plain", plain), ("styled", styled)] {
+        let doc: forme::Document = serde_json::from_value(serde_json::json!({
+            "children": [{ "kind": kind, "style": { "fontFamily": "DejaVu Sans" }, "children": [] }],
+            "metadata": {}
+        }))
+        .unwrap();
+        let pdf = String::from_utf8_lossy(&forme::render(&doc).unwrap()).into_owned();
+        assert!(pdf.contains("/Helvetica"), "{path} text left Helvetica");
+        assert!(
+            !pdf.contains("NotoSans"),
+            "{path} text fell back to Noto Sans"
+        );
+    }
+}
