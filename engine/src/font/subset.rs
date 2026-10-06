@@ -79,24 +79,15 @@ pub fn subset_ttf(
 
     // Build minimal cmap (Format 4)
     // We need the original char→gid mapping — invert through the face
+    let gid_to_code = lowest_bmp_code_per_glyph(&face);
     let mut char_to_new_gid: Vec<(u16, u16)> = Vec::new();
     for &old_gid in &needed_gids {
         if old_gid == 0 {
             continue;
         }
-        // Search for Unicode codepoint that maps to this GID
-        // This is O(n) per glyph but subset sizes are small
-        for code in 0u32..=0xFFFF {
-            if let Some(ch) = char::from_u32(code) {
-                if let Some(gid) = face.glyph_index(ch) {
-                    if gid.0 == old_gid {
-                        if let Some(&new_gid) = gid_remap.get(&old_gid) {
-                            char_to_new_gid.push((code as u16, new_gid));
-                        }
-                        break;
-                    }
-                }
-            }
+        if let (Some(&code), Some(&new_gid)) = (gid_to_code.get(&old_gid), gid_remap.get(&old_gid))
+        {
+            char_to_new_gid.push((code, new_gid));
         }
     }
     let new_cmap = build_cmap_format4(&char_to_new_gid);
@@ -182,6 +173,40 @@ fn find_table<'a>(data: &'a [u8], tag: &[u8; 4]) -> Option<&'a [u8]> {
 }
 
 // ─── Loca Table Parsing ─────────────────────────────────────────
+
+/// Each glyph's lowest BMP codepoint, inverted from the font's Unicode cmap
+/// in one pass. Searching 0..=0xFFFF per glyph instead cost up to 65,536
+/// lookups per glyph: Hangul starts at U+AC00, and a glyph with no codepoint
+/// (a ligature or shaped form) scanned the whole plane, so a Korean document
+/// with 1,000 distinct syllables spent seconds here (#182). The lowest
+/// codepoint is kept so the subset's cmap is the same as before.
+fn lowest_bmp_code_per_glyph(face: &ttf_parser::Face) -> HashMap<u16, u16> {
+    let mut lowest: HashMap<u16, u16> = HashMap::new();
+    let Some(cmap) = face.tables().cmap else {
+        return lowest;
+    };
+    for subtable in cmap.subtables {
+        if !subtable.is_unicode() {
+            continue;
+        }
+        subtable.codepoints(|code| {
+            if code > 0xFFFF {
+                return;
+            }
+            // Resolve through the face, not the subtable, so a codepoint
+            // maps to the glyph the face would pick, as the scan did.
+            let Some(gid) = char::from_u32(code).and_then(|ch| face.glyph_index(ch)) else {
+                return;
+            };
+            let code = code as u16;
+            lowest
+                .entry(gid.0)
+                .and_modify(|c| *c = (*c).min(code))
+                .or_insert(code);
+        });
+    }
+    lowest
+}
 
 fn parse_loca(data: &[u8], format: i16, num_glyphs: u16) -> Result<Vec<u32>, String> {
     let count = num_glyphs as usize + 1; // loca has numGlyphs + 1 entries
@@ -763,6 +788,70 @@ fn tag_u32(tag: &[u8; 4]) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The one-pass inversion must pick the glyph-to-codepoint mapping the
+    /// old per-glyph scan picked (the lowest BMP codepoint the face maps to
+    /// each glyph), so subsets keep the same cmap. The reference is that
+    /// scan, run once over the plane rather than once per glyph.
+    #[test]
+    fn test_lowest_bmp_code_per_glyph_matches_the_full_scan() {
+        let fonts: [(&str, &[u8]); 6] = [
+            (
+                "Noto Sans",
+                include_bytes!("../../fonts/NotoSans-Regular.ttf"),
+            ),
+            (
+                "Noto Emoji",
+                include_bytes!("../../tests/fixtures/fonts/NotoEmoji-Regular.ttf"),
+            ),
+            (
+                "Noto Naskh Arabic",
+                include_bytes!("../../tests/fixtures/fonts/NotoNaskhArabic-Regular.ttf"),
+            ),
+            (
+                "Noto Sans Devanagari",
+                include_bytes!("../../tests/fixtures/fonts/NotoSansDevanagari-Regular.ttf"),
+            ),
+            (
+                "Noto Sans Hebrew",
+                include_bytes!("../../tests/fixtures/fonts/NotoSansHebrew-Regular.ttf"),
+            ),
+            (
+                "Liberation Sans",
+                include_bytes!("../../../packages/fonts-standard/fonts/LiberationSans-Regular.ttf"),
+            ),
+        ];
+        for (name, data) in fonts {
+            let face = ttf_parser::Face::parse(data, 0).unwrap();
+            let mut expected: HashMap<u16, u16> = HashMap::new();
+            for code in 0u32..=0xFFFF {
+                if let Some(gid) = char::from_u32(code).and_then(|ch| face.glyph_index(ch)) {
+                    expected.entry(gid.0).or_insert(code as u16);
+                }
+            }
+            // .notdef is never given a cmap entry (subset_ttf skips gid 0).
+            // A format 4 table's required final segment maps U+FFFF to it,
+            // which the scan sees and the codepoint walk does not.
+            expected.remove(&0);
+            let mut got = lowest_bmp_code_per_glyph(&face);
+            got.remove(&0);
+            assert!(
+                !expected.is_empty(),
+                "{name}: the reference found no mappings"
+            );
+            let mut diff: Vec<(u16, Option<u16>, Option<u16>)> = expected
+                .keys()
+                .chain(got.keys())
+                .copied()
+                .collect::<BTreeSet<u16>>()
+                .into_iter()
+                .filter(|gid| got.get(gid) != expected.get(gid))
+                .map(|gid| (gid, got.get(&gid).copied(), expected.get(&gid).copied()))
+                .collect();
+            diff.truncate(10);
+            assert!(diff.is_empty(), "{name}: (gid, got, scan) {diff:?}");
+        }
+    }
 
     #[test]
     fn test_tag_u32() {
