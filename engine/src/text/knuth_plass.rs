@@ -762,6 +762,7 @@ pub fn reconstruct_lines(
             chars: line_chars,
             char_positions: line_positions,
             width: effective_width,
+            hard_break: false,
         });
 
         // Next line starts after the break item
@@ -975,6 +976,7 @@ pub fn reconstruct_run_lines(
             chars: line_chars,
             char_positions: line_positions,
             width: effective_width,
+            hard_break: false,
         });
 
         item_start = sol.break_item + 1;
