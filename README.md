@@ -459,7 +459,7 @@ Full docs at [docs.formepdf.com](https://docs.formepdf.com):
 
 I'd like to hear about it: what you're generating, what you used before, and
 roughly how many documents a month. It directly shapes what gets built next.
-There's a short form at [formepdf.com](https://formepdf.com/#production).
+There's a short form at [formepdf.com/production](https://formepdf.com/production).
 
 ## Contributing
 
