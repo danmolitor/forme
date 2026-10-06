@@ -5087,28 +5087,18 @@ impl LayoutEngine {
         cursor.y += margin.bottom;
     }
 
-    /// Layout text runs with per-run styling.
-    #[allow(clippy::too_many_arguments)]
-    #[allow(clippy::too_many_arguments)]
-    fn layout_text_runs(
-        &self,
+    /// The styled chars a run sequence lays out as: each run's resolved
+    /// style, placeholders substituted and text-transform applied. Intrinsic
+    /// measurement builds the same chars, so it measures what layout breaks.
+    fn runs_to_styled_chars(
         runs: &[TextRun],
         parent_href: Option<&str>,
         style: &ResolvedStyle,
-        cursor: &mut PageCursor,
-        pages: &mut Vec<LayoutPage>,
-        text_x: f64,
-        text_width: f64,
-        font_context: &FontContext,
-        source_location: Option<&SourceLocation>,
-        bookmark: Option<&str>,
-        // Same role as in layout_text — None defaults to "Text".
-        node_type_override: Option<&str>,
-    ) {
-        // Build StyledChar list from runs
+        width: f64,
+    ) -> Vec<StyledChar> {
         let mut styled_chars: Vec<StyledChar> = Vec::new();
         for run in runs {
-            let run_style = run.style.resolve(Some(style), text_width);
+            let run_style = run.style.resolve(Some(style), width);
             let run_href = run.href.as_deref().or(parent_href);
             let transform = run_style.text_transform;
             let run_content = substitute_page_placeholders(&run.content);
@@ -5130,6 +5120,28 @@ impl LayoutEngine {
                 });
             }
         }
+        styled_chars
+    }
+
+    /// Layout text runs with per-run styling.
+    #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments)]
+    fn layout_text_runs(
+        &self,
+        runs: &[TextRun],
+        parent_href: Option<&str>,
+        style: &ResolvedStyle,
+        cursor: &mut PageCursor,
+        pages: &mut Vec<LayoutPage>,
+        text_x: f64,
+        text_width: f64,
+        font_context: &FontContext,
+        source_location: Option<&SourceLocation>,
+        bookmark: Option<&str>,
+        // Same role as in layout_text — None defaults to "Text".
+        node_type_override: Option<&str>,
+    ) {
+        let styled_chars = Self::runs_to_styled_chars(runs, parent_href, style, text_width);
 
         // Break into lines
         let justify = matches!(style.text_align, TextAlign::Justify);
@@ -7010,54 +7022,36 @@ impl LayoutEngine {
                 *width + style.padding.horizontal() + style.margin.horizontal()
             }
             NodeKind::Text { content, runs, .. } | NodeKind::Heading { content, runs, .. } => {
-                // Runs-based text measures per run with each run's own
-                // resolved style — `content` is empty (or a shadow copy)
-                // when runs are present, so measuring it alone reports a
-                // zero/approximate width and flex rows collapse the node
-                // to one character per line.
+                // Measured the way the line breaker measures (shaped, with
+                // kerning, fallback and spacing), so a box sized by this
+                // width holds the line it was sized for. An unshaped advance
+                // sum came out narrower than the shaped line whenever kerning
+                // widened a word, and the breaker then split the word (#181).
+                // A hard break ('\n') restarts the line: the intrinsic width
+                // of multi-line text is the widest line.
                 let text_width = if !runs.is_empty() {
-                    runs.iter()
-                        .map(|run| {
-                            let run_style = run.style.resolve(Some(style), 0.0);
-                            let run_content = substitute_page_placeholders(&run.content);
-                            let transformed =
-                                apply_text_transform(&run_content, run_style.text_transform);
-                            let italic = matches!(
-                                run_style.font_style,
-                                FontStyle::Italic | FontStyle::Oblique
-                            );
-                            // A hard break ('\n') restarts the line: the
-                            // intrinsic width of multi-line text is the
-                            // widest line, so measure segments separately.
-                            transformed
-                                .split('\n')
-                                .map(|segment| {
-                                    font_context.measure_string(
-                                        segment,
-                                        &run_style.font_family,
-                                        run_style.font_weight,
-                                        italic,
-                                        run_style.font_size,
-                                        run_style.letter_spacing,
-                                    )
-                                })
-                                .fold(0.0f64, f64::max)
-                        })
-                        .sum()
+                    // `content` is empty (or a shadow copy) when runs are
+                    // present, so the runs' own chars are measured.
+                    let chars = Self::runs_to_styled_chars(runs, None, style, 0.0);
+                    chars
+                        .split(|c| c.ch == '\n')
+                        .map(|line| self.text_layout.measure_runs_width(font_context, line))
+                        .fold(0.0f64, f64::max)
                 } else {
                     let content = substitute_page_placeholders(content);
                     let transformed = apply_text_transform(&content, style.text_transform);
-                    let italic = matches!(style.font_style, FontStyle::Italic | FontStyle::Oblique);
                     transformed
                         .split('\n')
                         .map(|segment| {
-                            font_context.measure_string(
+                            self.text_layout.measure_width(
+                                font_context,
                                 segment,
+                                style.font_size,
                                 &style.font_family,
                                 style.font_weight,
-                                italic,
-                                style.font_size,
+                                style.font_style,
                                 style.letter_spacing,
+                                style.word_spacing,
                             )
                         })
                         .fold(0.0f64, f64::max)
