@@ -716,6 +716,12 @@ impl TextLayout {
         shaping::shape_text(text, font_data)
     }
 
+    /// The width of styled chars laid out on one line, measured exactly as
+    /// `break_runs_into_lines` measures them.
+    pub fn measure_runs_width(&self, font_context: &FontContext, chars: &[StyledChar]) -> f64 {
+        self.measure_styled_chars(font_context, chars).iter().sum()
+    }
+
     /// Measure widths for styled chars, using shaping for contiguous runs
     /// that share the same custom font. Falls back to per-char measurement
     /// for standard fonts or when shaping fails.
