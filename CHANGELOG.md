@@ -6,6 +6,54 @@ Entries for 0.10.0 through 0.23.0 were backfilled on 2026-09-17 from the
 published GitHub release notes, which were the record of those releases
 while this file lapsed. They are reproduced, not rewritten.
 
+## [0.28.0] - 2026-10-06
+
+Text measured and justified the way it is drawn. Content-sized text boxes
+hold the line they are sized for, justified text is justified in every font,
+and Korean documents serialize in milliseconds. All packages share the line:
+engine (crates.io `forme-pdf`), every `@formepdf/*` npm package, `formepdf`
+(PyPI), `forme-go` (tag v0.28.0), and the VS Code extension.
+
+Addresses #181, #182 and #186.
+
+### Changed: these move existing documents
+
+- **Content-sized text holds its shaped line** (#181). Intrinsic width summed
+  each character's unshaped advance while the line breakers measure shaped
+  text, so where kerning widened a word, a content-sized box (a flex item, a
+  table column) came out a fraction of a point too narrow and the word split
+  mid-way: "Mumbai" in IBM Plex Serif drew as "Mumba" / "i", as plain text and
+  as nested runs alike. Intrinsic width now uses the line breakers' own
+  measurement
+- **Text with a hard break measures as its widest line.** Styled runs summed
+  every line's width, so a two-line cell
+  (`<span>Website Design</span><br><span>…</span>`) claimed both lines laid
+  end to end. Table columns holding such cells redistribute, closer to Chrome
+- **Justified text is justified in every font** (#186). Justification reached
+  the glyph positions only when Knuth-Plass found a solution. When it fell back
+  to the greedy breaker, the stretch existed only as PDF word spacing (`Tw`),
+  which registered (Type0) fonts never apply, so those paragraphs were drawn
+  ragged. Correction: the 0.26.0 notes said justified registered-font text was
+  fixed; that held only where Knuth-Plass found a solution
+- **Justified styled runs no longer overlap** (#186), a regression in 0.26.0:
+  on a justified line, each styled run started without the stretch of the run
+  before it, so "leaders" ran into "(finance"
+- **A line ending with a forced break is not justified** (#186), as CSS
+  `text-align-last` specifies
+
+### Fixed
+
+- Font subsetting builds its glyph-to-codepoint map once instead of scanning
+  every BMP codepoint per glyph: a Korean document with 1,000 distinct
+  syllables serializes in 85 ms instead of 4.7 s, byte-identical (#182, from
+  @captyoungkyu's patch in the issue)
+
+### Internal
+
+- The README links the production-user form at formepdf.com/production
+- Intrinsic width now shapes text, so automatic table layout in a registered
+  font is slower: a 300-row table takes 268 ms instead of 231 ms
+
 ## [0.27.0] - 2026-10-02
 
 Text that survives copy and paste. Combining marks and shaped clusters in
