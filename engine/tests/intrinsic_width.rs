@@ -69,3 +69,50 @@ fn content_sized_text_holds_its_shaped_line() {
         }
     }
 }
+
+/// The width of the text box a row lays out for `kind`.
+fn text_box_width(kind: serde_json::Value) -> f64 {
+    let doc: Document = serde_json::from_value(serde_json::json!({
+        "children": [{
+            "kind": { "type": "View" },
+            "style": { "flexDirection": "Row" },
+            "children": [{ "kind": kind, "style": { "fontFamily": "Plex", "fontSize": 10 }, "children": [] }]
+        }],
+        "metadata": {}
+    }))
+    .unwrap();
+    let mut font_context = FontContext::new();
+    font_context
+        .registry_mut()
+        .register("Plex", 400, false, PLEX.to_vec());
+    let pages = LayoutEngine::new().layout(&doc, &font_context);
+    // The Text box, not one of the TextLine elements inside it.
+    fn find(els: &[LayoutElement]) -> Option<f64> {
+        els.iter().find_map(|el| {
+            if el.node_type.as_deref() == Some("Text") {
+                Some(el.width)
+            } else {
+                find(&el.children)
+            }
+        })
+    }
+    find(&pages[0].elements).expect("a text element")
+}
+
+/// A hard break restarts the line, so content-sized text with two lines is
+/// as wide as its wider line. Runs summed every run's width instead, so an
+/// HTML cell like `<span>Website Design</span><br><span>…</span>` measured
+/// as both lines laid end to end and took column width from its neighbours.
+#[test]
+fn styled_text_with_a_hard_break_is_as_wide_as_its_wider_line() {
+    let long = "Homepage and landing page design";
+    let two_lines = text_box_width(serde_json::json!({
+        "type": "Text", "content": "",
+        "runs": [{ "content": "Website Design" }, { "content": "\n" }, { "content": long }]
+    }));
+    let one_line = text_box_width(serde_json::json!({ "type": "Text", "content": long }));
+    assert!(
+        (two_lines - one_line).abs() < 0.001,
+        "two lines measured {two_lines:.2}pt, the wider line alone {one_line:.2}pt"
+    );
+}
