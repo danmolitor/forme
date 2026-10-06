@@ -15770,6 +15770,299 @@ fn test_registered_font_justification_is_drawn_to_the_edge() {
     }
 }
 
+// ─── #186: justified text when Knuth-Plass falls back ────────────────
+
+/// The reporter's paragraph: at 10pt in 300pt, Knuth-Plass finds no
+/// solution within its tolerance and the greedy breaker sets the lines.
+const JUSTIFY_186: &str = "Coordination of transformation programmes for executive committees: scoping, roadmap, governance of use cases and change management across several hundred people, with a monthly review of value and risks.";
+
+/// `content` justified in a 300pt column, as plain text or as two runs.
+fn justified_300(content: &str, family: &str, runs: bool) -> Node {
+    let mut text = make_text(content, 10.0);
+    if runs {
+        let split = content.find(' ').unwrap() + 1;
+        text.kind = NodeKind::Text {
+            content: String::new(),
+            href: None,
+            runs: vec![
+                TextRun {
+                    content: content[..split].to_string(),
+                    style: Style::default(),
+                    href: None,
+                },
+                TextRun {
+                    content: content[split..].to_string(),
+                    style: Style::default(),
+                    href: None,
+                },
+            ],
+        };
+    }
+    text.style.font_family = Some(family.to_string());
+    text.style.text_align = Some(TextAlign::Justify);
+    Node {
+        kind: NodeKind::View,
+        style: Style {
+            width: Some(Dimension::Pt(300.0)),
+            ..Default::default()
+        },
+        children: vec![text],
+        id: None,
+        source_location: None,
+        bookmark: None,
+        href: None,
+        alt: None,
+    }
+}
+
+/// Knuth-Plass builds justification into its positions, so registered fonts
+/// were justified only when it found a solution. When it fell back to the
+/// greedy breaker, justification existed only as `Tw`, which does not apply
+/// to Type0 fonts, and the paragraph was drawn ragged (#186). The column's
+/// right edge is the page margin (54) plus 300.
+#[test]
+fn test_justified_registered_font_reaches_the_edge_when_knuth_plass_falls_back() {
+    for runs in [false, true] {
+        let lines = liberation_lines(justified_300(JUSTIFY_186, "Liberation", runs));
+        assert!(lines.len() >= 3, "a multi-line paragraph");
+        for (_, right, _) in &lines[..lines.len() - 1] {
+            assert!(
+                (right - 354.0).abs() < 0.05,
+                "laid out to {right:.2}pt of 354pt (runs: {runs})"
+            );
+        }
+        // Drawn where laid out. The replay counts every glyph's advance, so
+        // compare with the laid-out pen end, trailing space included: a
+        // greedy line keeps the space it broke after, past the edge, inkless.
+        let mut drawn = drawn_line_ends(&liberation_pdf(justified_300(
+            JUSTIFY_186,
+            "Liberation",
+            runs,
+        )));
+        drawn.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
+        assert_eq!(drawn.len(), lines.len());
+        for ((_, end), (x, _, glyphs)) in drawn.iter().zip(&lines) {
+            let laid_out = glyphs
+                .iter()
+                .map(|g| x + g.x_offset + g.x_advance)
+                .fold(f64::MIN, f64::max);
+            assert!(
+                (end - laid_out).abs() < 0.05,
+                "drawn to {end:.2}pt, laid out to {laid_out:.2}pt (runs: {runs})"
+            );
+        }
+    }
+}
+
+/// Where each styled group of a standard-font paragraph starts and where
+/// its pen ends when drawn: replays the stream's Td and the Tw in effect
+/// against the layout's own advances (exact `/Widths` for standard fonts)
+/// and letter spacing, one entry per group, line by line.
+fn standard_font_group_spans(doc: &Document) -> Vec<Vec<(f64, f64)>> {
+    let pages = LayoutEngine::new().layout(doc, &FontContext::new());
+    fn lines_of(els: &[forme::layout::LayoutElement], out: &mut Vec<forme::layout::TextLine>) {
+        for el in els {
+            if let forme::layout::DrawCommand::Text { lines, .. } = &el.draw {
+                out.extend(lines.iter().cloned());
+            }
+            lines_of(&el.children, out);
+        }
+    }
+    let mut lines = Vec::new();
+    lines_of(&pages[0].elements, &mut lines);
+    // The writer's groups: consecutive glyphs sharing font and color.
+    let key = |g: &forme::layout::PositionedGlyph| {
+        format!(
+            "{}|{}|{:?}|{:?}",
+            g.font_family, g.font_weight, g.font_style, g.color
+        )
+    };
+    let groups: Vec<Vec<Vec<forme::layout::PositionedGlyph>>> = lines
+        .iter()
+        .map(|l| {
+            let mut gs: Vec<Vec<forme::layout::PositionedGlyph>> = Vec::new();
+            for g in &l.glyphs {
+                match gs.last_mut() {
+                    Some(v) if key(v.last().unwrap()) == key(g) => v.push(g.clone()),
+                    _ => gs.push(vec![g.clone()]),
+                }
+            }
+            gs
+        })
+        .collect();
+    // Per text object: each group's (start x, Tw in effect). Tw is text
+    // state, so it carries across text objects.
+    let stream = decompress_pdf_streams(&render_to_pdf(doc));
+    let (mut tw, mut x) = (0.0_f64, 0.0_f64);
+    let mut starts: Vec<Vec<(f64, f64)>> = Vec::new();
+    for t in stream.lines().map(str::trim) {
+        if t == "BT" {
+            starts.push(Vec::new());
+            x = 0.0;
+        } else if let Some(v) = t.strip_suffix(" Tw") {
+            tw = v.trim().parse().unwrap();
+        } else if let Some(v) = t.strip_suffix(" Td") {
+            x += v.split_whitespace().next().unwrap().parse::<f64>().unwrap();
+            starts.last_mut().unwrap().push((x, tw));
+        }
+    }
+    assert_eq!(starts.len(), lines.len(), "one text object per line");
+    groups
+        .iter()
+        .zip(&starts)
+        .map(|(line_groups, line_starts)| {
+            assert_eq!(line_starts.len(), line_groups.len(), "one Td per group");
+            line_groups
+                .iter()
+                .zip(line_starts)
+                .map(|(g, &(start, tw))| {
+                    let ls = g[0].letter_spacing;
+                    let advance: f64 = g.iter().map(|p| p.x_advance + ls).sum();
+                    let spaces = g.iter().filter(|p| p.char_value == ' ').count() as f64;
+                    (start, start + advance + tw * spaces)
+                })
+                .collect()
+        })
+        .collect()
+}
+
+/// A justified line made of several styled runs is drawn group by group,
+/// each stretched by `Tw`. The next group started where the previous one's
+/// unjustified glyphs ended, so the stretched group overlapped it:
+/// "leaders" ran into "(finance" (#186, a regression in 0.26.0).
+#[test]
+fn test_justified_styled_runs_do_not_overlap() {
+    let runs = [
+        ("Strategy advisory", 700, FontStyle::Normal),
+        (" for senior leaders ", 400, FontStyle::Normal),
+        ("(finance, operations, technology)", 400, FontStyle::Italic),
+        (
+            " and business units: direct hiring ",
+            400,
+            FontStyle::Normal,
+        ),
+        (
+            "(junior to executive profiles in analytics)",
+            400,
+            FontStyle::Italic,
+        ),
+        (
+            " and structuring of analytics departments.",
+            400,
+            FontStyle::Normal,
+        ),
+    ];
+    let mut text = make_text("", 10.0);
+    text.kind = NodeKind::Text {
+        content: String::new(),
+        href: None,
+        runs: runs
+            .iter()
+            .map(|(c, w, st)| TextRun {
+                content: c.to_string(),
+                style: Style {
+                    font_weight: Some(*w),
+                    font_style: Some(*st),
+                    ..Default::default()
+                },
+                href: None,
+            })
+            .collect(),
+    };
+    text.style.text_align = Some(TextAlign::Justify);
+    let doc = default_doc(vec![Node {
+        kind: NodeKind::View,
+        style: Style {
+            width: Some(Dimension::Pt(300.0)),
+            ..Default::default()
+        },
+        children: vec![text],
+        id: None,
+        source_location: None,
+        bookmark: None,
+        href: None,
+        alt: None,
+    }]);
+    let spans = standard_font_group_spans(&doc);
+    assert!(spans.len() >= 3, "a multi-line paragraph");
+    for (i, line) in spans.iter().enumerate() {
+        for pair in line.windows(2) {
+            let (_, end) = pair[0];
+            let (next, _) = pair[1];
+            assert!(
+                (end - next).abs() < 0.05,
+                "line {i}: a group drawn to {end:.2}pt but the next starts at {next:.2}pt"
+            );
+        }
+    }
+}
+
+/// Every laid-out text line of `node`, with Liberation Sans registered.
+fn text_lines_with_liberation(node: Node) -> Vec<forme::layout::TextLine> {
+    let font = std::fs::read("../packages/fonts-standard/fonts/LiberationSans-Regular.ttf")
+        .expect("Liberation Sans in the repo");
+    let mut font_context = FontContext::new();
+    font_context
+        .registry_mut()
+        .register("Liberation", 400, false, font);
+    let pages = LayoutEngine::new().layout(&default_doc(vec![node]), &font_context);
+    fn walk(els: &[forme::layout::LayoutElement], out: &mut Vec<forme::layout::TextLine>) {
+        for el in els {
+            if let forme::layout::DrawCommand::Text { lines, .. } = &el.draw {
+                out.extend(lines.iter().cloned());
+            }
+            walk(&el.children, out);
+        }
+    }
+    let mut out = Vec::new();
+    walk(&pages[0].elements, &mut out);
+    out
+}
+
+/// A line that ends with a forced break is not justified, as in CSS
+/// (`text-align-last` applies to it). It was stretched to the full width
+/// through `Tw` (#186). The wrapped lines after the break are justified.
+#[test]
+fn test_justified_line_before_a_forced_break_is_not_stretched() {
+    let content = "Team: up to three juniors and one senior\nResults: about forty projects per year with a steady margin and a quarterly review.";
+    for runs in [false, true] {
+        for family in ["Helvetica", "Liberation"] {
+            let lines = text_lines_with_liberation(justified_300(content, family, runs));
+            assert!(
+                lines.len() >= 3,
+                "{family}: break, then a wrapped paragraph"
+            );
+            let text = |l: &forme::layout::TextLine| -> String {
+                l.glyphs
+                    .iter()
+                    .map(|g| g.char_value)
+                    .collect::<String>()
+                    .trim_end()
+                    .to_string()
+            };
+            let right = |l: &forme::layout::TextLine| {
+                l.glyphs
+                    .iter()
+                    .filter(|g| g.char_value != ' ')
+                    .map(|g| l.x + g.x_offset + g.x_advance)
+                    .fold(f64::MIN, f64::max)
+            };
+            assert_eq!(text(&lines[0]), "Team: up to three juniors and one senior");
+            assert!(
+                lines[0].word_spacing.abs() < 0.001 && right(&lines[0]) < 300.0,
+                "{family} (runs: {runs}): the line before the break is stretched (Tw {:.2}, ends at {:.2}pt)",
+                lines[0].word_spacing,
+                right(&lines[0])
+            );
+            assert!(
+                (right(&lines[1]) - 354.0).abs() < 0.05,
+                "{family} (runs: {runs}): the wrapped line after the break is justified, got {:.2}pt",
+                right(&lines[1])
+            );
+        }
+    }
+}
+
 /// A line with nothing to adjust keeps a plain `Tj`.
 #[test]
 fn test_registered_font_text_without_adjustments_keeps_tj() {

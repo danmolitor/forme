@@ -1,122 +1,122 @@
 {
   "invoice-standard": {
-    "hash": "f5694e5617647d1f3cdbbf2458e7e2f2cc877069cfdfd01675fbad4e64396d98",
+    "hash": "cc6a55765c1644d538f3aa1b3f46286d5db0fac002893deb7cf63e6f45482540",
     "pages": 1
   },
   "invoice-detailed": {
-    "hash": "74f28109070f547b30c34c2ec54bf565bb8edb28f29fff65b6343c69fee048c9",
+    "hash": "94d8e8743e3f8801372394926b732c3a4d536d79c6b974580ad9f65da91d9f76",
     "pages": 3
   },
   "credit-note": {
-    "hash": "8432372dd97363be2f7ea24c3560b016f020ae1d6505e67650fdfa81e26672c6",
+    "hash": "f5ab40a3fca6b4f4d63ad8d0dbcfd3ae9b0387b234db6113228d4282470d3695",
     "pages": 1
   },
   "receipt": {
-    "hash": "0114d709c033432ff7a5843d4e9492a675efeca43ddebc6a511836d654825e91",
+    "hash": "64717f9f66901b57cc601191b2f2daa37ab587b9edf3cd14d5928fbedd5ab366",
     "pages": 1
   },
   "quote": {
-    "hash": "ff94dd513c6f6db89c7f587a409cafac68cfa22aed960c80ebc85b744b5f9c53",
+    "hash": "f388ed804d3845be5c3593f4289c2269f8b5b0571dfe4612b28362f53620ffa6",
     "pages": 1
   },
   "statement": {
-    "hash": "a657821a722a5093f642638d713f83b0aca4ab697cead83658f0b489c6abd0d8",
+    "hash": "92262796e03e0ace4c4da0c647d1b2f3da6f5948dfebd6b99385d230f68532d0",
     "pages": 1
   },
   "purchase-order": {
-    "hash": "3a68dfe1866bdfc98f3c5237d0a002daa07068389d162ea71a293006fe93208f",
+    "hash": "23358bad860e87bc568b25b44b5ed3a1bfa19ff3c8925bc085c7725925331efe",
     "pages": 1
   },
   "remittance-advice": {
-    "hash": "dbf34a08a357b98dba4a643a57d46e043df551a493b3299ed8fdb23b95a71664",
+    "hash": "276ed1e6ccfce1fa876692ed2e803303ddbb860d1c734260c897b017e2d911f7",
     "pages": 1
   },
   "expense-report": {
-    "hash": "faf395a9bd37b46478ab05f208bc6389caf3dd1e7ecc62f7320a91c1f9f45c4b",
+    "hash": "d4cbe5fa9e73a8ca0b424cf46b439f2a3c820db742727370d0e231ad982acdf1",
     "pages": 1
   },
   "payslip": {
-    "hash": "d65d404dc18290ec41734b25515eb4043907190da4060926dbe23abed04134e6",
+    "hash": "ad9334a4550dee20d7716a2c5f502e79a612f5b52f3da7c2ed8e642a570caa70",
     "pages": 1
   },
   "letterhead": {
-    "hash": "5b7706123a933cffddbcfcc7e26a44c358fc891fb8323a5e4190a0c92c109521",
+    "hash": "3c2d0c1dee5d59b906034cd17e1ed6184cdd1f4c7ae133304cb89b6bc66d2303",
     "pages": 2
   },
   "cover-letter": {
-    "hash": "c345c63663bf5496731eb5fb6d4ce80601e2d743e5bb7d1ec2ef33577e7f532d",
+    "hash": "d1605c4d096e07a5c27e183cc745ce687d1c4d11687e595f83caf9a9fddfcf02",
     "pages": 1
   },
   "memo": {
-    "hash": "45ccbdef7e6108694f740b56fabfbb3ad298092135ac956236bca498cf2d2735",
+    "hash": "bfcd0b942c58cb0690a146209ecf17742ecd3aacaa4a48fab24e9ad4a0ce89a3",
     "pages": 1
   },
   "employment-contract": {
-    "hash": "e181a7a679d507fc4a9e7b928b1ecaac5b53e255f06d8cc790a3536448bf2678",
+    "hash": "d48c5a448cb4ce375af0688b55af78d0b09cfb30d1851b99ac93fef82b63a243",
     "pages": 3
   },
   "nda": {
-    "hash": "d0efad96a1c872f988a4096a30b88f7bf0633961ccc92773902ea44bef864da7",
+    "hash": "7360af507a5564213f6cc7333952f4a4436a03c783cb456d4f1f974289332daa",
     "pages": 2
   },
   "service-agreement": {
-    "hash": "e1ec83a4a666ff19eab9e413eda3c23ef9f3ec4f379c17f281a65ec4e374c027",
+    "hash": "b6ce843602ddf23f8968c3928a40339e6d0c4e7370c529902fe1a4ea45ebbeb4",
     "pages": 3
   },
   "offer-letter": {
-    "hash": "5fd6b37b26bef3c255fd4b83cdaf9c0aa8190d24ba72b67c2ad5949256eda76f",
+    "hash": "c7624a9dd566f6ca80bd2a09393f8f0a9bc732dc9fe104a220527b14a1ddce1b",
     "pages": 1
   },
   "termination-letter": {
-    "hash": "24ad21da616c22ed8c2fc63f02ec2d57e93b9d83d4bac742b3e1406f61195f8d",
+    "hash": "394fb8e1514baa2ca4436ffee3668c5dd56ced834ee2f241c19ea18bad6fd612",
     "pages": 1
   },
   "reference-letter": {
-    "hash": "8390dc6a76bde2701c5176ad0c5dcab90a89828f91c464c5118032d72d4d16f7",
+    "hash": "799905b856f8d26a0659e6764a763a861a2248efcfc5e25d1ae5fc060b2cb02e",
     "pages": 1
   },
   "policy-acknowledgement": {
-    "hash": "adafc101c10de077fe344d2b41b747a6985a581a372c9d3d44b7f2ff08342843",
+    "hash": "7b9f1599aebf599b79c15bb90cfbde2631bc9d691bfd5384a3560fe3bb353c93",
     "pages": 1
   },
   "report-annual": {
-    "hash": "4c88843839db90e0090ec7e16b06f08ade8bce099dd2226a6f1dc2d1b3e38a1c",
+    "hash": "4cdffea19119647881d5e49bd0be4c6207d504e3d104b92c086f446c737c951b",
     "pages": 3
   },
   "report-monthly": {
-    "hash": "36147862582563205312ba9fa1aeb2651492e00a416012dcd59c0de548085009",
+    "hash": "21fdf0cb1d70e64eb342b7f0ae7e50da8dc85122adcaa6b124598167047a83a1",
     "pages": 1
   },
   "lab-report": {
-    "hash": "38fbe98196d11e1e7536387b8398a0eec00cc265c94c5d43e74bf884f17953dd",
+    "hash": "213816397dcc21f6bb6d61dbd87473ec59a976721fd7e198c9e70c17bb0e7d73",
     "pages": 1
   },
   "inspection-report": {
-    "hash": "39e72e51dac0ca3dc9990d2c7ef2844fe7813e6923ceb6ea8642c506d4c64262",
+    "hash": "88bf3722555094aa60dd5f52262545ab3a76e0de5488e3801d9ecc601db25730",
     "pages": 1
   },
   "shipping-label": {
-    "hash": "beddef564ee4fb54263a583fac32ff9ebb373b531e500c59b5d6b055e4fcd167",
+    "hash": "85d8ed3ec025bc084ffc429cbe64a93fa6a5ae17fbae3781c56bd8ffb1b97862",
     "pages": 1
   },
   "packing-slip": {
-    "hash": "4844cb04094cf33c9b1e946d14ed2931ef15a4698c4912c5e904e27e4c59cba2",
+    "hash": "a7ef493010b224acf2f936885deae6e9df2b2f18558c9f04bb413c0dcbe52b12",
     "pages": 1
   },
   "delivery-note": {
-    "hash": "f2991fa617c5a60bed0b01deb84856b019ca5bcc448d5107e58d0af7f95adf0f",
+    "hash": "9b9c3d2fe2d9b50d69541840b4be74f44352e2eff9037f611a2043fcbf54324c",
     "pages": 1
   },
   "certificate": {
-    "hash": "5b2f629a6a4dec5d1acdad409eead2f0e8d699a00fdce795fa5bb9b82dc92469",
+    "hash": "cd7b8a765ec12d1cde04ae955dc0b4d98533e9f92b09d53fc7546273b4bc73df",
     "pages": 1
   },
   "product-catalog": {
-    "hash": "ae90c2d7d2f3f49d88f04d0442fea3c1144ae273e83b7bcee86076fd457296f3",
+    "hash": "3adcc4c3cd551ea6e16612b3296b17e209fa6d9135a3db1b5c067c4ff63f4acc",
     "pages": 2
   },
   "meeting-minutes": {
-    "hash": "309e9ed7e2916226d4fb465ae6ebe555d8bf74e3e81516ffe817ada3cdd9e10c",
+    "hash": "dd40860e25a6c0e4bf46732805567fe59e40c9cb3fa9960b2f23ef83fe8c0d51",
     "pages": 1
   }
 }

@@ -4949,7 +4949,8 @@ impl LayoutEngine {
                 container_start_y = cursor.content_y + cursor.y;
             }
 
-            let glyphs = self.build_positioned_glyphs_single_style(line, style, href, font_context);
+            let mut glyphs =
+                self.build_positioned_glyphs_single_style(line, style, href, font_context);
 
             // Use actual rendered width from glyphs for alignment (may differ from
             // line.width when per-char measurement is used for line breaking but
@@ -4975,7 +4976,9 @@ impl LayoutEngine {
             //
             // User-set `word_spacing` is the base; when text is justified, the
             // computed slack-per-space is added on top.
-            let is_last_line = line_idx == lines.len() - 1;
+            // A line ending at a forced break is left alone, like the last
+            // line, as CSS text-align-last does (#186).
+            let is_last_line = line_idx == lines.len() - 1 || line.hard_break;
             let user_ws = style.word_spacing;
             let (justified_width, word_spacing) =
                 if matches!(style.text_align, TextAlign::Justify) && !is_last_line {
@@ -4990,6 +4993,9 @@ impl LayoutEngine {
                     } else {
                         (0.0, 0)
                     };
+                    if matches!(style.text_align, TextAlign::Justify) && !is_last_line {
+                        Self::spread_justification(&mut glyphs, text_width);
+                    }
                     let slack = text_width - natural_width;
                     let ws = if space_count > 0 && slack.abs() > 0.01 {
                         slack / space_count as f64
@@ -5085,6 +5091,39 @@ impl LayoutEngine {
         }
 
         cursor.y += margin.bottom;
+    }
+
+    /// Build a justified line's stretch into its glyph offsets: whatever gap
+    /// is left between the last non-space glyph and `width` is shared out
+    /// over the spaces before it, each glyph moving by the share of every
+    /// space to its left. Knuth-Plass already builds justification into its
+    /// positions, so there the gap is nil and nothing moves; when it falls
+    /// back to the greedy breaker, the stretch existed only as `Tw`, which a
+    /// registered (Type0) font never applies, and the line was drawn ragged.
+    /// With the stretch in the offsets, a registered font is justified by its
+    /// positioned `TJ`, and a styled group starts where the stretched group
+    /// before it ends (#186). `Tw` is unchanged: standard fonts still draw
+    /// their spaces with it, which now matches the offsets.
+    fn spread_justification(glyphs: &mut [PositionedGlyph], width: f64) {
+        let Some(last) = glyphs.iter().rposition(|g| g.char_value != ' ') else {
+            return;
+        };
+        let spaces = glyphs[..last]
+            .iter()
+            .filter(|g| g.char_value == ' ')
+            .count();
+        let gap = width - (glyphs[last].x_offset + glyphs[last].x_advance);
+        if spaces == 0 || gap.abs() <= 0.01 {
+            return;
+        }
+        let share = gap / spaces as f64;
+        let mut seen = 0usize;
+        for g in glyphs.iter_mut() {
+            g.x_offset += share * seen as f64;
+            if g.char_value == ' ' {
+                seen += 1;
+            }
+        }
     }
 
     /// The styled chars a run sequence lays out as: each run's resolved
@@ -5264,7 +5303,8 @@ impl LayoutEngine {
                 TextAlign::Justify => text_x,
             };
 
-            let glyphs = self.build_positioned_glyphs_runs(run_line, font_context, style.direction);
+            let mut glyphs =
+                self.build_positioned_glyphs_runs(run_line, font_context, style.direction);
 
             // Justify: compute extra word spacing so the line fills the column width.
             // Use the sum of natural glyph advances (what PDF Tj actually renders)
@@ -5272,7 +5312,9 @@ impl LayoutEngine {
             //
             // User-set `word_spacing` is the base; when text is justified, the
             // computed slack-per-space is added on top.
-            let is_last_line = line_idx == broken_lines.len() - 1;
+            // A line ending at a forced break is left alone, like the last
+            // line, as CSS text-align-last does (#186).
+            let is_last_line = line_idx == broken_lines.len() - 1 || run_line.hard_break;
             let user_ws = style.word_spacing;
             let (justified_width, word_spacing) =
                 if matches!(style.text_align, TextAlign::Justify) && !is_last_line {
@@ -5287,6 +5329,9 @@ impl LayoutEngine {
                     } else {
                         (0.0, 0)
                     };
+                    if matches!(style.text_align, TextAlign::Justify) && !is_last_line {
+                        Self::spread_justification(&mut glyphs, text_width);
+                    }
                     let slack = text_width - natural_width;
                     let ws = if space_count > 0 && slack.abs() > 0.01 {
                         slack / space_count as f64

@@ -24,6 +24,9 @@ pub struct BrokenLine {
     pub char_positions: Vec<f64>,
     /// Total width of the line.
     pub width: f64,
+    /// True when the line ends at a forced break (`\n` and the like):
+    /// justification leaves it alone, as CSS `text-align-last` does.
+    pub hard_break: bool,
 }
 
 /// A styled character for multi-style line breaking.
@@ -95,6 +98,9 @@ pub struct RunBrokenLine {
     pub chars: Vec<StyledChar>,
     pub char_positions: Vec<f64>,
     pub width: f64,
+    /// True when the line ends at a forced break (`\n` and the like):
+    /// justification leaves it alone, as CSS `text-align-last` does.
+    pub hard_break: bool,
 }
 
 /// Override widths for page placeholder sentinel characters.
@@ -271,6 +277,7 @@ impl TextLayout {
                 text: String::new(),
                 char_positions: vec![],
                 width: 0.0,
+                hard_break: false,
             }];
         }
 
@@ -327,7 +334,9 @@ impl TextLayout {
                                 &chars[line_start..end],
                                 &char_widths[line_start..end],
                             );
-                            lines.push(self.make_line(&line_chars, &line_widths));
+                            let mut line = self.make_line(&line_chars, &line_widths);
+                            line.hard_break = true;
+                            lines.push(line);
                             line_start = i;
                             line_width = 0.0;
                             last_break_point = None;
@@ -470,6 +479,7 @@ impl TextLayout {
             chars: chars.to_vec(),
             char_positions: positions,
             width: effective_width,
+            hard_break: false,
         }
     }
 
@@ -820,6 +830,7 @@ impl TextLayout {
                 chars: vec![],
                 char_positions: vec![],
                 width: 0.0,
+                hard_break: false,
             }];
         }
 
@@ -857,7 +868,9 @@ impl TextLayout {
                                 &chars[line_start..end],
                                 &char_widths[line_start..end],
                             );
-                            lines.push(self.make_run_line(&filtered, &filtered_widths));
+                            let mut line = self.make_run_line(&filtered, &filtered_widths);
+                            line.hard_break = true;
+                            lines.push(line);
                             line_start = i;
                             line_width = 0.0;
                             last_break_point = None;
@@ -1072,6 +1085,7 @@ impl TextLayout {
             chars: chars.to_vec(),
             char_positions: positions,
             width: effective_width,
+            hard_break: false,
         }
     }
 
@@ -1188,6 +1202,7 @@ impl TextLayout {
                 text: String::new(),
                 char_positions: vec![],
                 width: 0.0,
+                hard_break: false,
             }];
         }
 
@@ -1239,13 +1254,16 @@ impl TextLayout {
         if segments.len() > 1 {
             // Multiple mandatory-break segments: run KP on each
             let mut all_lines = Vec::new();
-            for seg in &segments {
+            // Every segment but the last ends at a forced break.
+            let last_seg = segments.len() - 1;
+            for (seg_idx, seg) in segments.iter().enumerate() {
                 if seg.is_empty() {
                     all_lines.push(BrokenLine {
                         chars: vec![],
                         text: String::new(),
                         char_positions: vec![],
                         width: 0.0,
+                        hard_break: seg_idx < last_seg,
                     });
                     continue;
                 }
@@ -1273,6 +1291,11 @@ impl TextLayout {
                     justify,
                 );
                 all_lines.extend(seg_lines);
+                if seg_idx < last_seg {
+                    if let Some(line) = all_lines.last_mut() {
+                        line.hard_break = true;
+                    }
+                }
             }
             return all_lines;
         }
@@ -1339,6 +1362,7 @@ impl TextLayout {
                 chars: vec![],
                 char_positions: vec![],
                 width: 0.0,
+                hard_break: false,
             }];
         }
 
@@ -1397,7 +1421,14 @@ impl TextLayout {
                         lang,
                         justify,
                     );
+                    // This segment ends at the forced break.
+                    let produced = !seg_lines.is_empty();
                     all_lines.extend(seg_lines);
+                    if produced {
+                        if let Some(line) = all_lines.last_mut() {
+                            line.hard_break = true;
+                        }
+                    }
                     seg_start = i;
                 }
             }
@@ -1516,6 +1547,7 @@ impl TextLayout {
                 text: all_chars.iter().collect(),
                 char_positions: positions,
                 width: total_width,
+                hard_break: false,
             };
             return lines;
         }
@@ -1557,6 +1589,7 @@ impl TextLayout {
             chars: truncated_chars,
             char_positions: positions,
             width: final_width,
+            hard_break: false,
         };
         lines
     }
@@ -1612,6 +1645,7 @@ impl TextLayout {
                 text: all_chars.iter().collect(),
                 char_positions: positions,
                 width: total_width,
+                hard_break: false,
             };
             return lines;
         }
@@ -1642,6 +1676,7 @@ impl TextLayout {
             chars: truncated_chars,
             char_positions: positions,
             width,
+            hard_break: false,
         };
         lines
     }
@@ -1681,6 +1716,7 @@ impl TextLayout {
                 chars: all_chars,
                 char_positions: positions,
                 width: total_width,
+                hard_break: false,
             };
             return lines;
         }
@@ -1741,6 +1777,7 @@ impl TextLayout {
             chars: truncated,
             char_positions: positions,
             width: x + ellipsis_width,
+            hard_break: false,
         };
         lines
     }
@@ -1779,6 +1816,7 @@ impl TextLayout {
                 chars: all_chars,
                 char_positions: positions,
                 width: total_width,
+                hard_break: false,
             };
             return lines;
         }
@@ -1808,6 +1846,7 @@ impl TextLayout {
             chars: truncated,
             char_positions: positions,
             width,
+            hard_break: false,
         };
         lines
     }

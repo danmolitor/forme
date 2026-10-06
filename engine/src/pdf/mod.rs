@@ -2045,8 +2045,13 @@ impl PdfWriter {
                         // A registered-font group starts at its first glyph's own
                         // position (its TJ places the rest); the running cursor
                         // can differ from it by a kerning or justification step.
-                        if builder.custom_font_data.contains_key(&font_key)
-                            && !has_placeholder_group(group)
+                        // So does every group of a line drawn with Tw: Tw also
+                        // stretches a group's trailing space, which the running
+                        // cursor leaves out, so the next group started that much
+                        // early and overlapped it (#186).
+                        if (builder.custom_font_data.contains_key(&font_key)
+                            && !has_placeholder_group(group))
+                            || line.word_spacing.abs() > 0.001
                         {
                             x_cursor = line.x + first.x_offset;
                         }
