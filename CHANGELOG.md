@@ -11,6 +11,7 @@ while this file lapsed. They are reproduced, not rewritten.
 ### Fixed
 
 - SVG and other leaf drawings restore opacity and transforms before painting following elements (#190).
+- Greedy line breaking no longer draws trailing line breaks as missing glyphs in plain or styled text (#191).
 
 ## [0.28.0] - 2026-10-06
 

@@ -446,12 +446,20 @@ impl TextLayout {
             line_width += char_width;
         }
 
-        // Last line
+        // End-of-text breaks are not in break_opps; keep them out of the final line's glyphs.
         if line_start < chars.len() {
-            let line_chars = self.filter_soft_hyphens(&chars[line_start..]);
-            let line_widths =
-                self.filter_soft_hyphen_widths(&chars[line_start..], &char_widths[line_start..]);
-            lines.push(self.make_line(&line_chars, &line_widths));
+            let mut end = chars.len();
+            while end > line_start
+                && matches!(chars[end - 1], '\n' | '\r' | '\u{2028}' | '\u{2029}')
+            {
+                end -= 1;
+            }
+            let line_chars = self.filter_soft_hyphens(&chars[line_start..end]);
+            let line_widths = self
+                .filter_soft_hyphen_widths(&chars[line_start..end], &char_widths[line_start..end]);
+            let mut line = self.make_line(&line_chars, &line_widths);
+            line.hard_break = end < chars.len();
+            lines.push(line);
         }
 
         lines
@@ -1037,10 +1045,20 @@ impl TextLayout {
         }
 
         if line_start < chars.len() {
-            let filtered = self.filter_soft_hyphens_runs(&chars[line_start..]);
-            let filtered_widths = self
-                .filter_soft_hyphen_widths_runs(&chars[line_start..], &char_widths[line_start..]);
-            lines.push(self.make_run_line(&filtered, &filtered_widths));
+            let mut end = chars.len();
+            while end > line_start
+                && matches!(chars[end - 1].ch, '\n' | '\r' | '\u{2028}' | '\u{2029}')
+            {
+                end -= 1;
+            }
+            let filtered = self.filter_soft_hyphens_runs(&chars[line_start..end]);
+            let filtered_widths = self.filter_soft_hyphen_widths_runs(
+                &chars[line_start..end],
+                &char_widths[line_start..end],
+            );
+            let mut line = self.make_run_line(&filtered, &filtered_widths);
+            line.hard_break = end < chars.len();
+            lines.push(line);
         }
 
         lines
@@ -1905,22 +1923,36 @@ mod tests {
     fn test_explicit_newline() {
         let tl = TextLayout::new();
         let fc = ctx();
-        let lines = tl.break_into_lines(
-            &fc,
-            "Hello\nWorld",
-            200.0,
-            12.0,
-            "Helvetica",
-            400,
-            FontStyle::Normal,
-            0.0,
-            0.0,
-            Hyphens::Manual,
-            None,
-        );
-        assert_eq!(lines.len(), 2);
-        assert_eq!(lines[0].text, "Hello");
-        assert_eq!(lines[1].text, "World");
+        for (text, expected) in [
+            ("Hello\nWorld", &["Hello", "World"][..]),
+            ("Hello\n\n", &["Hello", ""][..]),
+            ("\nHello\n", &["", "Hello"][..]),
+            ("\n", &[""][..]),
+            ("\n\n", &["", ""][..]),
+        ] {
+            let lines = tl.break_into_lines(
+                &fc,
+                text,
+                200.0,
+                12.0,
+                "Helvetica",
+                400,
+                FontStyle::Normal,
+                0.0,
+                0.0,
+                Hyphens::Manual,
+                None,
+            );
+            assert_eq!(
+                lines
+                    .iter()
+                    .map(|line| line.text.as_str())
+                    .collect::<Vec<_>>(),
+                expected,
+                "{text:?}"
+            );
+            assert_eq!(lines.last().unwrap().hard_break, text.ends_with('\n'));
+        }
     }
 
     #[test]
