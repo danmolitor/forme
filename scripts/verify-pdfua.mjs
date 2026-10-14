@@ -22,6 +22,7 @@ import { readFile } from 'node:fs/promises';
 import { emitSection, keepLayout, keepReport, veraValidateBatch, veraVersion } from './parity/lib.mjs';
 
 import { unicodeDocument } from './fixtures/unicode.mjs';
+import { pageBackgroundDocument } from './fixtures/page-background.mjs';
 
 import { serialize } from '@formepdf/react';
 import { getTemplate } from '@formepdf/templates';
@@ -172,6 +173,16 @@ async function main() {
   writeFileSync(unicodePath, pdf);
   keepLayout(unicodePath, pdf, layout, '@formepdf/core');
   corpus.push({ label: 'unicode', path: unicodePath, warnings });
+
+  const background = pageBackgroundDocument();
+  background.pdfUa = true;
+  {
+    const { pdf, warnings, layout } = await renderPdfWithLayout(JSON.stringify(background));
+    const backgroundPath = join(outDir, 'page-background.pdf');
+    writeFileSync(backgroundPath, pdf);
+    keepLayout(backgroundPath, pdf, layout, '@formepdf/core');
+    corpus.push({ label: 'page-background', path: backgroundPath, warnings });
+  }
 
   // No font warnings are expected — fonts-standard is registered everywhere.
   const noisy = corpus.filter((c) =>

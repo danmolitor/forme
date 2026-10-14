@@ -1546,13 +1546,40 @@ impl PdfWriter {
         let mut element_counter = 0usize;
         let mut gradient_counter = 0usize;
 
+        // Page background color: painted first, full-bleed (margins
+        // included, as a CSS page background is), under the background image
+        // and all content. Decoration, so an artifact in tagged output (#189).
+        if let Some(bg) = page.config.background_color {
+            let tagged = tag_builder.is_some();
+            if tagged {
+                stream.push_str("/Artifact BMC\n");
+            }
+            let _ = writeln!(
+                stream,
+                "q\n{:.3} {:.3} {:.3} rg\n0.00 0.00 {:.2} {:.2} re\nf\nQ",
+                bg.r, bg.g, bg.b, page.width, page.height
+            );
+            if tagged {
+                stream.push_str("EMC\n");
+            }
+        }
+
         // Page background image: paint it before any element content so
         // it sits behind everything. Wrapped in q/Q + ExtGState for
         // backgroundOpacity, with the cm matrix sized & positioned via
         // backgroundSize / backgroundPosition. Same XObject can be reused
         // across multiple pages with the same source URL.
+        // An artifact in tagged output, like the color: drawn unmarked, it
+        // was content neither tagged nor an artifact, which PDF/UA forbids.
         if let Some(&img_idx) = builder.page_background_image_map.get(&page_idx) {
+            let tagged = tag_builder.is_some();
+            if tagged {
+                stream.push_str("/Artifact BMC\n");
+            }
             self.write_page_background(&mut stream, page, img_idx, builder);
+            if tagged {
+                stream.push_str("EMC\n");
+            }
         }
 
         // Horizontal content clip (`PageConfig.clip_content_x`): the paged

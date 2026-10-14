@@ -405,6 +405,11 @@ pub struct PageConfig {
     /// Where the background image is positioned within the page.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub background_position: Option<BackgroundPosition>,
+    /// Page background color, taken from the Page node's `backgroundColor`
+    /// style and painted full-bleed behind everything (#189). Not part of
+    /// the JSON config: the style is the API.
+    #[serde(skip)]
+    pub background_color: Option<crate::style::Color>,
 
     /// Clip page content horizontally to the content box (page width
     /// minus left/right margins). The paged equivalent of a browser
@@ -452,6 +457,7 @@ impl Default for PageConfig {
             background_opacity: None,
             background_size: None,
             background_position: None,
+            background_color: None,
             clip_content_x: false,
         }
     }

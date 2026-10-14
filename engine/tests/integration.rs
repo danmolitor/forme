@@ -16268,3 +16268,97 @@ fn test_surplus_glyphs_have_a_unicode_mapping() {
         .iter()
         .any(|text| text == "\u{200B}"));
 }
+
+// ─── #189: page background color ─────────────────────────────────────
+
+/// A Page with `backgroundColor` (#123456) holding enough text to run onto
+/// a second page, optionally tagged and with a background image.
+fn page_background_doc(tagged: bool, background_image: Option<&str>) -> Document {
+    let mut config = serde_json::json!({});
+    if let Some(src) = background_image {
+        config["backgroundImage"] = serde_json::json!(src);
+    }
+    let paragraph = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. ".repeat(40);
+    let texts: Vec<serde_json::Value> = (0..12)
+        .map(|_| serde_json::json!({ "kind": { "type": "Text", "content": paragraph }, "style": {}, "children": [] }))
+        .collect();
+    serde_json::from_value(serde_json::json!({
+        "tagged": tagged,
+        "metadata": { "title": "Page background", "lang": "en" },
+        "children": [{
+            "kind": { "type": "Page", "config": config },
+            "style": { "backgroundColor": { "r": 18.0 / 255.0, "g": 52.0 / 255.0, "b": 86.0 / 255.0, "a": 1.0 } },
+            "children": texts
+        }]
+    }))
+    .unwrap()
+}
+
+/// The full-page fill in #123456, as the writer emits it.
+const PAGE_FILL_123456: &str = "q\n0.071 0.204 0.337 rg\n0.00 0.00 595.28 841.89 re\nf\nQ\n";
+
+/// The Page node's style was only resolved for inheritance; nothing painted
+/// it, so `backgroundColor` was dropped without a warning (#189). It covers
+/// the whole page, margins included, behind all content, on every page the
+/// Page's content runs onto.
+#[test]
+fn test_page_background_color_fills_every_page() {
+    let doc = page_background_doc(false, None);
+    let pdf = render_to_pdf(&doc);
+    let pages = String::from_utf8_lossy(&pdf)
+        .matches("/Type /Page ")
+        .count();
+    assert!(pages >= 2, "the text runs onto a second page, got {pages}");
+    let stream = decompress_pdf_streams(&pdf);
+    assert_eq!(
+        stream.matches(PAGE_FILL_123456).count(),
+        pages,
+        "one full-page fill per page:\n{}",
+        &stream[..stream.len().min(400)]
+    );
+    // Behind everything: the fill comes before the first text object.
+    let fill = stream.find(PAGE_FILL_123456).unwrap();
+    assert!(
+        fill < stream.find("BT").unwrap(),
+        "the fill precedes the text"
+    );
+}
+
+/// In tagged output, page backgrounds are decoration: the color, and the
+/// background image that was already painted, must be marked /Artifact.
+/// The image was drawn unmarked, so a PDF/UA document with a page
+/// background image failed veraPDF (7.1-3, content neither tagged nor an
+/// artifact).
+#[test]
+fn test_page_backgrounds_are_artifacts_when_tagged() {
+    use base64::Engine as _;
+    // A 1x1 PNG.
+    let png = base64::engine::general_purpose::STANDARD.decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC",
+    )
+    .unwrap();
+    let uri = format!(
+        "data:image/png;base64,{}",
+        base64::engine::general_purpose::STANDARD.encode(png)
+    );
+    let stream = decompress_pdf_streams(&render_to_pdf(&page_background_doc(true, Some(&uri))));
+    let fill = format!("/Artifact BMC\n{PAGE_FILL_123456}EMC\n");
+    assert!(stream.contains(&fill), "the color fill is an artifact");
+    let image = stream
+        .find(" Do\nQ\n")
+        .expect("the background image is drawn");
+    let before = &stream[..image];
+    let opened = before
+        .rfind("/Artifact BMC")
+        .expect("an artifact bracket opens before the image");
+    assert!(
+        !before[opened..].contains("EMC"),
+        "the image sits inside the /Artifact bracket"
+    );
+    assert!(
+        stream[image..]
+            .trim_start_matches(" Do\nQ\n")
+            .starts_with("EMC"),
+        "the bracket closes after the image"
+    );
+}

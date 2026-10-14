@@ -1576,7 +1576,22 @@ impl LayoutEngine {
                     if !cursor.elements.is_empty() || cursor.y > 0.0 {
                         pages.push(cursor.finalize());
                     }
-                    cursor = PageCursor::new(config);
+                    // The Page's own background color covers each page it
+                    // runs onto, so it lives on the config the cursor carries
+                    // to continuation pages (#189).
+                    let page_bg = node
+                        .style
+                        .resolve(Some(&root_style), 0.0)
+                        .background_color
+                        .filter(|c| c.a > 0.0);
+                    let config = if page_bg.is_some() {
+                        let mut config = config.clone();
+                        config.background_color = page_bg;
+                        std::borrow::Cow::Owned(config)
+                    } else {
+                        std::borrow::Cow::Borrowed(config)
+                    };
+                    cursor = PageCursor::new(&config);
                     cursor.page_index = pages.len();
 
                     // Build a page-level root style that carries document lang

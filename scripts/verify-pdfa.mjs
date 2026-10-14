@@ -19,6 +19,7 @@ import { fileURLToPath } from 'node:url';
 import { emitSection, veraValidateBatch, veraVersion } from './parity/lib.mjs';
 
 import { unicodeDocument } from './fixtures/unicode.mjs';
+import { pageBackgroundDocument } from './fixtures/page-background.mjs';
 
 import { serialize } from '@formepdf/react';
 import { getTemplate } from '@formepdf/templates';
@@ -133,6 +134,20 @@ async function main() {
     const unicodePath = join(outDir, `${level}-unicode.pdf`);
     writeFileSync(unicodePath, pdf);
     corpus.push({ label: 'unicode', path: unicodePath });
+
+    const background = pageBackgroundDocument();
+    background.pdfa = level;
+    background.pdfUa = !level.startsWith('4');
+    background.pdfUa2 = level.startsWith('4');
+    if (level === '4f') {
+      background.attachments = [{ name: 'gate.csv', src: Buffer.from('a,b\n1,2\n').toString('base64'), mimeType: 'text/csv', relationship: 'Supplement' }];
+    }
+    {
+      const { pdf } = await renderPdfWithLayout(JSON.stringify(background));
+      const backgroundPath = join(outDir, `${level}-page-background.pdf`);
+      writeFileSync(backgroundPath, pdf);
+      corpus.push({ label: 'page-background', path: backgroundPath });
+    }
 
     // One JVM per profile over the whole corpus (was one per file*profile).
     // The 2.0 levels compose with PDF/UA-2 (rendered with pdfUa2 above)
