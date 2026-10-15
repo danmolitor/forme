@@ -12,6 +12,8 @@ while this file lapsed. They are reproduced, not rewritten.
 
 - SVG and other leaf drawings restore opacity and transforms before painting following elements (#190).
 - Greedy line breaking no longer draws trailing line breaks as missing glyphs in plain or styled text (#191).
+- A Page's `backgroundColor` is painted, full-bleed and behind all content, on every page the Page's content runs onto. It was ignored without a warning (#189).
+- Page background images are marked as artifacts in tagged output. Drawn unmarked, they made a PDF/UA document fail validation (content neither tagged nor an artifact).
 
 ## [0.28.0] - 2026-10-06
 
