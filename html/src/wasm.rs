@@ -16,7 +16,7 @@
 //! (core's dependency, not ours), and the JS wrapper `JSON.parse`s it back
 //! into the identical object shape.
 
-use crate::{render_html, render_html_with_layout, HtmlOptions};
+use crate::{render_html_owned, render_html_with_layout_owned, HtmlOptions};
 use wasm_bindgen::prelude::*;
 
 /// The result of a render: PDF bytes plus subset warnings.
@@ -93,9 +93,11 @@ fn parse_options(options_json: &str) -> Result<HtmlOptions, JsValue> {
 
 /// Render an HTML string to PDF. `options_json` may be empty or `"{}"`.
 #[wasm_bindgen]
-pub fn render_html_wasm(html: &str, options_json: &str) -> Result<HtmlRenderResult, JsValue> {
-    let options = parse_options(options_json)?;
-    let out = render_html(html, &options)
+pub fn render_html_wasm(html: &str, options_json: String) -> Result<HtmlRenderResult, JsValue> {
+    let options = parse_options(&options_json)?;
+    // The JSON carries the fonts as base64; free it before laying out.
+    drop(options_json);
+    let out = render_html_owned(html, options)
         .map_err(|e| JsValue::from_str(&format!("render failed: {e}")))?;
     Ok(HtmlRenderResult {
         pdf: out.pdf,
@@ -110,10 +112,12 @@ pub fn render_html_wasm(html: &str, options_json: &str) -> Result<HtmlRenderResu
 #[wasm_bindgen]
 pub fn render_html_wasm_with_layout(
     html: &str,
-    options_json: &str,
+    options_json: String,
 ) -> Result<HtmlLayoutRenderResult, JsValue> {
-    let options = parse_options(options_json)?;
-    let out = render_html_with_layout(html, &options)
+    let options = parse_options(&options_json)?;
+    // The JSON carries the fonts as base64; free it before laying out.
+    drop(options_json);
+    let out = render_html_with_layout_owned(html, options)
         .map_err(|e| JsValue::from_str(&format!("render failed: {e}")))?;
     let layout_json = serde_json::to_string(&out.layout)
         .map_err(|e| JsValue::from_str(&format!("layout serialization failed: {e}")))?;
