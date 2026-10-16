@@ -8,6 +8,10 @@ while this file lapsed. They are reproduced, not rewritten.
 
 ## [Unreleased]
 
+### Security
+
+- `quick-xml` 0.41 ([RUSTSEC-2026-0194](https://rustsec.org/advisories/RUSTSEC-2026-0194.html)): an SVG element with many attributes was parsed in quadratic time, so a crafted SVG could stall a render (20,000 attributes took 2.7 s, now 50 ms). `miniz_oxide` 0.8 drops the unmaintained `adler` ([RUSTSEC-2025-0056](https://rustsec.org/advisories/RUSTSEC-2025-0056.html)). Output is byte-identical (#195)
+
 ### Fixed
 
 - SVG and other leaf drawings restore opacity and transforms before painting following elements (#190).
