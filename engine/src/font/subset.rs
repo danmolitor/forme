@@ -30,6 +30,34 @@ pub fn subset_ttf(
     ttf_data: &[u8],
     used_gids: &std::collections::HashSet<u16>,
 ) -> Result<SubsetResult, String> {
+    subset_ttf_inner(ttf_data, used_gids, None)
+}
+
+/// Subset a TrueType font to the glyphs of `chars`, with a cmap that maps
+/// every one of them. For a simple TrueType font, which a viewer reads
+/// through its own cmap: `subset_ttf`'s cmap keeps only each glyph's lowest
+/// code, so a character drawn with the same glyph as a lower one would be
+/// left unmapped. (The Liberation substitutes give every WinAnsi character
+/// its own glyph today; this keeps the subset correct if a font does not.)
+pub fn subset_ttf_for_chars(
+    ttf_data: &[u8],
+    chars: &BTreeSet<char>,
+) -> Result<SubsetResult, String> {
+    let face = ttf_parser::Face::parse(ttf_data, 0)
+        .map_err(|e| format!("Failed to parse TTF: {:?}", e))?;
+    let gids: std::collections::HashSet<u16> = chars
+        .iter()
+        .filter_map(|&ch| face.glyph_index(ch))
+        .map(|g| g.0)
+        .collect();
+    subset_ttf_inner(ttf_data, &gids, Some(chars))
+}
+
+fn subset_ttf_inner(
+    ttf_data: &[u8],
+    used_gids: &std::collections::HashSet<u16>,
+    cmap_chars: Option<&BTreeSet<char>>,
+) -> Result<SubsetResult, String> {
     let face = ttf_parser::Face::parse(ttf_data, 0)
         .map_err(|e| format!("Failed to parse TTF: {:?}", e))?;
 
@@ -89,6 +117,23 @@ pub fn subset_ttf(
         {
             char_to_new_gid.push((code, new_gid));
         }
+    }
+    // Every requested char, not just each glyph's lowest code.
+    if let Some(chars) = cmap_chars {
+        for &ch in chars {
+            if (ch as u32) > 0xFFFF {
+                continue;
+            }
+            if let Some(&new_gid) = face
+                .glyph_index(ch)
+                .and_then(|g| gid_remap.get(&g.0))
+                .filter(|&&g| g != 0)
+            {
+                char_to_new_gid.push((ch as u16, new_gid));
+            }
+        }
+        char_to_new_gid.sort_unstable();
+        char_to_new_gid.dedup_by_key(|(code, _)| *code);
     }
     let new_cmap = build_cmap_format4(&char_to_new_gid);
 
@@ -788,6 +833,29 @@ fn tag_u32(tag: &[u8; 4]) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A simple TrueType font is looked up through its own cmap, so a subset
+    /// for one must map every character used (#197).
+    #[test]
+    fn test_subset_for_chars_maps_every_requested_char() {
+        let full =
+            include_bytes!("../../../packages/fonts-standard/fonts/LiberationSans-Regular.ttf");
+        let chars: BTreeSet<char> = ['H', 'i', ' ', '\u{a0}', '\u{20ac}'].into_iter().collect();
+        let subset = subset_ttf_for_chars(full, &chars).unwrap();
+        let face = ttf_parser::Face::parse(&subset.ttf_data, 0).unwrap();
+        for &ch in &chars {
+            let gid = face.glyph_index(ch);
+            assert!(
+                gid.is_some_and(|g| g.0 != 0),
+                "{ch:?} has no glyph in the subset"
+            );
+        }
+        assert!(
+            face.number_of_glyphs() < 10,
+            "a subset, not the whole font: {} glyphs",
+            face.number_of_glyphs()
+        );
+    }
 
     /// The one-pass inversion must pick the glyph-to-codepoint mapping the
     /// old per-glyph scan picked (the lowest BMP codepoint the face maps to
