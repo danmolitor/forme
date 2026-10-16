@@ -3079,6 +3079,17 @@ impl PdfWriter {
         }
     }
 
+    /// Whether any element draws in Helvetica without going through a text
+    /// line: chart labels and form fields (values, placeholders, options).
+    fn draws_helvetica_outside_text(elements: &[LayoutElement]) -> bool {
+        elements.iter().any(|el| {
+            matches!(
+                el.draw,
+                DrawCommand::Chart { .. } | DrawCommand::FormField { .. }
+            ) || Self::draws_helvetica_outside_text(&el.children)
+        })
+    }
+
     /// Register fonts used across all pages — each unique (family, weight, italic)
     /// combination gets its own PDF font object.
     /// pdfUa: embed a metric-compatible substitute (Liberation, via
@@ -3096,6 +3107,7 @@ impl PdfWriter {
         std_font: &crate::font::StandardFont,
         metrics: &crate::font::StandardFontMetrics,
         font_context: &FontContext,
+        subset_chars: Option<&HashSet<char>>,
     ) -> bool {
         let lib_family = match std_font.liberation_family() {
             Some(f) => f,
@@ -3115,15 +3127,26 @@ impl PdfWriter {
         let bbox = face.global_bounding_box();
         let pdf_name = Self::sanitize_font_name(lib_family, key.weight, key.italic);
 
-        // 1. FontFile2 — the full Liberation program, zlib-compressed.
-        let compressed = compress_to_vec_zlib(lib_bytes, 6);
+        // 1. FontFile2 — the Liberation program, zlib-compressed. Subset to
+        // the chars drawn in this font when the caller knows them all: the
+        // whole program is about 400 KB a face, which took a one-page
+        // invoice from 5 KB to 650 KB (#197). Widths, encoding and the
+        // content stream are unchanged; only glyphs nothing draws are gone.
+        // '?' is what the WinAnsi encoder writes for a char it can't encode.
+        let subset = subset_chars.and_then(|chars| {
+            let mut chars: std::collections::BTreeSet<char> = chars.iter().copied().collect();
+            chars.insert('?');
+            crate::font::subset::subset_ttf_for_chars(lib_bytes, &chars).ok()
+        });
+        let program: &[u8] = subset.as_ref().map_or(lib_bytes, |s| s.ttf_data.as_slice());
+        let compressed = compress_to_vec_zlib(program, 6);
         let fontfile2_id = builder.objects.len();
         let mut ff2: Vec<u8> = Vec::new();
         let _ = write!(
             ff2,
             "<< /Length {} /Length1 {} /Filter /FlateDecode >>\nstream\n",
             compressed.len(),
-            lib_bytes.len()
+            program.len()
         );
         ff2.extend_from_slice(&compressed);
         ff2.extend_from_slice(b"\nendstream");
@@ -3234,6 +3257,12 @@ impl PdfWriter {
         for page in pages {
             Self::collect_font_usage(&page.elements, &mut font_usage_map);
         }
+        // Chart labels and form fields draw in regular Helvetica outside the
+        // text lines usage is collected from, and an interactive field's
+        // value is whatever the user types: keep that face's substitute whole.
+        let helvetica_outside_text = pages
+            .iter()
+            .any(|p| Self::draws_helvetica_outside_text(&p.elements));
 
         let mut keys: Vec<FontKey> = font_usage_map.keys().cloned().collect();
 
@@ -3277,12 +3306,20 @@ impl PdfWriter {
                     // with fonts-standard registered — the substitute was
                     // registered and never consulted.
                     if pdf_ua || pdfa || pdf_version == crate::model::PdfVersion::V2_0 {
+                        let regular_helvetica =
+                            key.family == "Helvetica" && key.weight == 400 && !key.italic;
+                        let subset_chars = if regular_helvetica && helvetica_outside_text {
+                            None
+                        } else {
+                            font_usage_map.get(key).map(|u| &u.chars)
+                        };
                         if Self::emit_pdfua_embedded_standard(
                             builder,
                             key,
                             std_font,
                             &metrics,
                             font_context,
+                            subset_chars,
                         ) {
                             continue;
                         }

@@ -16362,3 +16362,96 @@ fn test_page_backgrounds_are_artifacts_when_tagged() {
         "the bracket closes after the image"
     );
 }
+
+// ─── #197: subset the substituted standard fonts ─────────────────────
+
+/// A PDF/A document in Helvetica with the Liberation substitute registered,
+/// so the writer embeds the substitute. `chart` adds a bar chart, whose
+/// labels are drawn in Helvetica outside any text line.
+fn substituted_helvetica_pdf(text: &str, chart: bool) -> Vec<u8> {
+    use base64::Engine as _;
+    let font = base64::engine::general_purpose::STANDARD.encode(
+        std::fs::read("../packages/fonts-standard/fonts/LiberationSans-Regular.ttf").unwrap(),
+    );
+    let mut children = vec![serde_json::json!({
+        "kind": { "type": "Text", "content": text }, "style": {}, "children": []
+    })];
+    if chart {
+        children.push(serde_json::json!({
+            "kind": { "type": "BarChart", "data": [{ "label": "Q1", "value": 3.0 }, { "label": "Q2", "value": 5.0 }],
+                      "width": 200.0, "height": 120.0, "color": "#336699", "show_grid": false, "show_values": true },
+            "style": {}, "children": []
+        }));
+    }
+    let doc = serde_json::json!({
+        "children": children,
+        "metadata": { "title": "Substitute", "lang": "en" },
+        "fonts": [{ "family": "Liberation Sans", "src": font, "weight": 400, "italic": false }],
+        "pdfa": "2b"
+    });
+    forme::render_json(&doc.to_string()).expect("renders")
+}
+
+/// The decompressed FontFile2 program of the (single) embedded font.
+/// Searches the raw bytes: a lossy UTF-8 copy shifts offsets in the
+/// binary streams.
+fn embedded_font_program(pdf: &[u8]) -> Vec<u8> {
+    let find = |hay: &[u8], needle: &[u8], from: usize| {
+        hay[from..]
+            .windows(needle.len())
+            .position(|w| w == needle)
+            .map(|p| p + from)
+    };
+    let at = find(pdf, b"/Length1 ", 0).expect("a FontFile2 stream");
+    let dict_start = pdf[..at]
+        .windows(3)
+        .rposition(|w| w == b"<< ")
+        .expect("the stream dictionary");
+    let dict = std::str::from_utf8(&pdf[dict_start..at]).unwrap();
+    let len: usize = dict
+        .split("/Length ")
+        .nth(1)
+        .unwrap()
+        .split_whitespace()
+        .next()
+        .unwrap()
+        .parse()
+        .unwrap();
+    let start = find(pdf, b"stream\n", at).unwrap() + 7;
+    miniz_oxide::inflate::decompress_to_vec_zlib(&pdf[start..start + len]).unwrap()
+}
+
+/// The substituted standard fonts were embedded whole: about 400 KB of
+/// Liberation per face, so a one-page invoice went from 5 KB to 650 KB with
+/// PDF/UA or PDF/A on (#197). They are subset to the characters used, and
+/// the subset's cmap maps each of them, the no-break space, the euro sign
+/// and the em dash included.
+#[test]
+fn test_substituted_standard_font_is_subset_to_the_chars_used() {
+    let text = "Total 1\u{a0}000 \u{20ac} \u{2014} Caf\u{e9}";
+    let program = embedded_font_program(&substituted_helvetica_pdf(text, false));
+    assert!(
+        program.len() < 50_000,
+        "a subset, not the whole font: {} bytes",
+        program.len()
+    );
+    let face = ttf_parser::Face::parse(&program, 0).unwrap();
+    for ch in text.chars() {
+        assert!(
+            face.glyph_index(ch).is_some_and(|g| g.0 != 0),
+            "{ch:?} ({:04X}) has no glyph in the embedded subset",
+            ch as u32
+        );
+    }
+}
+
+/// Chart labels and form fields draw in Helvetica outside the text lines
+/// the subset is built from, and an interactive field's value is whatever
+/// the user types. A document with either keeps the whole substitute.
+#[test]
+fn test_substituted_standard_font_stays_whole_with_a_chart() {
+    let full =
+        std::fs::read("../packages/fonts-standard/fonts/LiberationSans-Regular.ttf").unwrap();
+    let program = embedded_font_program(&substituted_helvetica_pdf("Revenue by quarter", true));
+    assert_eq!(program.len(), full.len(), "the whole program is embedded");
+}
