@@ -18,6 +18,7 @@ while this file lapsed. They are reproduced, not rewritten.
 - Greedy line breaking no longer draws trailing line breaks as missing glyphs in plain or styled text (#191).
 - A Page's `backgroundColor` is painted, full-bleed and behind all content, on every page the Page's content runs onto. It was ignored without a warning (#189).
 - The Liberation substitutes embedded for Helvetica, Times and Courier under PDF/UA, PDF/A or PDF 2.0 are subset to the characters used instead of embedded whole, about 400 KB a face: a one-page invoice with PDF/UA goes from 653 KB to 51 KB (#197). A document with charts or form fields keeps regular Helvetica whole, since their text is drawn outside the subset's view.
+- A flex row that crosses a page ends below its deepest column. When the column that carried the row onto the next page was also the deepest, as a long column usually is, the row ended at the next-deepest one and what followed was drawn over it (#201). The catalog demo template lost all eight products on its second page to this, the report template's last card drew its accent bar short, and an HTML invoice's discount amount overprinted its subtotal. A regression from the 0.24.0 parallel-fragmentation work.
 - Page background images are marked as artifacts in tagged output. Drawn unmarked, they made a PDF/UA document fail validation (content neither tagged nor an artifact).
 
 ## [0.28.0] - 2026-10-06
