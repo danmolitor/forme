@@ -169,14 +169,13 @@ fn body_dimensions_within_the_content_box_are_honored() {
     );
 }
 
-// ── Unfittable atomic rows ─────────────────────────────────────────
+// ── Rows taller than a page ────────────────────────────────────────
 
 #[test]
-fn giant_atomic_row_emits_no_blank_pages() {
-    // The email-template idiom: everything inside one <tr>. The row is
-    // atomic by engine design (placed whole, overflows) — but it must
-    // not ALSO emit empty pages before itself (template-compat 11
-    // produced two entirely empty pages).
+fn giant_row_emits_no_blank_pages() {
+    // The email-template idiom: everything inside one <tr>. The row splits
+    // across pages (#201), and it must not emit empty pages before itself
+    // (template-compat 11 produced two entirely empty pages).
     let mut cells = String::new();
     for i in 0..120 {
         cells.push_str(&format!("line {i}<br>"));
@@ -194,7 +193,7 @@ fn giant_atomic_row_emits_no_blank_pages() {
         });
         assert!(
             text_lines > 0,
-            "page {} of {} is blank (giant atomic row emitted an empty page)",
+            "page {} of {} is blank (giant row emitted an empty page)",
             i + 1,
             out.layout.pages.len()
         );

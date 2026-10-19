@@ -1,6 +1,6 @@
 //! Known-gaps polish: entities × whitespace collapsing (the predicted
 //! sneaky interaction), justify (already engine-supported — pinned),
-//! border-radius under border-collapse, row atomicity, and the pending
+//! border-radius under border-collapse, row break-inside, and the pending
 //! warnings for vertical-align and section-level break-inside.
 
 use forme::{Node, NodeKind};
@@ -124,53 +124,52 @@ fn border_radius_is_ignored_under_collapse_and_kept_otherwise() {
 }
 
 #[test]
-fn tr_break_inside_avoid_is_honored_rows_are_atomic() {
-    // Rows never split unless taller than a full page — the engine moves
-    // a row that doesn't fit to the next page whole. A row-level
-    // break-inside: avoid is therefore honored by design; pin it.
-    let mut rows = String::new();
-    for i in 0..60 {
-        rows.push_str(&format!(
-            "<tr style=\"break-inside: avoid\"><td>row {i} line one<br>line two<br>line three</td></tr>\n"
-        ));
+fn tr_break_inside_avoid_is_honored() {
+    // Since #201 a row that doesn't fit splits across the page, the way a
+    // browser prints it, so a row-level break-inside: avoid is what keeps a
+    // row whole. Rows of eight lines are tall enough that, without it, a
+    // row crossing a page splits; the control render proves the probe can
+    // fail.
+    fn table(avoid: bool) -> String {
+        let style = if avoid {
+            " style=\"break-inside: avoid\""
+        } else {
+            ""
+        };
+        let mut rows = String::new();
+        for i in 0..40 {
+            let lines: Vec<String> = (0..8).map(|l| format!("row {i} line {l}")).collect();
+            rows.push_str(&format!(
+                "<tr{style}><td>{}</td></tr>\n",
+                lines.join("<br>")
+            ));
+        }
+        format!("<table>{rows}</table>")
     }
-    let html = format!("<table>{rows}</table>");
-    let out = render_html_with_layout(&html, &HtmlOptions::default()).expect("render");
-    assert!(out.layout.pages.len() > 1, "must paginate");
+    // A row that splits paints one TableRow box per page it crosses.
+    fn row_boxes(html: &str) -> (usize, usize) {
+        fn count(els: &[forme::layout::ElementInfo]) -> usize {
+            els.iter()
+                .map(|el| usize::from(el.node_type == "TableRow") + count(&el.children))
+                .sum()
+        }
+        let out = render_html_with_layout(html, &HtmlOptions::default()).expect("render");
+        let pages = out.layout.pages.len();
+        (
+            pages,
+            out.layout.pages.iter().map(|p| count(&p.elements)).sum(),
+        )
+    }
 
-    // No TableRow may straddle: every row's cells land on one page.
-    fn rows_on_page(els: &[forme::layout::ElementInfo], out: &mut Vec<String>) {
-        for el in els {
-            if el.node_type == "TableRow" {
-                if let Some(t) = first_text(&el.children) {
-                    out.push(t);
-                }
-            }
-            rows_on_page(&el.children, out);
-        }
-    }
-    fn first_text(els: &[forme::layout::ElementInfo]) -> Option<String> {
-        for el in els {
-            if let Some(t) = &el.text_content {
-                return Some(t.clone());
-            }
-            if let Some(t) = first_text(&el.children) {
-                return Some(t);
-            }
-        }
-        None
-    }
-    let mut seen = std::collections::HashSet::new();
-    for page in &out.layout.pages {
-        let mut labels = Vec::new();
-        rows_on_page(&page.elements, &mut labels);
-        for l in labels {
-            assert!(
-                seen.insert(l.clone()),
-                "row '{l}' appears on more than one page — a row split"
-            );
-        }
-    }
+    let (pages, boxes) = row_boxes(&table(true));
+    assert!(pages > 1, "must paginate");
+    assert_eq!(boxes, 40, "every kept-together row lands whole on one page");
+
+    let (_, boxes) = row_boxes(&table(false));
+    assert!(
+        boxes > 40,
+        "without break-inside: avoid, rows crossing a page split"
+    );
 }
 
 #[test]
