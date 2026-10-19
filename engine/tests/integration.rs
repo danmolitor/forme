@@ -16455,3 +16455,67 @@ fn test_substituted_standard_font_stays_whole_with_a_chart() {
     let program = embedded_font_program(&substituted_helvetica_pdf("Revenue by quarter", true));
     assert_eq!(program.len(), full.len(), "the whole program is embedded");
 }
+
+// ─── #201: a fragmented flex row ends below its deepest column ───────
+
+/// A two-column row that starts with 10pt left on the page, so both
+/// columns continue on the next one: a one-line column and a long one.
+/// The line after the row must start below the long column.
+#[test]
+fn test_fragmented_row_continues_below_its_deepest_column() {
+    let lines: Vec<serde_json::Value> = (0..12)
+        .map(|i| serde_json::json!({ "kind": { "type": "Text", "content": format!("Entry line {i}") }, "style": {}, "children": [] }))
+        .collect();
+    let doc: Document = serde_json::from_value(serde_json::json!({
+        "children": [{
+            "kind": { "type": "Page", "config": { "size": "A4", "margin": { "top": 30, "right": 30, "bottom": 30, "left": 30 } } },
+            "style": { "fontSize": 10 },
+            "children": [
+                // Leaves 10pt of the 781.89pt content box.
+                { "kind": { "type": "View" }, "style": { "height": { "Pt": 771.89 } }, "children": [] },
+                { "kind": { "type": "View" }, "style": { "flexDirection": "Row", "paddingTop": 8, "paddingBottom": 8 }, "children": [
+                    { "kind": { "type": "View" }, "style": { "width": { "Percent": 33.0 } }, "children": [
+                        { "kind": { "type": "Text", "content": "TITLE" }, "style": {}, "children": [] } ] },
+                    { "kind": { "type": "View" }, "style": { "flex": 1 }, "children": lines }
+                ] },
+                { "kind": { "type": "Text", "content": "NEXT" }, "style": {}, "children": [] }
+            ]
+        }],
+        "metadata": {}
+    }))
+    .unwrap();
+    let pages = LayoutEngine::new().layout(&doc, &FontContext::new());
+    // (text, top, bottom) of every line, per page.
+    fn lines_of(els: &[forme::layout::LayoutElement], out: &mut Vec<(String, f64, f64)>) {
+        for el in els {
+            if let forme::layout::DrawCommand::Text { lines, .. } = &el.draw {
+                for l in lines {
+                    let text: String = l.glyphs.iter().map(|g| g.char_value).collect();
+                    out.push((text, el.y, el.y + el.height));
+                }
+            }
+            lines_of(&el.children, out);
+        }
+    }
+    let last = pages.last().unwrap();
+    let mut on_last = Vec::new();
+    lines_of(&last.elements, &mut on_last);
+    let next = on_last
+        .iter()
+        .find(|(t, _, _)| t == "NEXT")
+        .expect("NEXT is on the last page");
+    let deepest_entry = on_last
+        .iter()
+        .filter(|(t, _, _)| t.starts_with("Entry line"))
+        .map(|(_, _, bottom)| *bottom)
+        .fold(f64::MIN, f64::max);
+    assert!(
+        deepest_entry > f64::MIN,
+        "the long column continues on the last page"
+    );
+    assert!(
+        next.1 >= deepest_entry - 0.01,
+        "NEXT starts at {:.1} but the long column ends at {deepest_entry:.1}: they overlap",
+        next.1
+    );
+}
