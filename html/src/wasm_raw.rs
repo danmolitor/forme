@@ -125,7 +125,7 @@ pub unsafe extern "C" fn forme_render_html(
         }
     };
 
-    match crate::render_html(html_str, &options) {
+    match crate::render_html_owned(html_str, options) {
         Ok(out) => {
             set_result(&out.pdf);
             0

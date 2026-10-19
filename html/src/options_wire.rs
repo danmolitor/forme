@@ -7,15 +7,16 @@
 
 use crate::{HtmlOptions, PageSize};
 use serde::Deserialize;
+use std::borrow::Cow;
 
 #[derive(Debug, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct WasmOptions {
+pub(crate) struct WasmOptions<'a> {
     page_size: Option<String>,
     page_margin: Option<f64>,
     css: Option<String>,
-    #[serde(default)]
-    fonts: Vec<WasmFont>,
+    #[serde(default, borrow)]
+    fonts: Vec<WasmFont<'a>>,
     #[serde(default)]
     tagged: bool,
     #[serde(default)]
@@ -31,10 +32,13 @@ pub(crate) struct WasmOptions {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct WasmFont {
+pub(crate) struct WasmFont<'a> {
     family: String,
-    /// Base64-encoded TTF bytes.
-    data: String,
+    /// Base64-encoded TTF bytes, borrowed from the options JSON: base64 needs
+    /// no unescaping, so serde hands back a slice instead of copying ~470 KB
+    /// a face into a String that lived beside the decoded bytes (#197).
+    #[serde(borrow)]
+    data: Cow<'a, str>,
     weight: Option<u32>,
     italic: Option<bool>,
 }
@@ -63,7 +67,7 @@ pub(crate) fn parse_options(options_json: &str) -> Result<HtmlOptions, String> {
     for f in raw.fonts {
         use base64::Engine as _;
         let data = base64::engine::general_purpose::STANDARD
-            .decode(&f.data)
+            .decode(f.data.as_bytes())
             .map_err(|e| format!("invalid font data for '{}': {e}", f.family))?;
         options.fonts.push(crate::FontSpec {
             family: f.family,
