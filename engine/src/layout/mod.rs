@@ -3805,13 +3805,13 @@ impl LayoutEngine {
                     .expect("a flex line has at least one item");
                 let mut carrier = item_frags.swap_remove(carrier_idx);
 
-                for (k, page) in carrier.pages.iter_mut().enumerate() {
-                    page.elements = std::mem::take(&mut merged[k]);
-                }
-                pages.append(&mut carrier.pages);
-
                 // Flow continues below the deepest column ON THE LAST
                 // page — columns that ended earlier don't hold it down.
+                // Measured before the carrier's pages move out below: the
+                // carrier always ends on the last page, but once its pages
+                // were appended it counted none, so it never held the flow
+                // down and a row whose deepest column was the carrier ended
+                // at the next-deepest one, overprinting what followed (#201).
                 let last = frag_count - 1;
                 let end_y = item_frags
                     .iter()
@@ -3819,6 +3819,11 @@ impl LayoutEngine {
                     .filter(|f| f.pages.len() == last)
                     .map(|f| f.final_y)
                     .fold(f64::MIN, f64::max);
+
+                for (k, page) in carrier.pages.iter_mut().enumerate() {
+                    page.elements = std::mem::take(&mut merged[k]);
+                }
+                pages.append(&mut carrier.pages);
 
                 let mut merged_tail = std::mem::take(&mut merged[last]);
                 *cursor = carrier.cursor;
