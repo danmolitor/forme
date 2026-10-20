@@ -18,6 +18,7 @@ while this file lapsed. They are reproduced, not rewritten.
 
 ### Fixed
 
+- A table row counts the vertical margins of its cells' children. It measured them without, so a cell whose content had margins drew a box too short for it and overlapped the next row; near a page end, the row broke inside a cell that had measured as fitting and the render panicked with "table cell broke but no rollback checkpoint was taken" (#201).
 - SVG and other leaf drawings restore opacity and transforms before painting following elements (#190).
 - Greedy line breaking no longer draws trailing line breaks as missing glyphs in plain or styled text (#191).
 - A Page's `backgroundColor` is painted, full-bleed and behind all content, on every page the Page's content runs onto. It was ignored without a warning (#189).

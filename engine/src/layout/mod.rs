@@ -4848,6 +4848,28 @@ impl LayoutEngine {
         cols
     }
 
+    /// The height of a table cell's content: its children stacked, each
+    /// with its vertical margins, as the cell lays them out. Leaving the
+    /// margins out made a row shorter than its content, so it overlapped
+    /// the next row, and near a page end it broke inside a cell that had
+    /// measured as fitting, with no rollback checkpoint (a panic, #201).
+    fn measure_cell_content_height(
+        &self,
+        cell: &Node,
+        cell_style: &ResolvedStyle,
+        inner_width: f64,
+        font_context: &FontContext,
+    ) -> f64 {
+        cell.children
+            .iter()
+            .map(|child| {
+                let child_style = child.style.resolve(Some(cell_style), inner_width);
+                self.measure_node_height(child, inner_width, &child_style, font_context)
+                    + child_style.margin.vertical()
+            })
+            .sum()
+    }
+
     /// How far down its row box a cell's content starts under
     /// `vertical-align` (zero for `top`, the default). The row's height is
     /// already resolved, so this is an offset within it.
@@ -4863,14 +4885,8 @@ impl LayoutEngine {
         if matches!(cell_style.vertical_align, crate::style::VerticalAlign::Top) {
             return 0.0;
         }
-        let content_h: f64 = cell
-            .children
-            .iter()
-            .map(|ch| {
-                let ch_style = ch.style.resolve(Some(cell_style), inner_width);
-                self.measure_node_height(ch, inner_width, &ch_style, font_context)
-            })
-            .sum();
+        let content_h =
+            self.measure_cell_content_height(cell, cell_style, inner_width, font_context);
         let inner_row =
             row_height - cell_style.padding.vertical() - cell_style.border_width.vertical();
         let slack = (inner_row - content_h).max(0.0);
@@ -7844,12 +7860,8 @@ impl LayoutEngine {
             let inner_width =
                 col_width - cell_style.padding.horizontal() - cell_style.border_width.horizontal();
 
-            let mut cell_content_height = 0.0;
-            for child in &cell.children {
-                let child_style = child.style.resolve(Some(&cell_style), inner_width);
-                cell_content_height +=
-                    self.measure_node_height(child, inner_width, &child_style, font_context);
-            }
+            let cell_content_height =
+                self.measure_cell_content_height(cell, &cell_style, inner_width, font_context);
 
             let mut total = cell_content_height
                 + cell_style.padding.vertical()

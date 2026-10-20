@@ -16894,3 +16894,89 @@ fn test_split_table_row_follows_mirrored_margins() {
         }
     }
 }
+
+// ─── #201 (comment): cell children's margins count toward the row ────
+
+/// A table whose one cell holds three entries directly (no wrapping View),
+/// each but the last with a 10pt bottom margin, laid out after a filler
+/// leaving `room` pt.
+fn table_with_margined_entries(room: f64) -> Vec<forme::layout::LayoutPage> {
+    let entry = |i: usize, last: bool| {
+        let style = if last {
+            serde_json::json!({})
+        } else {
+            serde_json::json!({ "margin": { "top": 0, "right": 0, "bottom": 10, "left": 0 } })
+        };
+        serde_json::json!({ "kind": { "type": "View" }, "style": style, "children": [
+            { "kind": { "type": "Text", "content": format!("Label {i}") }, "style": {}, "children": [] },
+            { "kind": { "type": "Text", "content": format!("Heading {i}") }, "style": {}, "children": [] }
+        ] })
+    };
+    let entries: Vec<_> = (0..3).map(|i| entry(i, i == 2)).collect();
+    let doc: Document = serde_json::from_value(serde_json::json!({
+        "children": [{
+            "kind": { "type": "Page", "config": { "size": "A4", "margin": { "top": 30, "right": 30, "bottom": 30, "left": 30 } } },
+            "style": { "fontSize": 10 },
+            "children": [
+                { "kind": { "type": "View" }, "style": { "height": { "Pt": 781.89 - room } }, "children": [] },
+                { "kind": { "type": "Table", "columns": [] }, "style": {}, "children": [
+                    { "kind": { "type": "TableRow", "is_header": false }, "style": {}, "children": [
+                        { "kind": { "type": "TableCell" }, "style": { "padding": { "top": 8, "right": 0, "bottom": 8, "left": 0 } }, "children": entries }
+                    ] }
+                ] }
+            ]
+        }],
+        "metadata": {}
+    }))
+    .unwrap();
+    LayoutEngine::new().layout(&doc, &FontContext::new())
+}
+
+/// The cell's box holds its content, margins included: the row used to
+/// measure each child without its margin, so the box stopped 20pt short.
+#[test]
+fn test_table_cell_box_includes_child_margins() {
+    let pages = table_with_margined_entries(700.0);
+    fn find(els: &[forme::layout::LayoutElement]) -> Option<&forme::layout::LayoutElement> {
+        for el in els {
+            if el.node_type.as_deref() == Some("TableCell") {
+                return Some(el);
+            }
+            if let Some(f) = find(&el.children) {
+                return Some(f);
+            }
+        }
+        None
+    }
+    let cell = find(&pages[0].elements).expect("the cell is on page 1");
+    let content_bottom = text_lines(&cell.children)
+        .iter()
+        .map(|(_, _, b)| *b)
+        .fold(f64::MIN, f64::max);
+    assert!(
+        cell.y + cell.height >= content_bottom + 8.0 - 0.01,
+        "the cell ends at {:.1} but its content, plus 8pt padding, reaches {:.1}",
+        cell.y + cell.height,
+        content_bottom + 8.0
+    );
+}
+
+/// The reporter's crash: a row that measured as fitting the space left,
+/// because its children's margins were not counted, broke inside a cell
+/// with no rollback checkpoint and panicked. Measured 100pt, it needs
+/// 120pt; 110pt is left.
+#[test]
+fn test_table_row_short_by_its_margins_does_not_panic() {
+    let pages = table_with_margined_entries(110.0);
+    let all: Vec<String> = pages
+        .iter()
+        .flat_map(|p| text_lines(&p.elements))
+        .map(|(t, _, _)| t)
+        .collect();
+    for i in 0..3 {
+        assert_eq!(
+            all.iter().filter(|t| **t == format!("Heading {i}")).count(),
+            1
+        );
+    }
+}
