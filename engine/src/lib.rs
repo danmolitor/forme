@@ -155,12 +155,13 @@ fn layout_with_sentinel_passes(
     u32,
     Vec<String>,
 ) {
-    layout_with_sentinel_passes_audited(document, false)
+    layout_with_sentinel_passes_audited(document, false, Vec::new())
 }
 
 fn layout_with_sentinel_passes_audited(
     document: &Document,
     audit: bool,
+    fonts: Vec<FontBytes>,
 ) -> (
     Vec<crate::layout::LayoutPage>,
     FontContext,
@@ -169,6 +170,11 @@ fn layout_with_sentinel_passes_audited(
 ) {
     let mut font_context = FontContext::new();
     register_document_fonts(&mut font_context, &document.fonts);
+    for font in fonts {
+        font_context
+            .registry_mut()
+            .register(&font.family, font.weight, font.italic, font.data);
+    }
     let engine = LayoutEngine::new();
     font_context.reset_page_sentinel();
     let mut pages = engine.layout(document, &font_context);
@@ -313,6 +319,35 @@ pub fn render_with_options(
     document: &Document,
     options: RenderOptions,
 ) -> Result<(Vec<u8>, Vec<String>, u32), FormeError> {
+    render_with_options_and_fonts(document, options, Vec::new())
+}
+
+/// A font handed to the engine as bytes, registered after `Document::fonts`.
+///
+/// `Document::fonts` carries each font as a base64 string, so a caller that
+/// already holds the bytes (the HTML wrapper decodes them from its options)
+/// had to encode them again for the engine to decode, keeping both copies
+/// for the whole render: about 1.7 MiB of WASM memory per registered face,
+/// enough to push a Cloudflare Worker over its limit (#197). Bytes passed
+/// here are moved into the font registry without a copy.
+#[derive(Debug, Clone)]
+pub struct FontBytes {
+    /// Family name, as text references it in `fontFamily`.
+    pub family: String,
+    /// CSS weight (400 regular, 700 bold).
+    pub weight: u32,
+    pub italic: bool,
+    /// The TrueType program.
+    pub data: Vec<u8>,
+}
+
+/// [`render_with_options`], with fonts given as bytes instead of base64 in
+/// `document.fonts` (see [`FontBytes`]).
+pub fn render_with_options_and_fonts(
+    document: &Document,
+    options: RenderOptions,
+    fonts: Vec<FontBytes>,
+) -> Result<(Vec<u8>, Vec<String>, u32), FormeError> {
     validate_pdf_version(document)?;
     validate_pdf_ua2(document)?;
     // Coarse phase profiling behind FORME_PROFILE (native only in practice —
@@ -325,7 +360,7 @@ pub fn render_with_options(
         None
     };
     let (pages, font_context, passes, layout_warnings) =
-        layout_with_sentinel_passes_audited(document, options.audit_content);
+        layout_with_sentinel_passes_audited(document, options.audit_content, fonts);
     let layout_ms = t_layout.map(|t| t.elapsed().as_secs_f64() * 1000.0);
 
     let writer = PdfWriter::new();
@@ -404,10 +439,20 @@ pub fn render_with_layout_and_options(
     document: &Document,
     options: RenderOptions,
 ) -> Result<(Vec<u8>, LayoutInfo, Vec<String>, u32), FormeError> {
+    render_with_layout_and_options_and_fonts(document, options, Vec::new())
+}
+
+/// [`render_with_layout_and_options`], with fonts given as bytes (see
+/// [`FontBytes`]).
+pub fn render_with_layout_and_options_and_fonts(
+    document: &Document,
+    options: RenderOptions,
+    fonts: Vec<FontBytes>,
+) -> Result<(Vec<u8>, LayoutInfo, Vec<String>, u32), FormeError> {
     validate_pdf_version(document)?;
     validate_pdf_ua2(document)?;
     let (pages, font_context, passes, layout_warnings) =
-        layout_with_sentinel_passes_audited(document, options.audit_content);
+        layout_with_sentinel_passes_audited(document, options.audit_content, fonts);
     let layout_info = LayoutInfo::from_pages(&pages);
     let writer = PdfWriter::new();
     let tagged = document.tagged

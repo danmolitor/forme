@@ -97,11 +97,16 @@ fn provided_font_registers_and_silences_nothing_it_shouldnt() {
     };
     let out = render_html(FIXTURE, &options).expect("render with provided font");
     assert!(out.pdf.starts_with(b"%PDF-"));
-    // The font reached the engine document...
+    // The font reached the engine: it is embedded and drawn. It travels as
+    // bytes, not as base64 in the document's fonts (#197).
+    let raw = String::from_utf8_lossy(&out.pdf);
+    assert!(raw.contains("/FontFile2"), "the provided font is embedded");
+    assert!(
+        raw.contains("/BaseFont /Brand"),
+        "and used for the Brand Sans text"
+    );
     let (doc, warnings) = html_to_document(FIXTURE, &options);
-    assert_eq!(doc.fonts.len(), 1);
-    assert_eq!(doc.fonts[0].family, "Brand Sans");
-    assert_eq!(doc.fonts[0].weight, 400);
+    assert!(doc.fonts.is_empty());
     // ...and the skipped-@font-face warnings still fire (the @font-face
     // WAS skipped; the provided font is what fixed it — the warning is
     // how the user found the recipe).

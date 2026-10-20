@@ -817,15 +817,9 @@ pub fn html_to_document(html: &str, options: &HtmlOptions) -> (forme::Document, 
                 .to_string(),
         );
     }
-    for font in &options.fonts {
-        use base64::Engine as _;
-        doc.fonts.push(forme::model::FontEntry {
-            family: font.family.clone(),
-            src: base64::engine::general_purpose::STANDARD.encode(&font.data),
-            weight: font.weight,
-            italic: font.italic,
-        });
-    }
+    // `options.fonts` reach the engine as bytes (`font_bytes`), not as
+    // base64 in `doc.fonts`: encoding them again for the engine to decode
+    // kept both copies for the whole render, ~1.7 MiB per face (#197).
     // Bands go first so the engine registers them before any content lands
     // on page one. They are siblings of <body>, not its children: CSS gives a
     // margin box the PAGE context as its parent, which inherits from the root
@@ -974,12 +968,33 @@ fn dedup_warnings(warnings: Vec<String>) -> Vec<String> {
 }
 
 pub fn render_html(html: &str, options: &HtmlOptions) -> Result<HtmlOutput, FormeError> {
-    let (doc, mut warnings) = html_to_document(html, options);
-    let (pdf, engine_warnings, passes) = forme::render_with_options(
+    render_html_owned(html, options.clone())
+}
+
+/// The registered fonts as engine `FontBytes`, moved out of `options`.
+fn font_bytes(options: &mut HtmlOptions) -> Vec<forme::FontBytes> {
+    std::mem::take(&mut options.fonts)
+        .into_iter()
+        .map(|f| forme::FontBytes {
+            family: f.family,
+            weight: f.weight,
+            italic: f.italic,
+            data: f.data,
+        })
+        .collect()
+}
+
+/// [`render_html`] taking ownership of `options`, so the font bytes move
+/// into the engine's registry instead of being copied.
+pub fn render_html_owned(html: &str, mut options: HtmlOptions) -> Result<HtmlOutput, FormeError> {
+    let fonts = font_bytes(&mut options);
+    let (doc, mut warnings) = html_to_document(html, &options);
+    let (pdf, engine_warnings, passes) = forme::render_with_options_and_fonts(
         &doc,
         forme::RenderOptions {
             audit_content: options.audit_content,
         },
+        fonts,
     )?;
     warnings.extend(engine_warnings);
     let warnings = dedup_warnings(warnings);
@@ -995,12 +1010,23 @@ pub fn render_html_with_layout(
     html: &str,
     options: &HtmlOptions,
 ) -> Result<HtmlLayoutOutput, FormeError> {
-    let (doc, mut warnings) = html_to_document(html, options);
-    let (pdf, layout, engine_warnings, passes) = forme::render_with_layout_and_options(
+    render_html_with_layout_owned(html, options.clone())
+}
+
+/// [`render_html_with_layout`] taking ownership of `options` (see
+/// [`render_html_owned`]).
+pub fn render_html_with_layout_owned(
+    html: &str,
+    mut options: HtmlOptions,
+) -> Result<HtmlLayoutOutput, FormeError> {
+    let fonts = font_bytes(&mut options);
+    let (doc, mut warnings) = html_to_document(html, &options);
+    let (pdf, layout, engine_warnings, passes) = forme::render_with_layout_and_options_and_fonts(
         &doc,
         forme::RenderOptions {
             audit_content: options.audit_content,
         },
+        fonts,
     )?;
     warnings.extend(engine_warnings);
     let warnings = dedup_warnings(warnings);
