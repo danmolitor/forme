@@ -104,6 +104,17 @@ pub struct Document {
     #[serde(default)]
     pub pdf_ua2: bool,
 
+    /// Embed the metric-compatible substitutes for the base-14 fonts
+    /// (Liberation, via `@formepdf/fonts-standard`) without making any
+    /// conformance claim: no tagging, no PDF/UA or PDF/A identification in
+    /// the XMP. PDF/UA, PDF/A and PDF 2.0 already embed them; this is for an
+    /// ordinary document that should look the same in every viewer, which
+    /// non-embedded Helvetica does not (poppler draws its bold as regular).
+    /// The substitutes are subset and keep the base-14 AFM widths, so layout
+    /// is unchanged. Needs the substitutes registered; warns if they are not.
+    #[serde(default)]
+    pub embed_standard_fonts: bool,
+
     /// Optional JSON string to embed as an attached file in the PDF.
     /// Enables round-tripping structured data through PDF files.
     /// Forbidden under PDF/A-1/-2 (which allow only PDF/A attachments);

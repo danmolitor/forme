@@ -361,6 +361,15 @@ export interface FormeDocument {
    * for a file that is archival AND accessible.
    */
   pdfUa2?: boolean;
+  /**
+   * Embed the base-14 fonts (Helvetica, Times, Courier) as their
+   * metric-compatible substitutes from @formepdf/fonts-standard, with NO
+   * conformance claim: no PDF/UA or PDF/A identification. pdfUa, pdfa and
+   * pdfVersion "2.0" already embed them; this is for an ordinary document
+   * that should look the same in every viewer. Subset to the characters
+   * used; layout is unchanged. Warns if the substitutes are not registered.
+   */
+  embedStandardFonts?: boolean;
   flattenForms?: boolean;
   certification?: CertificationConfig;
 }
@@ -377,7 +386,7 @@ export interface FormeDocument {
  */
 export type FormeDocumentClaimProps = Pick<
   FormeDocument,
-  'tagged' | 'pdfa' | 'pdfVersion' | 'pdfUa' | 'pdfUa2'
+  'tagged' | 'pdfa' | 'pdfVersion' | 'pdfUa' | 'pdfUa2' | 'embedStandardFonts'
 >;
 
 export interface FormeMetadata {

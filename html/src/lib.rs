@@ -106,6 +106,11 @@ pub struct HtmlOptions {
     /// (`@formepdf/fonts-standard`) — the base-14 families are not embeddable.
     /// Composes with `pdf_ua`: a file can be both PDF/A and PDF/UA-1.
     pub pdf_a: Option<String>,
+    /// Embed the metric-compatible substitutes for Helvetica, Times and
+    /// Courier (register `@formepdf/fonts-standard` via `fonts`) with no
+    /// conformance claim, so the PDF looks the same in every viewer. PDF/UA
+    /// and PDF/A already embed them. Subset, and layout is unchanged.
+    pub embed_standard_fonts: bool,
     /// Opt-in post-render content audit: after layout, verify the pages
     /// against the input and report dropped, fully off-page, invisible
     /// (colour == background), or clipped-to-nothing content through the
@@ -841,6 +846,7 @@ pub fn html_to_document(html: &str, options: &HtmlOptions) -> (forme::Document, 
     doc.tagged = options.tagged || options.pdf_ua || options.pdf_ua2;
     doc.pdf_ua = options.pdf_ua;
     doc.pdf_ua2 = options.pdf_ua2;
+    doc.embed_standard_fonts = options.embed_standard_fonts;
 
     // Language precedence, applied to every render: an explicit option beats
     // the document's own <html lang> (set by the mapper), which beats nothing.

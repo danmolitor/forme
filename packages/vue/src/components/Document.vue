@@ -6,7 +6,7 @@ import type { FormeDocumentClaimProps } from '@formepdf/shared';
 // stay undefined and are omitted, matching the React/Svelte serializers).
 // `style` is declared here so Vue never treats it as the DOM style attribute.
 defineOptions({ inheritAttrs: false });
-const props = defineProps(['title', 'author', 'subject', 'creator', 'lang', 'style', 'tagged', 'pdfa', 'pdfVersion', 'pdfUa', 'pdfUa2', 'certification', 'signature', 'fonts']);
+const props = defineProps(['title', 'author', 'subject', 'creator', 'lang', 'style', 'tagged', 'pdfa', 'pdfVersion', 'pdfUa', 'pdfUa2', 'embedStandardFonts', 'certification', 'signature', 'fonts']);
 
 // Compile-time claim parity (vue-tsc, at build): every conformance claim
 // the serializer accepts (FormeDocumentClaimProps) must appear in the

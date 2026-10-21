@@ -46,6 +46,16 @@ export interface RenderHtmlOptions {
    */
   pdfA?: '2b' | '2u' | '2a' | '3b' | '3u' | '3a' | '4';
   /**
+   * Embed Helvetica, Times and Courier as their metric-compatible
+   * substitutes (register `@formepdf/fonts-standard` via `fonts`) without
+   * claiming PDF/UA or PDF/A, so the PDF looks the same in every viewer:
+   * non-embedded Helvetica bold draws as regular in poppler-based viewers.
+   * The substitutes are subset to the characters used, and layout is
+   * unchanged. `pdfUa` and `pdfA` already embed them. Without the
+   * substitutes registered, nothing is embedded and `warnings` says so.
+   */
+  embedStandardFonts?: boolean;
+  /**
    * Opt-in post-render content audit: after layout, the engine verifies the
    * pages against the input and reports dropped, fully off-page, invisible
    * (colour == background), or clipped-to-nothing content as

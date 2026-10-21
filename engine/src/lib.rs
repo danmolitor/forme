@@ -389,6 +389,7 @@ pub fn render_with_options_and_fonts(
         document.flatten_forms,
         effective_pdf_version(document),
         document.pdf_ua2,
+        document.embed_standard_fonts,
     )?;
     let warnings = {
         let mut all = layout_warnings;
@@ -475,6 +476,7 @@ pub fn render_with_layout_and_options_and_fonts(
         document.flatten_forms,
         effective_pdf_version(document),
         document.pdf_ua2,
+        document.embed_standard_fonts,
     )?;
     let pdf = if let Some(ref sig_config) = document.certification {
         pdf::certify::certify_pdf(&pdf, sig_config)?

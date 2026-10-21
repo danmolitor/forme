@@ -454,6 +454,7 @@ mod tests {
             certification: None,
             pdf_version: Default::default(),
             pdf_ua2: false,
+            embed_standard_fonts: false,
         }
     }
 

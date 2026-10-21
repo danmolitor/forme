@@ -109,3 +109,14 @@ def test_fonts_accept_bytes_and_base64_identically():
 def test_default_is_not_pdfa():
     # Sanity: the plain render must NOT carry PDF/A conformance.
     assert b"pdfaid" not in render_html(HTML)
+
+
+def test_embed_standard_fonts_embeds_without_a_claim():
+    plain = "<html><body><p>Total due: 1,250.00</p></body></html>"
+    fonts = [{"family": "Liberation Sans", "data": FONT.read_bytes(), "weight": 400}]
+    default = render_html(plain, fonts=fonts)
+    embedded = render_html(plain, fonts=fonts, embed_standard_fonts=True)
+    _pdf_ok(embedded)
+    assert b"/FontFile2" not in default, "off by default"
+    assert b"/FontFile2" in embedded, "Helvetica embedded as its substitute"
+    assert b"pdfuaid" not in embedded and b"pdfaid" not in embedded, "no conformance claim"
