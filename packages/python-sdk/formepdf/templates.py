@@ -1354,6 +1354,7 @@ class Document(_Component):
         tagged: bool = False,
         pdfa: Optional[str] = None,
         pdf_ua: bool = False,
+        embed_standard_fonts: bool = False,
         certification: Optional[Dict[str, Any]] = None,
         signature: Optional[Dict[str, Any]] = None,
     ):
@@ -1367,6 +1368,7 @@ class Document(_Component):
         self.tagged = tagged
         self.pdfa = pdfa
         self.pdf_ua = pdf_ua
+        self.embed_standard_fonts = embed_standard_fonts
         if signature is not None and certification is None:
             import warnings
             warnings.warn("signature= is deprecated, use certification=", DeprecationWarning, stacklevel=2)
@@ -1404,6 +1406,9 @@ class Document(_Component):
 
         if self.pdf_ua:
             doc["pdfUa"] = True
+
+        if self.embed_standard_fonts:
+            doc["embedStandardFonts"] = True
 
         if self.certification:
             doc["certification"] = self.certification

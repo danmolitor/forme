@@ -288,6 +288,7 @@ impl PdfWriter {
         flatten_forms: bool,
         pdf_version: crate::model::PdfVersion,
         pdf_ua2: bool,
+        embed_standard_fonts: bool,
     ) -> Result<(Vec<u8>, Vec<String>), FormeError> {
         // ── Attachment / e-invoice validation (before any emission) ──
         //
@@ -418,6 +419,7 @@ impl PdfWriter {
             pdf_ua,
             pdfa.is_some(),
             pdf_version,
+            embed_standard_fonts,
         )?;
 
         // PDF/A: validate that all fonts are embedded. A font counts as
@@ -3250,6 +3252,7 @@ impl PdfWriter {
         pdf_ua: bool,
         pdfa: bool,
         pdf_version: crate::model::PdfVersion,
+        embed_standard_fonts: bool,
     ) -> Result<(), FormeError> {
         // Collect font usage: glyph IDs, chars, and glyph→char mapping per font
         let mut font_usage_map: HashMap<FontKey, FontUsage> = HashMap::new();
@@ -3305,7 +3308,14 @@ impl PdfWriter {
                     // gating on pdfUa made pdfa-without-pdfUa error even
                     // with fonts-standard registered — the substitute was
                     // registered and never consulted.
-                    if pdf_ua || pdfa || pdf_version == crate::model::PdfVersion::V2_0 {
+                    // `embed_standard_fonts` asks for the same substitution
+                    // with no conformance claim (#197): an ordinary document
+                    // that should draw the same in every viewer.
+                    if pdf_ua
+                        || pdfa
+                        || pdf_version == crate::model::PdfVersion::V2_0
+                        || embed_standard_fonts
+                    {
                         let regular_helvetica =
                             key.family == "Helvetica" && key.weight == 400 && !key.italic;
                         let subset_chars = if regular_helvetica && helvetica_outside_text {
@@ -3348,15 +3358,27 @@ impl PdfWriter {
                         // non-conforming file. (Symbol/ZapfDingbats have no
                         // substitute, so there is nothing to suggest.)
                         if let Some(lib) = std_font.liberation_family() {
-                            builder.warnings.push(format!(
-                                "pdfUa: font '{}' is not embedded, so the PDF will not conform to \
-                                 PDF/UA (all fonts must be embedded). Install \
-                                 @formepdf/fonts-standard and register its fonts \
-                                 (`for (const f of standardFonts()) Font.register(f)`) — Forme \
-                                 will then embed the metric-compatible {} in its place.",
-                                std_font.pdf_name(),
-                                lib,
-                            ));
+                            if pdf_ua || pdfa {
+                                builder.warnings.push(format!(
+                                    "pdfUa: font '{}' is not embedded, so the PDF will not conform to \
+                                     PDF/UA (all fonts must be embedded). Install \
+                                     @formepdf/fonts-standard and register its fonts \
+                                     (`for (const f of standardFonts()) Font.register(f)`) — Forme \
+                                     will then embed the metric-compatible {} in its place.",
+                                    std_font.pdf_name(),
+                                    lib,
+                                ));
+                            } else {
+                                builder.warnings.push(format!(
+                                    "embedStandardFonts: font '{}' is not embedded because its \
+                                     substitute is not registered. Install \
+                                     @formepdf/fonts-standard and register its fonts \
+                                     (`for (const f of standardFonts()) Font.register(f)`), and \
+                                     Forme will embed the metric-compatible {} in its place.",
+                                    std_font.pdf_name(),
+                                    lib,
+                                ));
+                            }
                         }
                     }
 
@@ -5663,6 +5685,7 @@ mod tests {
                 false,
                 crate::model::PdfVersion::V1_7,
                 false,
+                false,
             )
             .unwrap();
 
@@ -5706,6 +5729,7 @@ mod tests {
                 None,
                 false,
                 crate::model::PdfVersion::V1_7,
+                false,
                 false,
             )
             .unwrap();
@@ -5845,6 +5869,7 @@ mod tests {
                 None,
                 false,
                 crate::model::PdfVersion::V1_7,
+                false,
                 false,
             )
             .unwrap();
@@ -6111,6 +6136,7 @@ mod tests {
                 None,
                 false,
                 crate::model::PdfVersion::V1_7,
+                false,
                 false,
             )
             .unwrap();

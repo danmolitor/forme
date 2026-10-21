@@ -271,6 +271,7 @@ fn visual_invoice() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
 
     let pdf = forme::render(&doc).unwrap();
@@ -316,6 +317,7 @@ fn visual_multi_page_text() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
 
     let pdf = forme::render(&doc).unwrap();
@@ -457,6 +459,7 @@ fn visual_table_header_repetition() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
 
     let pdf = forme::render(&doc).unwrap();
@@ -519,6 +522,7 @@ fn visual_flex_layout() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
 
     let pdf = forme::render(&doc).unwrap();
@@ -581,6 +585,7 @@ fn visual_justified_text() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
 
     let pdf = forme::render(&doc).unwrap();
@@ -667,6 +672,7 @@ fn visual_line_breaking_greedy_vs_optimal() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
 
     let pdf = forme::render(&doc).unwrap();
@@ -749,6 +755,7 @@ fn visual_text_alignment() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
         attachments: vec![],
         first_page: None,
         left_page: None,
@@ -793,6 +800,7 @@ fn visual_tagged_no_visual_change() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
 
     let doc_tagged = Document {
@@ -819,6 +827,7 @@ fn visual_tagged_no_visual_change() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
 
     let pdf_untagged = forme::render(&doc_untagged).unwrap();
@@ -981,6 +990,7 @@ fn visual_flattened_forms() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
 
     let pdf = forme::render(&doc).unwrap();

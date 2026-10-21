@@ -26,6 +26,10 @@ for (const font of standardFonts()) Font.register(font);
 
 If `pdfUa` is set and a standard font is used but this package is **not** registered, Forme emits the document but warns by name with the remedy (install and register `@formepdf/fonts-standard`) — never silently.
 
+The embedded programs are subset to the characters the document uses.
+
+To embed them in an ordinary document, with no PDF/UA or PDF/A claim, set `embedStandardFonts` (on `<Document>`, or in `@formepdf/html`'s options). The document then looks the same in every viewer, and layout does not change.
+
 ## Exports
 
 - `standardFonts(): FontSpec[]` — the 12 Liberation fonts (Sans/Serif/Mono × Regular/Bold/Italic/BoldItalic) as registrations with `Uint8Array` buffers. No file IO — works in Node, WASM, and the browser.

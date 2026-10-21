@@ -27,6 +27,8 @@ pub(crate) struct WasmOptions<'a> {
     #[serde(default, rename = "pdfA")]
     pdf_a: Option<String>,
     #[serde(default)]
+    embed_standard_fonts: bool,
+    #[serde(default)]
     audit_content: bool,
 }
 
@@ -61,6 +63,7 @@ pub(crate) fn parse_options(options_json: &str) -> Result<HtmlOptions, String> {
         pdf_ua2: raw.pdf_ua2,
         lang: raw.lang,
         pdf_a: raw.pdf_a,
+        embed_standard_fonts: raw.embed_standard_fonts,
         audit_content: raw.audit_content,
         ..Default::default()
     };
@@ -88,4 +91,19 @@ pub(crate) fn parse_options(options_json: &str) -> Result<HtmlOptions, String> {
         });
     }
     Ok(options)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_options;
+
+    #[test]
+    fn embed_standard_fonts_reaches_the_options() {
+        assert!(
+            parse_options(r#"{"embedStandardFonts": true}"#)
+                .unwrap()
+                .embed_standard_fonts
+        );
+        assert!(!parse_options("{}").unwrap().embed_standard_fonts);
+    }
 }

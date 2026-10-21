@@ -62,7 +62,10 @@ pdf = doc.render()
 ```
 
 `Document` options: `title`, `author`, `subject`, `lang`, `tagged`, `pdf_ua`, `pdfa`,
-`flatten_forms`.
+`embed_standard_fonts`, `flatten_forms`. `embed_standard_fonts=True` embeds
+Helvetica, Times and Courier as their metric-compatible substitutes (register the
+fonts-standard TTFs via `fonts`) with no PDF/UA or PDF/A claim; `render_html`
+takes the same option.
 
 ## Components
 

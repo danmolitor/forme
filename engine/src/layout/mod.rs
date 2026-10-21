@@ -9411,6 +9411,7 @@ mod tests {
             certification: None,
             pdf_version: Default::default(),
             pdf_ua2: false,
+            embed_standard_fonts: false,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -9477,6 +9478,7 @@ mod tests {
             certification: None,
             pdf_version: Default::default(),
             pdf_ua2: false,
+            embed_standard_fonts: false,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -9544,6 +9546,7 @@ mod tests {
             certification: None,
             pdf_version: Default::default(),
             pdf_ua2: false,
+            embed_standard_fonts: false,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -9624,6 +9627,7 @@ mod tests {
             certification: None,
             pdf_version: Default::default(),
             pdf_ua2: false,
+            embed_standard_fonts: false,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -9717,6 +9721,7 @@ mod tests {
             certification: None,
             pdf_version: Default::default(),
             pdf_ua2: false,
+            embed_standard_fonts: false,
         };
         let pages = engine.layout(&doc, &font_context);
         let page = &pages[0];
@@ -9869,6 +9874,7 @@ mod tests {
             certification: None,
             pdf_version: Default::default(),
             pdf_ua2: false,
+            embed_standard_fonts: false,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -9946,6 +9952,7 @@ mod tests {
             certification: None,
             pdf_version: Default::default(),
             pdf_ua2: false,
+            embed_standard_fonts: false,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -10035,6 +10042,7 @@ mod tests {
             certification: None,
             pdf_version: Default::default(),
             pdf_ua2: false,
+            embed_standard_fonts: false,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -10102,6 +10110,7 @@ mod tests {
             certification: None,
             pdf_version: Default::default(),
             pdf_ua2: false,
+            embed_standard_fonts: false,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -10180,6 +10189,7 @@ mod tests {
             certification: None,
             pdf_version: Default::default(),
             pdf_ua2: false,
+            embed_standard_fonts: false,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -10269,6 +10279,7 @@ mod tests {
             certification: None,
             pdf_version: Default::default(),
             pdf_ua2: false,
+            embed_standard_fonts: false,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -10357,6 +10368,7 @@ mod tests {
             certification: None,
             pdf_version: Default::default(),
             pdf_ua2: false,
+            embed_standard_fonts: false,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -10439,6 +10451,7 @@ mod tests {
             certification: None,
             pdf_version: Default::default(),
             pdf_ua2: false,
+            embed_standard_fonts: false,
         };
 
         let pages = engine.layout(&doc, &font_context);
@@ -10513,6 +10526,7 @@ mod tests {
             certification: None,
             pdf_version: Default::default(),
             pdf_ua2: false,
+            embed_standard_fonts: false,
         };
 
         let pages = engine.layout(&doc, &font_context);

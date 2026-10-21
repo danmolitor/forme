@@ -22,6 +22,7 @@ const BOOLEAN_PROPS = new Set([
   'tagged',
   'pdfUa',
   'pdfUa2',
+  'embedStandardFonts',
   'multiline',
   'password',
   'readOnly',

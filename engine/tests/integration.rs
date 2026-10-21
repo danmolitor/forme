@@ -127,6 +127,7 @@ fn default_doc(children: Vec<Node>) -> Document {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     }
 }
 
@@ -599,6 +600,7 @@ fn test_metadata_in_output() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
     let bytes = render_to_pdf(&doc);
     assert_valid_pdf(&bytes);
@@ -747,6 +749,7 @@ fn render_with_custom_font(font_data: &[u8], text: &str) -> Vec<u8> {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
 
     let engine = LayoutEngine::new();
@@ -765,6 +768,7 @@ fn render_with_custom_font(font_data: &[u8], text: &str) -> Vec<u8> {
             doc.zugferd.as_ref(),
             doc.flatten_forms,
             forme::model::PdfVersion::V1_7,
+            false,
             false,
         )
         .unwrap()
@@ -913,6 +917,7 @@ fn test_mixed_standard_and_custom_fonts() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
 
     let engine = LayoutEngine::new();
@@ -931,6 +936,7 @@ fn test_mixed_standard_and_custom_fonts() {
             None,
             false,
             forme::model::PdfVersion::V1_7,
+            false,
             false,
         )
         .unwrap();
@@ -3558,6 +3564,7 @@ fn test_breakable_view_with_background_splits_across_pages() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
 
     let pages = layout_doc(&doc);
@@ -3649,6 +3656,7 @@ fn test_breakable_view_background_does_not_overlap_footer() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
 
     let pages = layout_doc(&doc);
@@ -3728,6 +3736,7 @@ fn test_breakable_view_without_visual_stays_unwrapped() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
 
     let pages = layout_doc(&doc);
@@ -4067,6 +4076,7 @@ fn test_breakable_view_continuation_page_has_top_padding() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
 
     let pages = layout_doc(&doc);
@@ -4427,6 +4437,7 @@ fn test_document_lang_in_pdf_catalog() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
     let bytes = render_to_pdf(&doc);
     assert_valid_pdf(&bytes);
@@ -4677,6 +4688,7 @@ fn test_justified_text_produces_valid_pdf() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
 
     let bytes = forme::render(&doc).expect("Should render justified text");
@@ -4743,6 +4755,7 @@ fn test_lang_inherits_to_text_nodes() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
 
     // Just verify it renders without error — lang cascading is tested at the unit level
@@ -4824,6 +4837,7 @@ fn test_per_node_lang_override() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
 
     let bytes = forme::render(&doc).expect("Should render with per-node lang override");
@@ -4858,6 +4872,7 @@ fn test_tagged_pdf_has_struct_tree_root() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
 
     let bytes = forme::render(&doc).unwrap();
@@ -4928,6 +4943,7 @@ fn test_tagged_pdf_parent_tree_consistency() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
 
     let bytes = forme::render(&doc).unwrap();
@@ -5010,6 +5026,7 @@ fn test_tagged_pdf_nested_text_roles() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
 
     let bytes = forme::render(&doc).unwrap();
@@ -5114,6 +5131,7 @@ fn test_tagged_pdf_table_th_td() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
 
     let bytes = forme::render(&doc).unwrap();
@@ -5175,6 +5193,7 @@ fn test_tagged_pdf_figure_alt_text() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
 
     let bytes = forme::render(&doc).unwrap();
@@ -5451,6 +5470,7 @@ fn test_qrcode_renders_to_pdf() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
 
     let pdf = forme::render(&doc).expect("QR code should render to PDF");
@@ -5492,6 +5512,7 @@ fn test_qrcode_with_explicit_size() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
 
     let (pdf, layout, _) = forme::render_with_layout(&doc).expect("Should render");
@@ -5545,6 +5566,7 @@ fn test_qrcode_page_break() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
 
     let (pdf, layout, _) = forme::render_with_layout(&doc).expect("Should render");
@@ -5610,6 +5632,7 @@ fn test_font_fallback_chain_in_document() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
 
     let pdf = forme::render(&doc).expect("Fallback chain should render");
@@ -5697,6 +5720,7 @@ fn test_text_overflow_ellipsis_single_line() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
 
     let (_pdf, layout, _) = forme::render_with_layout(&doc).expect("Should render");
@@ -6078,6 +6102,7 @@ fn test_document_default_style() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
     let pdf = render_to_pdf(&doc);
     let pdf_str = String::from_utf8_lossy(&pdf);
@@ -6116,6 +6141,7 @@ fn test_embedded_data_round_trip() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
     let pdf = render_to_pdf(&doc);
     assert_valid_pdf(&pdf);
@@ -6211,6 +6237,7 @@ fn test_barcode_renders_to_pdf() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
 
     let pdf = forme::render(&doc).expect("Barcode should render to PDF");
@@ -6286,6 +6313,7 @@ fn test_barcode_layout_dimensions() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
 
     let (pdf, layout, _) = forme::render_with_layout(&doc).expect("Should render");
@@ -6346,6 +6374,7 @@ fn auto_margin_horizontal_centers_child() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
 
     let (_pdf, layout, _) = forme::render_with_layout(&doc).expect("Should render");
@@ -6410,6 +6439,7 @@ fn auto_margin_left_pushes_right() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
 
     let (_pdf, layout, _) = forme::render_with_layout(&doc).expect("Should render");
@@ -6738,6 +6768,7 @@ fn test_bar_chart_layout_dimensions() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
 
     let (pdf, layout, _) = forme::render_with_layout(&doc).expect("Should render");
@@ -7494,6 +7525,7 @@ fn test_pdf_ua_has_viewer_preferences() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
     let bytes = render_to_pdf(&doc);
     assert_valid_pdf(&bytes);
@@ -7533,6 +7565,7 @@ fn test_pdf_ua_has_xmp_pdfuaid() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
     let bytes = render_to_pdf(&doc);
     assert_valid_pdf(&bytes);
@@ -7565,6 +7598,7 @@ fn test_pdf_ua_forces_tagging() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
     let bytes = render_to_pdf(&doc);
     assert_valid_pdf(&bytes);
@@ -7608,6 +7642,7 @@ fn test_pdf_ua_and_pdfa_combined_xmp() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
     let bytes = render_to_pdf(&doc);
     assert_valid_pdf(&bytes);
@@ -7653,6 +7688,7 @@ fn test_tagged_pdf_has_tab_order() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
     let bytes = render_to_pdf(&doc);
     assert_valid_pdf(&bytes);
@@ -7685,6 +7721,7 @@ fn test_untagged_pdf_no_tab_order() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
     let bytes = render_to_pdf(&doc);
     assert_valid_pdf(&bytes);
@@ -7717,6 +7754,7 @@ fn test_tagged_role_map_omits_standard_self_mappings() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
     let bytes = render_to_pdf(&doc);
     assert_valid_pdf(&bytes);
@@ -7768,6 +7806,7 @@ fn test_tagged_struct_tree_has_lang() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
     let bytes = render_to_pdf(&doc);
     assert_valid_pdf(&bytes);
@@ -8170,6 +8209,7 @@ fn test_certify_at_render_time() {
         }),
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
 
     let pdf = forme::render(&doc).unwrap();
@@ -8619,6 +8659,7 @@ fn test_page_placeholder_survives_line_breaking() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
 
     let (pdf, _layout, _) = forme::render_with_layout(&doc).unwrap();
@@ -8711,6 +8752,7 @@ fn test_two_pass_multi_page_common_case() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
     let (pdf, layout, _) = forme::render_with_layout(&doc).unwrap();
     assert!(layout.pages.len() >= 2, "Should be multi-page");
@@ -8770,6 +8812,7 @@ fn test_render_performance() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
 
     let start = Instant::now();
@@ -8862,6 +8905,7 @@ fn test_multi_weight_font_resolution() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
 
     let pdf = forme::render(&doc).unwrap();
@@ -8915,6 +8959,7 @@ fn test_svg_opacity_produces_ext_gstate() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
 
     let pdf = forme::render(&doc).unwrap();
@@ -8970,6 +9015,7 @@ fn test_svg_fill_opacity_produces_ext_gstate() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
 
     let pdf = forme::render(&doc).unwrap();
@@ -9019,6 +9065,7 @@ fn test_svg_inherited_group_opacity() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
 
     let pdf = forme::render(&doc).unwrap();
@@ -9344,6 +9391,7 @@ fn test_page_background_opacity_creates_extgstate() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
     let pdf_bytes = render_to_pdf(&doc);
     let pdf_str = String::from_utf8_lossy(&pdf_bytes);
@@ -10976,6 +11024,7 @@ fn test_heading_emits_h1_through_h6_structure_roles_in_tagged_pdf() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
     let bytes = forme::render(&doc).unwrap();
     let pdf_str = String::from_utf8_lossy(&bytes);
@@ -11020,6 +11069,7 @@ fn test_heading_renders_text_content() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
     let bytes = forme::render(&doc).unwrap();
     let stream = decompress_pdf_streams(&bytes);
@@ -11217,6 +11267,7 @@ fn test_list_emits_l_li_lbl_in_tagged_pdf() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
     let bytes = forme::render(&doc).unwrap();
     let pdf_str = String::from_utf8_lossy(&bytes);
@@ -11654,6 +11705,7 @@ fn siblings_after_overflowing_flex_row_still_render() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
 
     let (_pdf, layout, _) = forme::render_with_layout(&doc).expect("Should render");
@@ -11925,6 +11977,7 @@ fn first_page_config_gives_page_one_its_own_margins() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
     let (_pdf, layout, _) = forme::render_with_layout(&doc).expect("Should render");
     assert!(layout.pages.len() >= 2, "content must flow to page 2");
@@ -11957,6 +12010,7 @@ fn not_first_header_skips_page_one() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
     let (_pdf, layout, _) = forme::render_with_layout(&doc).expect("Should render");
     assert!(layout.pages.len() >= 2);
@@ -12060,6 +12114,7 @@ fn first_page_restores_margin_when_its_band_is_suppressed() {
         certification: None,
         pdf_version: Default::default(),
         pdf_ua2: false,
+        embed_standard_fonts: false,
     };
     let (_pdf, layout, _) = forme::render_with_layout(&doc).expect("Should render");
     assert!(layout.pages.len() >= 2);
@@ -17042,5 +17097,102 @@ fn test_fragmented_row_continues_below_its_deepest_column() {
         next.1 >= deepest_entry - 0.01,
         "NEXT starts at {:.1} but the long column ends at {deepest_entry:.1}: they overlap",
         next.1
+    );
+}
+
+// ─── #197: embed the standard fonts without a conformance claim ──────
+
+/// A plain document in Helvetica, regular and bold. `embed` sets
+/// `embedStandardFonts`; `substitutes` registers the Liberation Sans faces.
+fn standard_font_doc(embed: bool, substitutes: bool) -> String {
+    use base64::Engine as _;
+    let face = |file: &str, weight: u32| {
+        let data = base64::engine::general_purpose::STANDARD
+            .encode(std::fs::read(format!("../packages/fonts-standard/fonts/{file}")).unwrap());
+        serde_json::json!({ "family": "Liberation Sans", "src": data, "weight": weight, "italic": false })
+    };
+    let fonts = if substitutes {
+        vec![
+            face("LiberationSans-Regular.ttf", 400),
+            face("LiberationSans-Bold.ttf", 700),
+        ]
+    } else {
+        vec![]
+    };
+    serde_json::json!({
+        "children": [
+            { "kind": { "type": "Text", "content": "Invoice INV-0042" }, "style": { "fontWeight": 700 }, "children": [] },
+            { "kind": { "type": "Text", "content": "Total due: $1,250.00" }, "style": {}, "children": [] }
+        ],
+        "metadata": { "title": "Plain" },
+        "fonts": fonts,
+        "embedStandardFonts": embed
+    })
+    .to_string()
+}
+
+/// With the flag and the substitutes registered, Helvetica and
+/// Helvetica-Bold are embedded and subset, and nothing claims
+/// conformance: no structure tree beyond the default tagging, no PDF/UA or
+/// PDF/A identification.
+#[test]
+fn test_embed_standard_fonts_embeds_without_a_claim() {
+    let pdf = forme::render_json(&standard_font_doc(true, true)).expect("renders");
+    let text = String::from_utf8_lossy(&pdf);
+    assert_eq!(
+        text.matches("/FontFile2").count(),
+        2,
+        "regular and bold are both embedded"
+    );
+    let program = embedded_font_program(&pdf);
+    let full = std::fs::read("../packages/fonts-standard/fonts/LiberationSans-Regular.ttf")
+        .unwrap()
+        .len();
+    assert!(
+        program.len() < full / 4,
+        "the substitute is subset: {} of {full} bytes",
+        program.len()
+    );
+    for claim in ["pdfuaid", "pdfaid", "/OutputIntents"] {
+        assert!(!text.contains(claim), "no conformance claim: found {claim}");
+    }
+}
+
+/// The flag changes only the font dictionaries: the layout is identical to
+/// the default render, element for element.
+#[test]
+fn test_embed_standard_fonts_leaves_layout_unchanged() {
+    let layout = |embed: bool| {
+        let doc: Document = serde_json::from_str(&standard_font_doc(embed, true)).unwrap();
+        let (_, layout, _) = forme::render_with_layout(&doc).expect("renders");
+        serde_json::to_string(&layout).unwrap()
+    };
+    assert_eq!(layout(true), layout(false));
+}
+
+/// Off by default: the base-14 fonts stay unembedded even with the
+/// substitutes registered, so existing output is unchanged.
+#[test]
+fn test_standard_fonts_not_embedded_by_default() {
+    let pdf = forme::render_json(&standard_font_doc(false, true)).expect("renders");
+    assert!(!String::from_utf8_lossy(&pdf).contains("/FontFile2"));
+}
+
+/// The flag without the substitutes registered cannot embed anything, and
+/// says so by name instead of quietly writing base-14 fonts.
+#[test]
+fn test_embed_standard_fonts_warns_without_substitutes() {
+    let doc: Document = serde_json::from_str(&standard_font_doc(true, false)).unwrap();
+    let (pdf, warnings) = forme::render_with_warnings(&doc).expect("renders");
+    assert!(!String::from_utf8_lossy(&pdf).contains("/FontFile2"));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.starts_with("embedStandardFonts:") && w.contains("Helvetica")),
+        "{warnings:?}"
+    );
+    assert!(
+        !warnings.iter().any(|w| w.starts_with("pdfUa:")),
+        "no PDF/UA wording for a document that claims nothing: {warnings:?}"
     );
 }

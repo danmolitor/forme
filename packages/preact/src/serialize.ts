@@ -308,6 +308,7 @@ function serializeDocument(element: ReactElement): FormeDocument {
   if (props.pdfVersion !== undefined) result.pdfVersion = props.pdfVersion;
   if (props.pdfUa) result.pdfUa = true;
   if (props.pdfUa2) result.pdfUa2 = true;
+  if (props.embedStandardFonts) result.embedStandardFonts = true;
   const cert = props.certification ?? props.signature;
   if (cert) {
     if (props.signature && !props.certification) {
@@ -1360,6 +1361,7 @@ export function serializeTemplate(element: ReactElement): Record<string, unknown
   if (props.pdfVersion !== undefined) result.pdfVersion = props.pdfVersion;
   if (props.pdfUa) result.pdfUa = true;
   if (props.pdfUa2) result.pdfUa2 = true;
+  if (props.embedStandardFonts) result.embedStandardFonts = true;
   const cert = props.certification ?? props.signature;
   if (cert) {
     if (props.signature && !props.certification) {

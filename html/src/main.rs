@@ -130,6 +130,10 @@ OPTIONS:
                             (register embeddable fonts via --font; composes
                             with --pdf-ua for archival + accessible)
         --lang <lang>       Document language for PDF/UA (e.g. en, en-US)
+        --embed-standard-fonts
+                            Embed Helvetica, Times and Courier as their
+                            metric-compatible substitutes, with no PDF/UA or
+                            PDF/A claim (register them via --font)
     -q, --quiet             Suppress unsupported-CSS warnings
     -h, --help              Show this help
 ";
@@ -213,6 +217,7 @@ fn main() -> ExitCode {
                 "--tagged" => options.tagged = true,
                 "--audit-content" => options.audit_content = true,
                 "--pdf-ua" => options.pdf_ua = true,
+                "--embed-standard-fonts" => options.embed_standard_fonts = true,
                 "--pdf-a" => options.pdf_a = Some(take_value(&mut i)?),
                 "--lang" => options.lang = Some(take_value(&mut i)?),
                 "-q" | "--quiet" => quiet = true,

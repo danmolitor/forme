@@ -243,4 +243,18 @@ for (const font of standardFonts()) Font.register(font);
 
 If `pdfUa` is set and a standard font is used but the package isn't registered, Forme still emits the PDF but **warns by name** with the remedy — it never silently ships a non-conforming file.
 
+The embedded fonts are subset to the characters the document uses.
+
+### Embedding without a conformance claim
+
+To embed the standard fonts in an ordinary document, so it looks the same in every viewer, set `embedStandardFonts`. Non-embedded Helvetica is drawn by each viewer's own substitute, and some (poppler-based ones) draw its bold as regular. `embedStandardFonts` embeds the same subset Liberation programs as `pdfUa` does, with no tagging requirement and no PDF/UA or PDF/A identification in the file:
+
+```tsx
+<Document fonts={standardFonts()} embedStandardFonts>
+  {/* ... */}
+</Document>
+```
+
+In `@formepdf/html`, pass `embedStandardFonts: true` with the fonts in `fonts`; in Python, `render_html(..., embed_standard_fonts=True)`; on the `forme-html` command line, `--embed-standard-fonts`. Layout does not change. Without the fonts registered nothing is embedded, and the render warnings say so.
+
 The fonts are redistributed unmodified under the SIL Open Font License 1.1.

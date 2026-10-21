@@ -81,6 +81,8 @@ export interface DocumentProps {
   pdfUa?: boolean;
   /** PDF/UA-2 accessibility (ISO 14289-2:2024) — the PDF 2.0 successor to pdfUa. Implies pdfVersion "2.0" (every font embedded); composes with pdfa "4"/"4f". */
   pdfUa2?: boolean;
+  /** Embed Helvetica, Times and Courier as their metric-compatible substitutes (register `@formepdf/fonts-standard`) with no PDF/UA or PDF/A claim, so the PDF looks the same in every viewer. Subset; layout unchanged. */
+  embedStandardFonts?: boolean;
   /** Digital certification configuration. Certifies the PDF with an X.509 certificate. */
   certification?: CertificationConfig;
   /** @deprecated Use certification */

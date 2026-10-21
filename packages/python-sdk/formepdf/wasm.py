@@ -248,6 +248,7 @@ def render_html(
     pdf_ua: bool = False,
     lang: Optional[str] = None,
     pdfa: Optional[str] = None,
+    embed_standard_fonts: bool = False,
     audit_content: bool = False,
 ) -> bytes:
     """Render an HTML + print-CSS string to PDF bytes locally.
@@ -273,6 +274,10 @@ def render_html(
         lang: Document language for PDF/UA (``/Lang``), e.g. ``"en"``.
         pdfa: PDF/A level — ``"2b"``, ``"2u"``, ``"2a"``, ``"3b"``, ``"3u"``,
             ``"3a"``. Needs an embeddable font via ``fonts``.
+        embed_standard_fonts: Embed Helvetica, Times and Courier as their
+            metric-compatible substitutes (register the fonts-standard TTFs
+            via ``fonts``) with no PDF/UA or PDF/A claim, so the PDF looks the
+            same in every viewer. Subset; layout is unchanged.
         audit_content: Report dropped/off-page/invisible content as warnings.
 
     Returns:
@@ -301,6 +306,8 @@ def render_html(
         opts["lang"] = lang
     if pdfa is not None:
         opts["pdfA"] = pdfa
+    if embed_standard_fonts:
+        opts["embedStandardFonts"] = True
     if audit_content:
         opts["auditContent"] = True
     if fonts:
