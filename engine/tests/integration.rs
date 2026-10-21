@@ -9852,9 +9852,10 @@ fn test_grid_page_break_keeps_columns_aligned() {
         )
     };
 
-    // Big spacer pushes the grid to the bottom of page 1 so the grid won't
-    // fit there. The grid has 3 columns, all 400pt tall — they should all
-    // share page 2, not split across 3 pages.
+    // Big spacer pushes the grid low on page 1. The grid has 3 columns,
+    // all 400pt tall boxes: since #201 the row starts in the space left
+    // and the three boxes continue side by side on page 2, as a browser
+    // fragments them. They must never land on a page each.
     let spacer = make_styled_view(
         Style {
             height: Some(Dimension::Pt(500.0)),
@@ -9884,8 +9885,8 @@ fn test_grid_page_break_keeps_columns_aligned() {
     let doc = default_doc(vec![spacer, grid]);
     let pages = layout_doc(&doc);
 
-    // Should be exactly 2 pages: spacer on page 1, grid on page 2.
-    // Before the fix this produced 4 pages (one per column + the spacer page).
+    // Before the original fix this produced 4 pages (one per column + the
+    // spacer page).
     assert_eq!(
         pages.len(),
         2,
@@ -9893,36 +9894,34 @@ fn test_grid_page_break_keeps_columns_aligned() {
         pages.len(),
     );
 
-    // All three grid cells must be on page 2 at the same y. Walk the tree
-    // and collect every element matching our 400pt cell height.
-    fn collect_matching<'a>(
-        el: &'a forme::layout::LayoutElement,
-        out: &mut Vec<&'a forme::layout::LayoutElement>,
-    ) {
-        if (el.height - 400.0).abs() < 0.5 {
-            out.push(el);
-        }
-        for c in &el.children {
-            collect_matching(c, out);
+    // On each page, the three boxes' fragments sit side by side at one y
+    // with one height, and each box's fragments add up to its 400pt.
+    let mut total = [0.0_f64; 3];
+    for (i, page) in pages.iter().enumerate() {
+        let boxes: Vec<&forme::layout::LayoutElement> = page
+            .elements
+            .iter()
+            .filter(|el| el.width < 200.0 && el.node_type.as_deref() == Some("View"))
+            .collect();
+        assert_eq!(boxes.len(), 3, "three column boxes on page {}", i + 1);
+        for (j, b) in boxes.iter().enumerate() {
+            assert!(
+                (b.y - boxes[0].y).abs() < 0.5,
+                "page {}: boxes not aligned",
+                i + 1
+            );
+            assert!(
+                (b.height - boxes[0].height).abs() < 0.5,
+                "page {}: heights differ",
+                i + 1
+            );
+            total[j] += b.height;
         }
     }
-    let mut tall_cells: Vec<&forme::layout::LayoutElement> = Vec::new();
-    for el in &pages[1].elements {
-        collect_matching(el, &mut tall_cells);
-    }
-    assert_eq!(
-        tall_cells.len(),
-        3,
-        "expected 3 tall cells on page 2, found {}",
-        tall_cells.len(),
-    );
-    let first_y = tall_cells[0].y;
-    for c in &tall_cells {
+    for t in total {
         assert!(
-            (c.y - first_y).abs() < 0.5,
-            "grid cells not aligned: y={} vs {}",
-            c.y,
-            first_y,
+            (t - 400.0).abs() < 0.5,
+            "a box's fragments add up to {t:.1}, not 400"
         );
     }
 }
@@ -11367,10 +11366,8 @@ fn test_table_long_header_text_no_page_contamination() {
     // was that header text leaked onto page 1, the page count went 2 → 3,
     // and the header repeated twice with partial content.
     //
-    // The combined header + first-body pre-check moves the table to a
-    // fresh page where the entire header and first row land together —
-    // no intra-cell page break inside the header, no contamination, no
-    // doubled header.
+    // The header must land whole: no intra-cell page break inside it, no
+    // contamination, no partial doubled header.
     // Default A4 content area: 487 × 734pt. With this column split, the
     // long-token header cell wraps to ~12 lines × 12.6pt + 8pt padding ≈
     // 134pt. A 588pt spacer leaves ~146pt remaining. The header (134) fits
@@ -11438,16 +11435,33 @@ fn test_table_long_header_text_no_page_contamination() {
         "Expected exactly 2 pages (no contamination), got {}",
         pages.len()
     );
+    // Since #201 the first row, whose crushed first column makes it taller
+    // than the space left, splits and begins under the header on page 1
+    // rather than moving the whole table. What must still hold is the
+    // original concern: the header is never cut. It is whole on page 1 and
+    // repeats, whole, on page 2.
     assert_eq!(
         count_header_table_rows(&pages[0]),
-        0,
-        "Page 1 must not contain the table header"
+        1,
+        "Page 1 carries the header above the start of the first row"
     );
     assert_eq!(
         count_header_table_rows(&pages[1]),
         1,
         "Page 2 should contain the single header row"
     );
+    for (i, page) in pages.iter().enumerate() {
+        let header_tail = text_lines(&page.elements)
+            .iter()
+            .filter(|(t, _, _)| t.starts_with("ount") && t.ends_with("Amount"))
+            .count();
+        assert_eq!(
+            header_tail,
+            1,
+            "page {} has the header's last line once",
+            i + 1
+        );
+    }
 
     let bytes = render_to_pdf(&doc);
     assert_valid_pdf(&bytes);
@@ -16454,6 +16468,517 @@ fn test_substituted_standard_font_stays_whole_with_a_chart() {
         std::fs::read("../packages/fonts-standard/fonts/LiberationSans-Regular.ttf").unwrap();
     let program = embedded_font_program(&substituted_helvetica_pdf("Revenue by quarter", true));
     assert_eq!(program.len(), full.len(), "the whole program is embedded");
+}
+
+// ─── #201: a tall table row continues on the next page ───────────────
+
+/// `n` lines "Entry line 0".."Entry line n-1". Up to three are ONE
+/// paragraph, so its widow/orphan control keeps them together; more are
+/// one paragraph each, so they can split anywhere.
+fn entry_lines(n: usize) -> Vec<serde_json::Value> {
+    if n <= 3 {
+        let content: Vec<String> = (0..n).map(|i| format!("Entry line {i}")).collect();
+        return vec![
+            serde_json::json!({ "kind": { "type": "Text", "content": content.join("\n") }, "style": {}, "children": [] }),
+        ];
+    }
+    (0..n)
+        .map(|i| serde_json::json!({ "kind": { "type": "Text", "content": format!("Entry line {i}") }, "style": {}, "children": [] }))
+        .collect()
+}
+
+/// A table with a header and one body row, laid out after a filler that
+/// leaves `room` pt of the 781.89pt A4 content box. The body row has a
+/// one-line TITLE cell and a cell of `entries` lines; a NEXT line follows
+/// the table.
+fn table_after_filler(
+    room: f64,
+    entries: usize,
+    row_style: serde_json::Value,
+) -> Vec<forme::layout::LayoutPage> {
+    let lines = entry_lines(entries);
+    let cell = |children: serde_json::Value| serde_json::json!({ "kind": { "type": "TableCell" }, "style": { "padding": { "top": 4, "right": 4, "bottom": 4, "left": 4 } }, "children": children });
+    let doc: Document = serde_json::from_value(serde_json::json!({
+        "children": [{
+            "kind": { "type": "Page", "config": { "size": "A4", "margin": { "top": 30, "right": 30, "bottom": 30, "left": 30 } } },
+            "style": { "fontSize": 10 },
+            "children": [
+                { "kind": { "type": "View" }, "style": { "height": { "Pt": 781.89 - room } }, "children": [] },
+                { "kind": { "type": "Table", "columns": [] }, "style": {}, "children": [
+                    { "kind": { "type": "TableRow", "is_header": true }, "style": {}, "children": [
+                        cell(serde_json::json!([{ "kind": { "type": "Text", "content": "HEAD A" }, "style": {}, "children": [] }])),
+                        cell(serde_json::json!([{ "kind": { "type": "Text", "content": "HEAD B" }, "style": {}, "children": [] }])),
+                    ] },
+                    { "kind": { "type": "TableRow", "is_header": false }, "style": row_style, "children": [
+                        cell(serde_json::json!([{ "kind": { "type": "Text", "content": "TITLE" }, "style": {}, "children": [] }])),
+                        cell(serde_json::Value::Array(lines)),
+                    ] },
+                ] },
+                { "kind": { "type": "Text", "content": "NEXT" }, "style": {}, "children": [] }
+            ]
+        }],
+        "metadata": {}
+    }))
+    .unwrap();
+    LayoutEngine::new().layout(&doc, &FontContext::new())
+}
+
+/// (text, top, bottom) of every text line on a page.
+fn text_lines(els: &[forme::layout::LayoutElement]) -> Vec<(String, f64, f64)> {
+    fn walk(els: &[forme::layout::LayoutElement], out: &mut Vec<(String, f64, f64)>) {
+        for el in els {
+            if let forme::layout::DrawCommand::Text { lines, .. } = &el.draw {
+                for l in lines {
+                    let text: String = l.glyphs.iter().map(|g| g.char_value).collect();
+                    out.push((text, el.y, el.y + el.height));
+                }
+            }
+            walk(&el.children, out);
+        }
+    }
+    let mut out = Vec::new();
+    walk(els, &mut out);
+    out
+}
+
+/// A row taller than the space left starts in that space and continues on
+/// the next page, under the repeated header, instead of moving whole and
+/// leaving the space empty.
+#[test]
+fn test_tall_table_row_splits_across_pages() {
+    let pages = table_after_filler(200.0, 40, serde_json::json!({}));
+    assert_eq!(pages.len(), 2, "the row spans two pages");
+    let first = text_lines(&pages[0].elements);
+    let second = text_lines(&pages[1].elements);
+
+    let entries_first: Vec<_> = first
+        .iter()
+        .filter(|(t, _, _)| t.starts_with("Entry line"))
+        .collect();
+    assert!(
+        entries_first.len() >= 10,
+        "the row starts on the first page ({} entries there)",
+        entries_first.len()
+    );
+    assert!(
+        first.iter().any(|(t, _, _)| t == "TITLE"),
+        "TITLE stays with the start of the row"
+    );
+    let content_bottom = 30.0 + 781.89;
+    let deepest_first = entries_first
+        .iter()
+        .map(|(_, _, b)| *b)
+        .fold(f64::MIN, f64::max);
+    assert!(
+        content_bottom - deepest_first < 30.0,
+        "the first page is filled: the row's last line there ends {:.1}pt above the bottom",
+        content_bottom - deepest_first
+    );
+
+    // Every entry appears exactly once, in order across the two pages.
+    let all: Vec<String> = first
+        .iter()
+        .chain(second.iter())
+        .filter(|(t, _, _)| t.starts_with("Entry line"))
+        .map(|(t, _, _)| t.clone())
+        .collect();
+    let want: Vec<String> = (0..40).map(|i| format!("Entry line {i}")).collect();
+    assert_eq!(all, want);
+
+    // The header repeats above the continuation, and nothing overlaps it.
+    let head = second
+        .iter()
+        .find(|(t, _, _)| t == "HEAD B")
+        .expect("the header repeats on page 2");
+    let first_entry_2 = second
+        .iter()
+        .filter(|(t, _, _)| t.starts_with("Entry line"))
+        .map(|(_, top, _)| *top)
+        .fold(f64::MAX, f64::min);
+    assert!(
+        first_entry_2 >= head.2 - 0.01,
+        "the continuation starts at {first_entry_2:.1}, inside the header ending at {:.1}",
+        head.2
+    );
+
+    // What follows the table starts below the row.
+    let next = second
+        .iter()
+        .find(|(t, _, _)| t == "NEXT")
+        .expect("NEXT follows on page 2");
+    let deepest_second = second
+        .iter()
+        .filter(|(t, _, _)| t.starts_with("Entry line"))
+        .map(|(_, _, b)| *b)
+        .fold(f64::MIN, f64::max);
+    assert!(
+        next.1 >= deepest_second - 0.01,
+        "NEXT starts at {:.1}, inside the row ending at {deepest_second:.1}",
+        next.1
+    );
+}
+
+/// A short row still moves whole: with room for one line of a three-line
+/// cell, the cell's orphan control pushes its lines, and the row's other
+/// cell and the table header go with them rather than staying behind.
+#[test]
+fn test_short_table_row_moves_whole() {
+    // The header fits, then room for one line of the three: orphan control
+    // pushes them all, and the header goes with the row.
+    let pages = table_after_filler(45.0, 3, serde_json::json!({}));
+    let first = text_lines(&pages[0].elements);
+    assert!(
+        !first
+            .iter()
+            .any(|(t, _, _)| t == "TITLE" || t.starts_with("Entry line") || t.starts_with("HEAD")),
+        "nothing of the row stays on the first page: {first:?}"
+    );
+    let second = text_lines(&pages[1].elements);
+    assert!(second.iter().any(|(t, _, _)| t == "TITLE"));
+    assert_eq!(
+        second
+            .iter()
+            .filter(|(t, _, _)| t.starts_with("Entry line"))
+            .count(),
+        3
+    );
+}
+
+/// A row tall only because of its minimum height has nothing to split:
+/// with less room than that height it moves whole, rather than hanging
+/// its box below the page.
+#[test]
+fn test_min_height_table_row_moves_whole() {
+    let doc: Document = serde_json::from_value(serde_json::json!({
+        "children": [{
+            "kind": { "type": "Page", "config": { "size": "A4", "margin": { "top": 30, "right": 30, "bottom": 30, "left": 30 } } },
+            "style": { "fontSize": 10 },
+            "children": [
+                { "kind": { "type": "View" }, "style": { "height": { "Pt": 581.89 } }, "children": [] },
+                { "kind": { "type": "Table", "columns": [] }, "style": {}, "children": [
+                    { "kind": { "type": "TableRow", "is_header": false }, "style": { "minHeight": { "Pt": 300.0 } }, "children": [
+                        { "kind": { "type": "TableCell" }, "style": {}, "children": [
+                            { "kind": { "type": "Text", "content": "TITLE" }, "style": {}, "children": [] } ] }
+                    ] }
+                ] }
+            ]
+        }],
+        "metadata": {}
+    }))
+    .unwrap();
+    let pages = LayoutEngine::new().layout(&doc, &FontContext::new());
+    assert_eq!(pages.len(), 2);
+    assert!(!text_lines(&pages[0].elements)
+        .iter()
+        .any(|(t, _, _)| t == "TITLE"));
+    assert!(text_lines(&pages[1].elements)
+        .iter()
+        .any(|(t, _, _)| t == "TITLE"));
+}
+
+// ─── #201: a tall grid row continues on the next page ────────────────
+
+/// A two-column grid laid out after a filler that leaves `room` pt of the
+/// 781.89pt A4 content box: a one-line TITLE item and an item of
+/// `entries` lines, then a NEXT line after the grid.
+fn grid_after_filler(room: f64, entries: usize) -> Vec<forme::layout::LayoutPage> {
+    let lines = entry_lines(entries);
+    let doc: Document = serde_json::from_value(serde_json::json!({
+        "children": [{
+            "kind": { "type": "Page", "config": { "size": "A4", "margin": { "top": 30, "right": 30, "bottom": 30, "left": 30 } } },
+            "style": { "fontSize": 10 },
+            "children": [
+                { "kind": { "type": "View" }, "style": { "height": { "Pt": 781.89 - room } }, "children": [] },
+                { "kind": { "type": "View" }, "style": { "display": "Grid", "gridTemplateColumns": [{ "Fr": 0.5 }, { "Fr": 1.0 }] }, "children": [
+                    { "kind": { "type": "View" }, "style": {}, "children": [
+                        { "kind": { "type": "Text", "content": "TITLE" }, "style": {}, "children": [] } ] },
+                    { "kind": { "type": "View" }, "style": {}, "children": lines },
+                ] },
+                { "kind": { "type": "Text", "content": "NEXT" }, "style": {}, "children": [] }
+            ]
+        }],
+        "metadata": {}
+    }))
+    .unwrap();
+    LayoutEngine::new().layout(&doc, &FontContext::new())
+}
+
+/// A grid row taller than the space left starts in that space and its
+/// items continue side by side on the next page.
+#[test]
+fn test_tall_grid_row_splits_across_pages() {
+    let pages = grid_after_filler(200.0, 40);
+    assert_eq!(pages.len(), 2, "the row spans two pages");
+    let first = text_lines(&pages[0].elements);
+    let second = text_lines(&pages[1].elements);
+
+    let entries_first: Vec<_> = first
+        .iter()
+        .filter(|(t, _, _)| t.starts_with("Entry line"))
+        .collect();
+    assert!(
+        entries_first.len() >= 10,
+        "the row starts on the first page ({} entries there)",
+        entries_first.len()
+    );
+    assert!(first.iter().any(|(t, _, _)| t == "TITLE"));
+    let content_bottom = 30.0 + 781.89;
+    let deepest_first = entries_first
+        .iter()
+        .map(|(_, _, b)| *b)
+        .fold(f64::MIN, f64::max);
+    assert!(
+        content_bottom - deepest_first < 30.0,
+        "the first page is filled: the row's last line there ends {:.1}pt above the bottom",
+        content_bottom - deepest_first
+    );
+
+    let all: Vec<String> = first
+        .iter()
+        .chain(second.iter())
+        .filter(|(t, _, _)| t.starts_with("Entry line"))
+        .map(|(t, _, _)| t.clone())
+        .collect();
+    let want: Vec<String> = (0..40).map(|i| format!("Entry line {i}")).collect();
+    assert_eq!(all, want);
+
+    let next = second
+        .iter()
+        .find(|(t, _, _)| t == "NEXT")
+        .expect("NEXT follows on page 2");
+    let deepest_second = second
+        .iter()
+        .filter(|(t, _, _)| t.starts_with("Entry line"))
+        .map(|(_, _, b)| *b)
+        .fold(f64::MIN, f64::max);
+    assert!(
+        next.1 >= deepest_second - 0.01,
+        "NEXT starts at {:.1}, inside the row ending at {deepest_second:.1}",
+        next.1
+    );
+}
+
+/// A short grid row still moves whole, TITLE and all.
+#[test]
+fn test_short_grid_row_moves_whole() {
+    // Room for one line of the three: orphan control pushes them all.
+    let pages = grid_after_filler(20.0, 3);
+    let first = text_lines(&pages[0].elements);
+    assert!(
+        !first
+            .iter()
+            .any(|(t, _, _)| t == "TITLE" || t.starts_with("Entry line")),
+        "nothing of the row stays on the first page: {first:?}"
+    );
+    let second = text_lines(&pages[1].elements);
+    assert!(second.iter().any(|(t, _, _)| t == "TITLE"));
+    assert_eq!(
+        second
+            .iter()
+            .filter(|(t, _, _)| t.starts_with("Entry line"))
+            .count(),
+        3
+    );
+}
+
+/// A row kept together (`wrap: false`, which the HTML path maps
+/// `break-inside: avoid` to) does not split: it moves whole, header and all.
+#[test]
+fn test_kept_together_table_row_moves_whole() {
+    let pages = table_after_filler(200.0, 40, serde_json::json!({ "wrap": false }));
+    let first = text_lines(&pages[0].elements);
+    assert!(
+        !first
+            .iter()
+            .any(|(t, _, _)| t == "TITLE" || t.starts_with("Entry line") || t.starts_with("HEAD")),
+        "nothing of the table stays on the first page: {first:?}"
+    );
+    let second = text_lines(&pages[1].elements);
+    assert_eq!(
+        second
+            .iter()
+            .filter(|(t, _, _)| t.starts_with("Entry line"))
+            .count(),
+        40
+    );
+}
+
+/// Under :left/:right pages with mirrored margins, a split row's cell boxes
+/// and the text inside them shift together, page by page: the text stays
+/// inside its cell on both pages, and each page's table sits at that
+/// page's own left margin.
+#[test]
+fn test_split_table_row_follows_mirrored_margins() {
+    let margins = |left: f64, right: f64| -> PageConfig {
+        serde_json::from_value(serde_json::json!({
+            "size": "A4",
+            "margin": { "top": 30, "right": right, "bottom": 30, "left": left }
+        }))
+        .unwrap()
+    };
+    let lines: Vec<Node> = (0..40)
+        .map(|i| make_text(&format!("Entry line {i}"), 10.0))
+        .collect();
+    let table = Node {
+        kind: NodeKind::Table { columns: vec![] },
+        style: Style::default(),
+        children: vec![make_table_row(
+            false,
+            vec![
+                make_table_cell(vec![make_text("TITLE", 10.0)]),
+                make_table_cell(lines),
+            ],
+        )],
+        id: None,
+        source_location: None,
+        bookmark: None,
+        href: None,
+        alt: None,
+    };
+    let spacer = make_styled_view(
+        Style {
+            height: Some(Dimension::Pt(580.0)),
+            ..Default::default()
+        },
+        vec![],
+    );
+    let mut doc = default_doc(vec![spacer, table]);
+    doc.default_page = margins(50.0, 50.0);
+    // Page 1 is a right page, page 2 a left one.
+    doc.right_page = Some(margins(20.0, 80.0));
+    doc.left_page = Some(margins(80.0, 20.0));
+    let pages = layout_doc(&doc);
+    assert_eq!(pages.len(), 2, "the row spans two pages");
+
+    fn cells<'a>(
+        els: &'a [forme::layout::LayoutElement],
+        out: &mut Vec<&'a forme::layout::LayoutElement>,
+    ) {
+        for el in els {
+            if el.node_type.as_deref() == Some("TableCell") {
+                out.push(el);
+            }
+            cells(&el.children, out);
+        }
+    }
+    for (i, (page, left)) in pages.iter().zip([20.0, 80.0]).enumerate() {
+        let mut found = Vec::new();
+        cells(&page.elements, &mut found);
+        assert_eq!(found.len(), 2, "both cells have a box on page {}", i + 1);
+        let table_left = found.iter().map(|c| c.x).fold(f64::MAX, f64::min);
+        assert!(
+            (table_left - left).abs() < 0.5,
+            "page {}: the table starts at {table_left:.1}, not the page's margin {left}",
+            i + 1
+        );
+        for c in &found {
+            let mut xs = Vec::new();
+            fn line_xs(els: &[forme::layout::LayoutElement], out: &mut Vec<f64>) {
+                for el in els {
+                    if matches!(el.draw, forme::layout::DrawCommand::Text { .. }) {
+                        out.push(el.x);
+                    }
+                    line_xs(&el.children, out);
+                }
+            }
+            line_xs(&c.children, &mut xs);
+            for x in xs {
+                assert!(
+                    x >= c.x && x <= c.x + c.width,
+                    "page {}: text at x={x:.1} lies outside its cell [{:.1}, {:.1}]",
+                    i + 1,
+                    c.x,
+                    c.x + c.width
+                );
+            }
+        }
+    }
+}
+
+// ─── #201 (comment): cell children's margins count toward the row ────
+
+/// A table whose one cell holds three entries directly (no wrapping View),
+/// each but the last with a 10pt bottom margin, laid out after a filler
+/// leaving `room` pt.
+fn table_with_margined_entries(room: f64) -> Vec<forme::layout::LayoutPage> {
+    let entry = |i: usize, last: bool| {
+        let style = if last {
+            serde_json::json!({})
+        } else {
+            serde_json::json!({ "margin": { "top": 0, "right": 0, "bottom": 10, "left": 0 } })
+        };
+        serde_json::json!({ "kind": { "type": "View" }, "style": style, "children": [
+            { "kind": { "type": "Text", "content": format!("Label {i}") }, "style": {}, "children": [] },
+            { "kind": { "type": "Text", "content": format!("Heading {i}") }, "style": {}, "children": [] }
+        ] })
+    };
+    let entries: Vec<_> = (0..3).map(|i| entry(i, i == 2)).collect();
+    let doc: Document = serde_json::from_value(serde_json::json!({
+        "children": [{
+            "kind": { "type": "Page", "config": { "size": "A4", "margin": { "top": 30, "right": 30, "bottom": 30, "left": 30 } } },
+            "style": { "fontSize": 10 },
+            "children": [
+                { "kind": { "type": "View" }, "style": { "height": { "Pt": 781.89 - room } }, "children": [] },
+                { "kind": { "type": "Table", "columns": [] }, "style": {}, "children": [
+                    { "kind": { "type": "TableRow", "is_header": false }, "style": {}, "children": [
+                        { "kind": { "type": "TableCell" }, "style": { "padding": { "top": 8, "right": 0, "bottom": 8, "left": 0 } }, "children": entries }
+                    ] }
+                ] }
+            ]
+        }],
+        "metadata": {}
+    }))
+    .unwrap();
+    LayoutEngine::new().layout(&doc, &FontContext::new())
+}
+
+/// The cell's box holds its content, margins included: the row used to
+/// measure each child without its margin, so the box stopped 20pt short.
+#[test]
+fn test_table_cell_box_includes_child_margins() {
+    let pages = table_with_margined_entries(700.0);
+    fn find(els: &[forme::layout::LayoutElement]) -> Option<&forme::layout::LayoutElement> {
+        for el in els {
+            if el.node_type.as_deref() == Some("TableCell") {
+                return Some(el);
+            }
+            if let Some(f) = find(&el.children) {
+                return Some(f);
+            }
+        }
+        None
+    }
+    let cell = find(&pages[0].elements).expect("the cell is on page 1");
+    let content_bottom = text_lines(&cell.children)
+        .iter()
+        .map(|(_, _, b)| *b)
+        .fold(f64::MIN, f64::max);
+    assert!(
+        cell.y + cell.height >= content_bottom + 8.0 - 0.01,
+        "the cell ends at {:.1} but its content, plus 8pt padding, reaches {:.1}",
+        cell.y + cell.height,
+        content_bottom + 8.0
+    );
+}
+
+/// The reporter's crash: a row that measured as fitting the space left,
+/// because its children's margins were not counted, broke inside a cell
+/// with no rollback checkpoint and panicked. Measured 100pt, it needs
+/// 120pt; 110pt is left.
+#[test]
+fn test_table_row_short_by_its_margins_does_not_panic() {
+    let pages = table_with_margined_entries(110.0);
+    let all: Vec<String> = pages
+        .iter()
+        .flat_map(|p| text_lines(&p.elements))
+        .map(|(t, _, _)| t)
+        .collect();
+    for i in 0..3 {
+        assert_eq!(
+            all.iter().filter(|t| **t == format!("Heading {i}")).count(),
+            1
+        );
+    }
 }
 
 // ─── #201: a fragmented flex row ends below its deepest column ───────

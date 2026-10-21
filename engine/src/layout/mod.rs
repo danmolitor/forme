@@ -1418,6 +1418,23 @@ impl PageCursor {
         (self.content_height - self.y - footer_height).max(0.0)
     }
 
+    /// Height of the content area on a fresh page: what a block that moves
+    /// to the next page has to fit in.
+    fn fresh_page_height(&self) -> f64 {
+        self.content_height
+            - self.fixed_header.iter().map(|(_, h, _)| *h).sum::<f64>()
+            - self.fixed_footer.iter().map(|(_, h, _)| *h).sum::<f64>()
+    }
+
+    /// The x translation `finalize` applies to this page's flow content
+    /// (non-zero only under a :left/:right config).
+    fn flow_dx(&self) -> f64 {
+        match &self.display_config {
+            Some(display) => display.margin.left - self.flow_anchor_left,
+            None => 0.0,
+        }
+    }
+
     fn finalize(&self) -> LayoutPage {
         let (page_w, page_h) = self.config.size.dimensions();
 
@@ -4185,6 +4202,7 @@ impl LayoutEngine {
         // height: if the combined block is genuinely taller than a page,
         // page-breaking can't help — fall through and let the
         // `!is_header` cell-overflow guard in layout_table_row handle it.
+        let mut header_waits_on_first_row = false;
         if !header_rows.is_empty() {
             let total_header_h: f64 = header_rows
                 .iter()
@@ -4200,13 +4218,23 @@ impl LayoutEngine {
                 - cursor.fixed_header.iter().map(|(_, h, _)| *h).sum::<f64>()
                 - cursor.fixed_footer.iter().map(|(_, h, _)| *h).sum::<f64>();
 
+            // When the header itself fits, the first row may split and
+            // begin under it (#201); the row decides, and if it moves whole
+            // the header goes with it (see `header_start` below).
             if needed > cursor.remaining_height() && needed <= fresh_page_available {
-                pages.push(cursor.finalize());
-                *cursor = cursor.new_page();
-                cursor.y += padding.top + border.top;
+                if total_header_h < cursor.remaining_height() && !body_rows.is_empty() {
+                    header_waits_on_first_row = true;
+                } else {
+                    pages.push(cursor.finalize());
+                    *cursor = cursor.new_page();
+                    cursor.y += padding.top + border.top;
+                }
             }
         }
 
+        // Where the header starts, to take it back off this page when the
+        // first row it waited on moves whole after all.
+        let header_start = (cursor.elements.len(), cursor.y);
         for (header_row, offs) in &header_rows {
             self.layout_table_row(
                 header_row,
@@ -4224,39 +4252,85 @@ impl LayoutEngine {
             let row_height =
                 self.measure_table_row_height(body_row, &col_widths, offs, style, font_context);
 
-            // Break only when a fresh page actually buys room. A row taller
-            // than any page (the email-template idiom: everything in one
-            // <tr>) used to force a break even at the top of an empty page,
-            // emitting blank pages before itself (template-compat 11). Row
-            // atomicity stands — the row is placed whole and overflows — but
-            // that's a render defect worth saying out loud, not a reason to
-            // print empty pages.
-            let fresh_page_available = cursor.content_height
-                - cursor.fixed_header.iter().map(|(_, h, _)| *h).sum::<f64>()
-                - cursor.fixed_footer.iter().map(|(_, h, _)| *h).sum::<f64>();
-            if row_height > fresh_page_available {
-                self.defect(format!(
-                    "render defect: table row needs {row_height:.0}pt but a page holds {fresh_page_available:.0}pt — rows are atomic, so it is placed whole and overflows",
-                ));
-            }
-            if row_height > cursor.remaining_height()
-                && cursor.remaining_height() < fresh_page_available - 0.5
-            {
-                pages.push(cursor.finalize());
-                *cursor = cursor.new_page();
-
-                cursor.y += padding.top + border.top;
-                for (header_row, h_offs) in &header_rows {
-                    self.layout_table_row(
-                        header_row,
+            // A row that does not fit starts in the space that is there and
+            // continues on the next page, below the repeated header, the way
+            // a browser prints it (#201). Moving it whole abandoned the rest
+            // of the page, and for a row taller than any page (the
+            // email-template idiom: everything in one <tr>) bought nothing.
+            //
+            // It still moves whole when one of its cells cannot begin here
+            // (each cell's widow/orphan control decides that, so a short row
+            // moves as before) or when it asks to be kept together (`wrap:
+            // false`, the HTML path's `break-inside: avoid`), but only when a
+            // fresh page buys room: at the top of an empty page moving would
+            // emit a blank page before the row (template-compat 11).
+            let breakable = body_row.style.wrap != Some(false);
+            if row_height > cursor.remaining_height() {
+                let fresh_page_available = cursor.fresh_page_height();
+                let may_move = cursor.remaining_height() < fresh_page_available - 0.5;
+                if breakable
+                    && self.layout_table_row_fragmented(
+                        body_row,
                         &col_widths,
-                        h_offs,
+                        offs,
                         style,
                         cursor,
                         cell_x_start,
                         font_context,
                         pages,
-                    );
+                        &header_rows,
+                        padding.top + border.top,
+                        may_move,
+                    )
+                {
+                    header_waits_on_first_row = false;
+                    continue;
+                }
+                if !breakable && row_height > fresh_page_available {
+                    self.defect(format!(
+                        "render defect: a table row kept together (break-inside: avoid) needs {row_height:.0}pt but a page holds {fresh_page_available:.0}pt, so it is placed whole and overflows",
+                    ));
+                }
+
+                if may_move {
+                    // The header must not stay behind with no row under it.
+                    if std::mem::take(&mut header_waits_on_first_row) {
+                        cursor.elements.truncate(header_start.0);
+                        cursor.y = header_start.1;
+                    }
+                    pages.push(cursor.finalize());
+                    *cursor = cursor.new_page();
+
+                    cursor.y += padding.top + border.top;
+                    for (header_row, h_offs) in &header_rows {
+                        self.layout_table_row(
+                            header_row,
+                            &col_widths,
+                            h_offs,
+                            style,
+                            cursor,
+                            cell_x_start,
+                            font_context,
+                            pages,
+                        );
+                    }
+
+                    if breakable && row_height > cursor.remaining_height() {
+                        self.layout_table_row_fragmented(
+                            body_row,
+                            &col_widths,
+                            offs,
+                            style,
+                            cursor,
+                            cell_x_start,
+                            font_context,
+                            pages,
+                            &header_rows,
+                            padding.top + border.top,
+                            false,
+                        );
+                        continue;
+                    }
                 }
             }
 
@@ -4486,6 +4560,359 @@ impl LayoutEngine {
         out
     }
 
+    /// Lay out a body row that does not fit the space left on the page by
+    /// FRAGMENTING it, the way a browser prints a tall row: every cell starts
+    /// at the row's top on this page and continues on the next, the cells
+    /// side by side, below the table's repeated header rows.
+    ///
+    /// Returns false, having changed nothing, when the row should move whole
+    /// instead (see [`ParallelColumns::every_column_starts`]).
+    #[allow(clippy::too_many_arguments)]
+    fn layout_table_row_fragmented(
+        &self,
+        row: &Node,
+        col_widths: &[f64],
+        col_offsets: &[usize],
+        parent_style: &ResolvedStyle,
+        cursor: &mut PageCursor,
+        start_x: f64,
+        font_context: &FontContext,
+        pages: &mut Vec<LayoutPage>,
+        header_rows: &[(&Node, &[usize])],
+        table_top_inset: f64,
+        may_move: bool,
+    ) -> bool {
+        struct CellBox<'a> {
+            node: &'a Node,
+            style: ResolvedStyle,
+            x: f64,
+            width: f64,
+            span: usize,
+        }
+
+        let total_width: f64 = col_widths.iter().sum();
+        let row_style = row.style.resolve(Some(parent_style), total_width);
+        let row_height =
+            self.measure_table_row_height(row, col_widths, col_offsets, parent_style, font_context);
+        let row_bl = self.row_baseline(row, &row_style, col_widths, col_offsets, font_context);
+        let header_h: f64 = header_rows
+            .iter()
+            .map(|(r, o)| {
+                self.measure_table_row_height(r, col_widths, o, parent_style, font_context)
+            })
+            .sum();
+        let row_top = cursor.y;
+
+        let cells: Vec<CellBox> = row
+            .children
+            .iter()
+            .enumerate()
+            .map(|(cell_i, cell)| {
+                let span = Self::cell_col_span(cell);
+                let start_col = col_offsets.get(cell_i).copied().unwrap_or(0);
+                let width: f64 = col_widths.iter().skip(start_col).take(span).copied().sum();
+                CellBox {
+                    node: cell,
+                    style: cell.style.resolve(Some(&row_style), width),
+                    x: start_x + col_widths.iter().take(start_col).copied().sum::<f64>(),
+                    width,
+                    span,
+                }
+            })
+            .collect();
+
+        // On a continuation page a cell's content begins below the header
+        // rows that repeat there.
+        let mut cols = self.lay_out_parallel(
+            cursor,
+            cells.len(),
+            table_top_inset + header_h,
+            |i, c, cell_pages| {
+                let cell = &cells[i];
+                let inner_width = cell.width
+                    - cell.style.padding.horizontal()
+                    - cell.style.border_width.horizontal();
+                let content_x = cell.x + cell.style.padding.left + cell.style.border_width.left;
+                c.y = row_top
+                    + cell.style.padding.top
+                    + cell.style.border_width.top
+                    + self.table_cell_align_offset(
+                        cell.node,
+                        &cell.style,
+                        inner_width,
+                        row_height,
+                        row_bl,
+                        font_context,
+                    );
+                for child in &cell.node.children {
+                    self.layout_node(
+                        child,
+                        c,
+                        cell_pages,
+                        content_x,
+                        inner_width,
+                        Some(&cell.style),
+                        font_context,
+                        None,
+                        None,
+                    );
+                }
+                c.y + cell.style.padding.bottom + cell.style.border_width.bottom
+            },
+        );
+
+        if cols.frag_count() == 1 {
+            // Every cell's content fit, so there is nothing to fragment. The
+            // row can still be taller than the space left because of a
+            // minimum height (a cell `height`, a row `minHeight`); its box
+            // would then hang below the page, so it moves whole as before.
+            cols.abandon(cursor);
+            if may_move && row_height > cursor.remaining_height() {
+                return false;
+            }
+            self.layout_table_row(
+                row,
+                col_widths,
+                col_offsets,
+                parent_style,
+                cursor,
+                start_x,
+                font_context,
+                pages,
+            );
+            return true;
+        }
+        if may_move && !cols.every_column_starts() {
+            cols.abandon(cursor);
+            return false;
+        }
+
+        let last = cols.frag_count() - 1;
+        let top_of = |cols: &ParallelColumns, k: usize| -> f64 {
+            if k == 0 {
+                row_top
+            } else {
+                cols.page(cursor, k).y + table_top_inset + header_h
+            }
+        };
+        let row_end = cols.row_end(top_of(&cols, last));
+
+        let mut fragments: Vec<Vec<LayoutElement>> = Vec::with_capacity(last + 1);
+        for k in 0..=last {
+            let top = top_of(&cols, k);
+            let page = cols.page(cursor, k);
+            let bottom = if k == last {
+                row_end
+            } else {
+                page.y + page.remaining_height()
+            };
+            let content_y = page.content_y;
+            let mut els: Vec<LayoutElement> = Vec::new();
+
+            if k > 0 {
+                let mut hc = page.clone();
+                hc.elements.clear();
+                hc.y = page.y + table_top_inset;
+                let mut scratch: Vec<LayoutPage> = Vec::new();
+                for (h, h_offs) in header_rows {
+                    self.layout_table_row(
+                        h,
+                        col_widths,
+                        h_offs,
+                        parent_style,
+                        &mut hc,
+                        start_x,
+                        font_context,
+                        &mut scratch,
+                    );
+                }
+                els.append(&mut hc.elements);
+            }
+
+            // Every cell gets a box on every fragment, so borders and fills
+            // run the row's full height on each page, as a browser paints.
+            let cell_els: Vec<LayoutElement> = cells
+                .iter()
+                .enumerate()
+                .map(|(i, c)| LayoutElement {
+                    x: c.x,
+                    y: content_y + top,
+                    width: c.width,
+                    height: (bottom - top).max(0.0),
+                    draw: table_cell_draw(&c.style),
+                    children: cols.take(i, k),
+                    node_type: Some("TableCell".to_string()),
+                    resolved_style: Some(c.style.clone()),
+                    source_location: c.node.source_location.clone(),
+                    href: None,
+                    bookmark: if k == 0 {
+                        c.node.bookmark.clone()
+                    } else {
+                        None
+                    },
+                    alt: None,
+                    is_header_row: false,
+                    actual_text: None,
+                    list_numbering: None,
+                    col_span: c.span as u32,
+                    overflow: Overflow::default(),
+                    opacity: 1.0,
+                })
+                .collect();
+            els.push(LayoutElement {
+                x: start_x,
+                y: content_y + top,
+                width: total_width,
+                height: (bottom - top).max(0.0),
+                draw: table_row_draw(&row_style),
+                children: cell_els,
+                node_type: Some("TableRow".to_string()),
+                resolved_style: Some(row_style.clone()),
+                source_location: row.source_location.clone(),
+                href: None,
+                bookmark: if k == 0 { row.bookmark.clone() } else { None },
+                alt: None,
+                is_header_row: false,
+                actual_text: None,
+                list_numbering: None,
+                col_span: 1,
+                overflow: row_style.overflow,
+                opacity: row_style.opacity,
+            });
+            fragments.push(els);
+        }
+
+        cols.commit(cursor, pages, fragments, row_end);
+        true
+    }
+
+    /// Lay out `n` columns side by side from the cursor's current page, each
+    /// on its own cursor, so a column that crosses the page continues beside
+    /// the others on the next one rather than after them. `lay` places
+    /// column `i` (setting its start y) and returns where its box ends.
+    /// `continuation_top` is extra space a continuation page reserves above
+    /// the columns, such as a table's repeated header.
+    ///
+    /// The cursor's elements are held aside while the columns lay out; the
+    /// caller either [`commit`](ParallelColumns::commit)s the composed
+    /// fragments or [`abandon`](ParallelColumns::abandon)s them, which puts
+    /// the cursor back as it was.
+    fn lay_out_parallel(
+        &self,
+        cursor: &mut PageCursor,
+        n: usize,
+        continuation_top: f64,
+        mut lay: impl FnMut(usize, &mut PageCursor, &mut Vec<LayoutPage>) -> f64,
+    ) -> ParallelColumns {
+        let base = std::mem::take(&mut cursor.elements);
+        let mut laid: Vec<(Vec<LayoutPage>, Vec<LayoutElement>, f64)> = Vec::with_capacity(n);
+        for i in 0..n {
+            let mut c = cursor.clone();
+            c.continuation_top_offset += continuation_top;
+            let mut column_pages: Vec<LayoutPage> = Vec::new();
+            let end_y = lay(i, &mut c, &mut column_pages);
+            laid.push((column_pages, std::mem::take(&mut c.elements), end_y));
+        }
+
+        // The pages the row occupies after this one. Building them here,
+        // rather than reusing a column's finished pages, puts every element
+        // of a fragment through `finalize` together, so a :left/:right
+        // translation applies to all of it alike. The columns' finished pages
+        // were translated by the same amount (their cursors walked the same
+        // pages), so their content comes back to flow coordinates first.
+        let last = laid.iter().map(|(p, _, _)| p.len()).max().unwrap_or(0);
+        let mut later: Vec<PageCursor> = Vec::with_capacity(last);
+        for k in 0..last {
+            let next = match later.last() {
+                Some(prev) => prev.new_page(),
+                None => cursor.new_page(),
+            };
+            debug_assert_eq!(later.len(), k);
+            later.push(next);
+        }
+        let mut cols = ParallelColumns {
+            base,
+            columns: Vec::with_capacity(n),
+            ends: Vec::with_capacity(n),
+            later,
+        };
+        for (column_pages, tail, end_y) in laid {
+            let own_last = column_pages.len();
+            let mut frags: Vec<Vec<LayoutElement>> = Vec::with_capacity(own_last + 1);
+            for (k, mut p) in column_pages.into_iter().enumerate() {
+                let dx = cols.page(cursor, k).flow_dx();
+                if dx != 0.0 {
+                    shift_x(&mut p.elements, -dx);
+                }
+                frags.push(p.elements);
+            }
+            frags.push(tail);
+            cols.columns.push(frags);
+            cols.ends.push((own_last, end_y));
+        }
+        cols
+    }
+
+    /// The height of a table cell's content: its children stacked, each
+    /// with its vertical margins, as the cell lays them out. Leaving the
+    /// margins out made a row shorter than its content, so it overlapped
+    /// the next row, and near a page end it broke inside a cell that had
+    /// measured as fitting, with no rollback checkpoint (a panic, #201).
+    fn measure_cell_content_height(
+        &self,
+        cell: &Node,
+        cell_style: &ResolvedStyle,
+        inner_width: f64,
+        font_context: &FontContext,
+    ) -> f64 {
+        cell.children
+            .iter()
+            .map(|child| {
+                let child_style = child.style.resolve(Some(cell_style), inner_width);
+                self.measure_node_height(child, inner_width, &child_style, font_context)
+                    + child_style.margin.vertical()
+            })
+            .sum()
+    }
+
+    /// How far down its row box a cell's content starts under
+    /// `vertical-align` (zero for `top`, the default). The row's height is
+    /// already resolved, so this is an offset within it.
+    fn table_cell_align_offset(
+        &self,
+        cell: &Node,
+        cell_style: &ResolvedStyle,
+        inner_width: f64,
+        row_height: f64,
+        row_bl: Option<f64>,
+        font_context: &FontContext,
+    ) -> f64 {
+        if matches!(cell_style.vertical_align, crate::style::VerticalAlign::Top) {
+            return 0.0;
+        }
+        let content_h =
+            self.measure_cell_content_height(cell, cell_style, inner_width, font_context);
+        let inner_row =
+            row_height - cell_style.padding.vertical() - cell_style.border_width.vertical();
+        let slack = (inner_row - content_h).max(0.0);
+        match cell_style.vertical_align {
+            crate::style::VerticalAlign::Middle => slack / 2.0,
+            crate::style::VerticalAlign::Bottom => slack,
+            // Shove this cell down so its first baseline lands on the row
+            // baseline (the max first-baseline distance across the row's
+            // baseline cells). measure_table_row_height grew the row to fit
+            // this, so it never clips.
+            crate::style::VerticalAlign::Baseline => row_bl
+                .map(|b| {
+                    let d =
+                        self.cell_baseline_distance(cell, cell_style, inner_width, font_context);
+                    (b - d).max(0.0)
+                })
+                .unwrap_or(0.0),
+            crate::style::VerticalAlign::Top => 0.0,
+        }
+    }
+
     #[allow(clippy::too_many_arguments)]
     fn layout_table_row(
         &self,
@@ -4555,39 +4982,14 @@ impl LayoutEngine {
             // vertical-align: middle/bottom/baseline — the row box height is
             // already resolved (measured above the loop), so offset this cell's
             // content within it. Top is the default and costs nothing.
-            if !matches!(cell_style.vertical_align, crate::style::VerticalAlign::Top) {
-                let content_h: f64 = cell
-                    .children
-                    .iter()
-                    .map(|ch| {
-                        let ch_style = ch.style.resolve(Some(&cell_style), inner_width);
-                        self.measure_node_height(ch, inner_width, &ch_style, font_context)
-                    })
-                    .sum();
-                let inner_row =
-                    row_height - cell_style.padding.vertical() - cell_style.border_width.vertical();
-                let slack = (inner_row - content_h).max(0.0);
-                cursor.y += match cell_style.vertical_align {
-                    crate::style::VerticalAlign::Middle => slack / 2.0,
-                    crate::style::VerticalAlign::Bottom => slack,
-                    // Shove this cell down so its first baseline lands on the
-                    // row baseline (the max first-baseline distance across the
-                    // row's baseline cells). measure_table_row_height grew the
-                    // row to fit this, so it never clips.
-                    crate::style::VerticalAlign::Baseline => row_bl
-                        .map(|b| {
-                            let d = self.cell_baseline_distance(
-                                cell,
-                                &cell_style,
-                                inner_width,
-                                font_context,
-                            );
-                            (b - d).max(0.0)
-                        })
-                        .unwrap_or(0.0),
-                    crate::style::VerticalAlign::Top => 0.0,
-                };
-            }
+            cursor.y += self.table_cell_align_offset(
+                cell,
+                &cell_style,
+                inner_width,
+                row_height,
+                row_bl,
+                font_context,
+            );
 
             // Save cursor state in case cell content triggers page breaks — but
             // only when a break is actually possible (see `row_may_break`). When
@@ -4648,23 +5050,7 @@ impl LayoutEngine {
                 y: row_y,
                 width: col_width,
                 height: row_height,
-                draw: if cell_style.background_color.is_some()
-                    || cell_style.border_width.horizontal() > 0.0
-                    || cell_style.border_width.vertical() > 0.0
-                {
-                    DrawCommand::Rect {
-                        background: cell_style.background_color,
-                        border_width: cell_style.border_width,
-                        border_color: cell_style.border_color,
-                        border_style: cell_style.border_style,
-                        border_radius: cell_style.border_radius,
-                        opacity: 1.0,
-                        box_shadow: cell_style.box_shadow.map(Box::new),
-                        background_gradient: cell_style.background.clone().map(Box::new),
-                    }
-                } else {
-                    DrawCommand::None
-                },
+                draw: table_cell_draw(&cell_style),
                 children: cell_children,
                 node_type: Some("TableCell".to_string()),
                 resolved_style: Some(cell_style.clone()),
@@ -4688,20 +5074,7 @@ impl LayoutEngine {
             y: row_y,
             width: total_width,
             height: row_height,
-            draw: if let Some(bg) = row_style.background_color {
-                DrawCommand::Rect {
-                    background: Some(bg),
-                    border_width: Edges::default(),
-                    border_color: EdgeValues::uniform(Color::BLACK),
-                    border_style: EdgeValues::uniform(crate::style::BorderStyle::Solid),
-                    border_radius: CornerValues::uniform(0.0),
-                    opacity: 1.0,
-                    box_shadow: row_style.box_shadow.map(Box::new),
-                    background_gradient: row_style.background.clone().map(Box::new),
-                }
-            } else {
-                DrawCommand::None
-            },
+            draw: table_row_draw(&row_style),
             children: row_children,
             node_type: Some("TableRow".to_string()),
             resolved_style: Some(row_style.clone()),
@@ -7492,12 +7865,8 @@ impl LayoutEngine {
             let inner_width =
                 col_width - cell_style.padding.horizontal() - cell_style.border_width.horizontal();
 
-            let mut cell_content_height = 0.0;
-            for child in &cell.children {
-                let child_style = child.style.resolve(Some(&cell_style), inner_width);
-                cell_content_height +=
-                    self.measure_node_height(child, inner_width, &child_style, font_context);
-            }
+            let cell_content_height =
+                self.measure_cell_content_height(cell, &cell_style, inner_width, font_context);
 
             let mut total = cell_content_height
                 + cell_style.padding.vertical()
@@ -7516,8 +7885,7 @@ impl LayoutEngine {
             // grows to fit its content but never shrinks below the specified
             // height. This is the slack `vertical-align: middle/bottom` needs to
             // be visible. Auto-height cells are unaffected; content taller than
-            // the height still wins. No clipping, and rows stay atomic (an
-            // over-tall row overflows whole, it is not sliced).
+            // the height still wins. No clipping.
             if let SizeConstraint::Fixed(h) = cell_style.height {
                 total = total.max(h);
             }
@@ -7992,6 +8360,73 @@ impl LayoutEngine {
         }
     }
 
+    /// Lay out one grid row that does not fit the space left on the page by
+    /// fragmenting it: its items start at the row's top here and continue
+    /// side by side on the next page. Returns false, having changed nothing,
+    /// when `may_move` is set and the row should move whole instead.
+    #[allow(clippy::too_many_arguments)]
+    fn layout_grid_row_fragmented(
+        &self,
+        children: &[Node],
+        items: &[&grid::GridItemPlacement],
+        col_widths: &[f64],
+        col_gap: f64,
+        x: f64,
+        row_height: f64,
+        parent_style: &ResolvedStyle,
+        cursor: &mut PageCursor,
+        pages: &mut Vec<LayoutPage>,
+        font_context: &FontContext,
+        may_move: bool,
+    ) -> bool {
+        let row_top = cursor.y;
+        let mut cols = self.lay_out_parallel(cursor, items.len(), 0.0, |i, c, item_pages| {
+            let p = items[i];
+            let cell_x = x + grid::column_x_offset(p.col_start, col_widths, col_gap);
+            let cell_width = grid::span_width(p.col_start, p.col_end, col_widths, col_gap);
+            c.y = row_top;
+            self.layout_node(
+                &children[p.child_index],
+                c,
+                item_pages,
+                cell_x,
+                cell_width,
+                Some(parent_style),
+                font_context,
+                None,
+                None,
+            );
+            c.y
+        });
+
+        let fragments_of = |cols: &mut ParallelColumns| -> Vec<Vec<LayoutElement>> {
+            (0..cols.frag_count())
+                .map(|k| (0..items.len()).flat_map(|i| cols.take(i, k)).collect())
+                .collect()
+        };
+        if cols.frag_count() == 1 {
+            // The items fit; the row is taller than its content because of
+            // a fixed track. Move it whole as before, unless a fresh page
+            // would not buy room either.
+            if may_move {
+                cols.abandon(cursor);
+                return false;
+            }
+            let fragments = fragments_of(&mut cols);
+            cols.commit(cursor, pages, fragments, row_top + row_height);
+            return true;
+        }
+        if may_move && !cols.every_column_starts() {
+            cols.abandon(cursor);
+            return false;
+        }
+        let last = cols.frag_count() - 1;
+        let row_end = cols.row_end(cols.page(cursor, last).y);
+        let fragments = fragments_of(&mut cols);
+        cols.commit(cursor, pages, fragments, row_end);
+        true
+    }
+
     /// Layout children as a CSS Grid.
     ///
     /// Uses the grid track definitions from the parent style to create a 2D grid,
@@ -8098,13 +8533,62 @@ impl LayoutEngine {
 
         // Layout each row
         for (row, &row_height) in row_heights.iter().enumerate().take(num_rows) {
-            // Check page break: treat each row as unbreakable. The whole row
-            // moves to the next page so all columns share the same baseline
-            // (otherwise each cell's layout_node would page-break individually
-            // and scatter the columns across separate pages).
+            // A row that does not fit starts in the space that is there and
+            // its items continue side by side on the next page, the way a
+            // browser prints it (#201); it moves whole when one of its items
+            // cannot begin here, or when its height comes from a fixed track
+            // rather than content. Rows that an item spans into or out of
+            // keep the old rule, moving whole: their items do not share one
+            // top and bottom to fragment between.
             if row_height > cursor.remaining_height() {
-                pages.push(cursor.finalize());
-                *cursor = cursor.new_page();
+                let spans_rows = item_placements
+                    .iter()
+                    .any(|p| p.row_end - p.row_start > 1 && p.row_start <= row && row < p.row_end);
+                if !spans_rows {
+                    let items: Vec<&grid::GridItemPlacement> = item_placements
+                        .iter()
+                        .filter(|p| p.row_start == row)
+                        .collect();
+                    let may_move = cursor.remaining_height() < cursor.fresh_page_height() - 0.5;
+                    if self.layout_grid_row_fragmented(
+                        children,
+                        &items,
+                        &col_widths,
+                        col_gap,
+                        x,
+                        row_height,
+                        parent_style,
+                        cursor,
+                        pages,
+                        font_context,
+                        may_move,
+                    ) {
+                        cursor.y += row_gap;
+                        continue;
+                    }
+                    pages.push(cursor.finalize());
+                    *cursor = cursor.new_page();
+                    if row_height > cursor.remaining_height() {
+                        self.layout_grid_row_fragmented(
+                            children,
+                            &items,
+                            &col_widths,
+                            col_gap,
+                            x,
+                            row_height,
+                            parent_style,
+                            cursor,
+                            pages,
+                            font_context,
+                            false,
+                        );
+                        cursor.y += row_gap;
+                        continue;
+                    }
+                } else {
+                    pages.push(cursor.finalize());
+                    *cursor = cursor.new_page();
+                }
             }
 
             let row_start_y = cursor.y;
@@ -8200,6 +8684,150 @@ fn paints_a_box(el: &LayoutElement) -> bool {
 fn drain_since(elements: &mut Vec<LayoutElement>, snapshot: usize) -> Vec<LayoutElement> {
     let start = snapshot.min(elements.len());
     elements.drain(start..).collect()
+}
+
+/// The paint for a table cell's box: a rect when it has a fill or a border.
+fn table_cell_draw(cell_style: &ResolvedStyle) -> DrawCommand {
+    if cell_style.background_color.is_some()
+        || cell_style.border_width.horizontal() > 0.0
+        || cell_style.border_width.vertical() > 0.0
+    {
+        DrawCommand::Rect {
+            background: cell_style.background_color,
+            border_width: cell_style.border_width,
+            border_color: cell_style.border_color,
+            border_style: cell_style.border_style,
+            border_radius: cell_style.border_radius,
+            opacity: 1.0,
+            box_shadow: cell_style.box_shadow.map(Box::new),
+            background_gradient: cell_style.background.clone().map(Box::new),
+        }
+    } else {
+        DrawCommand::None
+    }
+}
+
+/// The paint for a table row's box: a rect when it has a fill.
+fn table_row_draw(row_style: &ResolvedStyle) -> DrawCommand {
+    if let Some(bg) = row_style.background_color {
+        DrawCommand::Rect {
+            background: Some(bg),
+            border_width: Edges::default(),
+            border_color: EdgeValues::uniform(Color::BLACK),
+            border_style: EdgeValues::uniform(crate::style::BorderStyle::Solid),
+            border_radius: CornerValues::uniform(0.0),
+            opacity: 1.0,
+            box_shadow: row_style.box_shadow.map(Box::new),
+            background_gradient: row_style.background.clone().map(Box::new),
+        }
+    } else {
+        DrawCommand::None
+    }
+}
+
+/// Does anything in this element tree paint?
+fn has_ink(elements: &[LayoutElement]) -> bool {
+    elements
+        .iter()
+        .any(|el| !matches!(el.draw, DrawCommand::None) || has_ink(&el.children))
+}
+
+/// Move an element tree sideways by `dx`.
+fn shift_x(elements: &mut [LayoutElement], dx: f64) {
+    for el in elements {
+        el.x += dx;
+        shift_x(&mut el.children, dx);
+    }
+}
+
+/// Columns laid out side by side from one row top (see
+/// `LayoutEngine::lay_out_parallel`): `columns[i][k]` is column `i`'s
+/// elements on page `k` of the row, in flow coordinates.
+struct ParallelColumns {
+    /// What was on the row's first page before the row.
+    base: Vec<LayoutElement>,
+    columns: Vec<Vec<Vec<LayoutElement>>>,
+    /// Each column's last page and where its box ends there.
+    ends: Vec<(usize, f64)>,
+    /// Cursors for the pages after the first.
+    later: Vec<PageCursor>,
+}
+
+impl ParallelColumns {
+    fn frag_count(&self) -> usize {
+        self.later.len() + 1
+    }
+
+    /// The cursor for page `k` of the row: the caller's own for the first.
+    fn page<'a>(&'a self, first: &'a PageCursor, k: usize) -> &'a PageCursor {
+        if k == 0 {
+            first
+        } else {
+            &self.later[k - 1]
+        }
+    }
+
+    /// Does every column with content begin on the row's first page?
+    ///
+    /// A column that places nothing there is its own widow/orphan control
+    /// speaking (a three-line cell with room for one line pushes all
+    /// three), and a row whose columns begin on different pages reads as
+    /// two rows, so the row should move whole with that column instead.
+    fn every_column_starts(&self) -> bool {
+        self.columns.iter().all(|frags| {
+            let has_content = frags.iter().any(|f| has_ink(f));
+            !has_content || has_ink(&frags[0])
+        })
+    }
+
+    /// The row's bottom on its last page: the deepest column that ends
+    /// there, and never above `top`. Columns that ended on an earlier page
+    /// do not hold it down.
+    fn row_end(&self, top: f64) -> f64 {
+        let last = self.later.len();
+        self.ends
+            .iter()
+            .filter(|(own_last, _)| *own_last == last)
+            .map(|(_, y)| *y)
+            .fold(top, f64::max)
+    }
+
+    /// Column `i`'s elements on page `k` (empty past its own last page).
+    fn take(&mut self, i: usize, k: usize) -> Vec<LayoutElement> {
+        self.columns[i]
+            .get_mut(k)
+            .map(std::mem::take)
+            .unwrap_or_default()
+    }
+
+    /// Put the cursor back as it was before the columns were laid out.
+    fn abandon(self, cursor: &mut PageCursor) {
+        cursor.elements = self.base;
+    }
+
+    /// Install one composed fragment per page: the first page is finished
+    /// with whatever was on it before, the pages between are finished, and
+    /// the cursor moves to the last page at `end_y`.
+    fn commit(
+        self,
+        cursor: &mut PageCursor,
+        pages: &mut Vec<LayoutPage>,
+        fragments: Vec<Vec<LayoutElement>>,
+        end_y: f64,
+    ) {
+        debug_assert_eq!(fragments.len(), self.frag_count());
+        let mut fragments = fragments.into_iter();
+        cursor.elements = self.base;
+        if let Some(first) = fragments.next() {
+            cursor.elements.extend(first);
+        }
+        for (mut page, els) in self.later.into_iter().zip(fragments) {
+            pages.push(cursor.finalize());
+            page.elements = els;
+            *cursor = page;
+        }
+        cursor.y = end_y;
+    }
 }
 
 fn stretch_fragment(elements: &mut [LayoutElement], bottom: f64) {

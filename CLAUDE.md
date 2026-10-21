@@ -247,8 +247,12 @@ a lone stranded line where Chrome paints it — which is deliberate and separate
 ### Flex Wrap + align-content
 `layout_flex_row` supports `flex-wrap: wrap` with cross-axis distribution via `align-content`. Supported values: `flex-start` (default), `flex-end`, `center`, `space-between`, `space-around`, `space-evenly`, `stretch`. Only applies when the container has a fixed height (otherwise there's no slack to distribute). Post-layout adjustment shifts wrap lines vertically based on the chosen alignment.
 
-### Table Cell Overflow
-`layout_table_row` uses cursor cloning to preserve cell content that exceeds page height. Instead of discarding overflow (the old `&mut Vec::new()` approach), each cell gets a cloned cursor and a `cell_pages` vec. If cell content triggers page breaks, the overflow pages are collected and appended to the real pages list. Content is preserved rather than silently discarded.
+### Table and Grid Row Fragmentation
+A table body row or CSS grid row that does not fit the space left on the page FRAGMENTS, the same way a flex row does: each cell (or grid item) lays out from the row's top on its own cursor clone, and fragment *k* of every cell composes onto page *k*. The shared core is `lay_out_parallel` → `ParallelColumns` (`every_column_starts`, `row_end`, `take`, `commit`/`abandon`); `layout_table_row_fragmented` and `layout_grid_row_fragmented` compose it. Tables repeat their header rows on each continuation page (the cell cursors reserve the space through `continuation_top_offset`) and give every cell a box on every fragment so borders and fills run the row's height per page.
+
+The row moves whole instead when any cell with content places nothing on the first page (its own widow/orphan control pushed it), when its height comes only from a minimum height or fixed grid track, or when it is `wrap: false` (the HTML path's `break-inside: avoid` on `<tr>`); never at the top of an empty page. A table's first row decides whether the header stays: if that row moves whole, the header is taken back off the page and moves with it. Grid rows that an item spans into or out of keep the old move-whole rule.
+
+Fragments are built from fresh `new_page()` cursors and finalized together, so :left/:right translation applies uniformly; the cells' finished pages are translated back to flow coordinates first (`flow_dx`).
 
 ### Fixed Height Containers
 `SizeConstraint::Fixed(h)` is respected in both `layout_view` (for the container's own Rect height) and `measure_node_height` (so parent containers measure children correctly). When a fixed height is set, it takes precedence over computed children height.

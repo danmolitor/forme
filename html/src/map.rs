@@ -1073,14 +1073,14 @@ impl Mapper {
                     // Section-level break-inside can't map to an engine
                     // node (sections aren't boxes here) — say so rather
                     // than silently accepting it. Row-level break-inside
-                    // IS honored: rows are atomic by engine design.
+                    // IS honored (it keeps that row whole).
                     let section_computed = self.computed_for(e, font_size);
                     if section_computed.display == CssDisplay::None {
                         continue;
                     }
                     if section_computed.break_inside.is_some() {
                         self.warnings.push(format!(
-                            "break-inside on <{}> is pending (rows are already atomic; put break-inside: avoid on the table to keep the whole table together)",
+                            "break-inside on <{}> is pending (put break-inside: avoid on its rows to keep each row whole, or on the table to keep the whole table together)",
                             e.tag
                         ));
                     }

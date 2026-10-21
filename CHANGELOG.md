@@ -12,8 +12,13 @@ while this file lapsed. They are reproduced, not rewritten.
 
 - `quick-xml` 0.41 ([RUSTSEC-2026-0194](https://rustsec.org/advisories/RUSTSEC-2026-0194.html)): an SVG element with many attributes was parsed in quadratic time, so a crafted SVG could stall a render (20,000 attributes took 2.7 s, now 50 ms). `miniz_oxide` 0.8 drops the unmaintained `adler` ([RUSTSEC-2025-0056](https://rustsec.org/advisories/RUSTSEC-2025-0056.html)). Output is byte-identical (#195)
 
+### Changed
+
+- A table row or CSS grid row taller than the space left on the page starts in that space and continues on the next page, its cells side by side below the repeated table header, the way a browser prints it. It used to move to the next page whole, which could leave most of a page empty, and a row taller than a page overflowed it. A short row still moves whole: if any cell cannot begin where it is under its own widow and orphan control, the row moves with it. `wrap: false` on a row (`break-inside: avoid` on a `<tr>`) keeps it whole as before (#201).
+
 ### Fixed
 
+- A table row counts the vertical margins of its cells' children. It measured them without, so a cell whose content had margins drew a box too short for it and overlapped the next row; near a page end, the row broke inside a cell that had measured as fitting and the render panicked with "table cell broke but no rollback checkpoint was taken" (#201).
 - SVG and other leaf drawings restore opacity and transforms before painting following elements (#190).
 - Greedy line breaking no longer draws trailing line breaks as missing glyphs in plain or styled text (#191).
 - A Page's `backgroundColor` is painted, full-bleed and behind all content, on every page the Page's content runs onto. It was ignored without a warning (#189).

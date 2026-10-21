@@ -19,7 +19,7 @@ Forme does not use CSS for layout. Every element is measured and positioned in a
 When content exceeds the available space on a page, Forme automatically moves it to a new page. This happens at natural boundaries:
 
 - **Between children** of a View container
-- **Between rows** of a Table
+- **Between rows** of a Table, and inside a row too tall for the space left
 - **Between lines** of a Text block
 
 ```tsx
@@ -215,6 +215,14 @@ When a table spans multiple pages, header rows (marked with `header`) are automa
 
 No configuration needed. Mark a row as `header` and it repeats automatically.
 
+### A row taller than the space left
+
+A table row, or a row of a CSS grid, that does not fit the space left on the page starts in that space and continues on the next page, the way a browser prints it. Its cells carry on side by side, below the repeated header, and each cell's borders and background run down every page the row crosses.
+
+A short row still moves to the next page whole. Each cell's widow and orphan control decides whether it can begin where it is, and if any cell cannot, the whole row moves with it, so a row never starts its cells on different pages. A typical invoice line of one or two lines always moves whole.
+
+To keep a row together however tall it is, give the `<Row>` `style={{ wrap: false }}` (in HTML, `break-inside: avoid` on the `<tr>`). A row kept together that is taller than a page is placed whole and overflows, and says so in the render warnings.
+
 ## Flex layout across page breaks
 
 This is the core differentiator from other PDF tools. When a flex container splits across pages, Forme runs independent flex calculations for each page fragment.
@@ -258,7 +266,7 @@ react-pdf lays out content on an infinite vertical canvas and then slices it int
 
 1. **Flex breaks on page boundaries.** A flex row that gets sliced has its distribution calculated for the full container, then cut in half. Both halves have wrong proportions.
 
-2. **Tables break mid-row.** Without page-aware row placement, a table row can be sliced between its top and bottom border.
+2. **Tables are sliced mid-line.** Without page-aware row placement, a table row is cut wherever the page happens to end, through the middle of a line of text, with no header above its continuation.
 
 3. **No header repetition.** Since the table is just a set of rectangles on an infinite canvas, there is no concept of "repeat this row at the top of each page."
 
