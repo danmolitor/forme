@@ -28,6 +28,14 @@ Addresses #189, #190, #191, #195, #197 and #201.
   50 ms). `miniz_oxide` 0.8 drops the unmaintained `adler`
   ([RUSTSEC-2025-0056](https://rustsec.org/advisories/RUSTSEC-2025-0056.html)).
   Output is byte-identical (#195)
+- `@formepdf/mcp` requires `@modelcontextprotocol/sdk` 1.32.0 or later,
+  the first release outside five advisories in the MCP TypeScript SDK
+  ([GHSA-6qxp-vccf-f47h](https://github.com/advisories/GHSA-6qxp-vccf-f47h),
+  [GHSA-22jm-h49p-29qw](https://github.com/advisories/GHSA-22jm-h49p-29qw),
+  [GHSA-6prh-2h8m-c8cw](https://github.com/advisories/GHSA-6prh-2h8m-c8cw),
+  [GHSA-46jr-4wx8-v453](https://github.com/advisories/GHSA-46jr-4wx8-v453),
+  [GHSA-rvq5-wwqv-78pq](https://github.com/advisories/GHSA-rvq5-wwqv-78pq)).
+  It allowed 1.27.0 and later
 
 ### Added
 
