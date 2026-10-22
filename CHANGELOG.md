@@ -8,28 +8,98 @@ while this file lapsed. They are reproduced, not rewritten.
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-10-21
+
+Rows that cross a page continue on it. Tall table and grid rows split
+across pages instead of leaving the rest of the page empty, flex rows end
+below their deepest column, and the standard fonts can be embedded without a
+conformance claim, subset and at half the memory. All packages share the
+line: engine (crates.io `forme-pdf`), every `@formepdf/*` npm package,
+`formepdf` (PyPI), `forme-go` (tag v0.29.0), and the VS Code extension.
+
+Addresses #189, #190, #191, #195, #197 and #201.
+
 ### Security
 
-- `quick-xml` 0.41 ([RUSTSEC-2026-0194](https://rustsec.org/advisories/RUSTSEC-2026-0194.html)): an SVG element with many attributes was parsed in quadratic time, so a crafted SVG could stall a render (20,000 attributes took 2.7 s, now 50 ms). `miniz_oxide` 0.8 drops the unmaintained `adler` ([RUSTSEC-2025-0056](https://rustsec.org/advisories/RUSTSEC-2025-0056.html)). Output is byte-identical (#195)
+- `quick-xml` 0.41
+  ([RUSTSEC-2026-0194](https://rustsec.org/advisories/RUSTSEC-2026-0194.html)):
+  an SVG element with many attributes was parsed in quadratic time, so a
+  crafted SVG could stall a render (20,000 attributes took 2.7 s, now
+  50 ms). `miniz_oxide` 0.8 drops the unmaintained `adler`
+  ([RUSTSEC-2025-0056](https://rustsec.org/advisories/RUSTSEC-2025-0056.html)).
+  Output is byte-identical (#195)
+- `@formepdf/mcp` requires `@modelcontextprotocol/sdk` 1.32.0 or later,
+  the first release outside five advisories in the MCP TypeScript SDK
+  ([GHSA-6qxp-vccf-f47h](https://github.com/advisories/GHSA-6qxp-vccf-f47h),
+  [GHSA-22jm-h49p-29qw](https://github.com/advisories/GHSA-22jm-h49p-29qw),
+  [GHSA-6prh-2h8m-c8cw](https://github.com/advisories/GHSA-6prh-2h8m-c8cw),
+  [GHSA-46jr-4wx8-v453](https://github.com/advisories/GHSA-46jr-4wx8-v453),
+  [GHSA-rvq5-wwqv-78pq](https://github.com/advisories/GHSA-rvq5-wwqv-78pq)).
+  It allowed 1.27.0 and later
 
 ### Added
 
-- `embedStandardFonts` embeds Helvetica, Times and Courier as their metric-compatible substitutes from `@formepdf/fonts-standard` without claiming PDF/UA or PDF/A, so an ordinary document looks the same in every viewer (poppler-based viewers draw non-embedded Helvetica bold as regular). The substitutes are subset and layout does not change. It is a `<Document>` prop in every adapter, an option of `@formepdf/html` and Python's `render_html` and `Document`, and `--embed-standard-fonts` on `forme-html`. Without the fonts registered, nothing is embedded and a warning says so (#197).
+- **`embedStandardFonts`** embeds Helvetica, Times and Courier as their
+  metric-compatible substitutes from `@formepdf/fonts-standard` without
+  claiming PDF/UA or PDF/A, so an ordinary document looks the same in every
+  viewer (poppler-based viewers draw non-embedded Helvetica bold as
+  regular). The substitutes are subset and layout does not change. It is a
+  `<Document>` prop in every adapter, an option of `@formepdf/html`, of
+  Python's `render_html` and `Document`, `EmbedStandardFonts()` in Go, and
+  `--embed-standard-fonts` on `forme-html`. Without the fonts registered,
+  nothing is embedded and a warning says so (#197)
 
-### Changed
+### Changed: these move existing documents
 
-- A table row or CSS grid row taller than the space left on the page starts in that space and continues on the next page, its cells side by side below the repeated table header, the way a browser prints it. It used to move to the next page whole, which could leave most of a page empty, and a row taller than a page overflowed it. A short row still moves whole: if any cell cannot begin where it is under its own widow and orphan control, the row moves with it. `wrap: false` on a row (`break-inside: avoid` on a `<tr>`) keeps it whole as before (#201).
+- **Tall table and grid rows split across pages** (#201). A table row or CSS
+  grid row taller than the space left on the page starts in that space and
+  continues on the next page, its cells side by side below the repeated
+  table header, the way a browser prints it. It used to move to the next
+  page whole, which could leave most of a page empty, and a row taller than
+  a page overflowed it. A short row still moves whole: if any cell cannot
+  begin where it is under its own widow and orphan control, the row moves
+  with it. `wrap: false` on a row (`break-inside: avoid` on a `<tr>`) keeps
+  it whole as before
+- **A flex row that crosses a page ends below its deepest column** (#201).
+  When the column that carried the row onto the next page was also the
+  deepest, as a long column usually is, the row ended at the next-deepest
+  one and what followed was drawn over it. The catalog demo template lost
+  all eight products on its second page to this, and the report template's
+  last card drew its accent bar short. A regression from the 0.24.0
+  parallel-fragmentation work
+- **A table row counts the vertical margins of its cells' children** (#201).
+  It measured them without, so a cell whose content had margins drew a box
+  too short for it and overlapped the next row: an HTML invoice's discount
+  row overprinted the subtotal above it. Near a page end, the row broke
+  inside a cell that had measured as fitting and the render panicked with
+  "table cell broke but no rollback checkpoint was taken"
+- **A Page's `backgroundColor` is painted** (#189), full-bleed and behind all
+  content, on every page the Page's content runs onto. It was ignored
+  without a warning
 
 ### Fixed
 
-- A table row counts the vertical margins of its cells' children. It measured them without, so a cell whose content had margins drew a box too short for it and overlapped the next row; near a page end, the row broke inside a cell that had measured as fitting and the render panicked with "table cell broke but no rollback checkpoint was taken" (#201).
-- SVG and other leaf drawings restore opacity and transforms before painting following elements (#190).
-- Greedy line breaking no longer draws trailing line breaks as missing glyphs in plain or styled text (#191).
-- A Page's `backgroundColor` is painted, full-bleed and behind all content, on every page the Page's content runs onto. It was ignored without a warning (#189).
-- The Liberation substitutes embedded for Helvetica, Times and Courier under PDF/UA, PDF/A or PDF 2.0 are subset to the characters used instead of embedded whole, about 400 KB a face: a one-page invoice with PDF/UA goes from 653 KB to 51 KB (#197). A document with charts or form fields keeps regular Helvetica whole, since their text is drawn outside the subset's view.
-- A flex row that crosses a page ends below its deepest column. When the column that carried the row onto the next page was also the deepest, as a long column usually is, the row ended at the next-deepest one and what followed was drawn over it (#201). The catalog demo template lost all eight products on its second page to this, the report template's last card drew its accent bar short, and an HTML invoice's discount amount overprinted its subtotal. A regression from the 0.24.0 parallel-fragmentation work.
-- Fonts passed to `@formepdf/html` (and the Python and Go HTML renderers) cost about half the WASM memory: they were decoded, encoded back to base64 for the engine and decoded again, with every copy kept for the whole render. Twelve `standardFonts()` faces took a render to 27 MiB; now 14 MiB (#197). The engine gains `render_with_options_and_fonts` (and its layout twin) taking fonts as bytes.
-- Page background images are marked as artifacts in tagged output. Drawn unmarked, they made a PDF/UA document fail validation (content neither tagged nor an artifact).
+- SVG and other leaf drawings restore opacity and transforms before
+  painting the elements that follow (#190)
+- Greedy line breaking no longer draws a trailing line break as a missing
+  glyph, in plain or styled text (#191)
+- The Liberation substitutes embedded for Helvetica, Times and Courier
+  under PDF/UA, PDF/A or PDF 2.0 are subset to the characters used instead
+  of embedded whole, about 400 KB a face: a one-page invoice with PDF/UA
+  goes from 653 KB to 51 KB (#197). A document with charts or form fields
+  keeps regular Helvetica whole, since their text is drawn outside the
+  subset's view
+- Fonts passed to `@formepdf/html` and Python's `render_html` cost about
+  half the WASM memory: they were decoded, encoded back to base64 for the
+  engine and decoded again, with every copy kept for the whole render.
+  Twelve `standardFonts()` faces took a render to 27 MiB; now 14 MiB
+  (#197). The engine gains `render_with_options_and_fonts` (and its layout
+  twin), taking fonts as bytes
+- Page background images are marked as artifacts in tagged output. Drawn
+  unmarked, they made a PDF/UA document fail validation (content neither
+  tagged nor an artifact)
+
+SVG and greedy-breaking fixes contributed by @amruthpillai in #192 and #193.
 
 ## [0.28.0] - 2026-10-06
 
