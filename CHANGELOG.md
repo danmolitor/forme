@@ -22,8 +22,12 @@ while this file lapsed. They are reproduced, not rewritten.
   (#213)
 - A character the standard fonts cannot encode is measured as the "?" the
   PDF draws in its place, so it no longer overlaps the text after it
+- `transform: rotate()` and `scale()` pivot about the element's
+  `transform-origin` instead of the page corner, which moved a rotated
+  element and could put it off the page; several transform functions apply
+  in CSS order, as in Chrome (#214)
 
-Contributed by @PerryLink in #216, #217, #219 and #220, and by
+Contributed by @PerryLink in #216, #217, #218, #219 and #220, and by
 @amruthpillai in #215.
 
 ## [0.29.0] - 2026-10-21

@@ -190,9 +190,10 @@ pub struct Style {
     pub transform_origin: Option<(f64, f64)>,
 }
 
-/// A single transform operation. Applied in order — the first op listed
-/// is applied first (innermost), the last is applied last (outermost),
-/// matching CSS `transform` semantics.
+/// A single transform operation. A list of them reads like CSS
+/// `transform`: the last op listed is applied to a point first, and the
+/// first op listed last, so `[translate, rotate]` turns the box and then
+/// moves it.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum TransformOp {
