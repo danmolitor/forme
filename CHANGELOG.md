@@ -8,6 +8,24 @@ while this file lapsed. They are reproduced, not rewritten.
 
 ## [Unreleased]
 
+### Fixed
+
+- `hyphens: auto` no longer panics on a word longer than 45 bytes, which
+  aborted the whole render (#207)
+- Text cut with `textOverflow: "ellipsis"` or `"clip"` is measured as the
+  one line it draws, so it sits where its row aligns it instead of above
+  (#212)
+- A `borderRadius` whose top-left corner is 0 rounds the other corners of a
+  solid background or border; it was drawn square (#210)
+- The same image on several pages is embedded once and shared, instead of
+  once per page: a logo on every page no longer adds its size per page
+  (#213)
+- A character the standard fonts cannot encode is measured as the "?" the
+  PDF draws in its place, so it no longer overlaps the text after it
+
+Contributed by @PerryLink in #216, #217, #219 and #220, and by
+@amruthpillai in #215.
+
 ## [0.29.0] - 2026-10-21
 
 Rows that cross a page continue on it. Tall table and grid rows split
