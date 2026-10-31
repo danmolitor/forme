@@ -1776,14 +1776,12 @@ impl PdfWriter {
             // -origin shift last so the user transforms pivot about the element's
             // origin rather than the page corner (#214).
             let _ = writeln!(stream, "1 0 0 1 {:.4} {:.4} cm", origin_x, origin_y);
-            // User transforms: emit in REVERSE of the CSS list order. CSS lists
-            // transforms left-to-right with the LAST one applied first
-            // (closest to the point being drawn). PDF `cm` left-multiplies the
-            // CTM, so the FIRST emitted cm becomes the innermost. Reversing
-            // makes the leftmost CSS transform the last cm emitted = outermost
-            // multiplication = applied last to a point — which matches "first
-            // listed wraps everything inside it" semantics.
-            for op in transform_ops.iter().rev() {
+            // User transforms, in the CSS list order. CSS applies the LAST
+            // listed function to a point first (`translate(…) rotate(…)`
+            // turns the box, then moves it), and the `cm` written last is
+            // the one applied first, so writing them in list order gives
+            // exactly that. Checked against Chrome (#214).
+            for op in transform_ops.iter() {
                 match op {
                     TransformOp::Rotate { deg } => {
                         // CSS rotates clockwise in screen space. With PDF's
