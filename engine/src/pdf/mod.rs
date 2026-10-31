@@ -1932,11 +1932,8 @@ impl PdfWriter {
                                 );
                             }
                             None => {
-                                let _ = writeln!(
-                                    stream,
-                                    "q\n{:.3} {:.3} {:.3} rg",
-                                    bg.r, bg.g, bg.b
-                                );
+                                let _ =
+                                    writeln!(stream, "q\n{:.3} {:.3} {:.3} rg", bg.r, bg.g, bg.b);
                             }
                         }
 
