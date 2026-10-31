@@ -17196,3 +17196,173 @@ fn test_embed_standard_fonts_warns_without_substitutes() {
         "no PDF/UA wording for a document that claims nothing: {warnings:?}"
     );
 }
+
+// Regression for #207: hypher built without `alloc` panics on an alphabetic
+// token longer than 45 bytes, which takes down the whole render.
+#[test]
+fn test_hyphenation_auto_survives_alphabetic_word_over_45_bytes() {
+    let json = r#"{
+      "children": [{
+        "kind": {"type": "Page", "config": {"size": "A4", "margin": {"top": 54, "right": 54, "bottom": 54, "left": 54}, "wrap": true}},
+        "style": {},
+        "children": [{
+          "kind": {"type": "Text", "content": "pneumonoultramicroscopicsilicovolcanoconiosesx"},
+          "style": {"hyphens": "auto"},
+          "children": []
+        }]
+      }],
+      "metadata": {},
+      "defaultPage": {"size": "A4", "margin": {"top": 54, "right": 54, "bottom": 54, "left": 54}, "wrap": true}
+    }"#;
+    let bytes = forme::render_json(json).expect("long word must not panic the renderer");
+    assert!(
+        bytes.starts_with(b"%PDF"),
+        "expected PDF output, got {} bytes",
+        bytes.len()
+    );
+}
+
+// Regression for #212: `textOverflow: "ellipsis"` and `"clip"` render one
+// line, so measuring the wrapped line count placed the box too high in a
+// centred row.
+#[test]
+fn test_ellipsis_text_is_measured_as_one_line() {
+    let mut short = make_text("Short name", 10.0);
+    short.style.width = Some(Dimension::Pt(80.0));
+    let mut ell = make_text("A name far too long for its column", 10.0);
+    ell.style.width = Some(Dimension::Pt(80.0));
+    ell.style.text_overflow = Some(TextOverflow::Ellipsis);
+    let mut num = make_text("42", 10.0);
+    num.style.width = Some(Dimension::Pt(60.0));
+    let mut row = make_view(vec![short, ell, num]);
+    row.style.flex_direction = Some(FlexDirection::Row);
+    row.style.align_items = Some(AlignItems::Center);
+    row.style.height = Some(Dimension::Pt(30.0));
+    let doc = default_doc(vec![row]);
+    let (_, layout, _) = forme::render_with_layout(&doc).expect("render with layout");
+
+    fn collect<'a>(
+        els: &'a [forme::layout::ElementInfo],
+        out: &mut Vec<&'a forme::layout::ElementInfo>,
+    ) {
+        for e in els {
+            out.push(e);
+            collect(&e.children, out);
+        }
+    }
+    let mut all = Vec::new();
+    collect(&layout.pages[0].elements, &mut all);
+    let texts: Vec<_> = all
+        .iter()
+        .filter(|e| e.node_type == "TextLine")
+        .filter(|e| {
+            e.text_content.as_deref().is_some_and(|t| {
+                t.contains("Short name") || t.contains("A name far too") || t == "42"
+            })
+        })
+        .collect();
+    assert_eq!(
+        texts.len(),
+        3,
+        "expected the three row texts, got {texts:?}"
+    );
+    let ys: Vec<f64> = texts.iter().map(|e| e.y).collect();
+    let heights: Vec<f64> = texts.iter().map(|e| e.height).collect();
+    assert!(
+        (ys[0] - ys[1]).abs() < 0.01 && (ys[0] - ys[2]).abs() < 0.01,
+        "centred row texts must share one y, got {ys:?}"
+    );
+    assert!(
+        (heights[1] - heights[0]).abs() < 0.01,
+        "the ellipsized text must be measured as one line, got heights {heights:?}"
+    );
+}
+
+// Regression for #208/#210: a box whose top-left radius is 0 must still round
+// the other three corners; the solid-background and border paths only checked
+// `top_left > 0.0`.
+#[test]
+fn test_border_radius_with_zero_top_left_still_rounds_other_corners() {
+    let mut box_ = make_view(vec![]);
+    box_.style.width = Some(Dimension::Pt(60.0));
+    box_.style.height = Some(Dimension::Pt(40.0));
+    box_.style.background_color = Some(Color {
+        r: 0.53,
+        g: 0.53,
+        b: 0.53,
+        a: 1.0,
+    });
+    box_.style.border_radius = Some(CornerValues {
+        top_left: 0.0,
+        top_right: 0.0,
+        bottom_right: 12.0,
+        bottom_left: 12.0,
+    });
+    let mut doc = default_doc(vec![box_]);
+    doc.default_page.size = PageSize::Custom {
+        width: 200.0,
+        height: 100.0,
+    };
+    doc.default_page.margin = Edges::uniform(10.0);
+
+    let bytes = forme::render(&doc).expect("render");
+    let content = decompress_pdf_streams(&bytes);
+    assert!(
+        content.contains(" c\n"),
+        "the two rounded bottom corners must emit bezier curves, got:\n{content}"
+    );
+}
+
+// Regression for #213: the same Image element on several pages must share one
+// XObject (and one soft mask), like a page background image already does.
+#[test]
+fn test_same_image_on_several_pages_shares_one_xobject() {
+    // 2x2 RGBA PNG, half-transparent red.
+    const SRC: &str = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAEUlEQVR4nGM4wcDQAMIMMAYAL+IFIWYjUGUAAAAASUVORK5CYII=";
+    fn img_node() -> Node {
+        Node {
+            kind: NodeKind::Image {
+                src: SRC.to_string(),
+                width: Some(10.0),
+                height: Some(10.0),
+            },
+            style: Style::default(),
+            children: vec![],
+            id: None,
+            source_location: None,
+            bookmark: None,
+            href: None,
+            alt: None,
+        }
+    }
+    fn page_node() -> Node {
+        Node {
+            kind: NodeKind::Page {
+                config: PageConfig {
+                    size: PageSize::Custom {
+                        width: 100.0,
+                        height: 100.0,
+                    },
+                    margin: Edges::uniform(5.0),
+                    wrap: true,
+                    ..Default::default()
+                },
+            },
+            style: Style::default(),
+            children: vec![img_node()],
+            id: None,
+            source_location: None,
+            bookmark: None,
+            href: None,
+            alt: None,
+        }
+    }
+    let doc = default_doc(vec![page_node(), page_node(), page_node()]);
+    let bytes = forme::render(&doc).expect("render");
+    let text = String::from_utf8_lossy(&bytes);
+    let images = text.matches("/Subtype /Image").count();
+    assert_eq!(
+        images, 2,
+        "one image + one soft mask shared by the three pages, got {images} image XObjects"
+    );
+}
