@@ -30,7 +30,7 @@ rustybuzz = "0.20"          # OpenType shaping (GSUB/GPOS) — pure Rust, WASM-s
 unicode-linebreak = "0.1" # UAX#14 line break algorithm
 unicode-bidi = "0.3"       # UAX#9 BiDi algorithm
 unicode-script = "0.5"     # Script detection for BiDi run splitting
-hypher = { version = "0.1", default-features = false, features = ["full"] }
+hypher = { version = "0.1", default-features = false, features = ["full", "alloc"] }
 qrcode = "0.14"            # QR code generation — pure Rust, no_std compatible
 barcoders = { version = "2", default-features = false }  # 1D barcode generation — no_std, zero deps
 quick-xml = "0.41"

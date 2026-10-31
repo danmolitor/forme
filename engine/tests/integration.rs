@@ -17196,3 +17196,28 @@ fn test_embed_standard_fonts_warns_without_substitutes() {
         "no PDF/UA wording for a document that claims nothing: {warnings:?}"
     );
 }
+
+// Regression for #207: hypher built without `alloc` panics on an alphabetic
+// token longer than 45 bytes, which takes down the whole render.
+#[test]
+fn test_hyphenation_auto_survives_alphabetic_word_over_45_bytes() {
+    let json = r#"{
+      "children": [{
+        "kind": {"type": "Page", "config": {"size": "A4", "margin": {"top": 54, "right": 54, "bottom": 54, "left": 54}, "wrap": true}},
+        "style": {},
+        "children": [{
+          "kind": {"type": "Text", "content": "pneumonoultramicroscopicsilicovolcanoconiosesx"},
+          "style": {"hyphens": "auto"},
+          "children": []
+        }]
+      }],
+      "metadata": {},
+      "defaultPage": {"size": "A4", "margin": {"top": 54, "right": 54, "bottom": 54, "left": 54}, "wrap": true}
+    }"#;
+    let bytes = forme::render_json(json).expect("long word must not panic the renderer");
+    assert!(
+        bytes.starts_with(b"%PDF"),
+        "expected PDF output, got {} bytes",
+        bytes.len()
+    );
+}
