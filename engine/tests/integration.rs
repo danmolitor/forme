@@ -17273,5 +17273,38 @@ fn test_ellipsis_text_is_measured_as_one_line() {
     assert!(
         (heights[1] - heights[0]).abs() < 0.01,
         "the ellipsized text must be measured as one line, got heights {heights:?}"
+
+// Regression for #208/#210: a box whose top-left radius is 0 must still round
+// the other three corners; the solid-background and border paths only checked
+// `top_left > 0.0`.
+#[test]
+fn test_border_radius_with_zero_top_left_still_rounds_other_corners() {
+    let mut box_ = make_view(vec![]);
+    box_.style.width = Some(Dimension::Pt(60.0));
+    box_.style.height = Some(Dimension::Pt(40.0));
+    box_.style.background_color = Some(Color {
+        r: 0.53,
+        g: 0.53,
+        b: 0.53,
+        a: 1.0,
+    });
+    box_.style.border_radius = Some(CornerValues {
+        top_left: 0.0,
+        top_right: 0.0,
+        bottom_right: 12.0,
+        bottom_left: 12.0,
+    });
+    let mut doc = default_doc(vec![box_]);
+    doc.default_page.size = PageSize::Custom {
+        width: 200.0,
+        height: 100.0,
+    };
+    doc.default_page.margin = Edges::uniform(10.0);
+
+    let bytes = forme::render(&doc).expect("render");
+    let content = decompress_pdf_streams(&bytes);
+    assert!(
+        content.contains(" c\n"),
+        "the two rounded bottom corners must emit bezier curves, got:\n{content}"
     );
 }

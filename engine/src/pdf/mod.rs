@@ -1911,7 +1911,11 @@ impl PdfWriter {
                     if bg.a > 0.0 {
                         let _ = writeln!(stream, "q\n{:.3} {:.3} {:.3} rg", bg.r, bg.g, bg.b);
 
-                        if border_radius.top_left > 0.0 {
+                        if border_radius.top_left > 0.0
+                            || border_radius.top_right > 0.0
+                            || border_radius.bottom_right > 0.0
+                            || border_radius.bottom_left > 0.0
+                        {
                             self.write_rounded_rect(stream, x, y, w, h, border_radius);
                         } else {
                             let _ = writeln!(stream, "{:.2} {:.2} {:.2} {:.2} re", x, y, w, h);
@@ -1945,7 +1949,11 @@ impl PdfWriter {
                             bc.r, bc.g, bc.b, bw.top
                         );
 
-                        if border_radius.top_left > 0.0 {
+                        if border_radius.top_left > 0.0
+                            || border_radius.top_right > 0.0
+                            || border_radius.bottom_right > 0.0
+                            || border_radius.bottom_left > 0.0
+                        {
                             self.write_rounded_rect(stream, x, y, w, h, border_radius);
                         } else {
                             let _ = writeln!(stream, "{:.2} {:.2} {:.2} {:.2} re", x, y, w, h);
