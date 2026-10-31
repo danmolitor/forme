@@ -202,6 +202,10 @@ struct PdfBuilder {
     /// Maps (page_index, element_position_in_page) to image index in image_objects.
     /// Used during content stream writing to find the right /ImN reference.
     image_index_map: HashMap<(usize, usize), usize>,
+    /// Hash of a decoded image -> index in image_objects, so the same Image
+    /// element on several pages (or several times on one page) shares one
+    /// XObject and one soft mask (#213).
+    element_image_cache: HashMap<u64, usize>,
     /// Maps page_index to (image_index, intrinsic_width_px, intrinsic_height_px)
     /// for the page's optional `background_image`. Identical URLs across
     /// pages share a single XObject; the dims are needed for
@@ -383,6 +387,7 @@ impl PdfWriter {
             embedded_standard_fonts: std::collections::HashSet::new(),
             image_objects: Vec::new(),
             image_index_map: HashMap::new(),
+            element_image_cache: HashMap::new(),
             page_background_image_map: HashMap::new(),
             page_background_url_cache: HashMap::new(),
             ext_gstate_map: HashMap::new(),
@@ -3784,6 +3789,30 @@ impl PdfWriter {
         }
     }
 
+    /// Stable hash of a decoded image, used to share one XObject between the
+    /// same `Image` element on different pages (#213).
+    fn image_cache_key(image: &crate::image_loader::LoadedImage) -> u64 {
+        use crate::image_loader::ImagePixelData;
+        use std::hash::{Hash, Hasher};
+
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        image.width_px.hash(&mut hasher);
+        image.height_px.hash(&mut hasher);
+        match &image.pixel_data {
+            ImagePixelData::Jpeg { data, color_space } => {
+                0u8.hash(&mut hasher);
+                data.hash(&mut hasher);
+                (*color_space as u8).hash(&mut hasher);
+            }
+            ImagePixelData::Decoded { rgb, alpha } => {
+                1u8.hash(&mut hasher);
+                rgb.hash(&mut hasher);
+                alpha.hash(&mut hasher);
+            }
+        }
+        hasher.finish()
+    }
+
     fn collect_images_recursive(
         elements: &[LayoutElement],
         page_idx: usize,
@@ -3796,9 +3825,16 @@ impl PdfWriter {
                     let elem_idx = *element_counter;
                     *element_counter += 1;
 
-                    let img_idx = builder.image_objects.len();
-                    let xobj_id = Self::write_image_xobject(builder, image_data);
-                    builder.image_objects.push(xobj_id);
+                    let key = Self::image_cache_key(image_data);
+                    let img_idx = if let Some(&idx) = builder.element_image_cache.get(&key) {
+                        idx
+                    } else {
+                        let idx = builder.image_objects.len();
+                        let xobj_id = Self::write_image_xobject(builder, image_data);
+                        builder.image_objects.push(xobj_id);
+                        builder.element_image_cache.insert(key, idx);
+                        idx
+                    };
                     builder
                         .image_index_map
                         .insert((page_idx, elem_idx), img_idx);
