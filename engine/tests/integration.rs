@@ -17196,7 +17196,6 @@ fn test_embed_standard_fonts_warns_without_substitutes() {
         "no PDF/UA wording for a document that claims nothing: {warnings:?}"
     );
 }
-
 // Regression for #207: hypher built without `alloc` panics on an alphabetic
 // token longer than 45 bytes, which takes down the whole render.
 #[test]
@@ -17364,5 +17363,47 @@ fn test_same_image_on_several_pages_shares_one_xobject() {
     assert_eq!(
         images, 2,
         "one image + one soft mask shared by the three pages, got {images} image XObjects"
+    );
+}
+
+// Regression for #214: rotate()/scale() must pivot about the element's
+// transform-origin, not the page corner. PDF `cm` left-multiplies the CTM, so
+// the shift that is written last is the one applied first to a point.
+#[test]
+fn test_rotate_pivots_around_element_center() {
+    let mut box_ = make_view(vec![]);
+    box_.style.position = Some(Position::Absolute);
+    box_.style.left = Some(140.0);
+    box_.style.top = Some(100.0);
+    box_.style.width = Some(Dimension::Pt(60.0));
+    box_.style.height = Some(Dimension::Pt(30.0));
+    box_.style.background_color = Some(Color {
+        r: 0.8,
+        g: 0.0,
+        b: 0.0,
+        a: 1.0,
+    });
+    box_.style.transform = Some(vec![TransformOp::Rotate { deg: 5.0 }]);
+    let mut doc = default_doc(vec![box_]);
+    doc.default_page.size = PageSize::Custom {
+        width: 400.0,
+        height: 260.0,
+    };
+    doc.default_page.margin = Edges::uniform(0.0);
+
+    let bytes = forme::render(&doc).expect("render");
+    let content = decompress_pdf_streams(&bytes);
+    let origin_first = content
+        .find("1 0 0 1 30.0000 245.0000 cm")
+        .expect("the +origin shift must be the first cm written");
+    let rotation = content
+        .find("0.996195 -0.087156 0.087156 0.996195 0 0 cm")
+        .expect("rotation matrix");
+    let origin_last = content
+        .find("1 0 0 1 -30.0000 -245.0000 cm")
+        .expect("the -origin shift must be the last cm written");
+    assert!(
+        origin_first < rotation && rotation < origin_last,
+        "matrix order must be +origin, rotation, -origin (got {origin_first}, {rotation}, {origin_last})"
     );
 }

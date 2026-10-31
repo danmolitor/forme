@@ -1771,8 +1771,11 @@ impl PdfWriter {
             let origin_y = pdf_y_bottom + (1.0 - oy_frac) * element.height;
 
             let _ = writeln!(stream, "q");
-            // Shift origin point to PDF (0,0) so subsequent transforms pivot there.
-            let _ = writeln!(stream, "1 0 0 1 {:.4} {:.4} cm", -origin_x, -origin_y);
+            // `cm` left-multiplies the CTM, so the matrix written last is the one
+            // applied first to a point. Write the +origin shift first and the
+            // -origin shift last so the user transforms pivot about the element's
+            // origin rather than the page corner (#214).
+            let _ = writeln!(stream, "1 0 0 1 {:.4} {:.4} cm", origin_x, origin_y);
             // User transforms: emit in REVERSE of the CSS list order. CSS lists
             // transforms left-to-right with the LAST one applied first
             // (closest to the point being drawn). PDF `cm` left-multiplies the
@@ -1802,7 +1805,7 @@ impl PdfWriter {
                 }
             }
             // Shift origin back to its real position.
-            let _ = writeln!(stream, "1 0 0 1 {:.4} {:.4} cm", origin_x, origin_y);
+            let _ = writeln!(stream, "1 0 0 1 {:.4} {:.4} cm", -origin_x, -origin_y);
         }
 
         // PDF/UA-2: the element's own ink (a grouping element's borders or
