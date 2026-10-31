@@ -17219,6 +17219,8 @@ fn test_hyphenation_auto_survives_alphabetic_word_over_45_bytes() {
         bytes.starts_with(b"%PDF"),
         "expected PDF output, got {} bytes",
         bytes.len()
+    );
+}
 
 // Regression for #212: `textOverflow: "ellipsis"` and `"clip"` render one
 // line, so measuring the wrapped line count placed the box too high in a
@@ -17273,6 +17275,8 @@ fn test_ellipsis_text_is_measured_as_one_line() {
     assert!(
         (heights[1] - heights[0]).abs() < 0.01,
         "the ellipsized text must be measured as one line, got heights {heights:?}"
+    );
+}
 
 // Regression for #208/#210: a box whose top-left radius is 0 must still round
 // the other three corners; the solid-background and border paths only checked
@@ -17306,6 +17310,8 @@ fn test_border_radius_with_zero_top_left_still_rounds_other_corners() {
     assert!(
         content.contains(" c\n"),
         "the two rounded bottom corners must emit bezier curves, got:\n{content}"
+    );
+}
 
 // Regression for #213: the same Image element on several pages must share one
 // XObject (and one soft mask), like a page background image already does.
