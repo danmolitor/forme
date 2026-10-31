@@ -7081,7 +7081,14 @@ impl LayoutEngine {
                         ),
                     };
                     let line_height = style.font_size * style.line_height;
-                    (broken_lines.len() as f64) * line_height + style.padding.vertical()
+                    // #212: Ellipsis/Clip truncate to a single line in layout_text, so
+                    // measuring the wrapped line count sized the box for text that is
+                    // never drawn and pushed the centred line out of its row.
+                    let line_count = match style.text_overflow {
+                        TextOverflow::Ellipsis | TextOverflow::Clip => broken_lines.len().min(1),
+                        TextOverflow::Wrap => broken_lines.len(),
+                    };
+                    (line_count as f64) * line_height + style.padding.vertical()
                 } else {
                     let content = substitute_page_placeholders(content);
                     let transformed = apply_text_transform(&content, style.text_transform);
@@ -7116,7 +7123,12 @@ impl LayoutEngine {
                         ),
                     };
                     let line_height = style.font_size * style.line_height;
-                    (lines.len() as f64) * line_height + style.padding.vertical()
+                    // #212: single-line truncation, same as the runs branch above.
+                    let line_count = match style.text_overflow {
+                        TextOverflow::Ellipsis | TextOverflow::Clip => lines.len().min(1),
+                        TextOverflow::Wrap => lines.len(),
+                    };
+                    (line_count as f64) * line_height + style.padding.vertical()
                 }
             }
             NodeKind::Image {

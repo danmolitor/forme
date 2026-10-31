@@ -17219,5 +17219,59 @@ fn test_hyphenation_auto_survives_alphabetic_word_over_45_bytes() {
         bytes.starts_with(b"%PDF"),
         "expected PDF output, got {} bytes",
         bytes.len()
+
+// Regression for #212: `textOverflow: "ellipsis"` and `"clip"` render one
+// line, so measuring the wrapped line count placed the box too high in a
+// centred row.
+#[test]
+fn test_ellipsis_text_is_measured_as_one_line() {
+    let mut short = make_text("Short name", 10.0);
+    short.style.width = Some(Dimension::Pt(80.0));
+    let mut ell = make_text("A name far too long for its column", 10.0);
+    ell.style.width = Some(Dimension::Pt(80.0));
+    ell.style.text_overflow = Some(TextOverflow::Ellipsis);
+    let mut num = make_text("42", 10.0);
+    num.style.width = Some(Dimension::Pt(60.0));
+    let mut row = make_view(vec![short, ell, num]);
+    row.style.flex_direction = Some(FlexDirection::Row);
+    row.style.align_items = Some(AlignItems::Center);
+    row.style.height = Some(Dimension::Pt(30.0));
+    let doc = default_doc(vec![row]);
+    let (_, layout, _) = forme::render_with_layout(&doc).expect("render with layout");
+
+    fn collect<'a>(
+        els: &'a [forme::layout::ElementInfo],
+        out: &mut Vec<&'a forme::layout::ElementInfo>,
+    ) {
+        for e in els {
+            out.push(e);
+            collect(&e.children, out);
+        }
+    }
+    let mut all = Vec::new();
+    collect(&layout.pages[0].elements, &mut all);
+    let texts: Vec<_> = all
+        .iter()
+        .filter(|e| e.node_type == "TextLine")
+        .filter(|e| {
+            e.text_content.as_deref().is_some_and(|t| {
+                t.contains("Short name") || t.contains("A name far too") || t == "42"
+            })
+        })
+        .collect();
+    assert_eq!(
+        texts.len(),
+        3,
+        "expected the three row texts, got {texts:?}"
+    );
+    let ys: Vec<f64> = texts.iter().map(|e| e.y).collect();
+    let heights: Vec<f64> = texts.iter().map(|e| e.height).collect();
+    assert!(
+        (ys[0] - ys[1]).abs() < 0.01 && (ys[0] - ys[2]).abs() < 0.01,
+        "centred row texts must share one y, got {ys:?}"
+    );
+    assert!(
+        (heights[1] - heights[0]).abs() < 0.01,
+        "the ellipsized text must be measured as one line, got heights {heights:?}"
     );
 }
