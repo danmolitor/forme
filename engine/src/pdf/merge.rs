@@ -586,11 +586,20 @@ fn find_ref_in_bytes(section: &[u8], key: &[u8]) -> Option<usize> {
 fn find_object_content_bytes(pdf: &[u8], obj_id: usize) -> Option<&[u8]> {
     let header = format!("{obj_id} 0 obj");
     let header_bytes = header.as_bytes();
-    let start = find_bytes(pdf, header_bytes)?;
-    let after_header = start + header_bytes.len();
-    let rest = &pdf[after_header..];
-    let end = find_bytes(rest, b"endobj")?;
-    Some(&rest[..end])
+    let mut from = 0;
+    while let Some(rel) = find_bytes(&pdf[from..], header_bytes) {
+        let start = from + rel;
+        // The id must be a standalone number: a search for object 3 must not
+        // match the "3 0 obj" inside "13 0 obj" (#206).
+        if start == 0 || !pdf[start - 1].is_ascii_digit() {
+            let after_header = start + header_bytes.len();
+            let rest = &pdf[after_header..];
+            let end = find_bytes(rest, b"endobj")?;
+            return Some(&rest[..end]);
+        }
+        from = start + 1;
+    }
+    None
 }
 
 /// Find a reference value (N 0 R) for a key inside an object.
@@ -674,6 +683,50 @@ mod tests {
             r#"{{"children":[{{"kind":{{"type":"Page"}},"children":[{{"kind":{{"type":"Text","content":"{text}"}}}}]}}]}}"#
         );
         crate::render_json(&json).unwrap()
+    }
+
+    /// Build a minimal valid PDF with the objects emitted in `order`.
+    /// Object 13 comes before object 3 in the reordered variant, which used to
+    /// make the `"{id} 0 obj"` substring lookup find 13 when asked for 3.
+    fn build_reordered_pdf(order: &[usize]) -> Vec<u8> {
+        let stream = "BT /F1 24 Tf 72 700 Td (Hello) Tj ET";
+        let body = |id: usize| -> String {
+            match id {
+                1 => "<< /Type /Catalog /Pages 3 0 R >>".to_string(),
+                2 => "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>".to_string(),
+                3 => "<< /Type /Pages /Kids [4 0 R] /Count 1 >>".to_string(),
+                4 => "<< /Type /Page /Parent 3 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 2 0 R >> >> /Contents 5 0 R >>".to_string(),
+                5 => format!("<< /Length {} >>\nstream\n{stream}\nendstream", stream.len()),
+                13 => "<< /Producer (repro) >>".to_string(),
+                _ => unreachable!(),
+            }
+        };
+
+        let mut pdf = String::from("%PDF-1.4\n");
+        let mut offsets = std::collections::HashMap::new();
+        for &id in order {
+            offsets.insert(id, pdf.len());
+            pdf.push_str(&format!("{id} 0 obj\n{}\nendobj\n", body(id)));
+        }
+        let xref = pdf.len();
+        pdf.push_str("xref\n0 6\n0000000000 65535 f \n");
+        for id in 1..=5 {
+            pdf.push_str(&format!("{:010} 00000 n \n", offsets[&id]));
+        }
+        pdf.push_str("13 1\n");
+        pdf.push_str(&format!("{:010} 00000 n \n", offsets[&13]));
+        pdf.push_str(&format!(
+            "trailer\n<< /Size 14 /Root 1 0 R /Info 13 0 R >>\nstartxref\n{xref}\n%%EOF\n"
+        ));
+        pdf.into_bytes()
+    }
+
+    #[test]
+    fn test_merge_pdf_with_out_of_order_objects() {
+        let ordered = build_reordered_pdf(&[1, 2, 3, 4, 5, 13]);
+        let reordered = build_reordered_pdf(&[13, 1, 2, 3, 4, 5]);
+        let merged = merge_pdfs(&[&ordered, &reordered]).expect("merge must accept out-of-order objects");
+        assert!(merged.starts_with(b"%PDF"));
     }
 
     #[test]
