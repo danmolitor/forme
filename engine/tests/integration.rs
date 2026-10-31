@@ -17196,3 +17196,57 @@ fn test_embed_standard_fonts_warns_without_substitutes() {
         "no PDF/UA wording for a document that claims nothing: {warnings:?}"
     );
 }
+
+// Regression for #213: the same Image element on several pages must share one
+// XObject (and one soft mask), like a page background image already does.
+#[test]
+fn test_same_image_on_several_pages_shares_one_xobject() {
+    // 2x2 RGBA PNG, half-transparent red.
+    const SRC: &str = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAEUlEQVR4nGM4wcDQAMIMMAYAL+IFIWYjUGUAAAAASUVORK5CYII=";
+    fn img_node() -> Node {
+        Node {
+            kind: NodeKind::Image {
+                src: SRC.to_string(),
+                width: Some(10.0),
+                height: Some(10.0),
+            },
+            style: Style::default(),
+            children: vec![],
+            id: None,
+            source_location: None,
+            bookmark: None,
+            href: None,
+            alt: None,
+        }
+    }
+    fn page_node() -> Node {
+        Node {
+            kind: NodeKind::Page {
+                config: PageConfig {
+                    size: PageSize::Custom {
+                        width: 100.0,
+                        height: 100.0,
+                    },
+                    margin: Edges::uniform(5.0),
+                    wrap: true,
+                    ..Default::default()
+                },
+            },
+            style: Style::default(),
+            children: vec![img_node()],
+            id: None,
+            source_location: None,
+            bookmark: None,
+            href: None,
+            alt: None,
+        }
+    }
+    let doc = default_doc(vec![page_node(), page_node(), page_node()]);
+    let bytes = forme::render(&doc).expect("render");
+    let text = String::from_utf8_lossy(&bytes);
+    let images = text.matches("/Subtype /Image").count();
+    assert_eq!(
+        images, 2,
+        "one image + one soft mask shared by the three pages, got {images} image XObjects"
+    );
+}
