@@ -17216,7 +17216,10 @@ fn test_ellipsis_text_is_measured_as_one_line() {
     let doc = default_doc(vec![row]);
     let (_, layout, _) = forme::render_with_layout(&doc).expect("render with layout");
 
-    fn collect<'a>(els: &'a [forme::layout::ElementInfo], out: &mut Vec<&'a forme::layout::ElementInfo>) {
+    fn collect<'a>(
+        els: &'a [forme::layout::ElementInfo],
+        out: &mut Vec<&'a forme::layout::ElementInfo>,
+    ) {
         for e in els {
             out.push(e);
             collect(&e.children, out);
@@ -17228,12 +17231,16 @@ fn test_ellipsis_text_is_measured_as_one_line() {
         .iter()
         .filter(|e| e.node_type == "TextLine")
         .filter(|e| {
-            e.text_content.as_deref().map_or(false, |t| {
+            e.text_content.as_deref().is_some_and(|t| {
                 t.contains("Short name") || t.contains("A name far too") || t == "42"
             })
         })
         .collect();
-    assert_eq!(texts.len(), 3, "expected the three row texts, got {texts:?}");
+    assert_eq!(
+        texts.len(),
+        3,
+        "expected the three row texts, got {texts:?}"
+    );
     let ys: Vec<f64> = texts.iter().map(|e| e.y).collect();
     let heights: Vec<f64> = texts.iter().map(|e| e.height).collect();
     assert!(
