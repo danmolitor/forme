@@ -725,7 +725,8 @@ mod tests {
     fn test_merge_pdf_with_out_of_order_objects() {
         let ordered = build_reordered_pdf(&[1, 2, 3, 4, 5, 13]);
         let reordered = build_reordered_pdf(&[13, 1, 2, 3, 4, 5]);
-        let merged = merge_pdfs(&[&ordered, &reordered]).expect("merge must accept out-of-order objects");
+        let merged =
+            merge_pdfs(&[&ordered, &reordered]).expect("merge must accept out-of-order objects");
         assert!(merged.starts_with(b"%PDF"));
     }
 
