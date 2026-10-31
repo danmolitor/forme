@@ -1915,7 +1915,30 @@ impl PdfWriter {
                     }
                 } else if let Some(bg) = background {
                     if bg.a > 0.0 {
-                        let _ = writeln!(stream, "q\n{:.3} {:.3} {:.3} rg", bg.r, bg.g, bg.b);
+                        let bg_gs = if bg.a < 1.0 {
+                            builder
+                                .ext_gstate_map
+                                .get(&bg.a.to_bits())
+                                .map(|(_, name)| name.clone())
+                        } else {
+                            None
+                        };
+                        match &bg_gs {
+                            Some(name) => {
+                                let _ = writeln!(
+                                    stream,
+                                    "q\n/{} gs\n{:.3} {:.3} {:.3} rg",
+                                    name, bg.r, bg.g, bg.b
+                                );
+                            }
+                            None => {
+                                let _ = writeln!(
+                                    stream,
+                                    "q\n{:.3} {:.3} {:.3} rg",
+                                    bg.r, bg.g, bg.b
+                                );
+                            }
+                        }
 
                         if border_radius.top_left > 0.0
                             || border_radius.top_right > 0.0
@@ -1949,11 +1972,30 @@ impl PdfWriter {
                         && (bw.bottom - bw.left).abs() < 0.001
                     {
                         let bc = &border_color.top;
-                        let _ = writeln!(
-                            stream,
-                            "q\n{:.3} {:.3} {:.3} RG\n{:.2} w",
-                            bc.r, bc.g, bc.b, bw.top
-                        );
+                        let border_gs = if bc.a < 1.0 {
+                            builder
+                                .ext_gstate_map
+                                .get(&bc.a.to_bits())
+                                .map(|(_, name)| name.clone())
+                        } else {
+                            None
+                        };
+                        match &border_gs {
+                            Some(name) => {
+                                let _ = writeln!(
+                                    stream,
+                                    "q\n/{} gs\n{:.3} {:.3} {:.3} RG\n{:.2} w",
+                                    name, bc.r, bc.g, bc.b, bw.top
+                                );
+                            }
+                            None => {
+                                let _ = writeln!(
+                                    stream,
+                                    "q\n{:.3} {:.3} {:.3} RG\n{:.2} w",
+                                    bc.r, bc.g, bc.b, bw.top
+                                );
+                            }
+                        }
 
                         if border_radius.top_left > 0.0
                             || border_radius.top_right > 0.0
@@ -3896,6 +3938,26 @@ impl PdfWriter {
             // being deprecated in favor of the element-level one.
             if element.opacity < 1.0 {
                 opacities.push(element.opacity);
+            }
+            // Solid background/border colour alpha (#211): the fill and stroke
+            // paths emit `rg`/`RG`, which carry no alpha, so a translucent
+            // colour needs an ExtGState of its own.
+            if let Some(rs) = &element.resolved_style {
+                if let Some(bg) = rs.background_color {
+                    if bg.a < 1.0 {
+                        opacities.push(bg.a);
+                    }
+                }
+                for c in [
+                    rs.border_color.top,
+                    rs.border_color.right,
+                    rs.border_color.bottom,
+                    rs.border_color.left,
+                ] {
+                    if c.a < 1.0 {
+                        opacities.push(c.a);
+                    }
+                }
             }
             // Shadow color alpha — needs its own ExtGState entry so the
             // shadow renders semi-transparently independent of the
