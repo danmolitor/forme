@@ -104,31 +104,19 @@ pub struct StandardFontMetrics {
 
 impl StandardFontMetrics {
     /// Get the advance width of a character in points.
+    ///
+    /// Measures what the PDF writer draws: a character with no WinAnsi code
+    /// is written as "?" (and reported as a missing glyph), so it advances
+    /// by the width of "?". Measuring it any narrower drew the "?" over the
+    /// text that follows. ASCII controls (tabs, newlines, page-number
+    /// sentinels) are never drawn as glyphs and keep the default width.
     pub fn char_width(&self, ch: char, font_size: f64) -> f64 {
-        let code = ch as u32;
-        let w = if (32..=255).contains(&code) {
-            let idx = (code - 32) as usize;
-            let w = self.widths[idx];
-            if w > 0 {
-                w
-            } else {
-                self.default_width
-            }
-        } else if let Some(winansi) = unicode_to_winansi(ch) {
-            if winansi >= 32 {
-                let idx = (winansi as u32 - 32) as usize;
-                let w = self.widths[idx];
-                if w > 0 {
-                    w
-                } else {
-                    self.default_width
-                }
-            } else {
-                self.default_width
-            }
-        } else {
-            self.default_width
+        let w = match unicode_to_winansi(ch) {
+            Some(code) if code >= 32 => self.widths[(code - 32) as usize],
+            _ if (ch as u32) < 32 => self.default_width,
+            _ => self.widths[(b'?' - 32) as usize],
         };
+        let w = if w > 0 { w } else { self.default_width };
         (w as f64 / 1000.0) * font_size
     }
 
@@ -478,6 +466,31 @@ mod tests {
         assert_eq!(m.widths[0], 278); // space (code 32)
         assert_eq!(m.widths[33], 667); // A (code 65)
         assert_eq!(m.widths[77], 833); // m (code 109)
+    }
+
+    #[test]
+    fn test_unencodable_char_measures_as_drawn_question_mark() {
+        // The writer draws "?" for characters WinAnsi can't encode, so
+        // layout must advance by "?", not the 278 default (space) width.
+        for font in [
+            StandardFont::Helvetica,
+            StandardFont::TimesRoman,
+            StandardFont::Courier,
+        ] {
+            let m = font.metrics();
+            let question = m.char_width('?', 10.0);
+            for ch in ['\u{10FFFF}', '\u{0939}', '\u{0080}', '\u{007F}'] {
+                assert_eq!(m.char_width(ch, 10.0), question, "{ch:?} in {font:?}");
+            }
+        }
+        let helvetica = StandardFont::Helvetica.metrics();
+        let width = |ch| (helvetica.char_width(ch, 1000.0)).round();
+        assert_eq!(width('\u{10FFFF}'), 556.0);
+        // Encodable characters keep their own widths; controls keep the default.
+        assert_eq!(width('\u{20AC}'), 556.0);
+        assert_eq!(width('\u{00E9}'), 556.0);
+        assert_eq!(width('A'), 667.0);
+        assert_eq!(width('\t'), 278.0);
     }
 
     #[test]
