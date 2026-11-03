@@ -17488,3 +17488,65 @@ fn test_translucent_background_and_border_use_alpha() {
         "background and border must both set the alpha gs, got:\n{content}"
     );
 }
+
+// An ExtGState's alpha REPLACES the current one, so nested opacity and a
+// translucent colour inside an `opacity` box must set the product. Each
+// case below composites at 0.25; they drew at 0.5.
+#[test]
+fn test_nested_alpha_multiplies() {
+    let black = serde_json::json!({ "r": 0, "g": 0, "b": 0, "a": 1 });
+    let half = serde_json::json!({ "r": 0, "g": 0, "b": 0, "a": 0.5 });
+    let square = |extra: serde_json::Value| {
+        let mut style = serde_json::json!({ "width": { "Pt": 40 }, "height": { "Pt": 40 } });
+        style
+            .as_object_mut()
+            .unwrap()
+            .extend(extra.as_object().unwrap().clone());
+        serde_json::json!({ "kind": { "type": "View" }, "style": style, "children": [] })
+    };
+    let wrap = |child: serde_json::Value| serde_json::json!({ "kind": { "type": "View" }, "style": { "opacity": 0.5 }, "children": [child] });
+    let doc = serde_json::json!({
+        "children": [{
+            "kind": { "type": "Page", "config": { "size": { "Custom": { "width": 300, "height": 60 } }, "margin": { "top": 10, "right": 10, "bottom": 10, "left": 10 }, "wrap": true } },
+            "style": { "flexDirection": "Row", "gap": 10 },
+            "children": [
+                wrap(square(serde_json::json!({ "opacity": 0.5, "backgroundColor": black }))),
+                wrap(square(serde_json::json!({ "backgroundColor": half }))),
+                square(serde_json::json!({ "opacity": 0.5, "backgroundColor": half })),
+            ]
+        }],
+        "metadata": {}
+    });
+    let pdf = forme::render_json(&doc.to_string()).expect("render");
+    let raw = String::from_utf8_lossy(&pdf);
+
+    // The quarter-alpha state, and the name the page's resources give it.
+    let quarter = raw
+        .find("<< /Type /ExtGState /ca 0.2500 /CA 0.2500 >>")
+        .expect("an ExtGState at alpha 0.25");
+    let header = &raw[..quarter];
+    let obj_line = header
+        .lines()
+        .rev()
+        .find(|l| l.ends_with(" 0 obj"))
+        .unwrap();
+    let obj_id = obj_line.trim_end_matches(" 0 obj").trim();
+    let reference = format!(" {obj_id} 0 R");
+    let name = raw
+        .split("/ExtGState <<")
+        .nth(1)
+        .and_then(|d| d.split(">>").next())
+        .and_then(|d| {
+            d.split('/')
+                .map(str::trim_end)
+                .find(|entry| entry.ends_with(&reference))
+                .map(|entry| entry.trim_end_matches(&reference).to_string())
+        })
+        .expect("the page names the 0.25 state");
+    let content = decompress_pdf_streams(&pdf);
+    assert_eq!(
+        content.matches(&format!("/{name} gs")).count(),
+        3,
+        "all three cases composite at 0.25"
+    );
+}
