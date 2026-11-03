@@ -68,6 +68,11 @@ while this file lapsed. They are reproduced, not rewritten.
   composites the parent as one layer
 - A `Text` element's own `opacity` applies to its text; it was drawn opaque
   whatever the style said
+- Text with a variation selector or a combining grapheme joiner extracts in
+  order in PDF.js: the cluster's base letter was moved to the end of the
+  line. These invisible characters are no longer drawn as zero-width space
+  glyphs, whose width PDF.js and the PDF disagreed on, and they stay in the
+  extracted text (#176)
 
 Contributed by @PerryLink in #216, #217, #218, #219, #220, #222 and #223, and by
 @amruthpillai in #215.

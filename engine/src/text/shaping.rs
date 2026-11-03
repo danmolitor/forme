@@ -78,6 +78,15 @@ pub fn shape_text_with_direction(
 ) -> Option<Vec<ShapedGlyph>> {
     let face = rustybuzz::Face::from_slice(font_data, 0)?;
     let mut buffer = rustybuzz::UnicodeBuffer::new();
+    // Default-ignorable characters (variation selectors, CGJ, ZWJ/ZWNJ) do
+    // their work during shaping and draw nothing. Left in, the shaper hides
+    // each one as the font's SPACE glyph with its advance zeroed, and that
+    // glyph carries the space's width in the PDF while its text is a
+    // nonspacing mark, which PDF.js advances by zero; the two pens then
+    // disagree by a space and PDF.js splits the line there, moving the
+    // cluster's base letter to the end (#176). Removing them keeps their
+    // shaping effect; their characters stay in the cluster's text.
+    buffer.set_flags(rustybuzz::BufferFlags::REMOVE_DEFAULT_IGNORABLES);
     buffer.push_str(text);
     if is_rtl {
         buffer.set_direction(rustybuzz::Direction::RightToLeft);
