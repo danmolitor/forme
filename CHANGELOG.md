@@ -8,6 +8,12 @@ while this file lapsed. They are reproduced, not rewritten.
 
 ## [Unreleased]
 
+### Added
+
+- CSS `opacity` in the HTML path, on block-level elements and text blocks.
+  On an inline element such as `<span>`, which text runs can't express, it
+  is reported by name; it used to be dropped as an unsupported property
+
 ### Fixed
 
 - `mergePdfs` accepts PDFs whose objects aren't stored in numeric order,
@@ -33,6 +39,14 @@ while this file lapsed. They are reproduced, not rewritten.
   in CSS order, as in Chrome (#214)
 - A translucent background or border colour (`rgba()`, `#rrggbbaa`) is
   drawn with its alpha instead of opaque (#211)
+- Nested transparency multiplies: a box with `opacity: 0.5` inside another
+  draws at 0.25, as do a translucent colour, shadow, text, SVG or chart fill
+  inside an `opacity` box. PDF alpha replaces rather than multiplies, and each
+  of these set its own alpha alone, so it drew at 0.5. Overlapping children of
+  a translucent parent still show through each other, where a browser
+  composites the parent as one layer
+- A `Text` element's own `opacity` applies to its text; it was drawn opaque
+  whatever the style said
 
 Contributed by @PerryLink in #216, #217, #218, #219, #220, #222 and #223, and by
 @amruthpillai in #215.
