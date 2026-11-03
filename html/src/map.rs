@@ -397,6 +397,17 @@ fn elem_key(el: &Element) -> ElemKey {
 }
 
 impl Mapper {
+    /// Text runs carry no opacity of their own, so `opacity` on an inline
+    /// element can't be drawn. Say so rather than drop it.
+    fn warn_inline_opacity(&mut self, el: &Element, computed: &Computed) {
+        if computed.opacity.is_some_and(|o| o < 1.0) {
+            self.warnings.push(format!(
+                "opacity on an inline element (<{}>) is not supported; it applies to block-level elements",
+                el.tag
+            ));
+        }
+    }
+
     /// Compute an element's style through the full cascade:
     /// UA defaults → matching stylesheet rules ascending by (specificity,
     /// source order) → inline style → `!important` rules in the same
@@ -595,6 +606,7 @@ impl Mapper {
                         let mut flattener = InlineFlattener::new();
                         let base = RunStyle::default();
                         let href = if e.tag == "a" { e.attr("href") } else { None };
+                        self.warn_inline_opacity(e, &computed);
                         let inner = base.apply(&computed, href);
                         self.stack.push(elem_key(e));
                         for gc in &e.children {
@@ -829,6 +841,7 @@ impl Mapper {
             DomNode::Element(e) if is_inline(&e.tag) => {
                 let computed = self.computed_for(e, font_size);
                 let href = if e.tag == "a" { e.attr("href") } else { None };
+                self.warn_inline_opacity(e, &computed);
                 let inner = style.apply(&computed, href);
                 self.stack.push(elem_key(e));
                 for child in &e.children {
@@ -1712,6 +1725,7 @@ fn to_engine_style(c: &Computed) -> Style {
     s.text_transform = c.text_transform;
     s.letter_spacing = c.letter_spacing;
     s.word_spacing = c.word_spacing;
+    s.opacity = c.opacity;
     s.flex_grow = c.flex_grow;
     s.flex_shrink = c.flex_shrink;
     s.flex_basis = c.flex_basis.map(forme::style::Dimension::Pt);

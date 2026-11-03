@@ -5329,7 +5329,8 @@ impl LayoutEngine {
                         list_numbering: None,
                         col_span: 1,
                         overflow: Overflow::default(),
-                        opacity: 1.0,
+                        // The Text node's own opacity, which the writer applies to its lines.
+                        opacity: style.opacity,
                     });
                     is_first_element = false;
                 }
@@ -5479,7 +5480,8 @@ impl LayoutEngine {
                 list_numbering: None,
                 col_span: 1,
                 overflow: Overflow::default(),
-                opacity: 1.0,
+                // The Text node's own opacity, which the writer applies to its lines.
+                opacity: style.opacity,
             });
         }
 
@@ -5677,7 +5679,8 @@ impl LayoutEngine {
                         list_numbering: None,
                         col_span: 1,
                         overflow: Overflow::default(),
-                        opacity: 1.0,
+                        // The Text node's own opacity, which the writer applies to its lines.
+                        opacity: style.opacity,
                     });
                     is_first_element = false;
                 }
@@ -5822,7 +5825,8 @@ impl LayoutEngine {
                 list_numbering: None,
                 col_span: 1,
                 overflow: Overflow::default(),
-                opacity: 1.0,
+                // The Text node's own opacity, which the writer applies to its lines.
+                opacity: style.opacity,
             });
         }
     }

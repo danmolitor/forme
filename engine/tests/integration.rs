@@ -17550,3 +17550,22 @@ fn test_nested_alpha_multiplies() {
         "all three cases composite at 0.25"
     );
 }
+
+/// A Text node's own `opacity` applies to its lines. The text container was
+/// built with opacity 1.0 whatever its style said, so faded text drew opaque.
+#[test]
+fn test_text_opacity_is_applied() {
+    let doc = serde_json::json!({
+        "children": [{ "kind": { "type": "Text", "content": "Faded" }, "style": { "opacity": 0.5 }, "children": [] }],
+        "metadata": {}
+    });
+    let pdf = forme::render_json(&doc.to_string()).expect("render");
+    assert!(
+        String::from_utf8_lossy(&pdf).contains("/ca 0.5000"),
+        "an ExtGState at 0.5 for the text"
+    );
+    assert!(
+        decompress_pdf_streams(&pdf).contains(" gs\n"),
+        "the text is drawn under it"
+    );
+}

@@ -136,6 +136,8 @@ pub struct CssStyle {
     pub text_decoration: Option<TextDecoration>,
     pub text_transform: Option<TextTransform>,
     pub letter_spacing: Option<Length>,
+    /// `opacity`, clamped to 0..=1.
+    pub opacity: Option<f64>,
     /// `word-spacing`. Block-level only: the engine reads it off the text
     /// node's own style in both `layout_text` and `layout_text_runs`, never
     /// per-run, so it is deliberately NOT carried on `RunStyle`.
@@ -250,6 +252,7 @@ impl CssStyle {
             text_decoration,
             text_transform,
             letter_spacing,
+            opacity,
             word_spacing,
             vertical_align,
             max_width,
@@ -443,6 +446,17 @@ pub(crate) fn apply_declaration(
             }
         }
         "line-height" => style.line_height = parse_line_height(p),
+        "opacity" => {
+            // cssparser holds numbers as f32; round off the widening noise
+            // (0.3 would arrive as 0.30000001) so equal opacities share one
+            // alpha state.
+            let unit = |v: f32| Some(((v as f64) * 1e6).round() / 1e6).map(|v| v.clamp(0.0, 1.0));
+            style.opacity = match p.next().ok().cloned() {
+                Some(Token::Number { value, .. }) => unit(value),
+                Some(Token::Percentage { unit_value, .. }) => unit(unit_value),
+                _ => None,
+            };
+        }
         "text-align" => {
             if let Ok(id) = p.expect_ident() {
                 style.text_align = match id.to_ascii_lowercase().as_str() {
