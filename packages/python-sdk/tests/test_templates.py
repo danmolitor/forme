@@ -365,3 +365,19 @@ class TestEmbedData:
 
         # render() would inject embed_data, but we test to_dict level
         # The embed_data injection happens in Document.render()
+
+
+def test_font_feature_style_props_map_to_font_features():
+    from formepdf.templates import _map_style
+
+    assert _map_style({"fontFeatureSettings": '"tnum" 1, "zero", "liga" off'})["fontFeatures"] == [
+        {"tag": "tnum", "value": 1},
+        {"tag": "zero", "value": 1},
+        {"tag": "liga", "value": 0},
+    ]
+    # As in CSS, font-feature-settings wins over font-variant-numeric.
+    assert _map_style({"fontVariantNumeric": "tabular-nums", "fontFeatureSettings": '"tnum" 0'})[
+        "fontFeatures"
+    ] == [{"tag": "tnum", "value": 0}]
+    assert _map_style({"fontVariantNumeric": "normal"})["fontFeatures"] == []
+    assert "fontFeatures" not in _map_style({"fontFeatureSettings": "nonsense"})

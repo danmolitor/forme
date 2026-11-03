@@ -5207,6 +5207,7 @@ impl LayoutEngine {
                 &style.font_family,
                 style.font_weight,
                 style.font_style,
+                &style.font_features,
                 style.letter_spacing,
                 style.word_spacing,
                 style.hyphens,
@@ -5221,6 +5222,7 @@ impl LayoutEngine {
                 &style.font_family,
                 style.font_weight,
                 style.font_style,
+                &style.font_features,
                 style.letter_spacing,
                 style.word_spacing,
                 style.hyphens,
@@ -5238,6 +5240,7 @@ impl LayoutEngine {
                 &style.font_family,
                 style.font_weight,
                 style.font_style,
+                &style.font_features,
                 style.letter_spacing,
                 style.word_spacing,
             ),
@@ -5249,6 +5252,7 @@ impl LayoutEngine {
                 &style.font_family,
                 style.font_weight,
                 style.font_style,
+                &style.font_features,
                 style.letter_spacing,
                 style.word_spacing,
             ),
@@ -5551,6 +5555,7 @@ impl LayoutEngine {
                     text_decoration: run_style.text_decoration,
                     letter_spacing: run_style.letter_spacing,
                     word_spacing: run_style.word_spacing,
+                    font_features: run_style.font_features.clone(),
                 });
             }
         }
@@ -5898,6 +5903,7 @@ impl LayoutEngine {
                             &sub_text,
                             font_data,
                             bidi_run.is_rtl,
+                            &style.font_features,
                         ) {
                             let units_per_em = font_context.units_per_em(
                                 resolved_family,
@@ -6006,9 +6012,12 @@ impl LayoutEngine {
                     let run_chars: Vec<char> = line.chars[run.char_start..run.char_end].to_vec();
                     let run_text: String = run_chars.iter().collect();
 
-                    if let Some(shaped) =
-                        shaping::shape_text_with_direction(&run_text, font_data, run.is_rtl)
-                    {
+                    if let Some(shaped) = shaping::shape_text_with_direction(
+                        &run_text,
+                        font_data,
+                        run.is_rtl,
+                        &style.font_features,
+                    ) {
                         let clusters = cluster_texts(&shaped, &run_chars);
                         for (sg, (cluster_text, ligature, extraction_text)) in
                             shaped.iter().zip(clusters)
@@ -6052,7 +6061,9 @@ impl LayoutEngine {
             }
 
             // Pure LTR path: shape normally
-            if let Some(shaped) = shaping::shape_text(&line_text, font_data) {
+            if let Some(shaped) =
+                shaping::shape_text_with_features(&line_text, font_data, &style.font_features)
+            {
                 let units_per_em =
                     font_context.units_per_em(&style.font_family, style.font_weight, italic);
                 let scale = style.font_size / units_per_em as f64;
@@ -6192,6 +6203,7 @@ impl LayoutEngine {
                         && next_italic == italic
                         && (next.font_size - sc.font_size).abs() < 0.001
                         && char_levels[run_end] == level
+                        && next.font_features == sc.font_features
                     {
                         run_end += 1;
                     } else {
@@ -6200,9 +6212,12 @@ impl LayoutEngine {
                 }
 
                 let run_text: String = chars[run_start..run_end].iter().map(|c| c.ch).collect();
-                if let Some(shaped) =
-                    shaping::shape_text_with_direction(&run_text, font_data, is_rtl)
-                {
+                if let Some(shaped) = shaping::shape_text_with_direction(
+                    &run_text,
+                    font_data,
+                    is_rtl,
+                    &sc.font_features,
+                ) {
                     let units_per_em =
                         font_context.units_per_em(resolved_family, sc.font_weight, italic);
                     let scale = sc.font_size / units_per_em as f64;
@@ -7063,6 +7078,7 @@ impl LayoutEngine {
                                 text_decoration: run_style.text_decoration,
                                 letter_spacing: run_style.letter_spacing,
                                 word_spacing: run_style.word_spacing,
+                                font_features: run_style.font_features.clone(),
                             });
                         }
                     }
@@ -7106,6 +7122,7 @@ impl LayoutEngine {
                             &style.font_family,
                             style.font_weight,
                             style.font_style,
+                            &style.font_features,
                             style.letter_spacing,
                             style.word_spacing,
                             style.hyphens,
@@ -7120,6 +7137,7 @@ impl LayoutEngine {
                             &style.font_family,
                             style.font_weight,
                             style.font_style,
+                            &style.font_features,
                             style.letter_spacing,
                             style.word_spacing,
                             style.hyphens,
@@ -7504,6 +7522,7 @@ impl LayoutEngine {
                                 &style.font_family,
                                 style.font_weight,
                                 style.font_style,
+                                &style.font_features,
                                 style.letter_spacing,
                                 style.word_spacing,
                             )
@@ -7688,6 +7707,7 @@ impl LayoutEngine {
                                 &run_style.font_family,
                                 run_style.font_weight,
                                 run_style.font_style,
+                                &run_style.font_features,
                                 run_style.letter_spacing,
                                 run_style.word_spacing,
                                 style.hyphens,
@@ -7705,6 +7725,7 @@ impl LayoutEngine {
                         &style.font_family,
                         style.font_weight,
                         style.font_style,
+                        &style.font_features,
                         style.letter_spacing,
                         style.word_spacing,
                         style.hyphens,
@@ -8178,6 +8199,7 @@ impl LayoutEngine {
                             &style.font_family,
                             style.font_weight,
                             style.font_style,
+                            &style.font_features,
                         );
 
                         let mut glyphs = Vec::new();

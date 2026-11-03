@@ -16193,7 +16193,8 @@ fn test_rtl_marks_keep_the_shapers_offsets() {
     let face = ttf_parser::Face::parse(&font, 0).unwrap();
     let scale = 40.0 / face.units_per_em() as f64;
     // The shaper returns logical order; visual order is its reverse.
-    let mut shaped = forme::text::shaping::shape_text_with_direction("שָׁלוֹם", &font, true).unwrap();
+    let mut shaped =
+        forme::text::shaping::shape_text_with_direction("שָׁלוֹם", &font, true, &[]).unwrap();
     shaped.reverse();
     let mut pen = 0.0;
     let expected: Vec<(u16, f64)> = shaped
@@ -16323,7 +16324,7 @@ fn test_surplus_glyphs_have_a_unicode_mapping() {
     use base64::Engine;
     let font = std::fs::read("tests/fixtures/fonts/NotoNaskhArabic-Regular.ttf").unwrap();
     let text = "بًا";
-    let shaped = forme::text::shaping::shape_text_with_direction(text, &font, true).unwrap();
+    let shaped = forme::text::shaping::shape_text_with_direction(text, &font, true, &[]).unwrap();
     assert!(
         shaped.len() > text.chars().count(),
         "fixture must produce surplus glyphs"
@@ -17487,6 +17488,68 @@ fn test_translucent_background_and_border_use_alpha() {
         content.matches(" gs").count() >= 2,
         "background and border must both set the alpha gs, got:\n{content}"
     );
+}
+
+// ─── #224: OpenType font features ────────────────────────────────────
+
+/// The glyphs of the first text line in `content`, set in Noto Sans (the
+/// builtin font, which has numeral features) with `features`.
+fn feature_glyphs(
+    content: &str,
+    features: serde_json::Value,
+) -> Vec<forme::layout::PositionedGlyph> {
+    let doc: Document = serde_json::from_value(serde_json::json!({
+        "children": [{ "kind": { "type": "Text", "content": content },
+                       "style": { "fontFamily": "Noto Sans", "fontSize": 20, "fontFeatures": features },
+                       "children": [] }],
+        "metadata": {}
+    }))
+    .unwrap();
+    fn first_line(
+        els: &[forme::layout::LayoutElement],
+    ) -> Option<Vec<forme::layout::PositionedGlyph>> {
+        for el in els {
+            if let forme::layout::DrawCommand::Text { lines, .. } = &el.draw {
+                if let Some(l) = lines.first() {
+                    return Some(l.glyphs.clone());
+                }
+            }
+            if let Some(g) = first_line(&el.children) {
+                return Some(g);
+            }
+        }
+        None
+    }
+    let pages = layout_doc(&doc);
+    first_line(&pages[0].elements).expect("a text line")
+}
+
+/// `pnum` turns Noto Sans's tabular figures proportional: a run of ones gets
+/// narrower, and the line is measured with the same widths it is drawn with.
+#[test]
+fn test_font_feature_changes_advances() {
+    let width = |g: &[forme::layout::PositionedGlyph]| g.iter().map(|g| g.x_advance).sum::<f64>();
+    let tabular = feature_glyphs("1111", serde_json::json!([]));
+    let proportional = feature_glyphs("1111", serde_json::json!([{ "tag": "pnum", "value": 1 }]));
+    assert!(
+        width(&proportional) < width(&tabular) - 1.0,
+        "pnum ones ({:.2}) should be narrower than tabular ones ({:.2})",
+        width(&proportional),
+        width(&tabular)
+    );
+}
+
+/// `zero` substitutes the slashed zero: a different glyph for the same
+/// character, which still extracts as "0".
+#[test]
+fn test_font_feature_substitutes_glyphs() {
+    let plain = feature_glyphs("0", serde_json::json!([]));
+    let slashed = feature_glyphs("0", serde_json::json!([{ "tag": "zero" }]));
+    assert_ne!(
+        plain[0].glyph_id, slashed[0].glyph_id,
+        "zero picks the slashed glyph"
+    );
+    assert_eq!(slashed[0].char_value, '0');
 }
 
 // An ExtGState's alpha REPLACES the current one, so nested opacity and a

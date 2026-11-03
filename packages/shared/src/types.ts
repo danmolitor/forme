@@ -134,6 +134,20 @@ export interface Style {
   textDecoration?: 'none' | 'underline' | 'line-through';
   textTransform?: 'none' | 'uppercase' | 'lowercase' | 'capitalize';
   hyphens?: 'none' | 'manual' | 'auto';
+  /**
+   * OpenType features, as CSS `font-feature-settings`: `'"tnum" 1'`,
+   * `'"zero", "ss01" on'`, `'normal'`. Applies to fonts with font data
+   * (registered fonts and the builtin Noto Sans); the standard fonts are not
+   * shaped and ignore it. Inherited.
+   */
+  fontFeatureSettings?: string;
+  /**
+   * CSS `font-variant-numeric`: `'tabular-nums'`, `'oldstyle-nums'`,
+   * `'proportional-nums'`, `'lining-nums'`, `'slashed-zero'`,
+   * `'diagonal-fractions'`, `'stacked-fractions'`, `'ordinal'`, or several
+   * separated by spaces. `fontFeatureSettings` wins for the same feature.
+   */
+  fontVariantNumeric?: string;
   /** Language tag (BCP 47, e.g. "en-US", "de"). Controls hyphenation dictionary. */
   lang?: string;
   /** Text direction for BiDi support (Arabic, Hebrew). */
@@ -569,6 +583,12 @@ export interface FormeGridPlacement {
 }
 
 /** Style in the Forme JSON format (camelCase field names, PascalCase enum values) */
+/** One OpenType feature for shaping, e.g. `{ tag: 'tnum', value: 1 }`. */
+export interface FormeFontFeature {
+  tag: string;
+  value: number;
+}
+
 export interface FormeStyle {
   display?: string;
   width?: FormeDimension;
@@ -610,6 +630,7 @@ export interface FormeStyle {
   textDecoration?: string;
   textTransform?: string;
   hyphens?: string;
+  fontFeatures?: FormeFontFeature[];
   lang?: string;
   direction?: string;
   textOverflow?: string;

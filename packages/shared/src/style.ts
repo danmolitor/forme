@@ -18,6 +18,7 @@ import type {
   FormeGridTrackSize,
   FormeGridPlacement,
   FormeTransformOp,
+  FormeFontFeature,
 } from './types.js';
 
 // ─── Style mapping ──────────────────────────────────────────────────
@@ -230,6 +231,10 @@ export function mapStyle(style?: Style): FormeStyle {
   if (style.textDecoration !== undefined) result.textDecoration = TEXT_DECORATION_MAP[style.textDecoration];
   if (style.textTransform !== undefined) result.textTransform = TEXT_TRANSFORM_MAP[style.textTransform];
   if (style.hyphens !== undefined) result.hyphens = HYPHENS_MAP[style.hyphens];
+  if (style.fontFeatureSettings !== undefined || style.fontVariantNumeric !== undefined) {
+    const features = parseFontFeatures(style.fontVariantNumeric, style.fontFeatureSettings);
+    if (features) result.fontFeatures = features;
+  }
   if (style.lang !== undefined) result.lang = style.lang;
   if (style.direction !== undefined) result.direction = style.direction;
   if (style.textOverflow !== undefined) result.textOverflow = TEXT_OVERFLOW_MAP[style.textOverflow];
@@ -469,6 +474,68 @@ export function parseColor(hex: string): FormeColor {
 
   // Fallback: black
   return { r: 0, g: 0, b: 0, a: 1 };
+}
+
+/** `font-variant-numeric` keywords and the OpenType feature each turns on. */
+const VARIANT_NUMERIC_FEATURES: Record<string, string> = {
+  'lining-nums': 'lnum',
+  'oldstyle-nums': 'onum',
+  'proportional-nums': 'pnum',
+  'tabular-nums': 'tnum',
+  'diagonal-fractions': 'frac',
+  'stacked-fractions': 'afrc',
+  ordinal: 'ordn',
+  'slashed-zero': 'zero',
+};
+
+/**
+ * Combine `fontVariantNumeric` and `fontFeatureSettings` into the engine's
+ * feature list. As in CSS, the low-level `font-feature-settings` is applied
+ * after `font-variant-numeric`, so it wins for the same tag. `normal` in
+ * either clears it (an empty list, which also stops inheritance). Returns
+ * `null` when neither parses, so the property is dropped, as other
+ * unparseable values are.
+ */
+function parseFontFeatures(
+  variantNumeric: string | undefined,
+  featureSettings: string | undefined,
+): FormeFontFeature[] | null {
+  const byTag = new Map<string, number>();
+  let parsed = false;
+
+  if (variantNumeric !== undefined) {
+    const words = variantNumeric.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    if (words.length === 1 && words[0] === 'normal') {
+      parsed = true;
+    } else {
+      for (const word of words) {
+        const tag = VARIANT_NUMERIC_FEATURES[word];
+        if (tag) {
+          byTag.set(tag, 1);
+          parsed = true;
+        }
+      }
+    }
+  }
+
+  if (featureSettings !== undefined) {
+    const trimmed = featureSettings.trim();
+    if (trimmed.toLowerCase() === 'normal') {
+      parsed = true;
+    } else {
+      for (const item of trimmed.split(',')) {
+        const m = item.trim().match(/^(["'])(.{4})\1(?:\s+(on|off|\d+))?$/i);
+        if (!m) continue;
+        const raw = m[3]?.toLowerCase();
+        const value = raw === undefined || raw === 'on' ? 1 : raw === 'off' ? 0 : parseInt(raw, 10);
+        byTag.set(m[2], value);
+        parsed = true;
+      }
+    }
+  }
+
+  if (!parsed) return null;
+  return [...byTag].map(([tag, value]) => ({ tag, value }));
 }
 
 /**

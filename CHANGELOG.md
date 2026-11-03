@@ -10,6 +10,14 @@ while this file lapsed. They are reproduced, not rewritten.
 
 ### Added
 
+- OpenType font features: `fontFeatureSettings` (CSS `font-feature-settings`,
+  e.g. `'"tnum" 1'`) and `fontVariantNumeric` (`tabular-nums`,
+  `oldstyle-nums`, `slashed-zero`, ...), in every adapter, Python and the HTML
+  path. Tabular figures line up a column of amounts in a font whose figures
+  are proportional by default. Measurement and drawing shape with the same
+  features, and substituted glyphs still copy as their characters. Applies
+  to registered fonts and the builtin Noto Sans; the standard fonts have no
+  OpenType features (#224)
 - CSS `opacity` in the HTML path, on block-level elements and text blocks.
   On an inline element such as `<span>`, which text runs can't express, it
   is reported by name; it used to be dropped as an unsupported property

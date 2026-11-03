@@ -62,6 +62,9 @@ pub struct Computed {
     /// Resolved to points (em against the element's own font size).
     pub letter_spacing: Option<f64>,
     pub word_spacing: Option<f64>,
+    /// OpenType features from `font-variant-numeric` and then
+    /// `font-feature-settings`, which wins for the same tag (as in CSS).
+    pub font_features: Option<Vec<forme::style::FontFeature>>,
     /// `opacity` (0..=1). Applies to a box and everything in it.
     pub opacity: Option<f64>,
 
@@ -301,6 +304,10 @@ pub fn resolve(css: &CssStyle, parent_font_size: f64, warnings: &mut Vec<String>
             .letter_spacing
             .map(|l| to_pt(l, warnings, "letter-spacing")),
         word_spacing: css.word_spacing.map(|l| to_pt(l, warnings, "word-spacing")),
+        font_features: combine_font_features(
+            css.font_variant_numeric.as_deref(),
+            css.font_feature_settings.as_deref(),
+        ),
         opacity: css.opacity,
         display: {
             let d = css.display.unwrap_or(CssDisplay::Block);
@@ -382,6 +389,32 @@ pub fn resolve(css: &CssStyle, parent_font_size: f64, warnings: &mut Vec<String>
         float: css.float,
         clear: css.clear,
     }
+}
+
+/// The engine's feature list from the two CSS properties. `None` when
+/// neither is set, so the engine's own inheritance applies.
+fn combine_font_features(
+    variant_numeric: Option<&[String]>,
+    settings: Option<&[(String, u32)]>,
+) -> Option<Vec<forme::style::FontFeature>> {
+    if variant_numeric.is_none() && settings.is_none() {
+        return None;
+    }
+    let mut out: Vec<forme::style::FontFeature> = Vec::new();
+    let mut set = |tag: &str, value: u32| match out.iter_mut().find(|f| f.tag == tag) {
+        Some(f) => f.value = value,
+        None => out.push(forme::style::FontFeature {
+            tag: tag.to_string(),
+            value,
+        }),
+    };
+    for tag in variant_numeric.unwrap_or_default() {
+        set(tag, 1);
+    }
+    for (tag, value) in settings.unwrap_or_default() {
+        set(tag, *value);
+    }
+    Some(out)
 }
 
 #[cfg(test)]

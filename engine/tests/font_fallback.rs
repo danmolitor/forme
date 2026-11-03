@@ -59,6 +59,7 @@ fn styled_fallback_uses_shaped_widths_for_line_breaking() {
                 text_decoration: TextDecoration::None,
                 letter_spacing: 0.0,
                 word_spacing: 0.0,
+                font_features: vec![],
             })
             .collect();
         layout.break_runs_into_lines(&context, &chars, width, Hyphens::None, None)

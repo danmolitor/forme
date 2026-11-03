@@ -10,6 +10,7 @@ pub mod shaping;
 
 use crate::font::FontContext;
 use crate::layout::{PAGE_NUMBER_SENTINEL, TOTAL_PAGES_SENTINEL};
+use crate::style::FontFeature;
 use crate::style::{Color, FontStyle, Hyphens, TextDecoration};
 use unicode_linebreak::{linebreaks, BreakOpportunity};
 
@@ -47,6 +48,10 @@ pub struct StyledChar {
     /// word-spaced line was broken as though it had no word spacing and
     /// then rendered wider than the box it was measured into.
     pub word_spacing: f64,
+    /// OpenType features this character is shaped with. A run of characters
+    /// is shaped together only while these match, in measurement and in
+    /// drawing alike.
+    pub font_features: Vec<FontFeature>,
 }
 
 /// The same fallback families are used to measure and position styled text.
@@ -266,6 +271,7 @@ impl TextLayout {
         font_family: &str,
         font_weight: u32,
         font_style: FontStyle,
+        font_features: &[FontFeature],
         letter_spacing: f64,
         word_spacing: f64,
         hyphens: Hyphens,
@@ -288,6 +294,7 @@ impl TextLayout {
             font_family,
             font_weight,
             font_style,
+            font_features,
             letter_spacing,
             word_spacing,
         );
@@ -603,6 +610,7 @@ impl TextLayout {
         font_family: &str,
         font_weight: u32,
         font_style: FontStyle,
+        font_features: &[FontFeature],
         letter_spacing: f64,
         word_spacing: f64,
     ) -> Vec<f64> {
@@ -633,6 +641,7 @@ impl TextLayout {
                             &run_text,
                             font_data,
                             bidi_run.is_rtl,
+                            font_features,
                         ) {
                             let num_chars = bidi_run.char_end - bidi_run.char_start;
                             let cluster_w = shaping::cluster_widths(
@@ -671,7 +680,9 @@ impl TextLayout {
                     return widths;
                 }
 
-                if let Some(shaped) = shaping::shape_text(text, font_data) {
+                if let Some(shaped) =
+                    shaping::shape_text_with_features(text, font_data, font_features)
+                {
                     let num_chars = chars.len();
                     let mut widths = shaping::cluster_widths(
                         &shaped,
@@ -728,10 +739,11 @@ impl TextLayout {
         font_family: &str,
         font_weight: u32,
         font_style: FontStyle,
+        font_features: &[FontFeature],
     ) -> Option<Vec<shaping::ShapedGlyph>> {
         let italic = matches!(font_style, FontStyle::Italic | FontStyle::Oblique);
         let font_data = font_context.font_data(font_family, font_weight, italic)?;
-        shaping::shape_text(text, font_data)
+        shaping::shape_text_with_features(text, font_data, font_features)
     }
 
     /// The width of styled chars laid out on one line, measured exactly as
@@ -769,6 +781,7 @@ impl TextLayout {
                         && next.font_weight == sc.font_weight
                         && next_italic == italic
                         && (next.font_size - sc.font_size).abs() < 0.001
+                        && next.font_features == sc.font_features
                     {
                         run_end += 1;
                     } else {
@@ -778,7 +791,9 @@ impl TextLayout {
 
                 // Shape this run
                 let run_text: String = chars[run_start..run_end].iter().map(|c| c.ch).collect();
-                if let Some(shaped) = shaping::shape_text(&run_text, font_data) {
+                if let Some(shaped) =
+                    shaping::shape_text_with_features(&run_text, font_data, &sc.font_features)
+                {
                     let num_chars = run_end - run_start;
                     let units_per_em =
                         font_context.units_per_em(&families[i], sc.font_weight, italic);
@@ -1120,6 +1135,7 @@ impl TextLayout {
         font_family: &str,
         font_weight: u32,
         font_style: FontStyle,
+        font_features: &[FontFeature],
         letter_spacing: f64,
         word_spacing: f64,
         hyphens: Hyphens,
@@ -1142,6 +1158,7 @@ impl TextLayout {
                                     font_family,
                                     font_weight,
                                     font_style,
+                                    font_features,
                                     letter_spacing,
                                     word_spacing,
                                 )
@@ -1161,6 +1178,7 @@ impl TextLayout {
                     font_family,
                     font_weight,
                     font_style,
+                    font_features,
                     letter_spacing,
                     word_spacing,
                 )
@@ -1178,6 +1196,7 @@ impl TextLayout {
         font_family: &str,
         font_weight: u32,
         font_style: FontStyle,
+        font_features: &[FontFeature],
         letter_spacing: f64,
         word_spacing: f64,
     ) -> f64 {
@@ -1188,6 +1207,7 @@ impl TextLayout {
             font_family,
             font_weight,
             font_style,
+            font_features,
             letter_spacing,
             word_spacing,
         )
@@ -1208,6 +1228,7 @@ impl TextLayout {
         font_family: &str,
         font_weight: u32,
         font_style: FontStyle,
+        font_features: &[FontFeature],
         letter_spacing: f64,
         word_spacing: f64,
         hyphens: Hyphens,
@@ -1231,6 +1252,7 @@ impl TextLayout {
             font_family,
             font_weight,
             font_style,
+            font_features,
             letter_spacing,
             word_spacing,
         );
@@ -1302,6 +1324,7 @@ impl TextLayout {
                     font_family,
                     font_weight,
                     font_style,
+                    font_features,
                     letter_spacing,
                     word_spacing,
                     hyphens,
@@ -1355,6 +1378,7 @@ impl TextLayout {
                 font_family,
                 font_weight,
                 font_style,
+                font_features,
                 letter_spacing,
                 word_spacing,
                 hyphens,
@@ -1515,6 +1539,7 @@ impl TextLayout {
         font_family: &str,
         font_weight: u32,
         font_style: FontStyle,
+        font_features: &[FontFeature],
         letter_spacing: f64,
         word_spacing: f64,
     ) -> Vec<BrokenLine> {
@@ -1544,6 +1569,7 @@ impl TextLayout {
             font_family,
             font_weight,
             font_style,
+            font_features,
             letter_spacing,
             word_spacing,
         );
@@ -1623,6 +1649,7 @@ impl TextLayout {
         font_family: &str,
         font_weight: u32,
         font_style: FontStyle,
+        font_features: &[FontFeature],
         letter_spacing: f64,
         word_spacing: f64,
     ) -> Vec<BrokenLine> {
@@ -1643,6 +1670,7 @@ impl TextLayout {
             font_family,
             font_weight,
             font_style,
+            font_features,
             letter_spacing,
             word_spacing,
         );
@@ -1890,6 +1918,7 @@ mod tests {
             "Helvetica",
             400,
             FontStyle::Normal,
+            &[],
             0.0,
             0.0,
             Hyphens::Manual,
@@ -1911,6 +1940,7 @@ mod tests {
             "Helvetica",
             400,
             FontStyle::Normal,
+            &[],
             0.0,
             0.0,
             Hyphens::Manual,
@@ -1938,6 +1968,7 @@ mod tests {
                 "Helvetica",
                 400,
                 FontStyle::Normal,
+                &[],
                 0.0,
                 0.0,
                 Hyphens::Manual,
@@ -1967,6 +1998,7 @@ mod tests {
             "Helvetica",
             400,
             FontStyle::Normal,
+            &[],
             0.0,
             0.0,
             Hyphens::Manual,
@@ -1987,6 +2019,7 @@ mod tests {
             "Helvetica",
             400,
             FontStyle::Normal,
+            &[],
             0.0,
             0.0,
         );
@@ -1997,6 +2030,7 @@ mod tests {
             "Helvetica",
             700,
             FontStyle::Normal,
+            &[],
             0.0,
             0.0,
         );
@@ -2019,6 +2053,7 @@ mod tests {
             "Helvetica",
             400,
             FontStyle::Normal,
+            &[],
             0.0,
             0.0,
             Hyphens::Auto,
@@ -2050,6 +2085,7 @@ mod tests {
             "Helvetica",
             400,
             FontStyle::Normal,
+            &[],
             0.0,
             0.0,
             Hyphens::None,
@@ -2078,6 +2114,7 @@ mod tests {
             "Helvetica",
             400,
             FontStyle::Normal,
+            &[],
             0.0,
             0.0,
             Hyphens::Manual,
@@ -2116,6 +2153,7 @@ mod tests {
             "Helvetica",
             400,
             FontStyle::Normal,
+            &[],
             0.0,
             0.0,
             Hyphens::Auto,
@@ -2141,6 +2179,7 @@ mod tests {
             "Helvetica",
             400,
             FontStyle::Normal,
+            &[],
             0.0,
             0.0,
             Hyphens::Auto,
@@ -2153,6 +2192,7 @@ mod tests {
             "Helvetica",
             400,
             FontStyle::Normal,
+            &[],
             0.0,
             0.0,
             Hyphens::Manual,
@@ -2193,6 +2233,7 @@ mod tests {
             "Helvetica",
             400,
             FontStyle::Normal,
+            &[],
             0.0,
             0.0,
             Hyphens::Auto,
@@ -2267,6 +2308,7 @@ mod tests {
             "Helvetica",
             400,
             FontStyle::Normal,
+            &[],
             0.0,
             0.0,
             Hyphens::Manual,
@@ -2290,6 +2332,7 @@ mod tests {
             "Helvetica",
             400,
             FontStyle::Normal,
+            &[],
             0.0,
             0.0,
             Hyphens::Manual,
@@ -2302,6 +2345,7 @@ mod tests {
             "Helvetica",
             400,
             FontStyle::Normal,
+            &[],
             0.0,
             0.0,
         );
@@ -2323,6 +2367,7 @@ mod tests {
             "Helvetica",
             400,
             FontStyle::Normal,
+            &[],
             0.0,
             0.0,
             Hyphens::Manual,
@@ -2339,6 +2384,7 @@ mod tests {
             "Helvetica",
             400,
             FontStyle::Normal,
+            &[],
             0.0,
             0.0,
         );
@@ -2366,6 +2412,7 @@ mod tests {
             "Helvetica",
             400,
             FontStyle::Normal,
+            &[],
             0.0,
             0.0,
             Hyphens::Manual,
@@ -2379,6 +2426,7 @@ mod tests {
             "Helvetica",
             400,
             FontStyle::Normal,
+            &[],
             0.0,
             0.0,
         );
@@ -2401,6 +2449,7 @@ mod tests {
             "Helvetica",
             400,
             FontStyle::Normal,
+            &[],
             0.0,
             0.0,
             Hyphens::Manual,
@@ -2414,6 +2463,7 @@ mod tests {
             "Helvetica",
             400,
             FontStyle::Normal,
+            &[],
             0.0,
             0.0,
         );
@@ -2447,6 +2497,7 @@ mod tests {
                 "Helvetica",
                 400,
                 FontStyle::Normal,
+                &[],
                 0.0,
                 0.0,
                 Hyphens::Manual,
@@ -2480,6 +2531,7 @@ mod tests {
             "Helvetica",
             700,
             FontStyle::Normal,
+            &[],
             0.8925,
             0.0,
             Hyphens::Manual,
@@ -2506,6 +2558,7 @@ mod tests {
                 text_decoration: TextDecoration::None,
                 letter_spacing: 0.0,
                 word_spacing: 0.0,
+                font_features: vec![],
             })
             .collect();
         for width in [236.25, 200.0, 180.0, 150.0, 120.0] {
@@ -2551,6 +2604,7 @@ mod tests {
                 "Helvetica",
                 400,
                 FontStyle::Normal,
+                &[],
                 0.0,
                 0.0,
                 Hyphens::Auto,
@@ -2564,6 +2618,7 @@ mod tests {
                 "Helvetica",
                 400,
                 FontStyle::Normal,
+                &[],
                 0.0,
                 0.0,
                 Hyphens::Auto,
@@ -2613,6 +2668,7 @@ mod tests {
                 "Helvetica",
                 400,
                 FontStyle::Normal,
+                &[],
                 0.0,
                 0.0,
                 Hyphens::Auto,
@@ -2626,6 +2682,7 @@ mod tests {
                 "Helvetica",
                 400,
                 FontStyle::Normal,
+                &[],
                 0.0,
                 0.0,
                 Hyphens::Auto,

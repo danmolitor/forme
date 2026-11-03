@@ -105,6 +105,8 @@ Margins in Forme are always additive (like flexbox gap). There is no CSS margin 
 | `wordSpacing` | `number` | `0` | Extra space between words in points (PDF `Tw` operator — affects ASCII spaces). Stacks additively with `text-align: justify` slack |
 | `textDecoration` | `"none"` \| `"underline"` \| `"line-through"` | `"none"` | Text decoration |
 | `textTransform` | `"none"` \| `"uppercase"` \| `"lowercase"` \| `"capitalize"` | `"none"` | Text case transformation |
+| `fontVariantNumeric` | `string` | none | Numeral styles, as in CSS: `"tabular-nums"`, `"oldstyle-nums"`, `"proportional-nums"`, `"lining-nums"`, `"slashed-zero"`, `"diagonal-fractions"`, `"stacked-fractions"`, `"ordinal"`, several separated by spaces, or `"normal"` |
+| `fontFeatureSettings` | `string` | none | OpenType features, as CSS `font-feature-settings`: `'"tnum" 1'`, `'"zero", "ss01" on, "liga" off'`, or `"normal"`. Wins over `fontVariantNumeric` for the same feature |
 
 ### Typography examples
 
@@ -123,7 +125,14 @@ Margins in Forme are always additive (like flexbox gap). There is no CSS margin 
 <Text style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: 1, color: '#94a3b8' }}>
   Section Label
 </Text>
+
+{/* Figures that line up in a column of amounts */}
+<Text style={{ fontFamily: 'Inter', fontVariantNumeric: 'tabular-nums' }}>
+  USD 160.0 Mio.
+</Text>
 ```
+
+`fontVariantNumeric` and `fontFeatureSettings` apply OpenType features, so they need a font that has them: a registered font, or the builtin Noto Sans. The standard PDF fonts (Helvetica, Times, Courier) have no OpenType features and ignore both. A feature the font doesn't have is skipped. Measurement uses the same features as drawing, so a line is broken at the widths it is drawn with, and the text still copies as the characters you wrote.
 
 ## Background and Border
 
@@ -221,7 +230,7 @@ Margins in Forme are always additive (like flexbox gap). There is no CSS margin 
 
 Some properties are inherited from parent elements, matching CSS behavior:
 
-**Inherited:** `color`, `fontFamily`, `fontSize`, `fontWeight`, `fontStyle`, `lineHeight`, `textAlign`, `letterSpacing`
+**Inherited:** `color`, `fontFamily`, `fontSize`, `fontWeight`, `fontStyle`, `lineHeight`, `textAlign`, `letterSpacing`, `fontFeatureSettings` / `fontVariantNumeric` (one combined value: setting either on a child replaces what it inherits)
 
 **Not inherited:** `width`, `height`, `padding`, `margin`, `backgroundColor`, `borderWidth`, `borderColor`, `borderRadius`, `flexDirection`, `gap`, `opacity`
 
