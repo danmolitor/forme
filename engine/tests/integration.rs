@@ -17452,3 +17452,39 @@ fn test_transform_functions_apply_in_css_order() {
         ]
     );
 }
+
+// Regression for #211: a translucent background/border colour must be drawn
+// with an ExtGState alpha instead of an opaque `rg`/`RG`.
+#[test]
+fn test_translucent_background_and_border_use_alpha() {
+    let translucent = Color {
+        r: 0.8,
+        g: 0.0,
+        b: 0.0,
+        a: 0.25,
+    };
+    let mut box_ = make_view(vec![]);
+    box_.style.width = Some(Dimension::Pt(60.0));
+    box_.style.height = Some(Dimension::Pt(40.0));
+    box_.style.background_color = Some(translucent);
+    box_.style.border_width = Some(EdgeValues::uniform(6.0));
+    box_.style.border_color = Some(EdgeValues::uniform(translucent));
+    let mut doc = default_doc(vec![box_]);
+    doc.default_page.size = PageSize::Custom {
+        width: 200.0,
+        height: 100.0,
+    };
+    doc.default_page.margin = Edges::uniform(10.0);
+
+    let bytes = forme::render(&doc).expect("render");
+    let text = String::from_utf8_lossy(&bytes);
+    assert!(
+        text.contains("/ca 0.2500 /CA 0.2500"),
+        "expected an ExtGState for alpha 0.25"
+    );
+    let content = decompress_pdf_streams(&bytes);
+    assert!(
+        content.matches(" gs").count() >= 2,
+        "background and border must both set the alpha gs, got:\n{content}"
+    );
+}

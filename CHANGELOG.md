@@ -31,8 +31,10 @@ while this file lapsed. They are reproduced, not rewritten.
   `transform-origin` instead of the page corner, which moved a rotated
   element and could put it off the page; several transform functions apply
   in CSS order, as in Chrome (#214)
+- A translucent background or border colour (`rgba()`, `#rrggbbaa`) is
+  drawn with its alpha instead of opaque (#211)
 
-Contributed by @PerryLink in #216, #217, #218, #219, #220 and #223, and by
+Contributed by @PerryLink in #216, #217, #218, #219, #220, #222 and #223, and by
 @amruthpillai in #215.
 
 ## [0.29.0] - 2026-10-21
