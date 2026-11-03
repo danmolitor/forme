@@ -65,6 +65,8 @@ pub struct Computed {
     /// OpenType features from `font-variant-numeric` and then
     /// `font-feature-settings`, which wins for the same tag (as in CSS).
     pub font_features: Option<Vec<forme::style::FontFeature>>,
+    /// `opacity` (0..=1). Applies to a box and everything in it.
+    pub opacity: Option<f64>,
 
     pub display: CssDisplay,
     pub flex_direction: Option<FlexDirection>,
@@ -306,6 +308,7 @@ pub fn resolve(css: &CssStyle, parent_font_size: f64, warnings: &mut Vec<String>
             css.font_variant_numeric.as_deref(),
             css.font_feature_settings.as_deref(),
         ),
+        opacity: css.opacity,
         display: {
             let d = css.display.unwrap_or(CssDisplay::Block);
             if d == CssDisplay::Grid && css.grid_template_columns.is_none() {

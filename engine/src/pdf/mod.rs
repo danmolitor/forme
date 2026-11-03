@@ -1615,6 +1615,7 @@ impl PdfWriter {
                 total_pages,
                 tag_builder.as_deref_mut(),
                 flatten_forms,
+                1.0,
             );
         }
 
@@ -1641,7 +1642,13 @@ impl PdfWriter {
         total_pages: usize,
         mut tag_builder: Option<&mut tagged::TagBuilder>,
         flatten_forms: bool,
+        inherited_alpha: f64,
     ) {
+        // The alpha everything this element draws is composited at: its
+        // ancestors' opacity times its own. Every `gs` below sets this times
+        // the local alpha, because `ca`/`CA` in an ExtGState REPLACE the
+        // current alpha rather than multiplying it.
+        let alpha = effective_alpha(inherited_alpha, element.opacity);
         // Tagged PDF: emit BDC (begin marked content) for elements with a node_type,
         // or /Artifact BMC for decorative elements (watermarks, untagged drawing).
         let mut is_artifact = false;
@@ -1739,12 +1746,13 @@ impl PdfWriter {
         // marker block (so opacity affects content, not the marker), and
         // close the matching `Q` BEFORE the EMC. The wrap encompasses both
         // the element's own DrawCommand emission AND the recursion into
-        // `element.children`, so descendants render at the cumulative
-        // alpha (PDF graphics state stack multiplies naturally — a 0.5
-        // child of a 0.5 parent renders at effective 0.25).
+        // `element.children`. It sets the CUMULATIVE alpha: an ExtGState's
+        // `ca` replaces the current value, so a 0.5 child of a 0.5 parent
+        // must set 0.25 itself (it drew at 0.5 when this set the element's
+        // own opacity alone).
         let needs_element_opacity = element.opacity < 1.0;
         if needs_element_opacity {
-            if let Some((_, gs_name)) = builder.ext_gstate_map.get(&element.opacity.to_bits()) {
+            if let Some((_, gs_name)) = builder.ext_gstate_map.get(&alpha.to_bits()) {
                 let _ = writeln!(stream, "q\n/{} gs", gs_name);
             }
         }
@@ -1839,7 +1847,10 @@ impl PdfWriter {
                 // Apply opacity via ExtGState
                 let needs_opacity = *opacity < 1.0;
                 if needs_opacity {
-                    if let Some((_, gs_name)) = builder.ext_gstate_map.get(&opacity.to_bits()) {
+                    if let Some((_, gs_name)) = builder
+                        .ext_gstate_map
+                        .get(&scaled_alpha(alpha, *opacity).to_bits())
+                    {
                         let _ = writeln!(stream, "q\n/{} gs", gs_name);
                     }
                 }
@@ -1859,8 +1870,9 @@ impl PdfWriter {
                         let sy = y - shadow.offset_y;
                         let needs_shadow_alpha = shadow.color.a < 1.0;
                         if needs_shadow_alpha {
-                            if let Some((_, gs_name)) =
-                                builder.ext_gstate_map.get(&shadow.color.a.to_bits())
+                            if let Some((_, gs_name)) = builder
+                                .ext_gstate_map
+                                .get(&scaled_alpha(alpha, shadow.color.a).to_bits())
                             {
                                 let _ = writeln!(stream, "q\n/{} gs", gs_name);
                             } else {
@@ -1918,7 +1930,7 @@ impl PdfWriter {
                         let bg_gs = if bg.a < 1.0 {
                             builder
                                 .ext_gstate_map
-                                .get(&bg.a.to_bits())
+                                .get(&scaled_alpha(alpha, bg.a).to_bits())
                                 .map(|(_, name)| name.clone())
                         } else {
                             None
@@ -1972,7 +1984,7 @@ impl PdfWriter {
                         let border_gs = if bc.a < 1.0 {
                             builder
                                 .ext_gstate_map
-                                .get(&bc.a.to_bits())
+                                .get(&scaled_alpha(alpha, bc.a).to_bits())
                                 .map(|(_, name)| name.clone())
                         } else {
                             None
@@ -2024,7 +2036,10 @@ impl PdfWriter {
                 // Apply opacity via ExtGState
                 let needs_opacity = *opacity < 1.0;
                 if needs_opacity {
-                    if let Some((_, gs_name)) = builder.ext_gstate_map.get(&opacity.to_bits()) {
+                    if let Some((_, gs_name)) = builder
+                        .ext_gstate_map
+                        .get(&scaled_alpha(alpha, *opacity).to_bits())
+                    {
                         let _ = writeln!(stream, "q\n/{} gs", gs_name);
                     }
                 }
@@ -2465,7 +2480,7 @@ impl PdfWriter {
                     );
                 }
 
-                Self::write_svg_commands(stream, commands, &builder.ext_gstate_map);
+                Self::write_svg_commands(stream, commands, &builder.ext_gstate_map, alpha);
 
                 let _ = writeln!(stream, "Q");
             }
@@ -2529,7 +2544,7 @@ impl PdfWriter {
                 );
 
                 for prim in primitives {
-                    write_chart_primitive(stream, prim, element.height, builder);
+                    write_chart_primitive(stream, prim, element.height, builder, alpha);
                 }
 
                 let _ = writeln!(stream, "Q");
@@ -2545,7 +2560,10 @@ impl PdfWriter {
                 let _ = writeln!(stream, "q");
                 // Set opacity via ExtGState if not fully opaque
                 if *opacity < 1.0 {
-                    if let Some((_, gs_name)) = builder.ext_gstate_map.get(&opacity.to_bits()) {
+                    if let Some((_, gs_name)) = builder
+                        .ext_gstate_map
+                        .get(&scaled_alpha(alpha, *opacity).to_bits())
+                    {
                         let _ = writeln!(stream, "/{} gs", gs_name);
                     }
                 }
@@ -2970,6 +2988,7 @@ impl PdfWriter {
                     total_pages,
                     tag_builder.as_deref_mut(),
                     flatten_forms,
+                    alpha,
                 );
             }
         }
@@ -3898,7 +3917,7 @@ impl PdfWriter {
     fn register_ext_gstates(&self, builder: &mut PdfBuilder, pages: &[LayoutPage]) {
         let mut unique_opacities: Vec<f64> = Vec::new();
         for page in pages {
-            Self::collect_opacities_recursive(&page.elements, &mut unique_opacities);
+            Self::collect_opacities_recursive(&page.elements, &mut unique_opacities, 1.0);
             // Page background opacity (independent of element-level alphas).
             if let Some(o) = page.config.background_opacity {
                 if o < 1.0 {
@@ -3925,25 +3944,32 @@ impl PdfWriter {
         }
     }
 
-    fn collect_opacities_recursive(elements: &[LayoutElement], opacities: &mut Vec<f64>) {
+    /// Every alpha the writer will set, so each gets an ExtGState. Walks the
+    /// tree the way `write_element` does and computes the same products with
+    /// the same helpers, so the values match bit for bit.
+    fn collect_opacities_recursive(
+        elements: &[LayoutElement],
+        opacities: &mut Vec<f64>,
+        inherited_alpha: f64,
+    ) {
         for element in elements {
+            let alpha = effective_alpha(inherited_alpha, element.opacity);
             // Element-level opacity wraps the whole subtree (including
-            // children) in `q\n/GS{n} gs ... Q` so descendants render at
-            // the cumulative alpha. Collect it independently of the
-            // per-DrawCommand opacities below — they coexist for now,
-            // and the per-Rect/Text/Watermark opacities are gradually
-            // being deprecated in favor of the element-level one.
+            // children) in `q\n/GS{n} gs ... Q`, at the cumulative alpha.
             if element.opacity < 1.0 {
-                opacities.push(element.opacity);
+                opacities.push(alpha);
             }
+            let mut local = |a: f64| {
+                if a < 1.0 {
+                    opacities.push(scaled_alpha(alpha, a));
+                }
+            };
             // Solid background/border colour alpha (#211): the fill and stroke
             // paths emit `rg`/`RG`, which carry no alpha, so a translucent
             // colour needs an ExtGState of its own.
             if let Some(rs) = &element.resolved_style {
                 if let Some(bg) = rs.background_color {
-                    if bg.a < 1.0 {
-                        opacities.push(bg.a);
-                    }
+                    local(bg.a);
                 }
                 for c in [
                     rs.border_color.top,
@@ -3951,52 +3977,38 @@ impl PdfWriter {
                     rs.border_color.bottom,
                     rs.border_color.left,
                 ] {
-                    if c.a < 1.0 {
-                        opacities.push(c.a);
-                    }
+                    local(c.a);
                 }
             }
-            // Shadow color alpha — needs its own ExtGState entry so the
-            // shadow renders semi-transparently independent of the
-            // element's opacity.
+            // Shadow color alpha.
             if let DrawCommand::Rect {
                 box_shadow: Some(shadow),
                 ..
             } = &element.draw
             {
-                if shadow.color.a < 1.0 {
-                    opacities.push(shadow.color.a);
-                }
+                local(shadow.color.a);
             }
             match &element.draw {
                 DrawCommand::Rect { opacity, .. }
                 | DrawCommand::Text { opacity, .. }
-                | DrawCommand::Watermark { opacity, .. }
-                    if *opacity < 1.0 =>
-                {
-                    opacities.push(*opacity);
-                }
+                | DrawCommand::Watermark { opacity, .. } => local(*opacity),
                 DrawCommand::Chart { primitives } => {
                     for prim in primitives {
                         if let crate::chart::ChartPrimitive::FilledPath { opacity, .. } = prim {
-                            if *opacity < 1.0 {
-                                opacities.push(*opacity);
-                            }
+                            local(*opacity);
                         }
                     }
                 }
                 DrawCommand::Svg { commands, .. } => {
                     for cmd in commands {
                         if let crate::svg::SvgCommand::SetOpacity(opacity) = cmd {
-                            if *opacity < 1.0 {
-                                opacities.push(*opacity);
-                            }
+                            local(*opacity);
                         }
                     }
                 }
                 _ => {}
             }
-            Self::collect_opacities_recursive(&element.children, opacities);
+            Self::collect_opacities_recursive(&element.children, opacities, alpha);
         }
     }
 
@@ -5130,6 +5142,7 @@ impl PdfWriter {
         stream: &mut String,
         commands: &[SvgCommand],
         ext_gstate_map: &HashMap<u64, (usize, String)>,
+        alpha: f64,
     ) {
         for cmd in commands {
             match cmd {
@@ -5186,7 +5199,9 @@ impl PdfWriter {
                     let _ = writeln!(stream, "Q");
                 }
                 SvgCommand::SetOpacity(opacity) => {
-                    if let Some((_, gs_name)) = ext_gstate_map.get(&opacity.to_bits()) {
+                    if let Some((_, gs_name)) =
+                        ext_gstate_map.get(&scaled_alpha(alpha, *opacity).to_bits())
+                    {
                         let _ = writeln!(stream, "/{} gs", gs_name);
                     }
                 }
@@ -5339,6 +5354,25 @@ impl PdfWriter {
     }
 }
 
+/// The alpha an element's content is composited at: its ancestors' alpha
+/// times its own `opacity`. Shared by the ExtGState collection and the
+/// writer so both compute the same value, bit for bit. With no translucent
+/// ancestor this is the element's own opacity exactly (1.0 * x == x).
+fn effective_alpha(inherited: f64, own_opacity: f64) -> f64 {
+    if own_opacity < 1.0 {
+        inherited * own_opacity
+    } else {
+        inherited
+    }
+}
+
+/// A local alpha (a colour's, a shadow's, a run's) inside content composited
+/// at `alpha`. ExtGState alpha replaces rather than multiplies, so the state
+/// set for it must carry the product.
+fn scaled_alpha(alpha: f64, local: f64) -> f64 {
+    alpha * local
+}
+
 /// Write a single chart drawing primitive to the PDF content stream.
 ///
 /// Called within a Y-flipped coordinate system (1 0 0 -1 x page_h-y cm),
@@ -5348,6 +5382,7 @@ fn write_chart_primitive(
     prim: &crate::chart::ChartPrimitive,
     _chart_height: f64,
     builder: &PdfBuilder,
+    alpha: f64,
 ) {
     use crate::chart::{ChartPrimitive, TextAnchor};
     use crate::font::metrics::unicode_to_winansi;
@@ -5399,7 +5434,10 @@ fn write_chart_primitive(
             let _ = writeln!(stream, "q");
             // Set opacity via ExtGState if available
             if *opacity < 1.0 {
-                if let Some((_, gs_name)) = builder.ext_gstate_map.get(&opacity.to_bits()) {
+                if let Some((_, gs_name)) = builder
+                    .ext_gstate_map
+                    .get(&scaled_alpha(alpha, *opacity).to_bits())
+                {
                     let _ = writeln!(stream, "/{} gs", gs_name);
                 }
             }
