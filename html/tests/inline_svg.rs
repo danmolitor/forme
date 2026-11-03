@@ -126,3 +126,19 @@ fn title_becomes_the_alt_text() {
     }
     assert_eq!(alt(&doc.children).as_deref(), Some("Revenue by month"));
 }
+
+#[test]
+fn svg_style_block_is_not_page_css() {
+    let out = render_html(
+        r#"<svg width="10" height="10"><style>.a { fill: red; stroke: blue; }</style><rect class="a" width="5" height="5"/></svg>"#,
+        &HtmlOptions::default(),
+    )
+    .unwrap();
+    assert!(
+        !out.warnings
+            .iter()
+            .any(|w| w.contains("unsupported property")),
+        "{:?}",
+        out.warnings
+    );
+}

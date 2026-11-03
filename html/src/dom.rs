@@ -119,6 +119,12 @@ fn find_tag<'a>(el: &'a Element, tag: &str) -> Option<&'a Element> {
 fn collect_style_sources(el: &Element, styles: &mut Vec<String>, links: &mut Vec<String>) {
     for child in &el.children {
         if let DomNode::Element(e) = child {
+            if e.tag == "svg" {
+                // An inline SVG's <style> belongs to its markup, which the
+                // engine's SVG import applies. Read as page CSS it would
+                // report every SVG property (fill, stroke, ...) unsupported.
+                continue;
+            }
             if e.tag == "style" {
                 let text: String = e
                     .children
