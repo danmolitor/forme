@@ -30,7 +30,20 @@ pub(crate) fn resolve_family(
     registry: &FontRegistry,
 ) -> String {
     if let Some(family) = previous {
-        let shaping_control = matches!(ch, '\u{200c}' | '\u{200d}' | '\u{fe00}'..='\u{fe0f}' | '\u{e0100}'..='\u{e01ef}');
+        // Joiners, the combining grapheme joiner and variation selectors draw
+        // nothing and belong to their base's cluster. A font without them
+        // must not send them to a fallback font: shaped there alone, they
+        // leave no glyph to carry their text (#176).
+        let shaping_control = matches!(
+            ch,
+            '\u{200c}'
+                | '\u{200d}'
+                | '\u{034f}'
+                | '\u{180b}'..='\u{180d}'
+                | '\u{180f}'
+                | '\u{fe00}'..='\u{fe0f}'
+                | '\u{e0100}'..='\u{e01ef}'
+        );
         let combining_mark = unicode_bidi::bidi_class(ch) == unicode_bidi::BidiClass::NSM;
         if shaping_control
             || (combining_mark && registry.resolve(family, weight, italic).has_char(ch))
