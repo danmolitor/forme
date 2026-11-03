@@ -7,6 +7,8 @@
 //! Standard PDF fonts (Helvetica, Times, Courier) bypass shaping entirely —
 //! they use WinAnsi encoding and don't have GSUB/GPOS tables.
 
+use crate::style::FontFeature;
+
 /// A single glyph produced by OpenType shaping.
 #[derive(Debug, Clone)]
 pub struct ShapedGlyph {
@@ -31,7 +33,32 @@ pub struct ShapedGlyph {
 /// Returns `None` if the font data can't be parsed. For standard fonts
 /// (no font data), callers should skip shaping entirely.
 pub fn shape_text(text: &str, font_data: &[u8]) -> Option<Vec<ShapedGlyph>> {
-    shape_text_with_direction(text, font_data, false)
+    shape_text_with_direction(text, font_data, false, &[])
+}
+
+/// [`shape_text`] with OpenType features (`font-feature-settings`).
+pub fn shape_text_with_features(
+    text: &str,
+    font_data: &[u8],
+    features: &[FontFeature],
+) -> Option<Vec<ShapedGlyph>> {
+    shape_text_with_direction(text, font_data, false, features)
+}
+
+/// The rustybuzz form of the style's features, applied to the whole text.
+/// A tag that isn't four bytes is padded or cut the way OpenType tags are
+/// read; a feature the font doesn't have is simply not applied.
+fn rustybuzz_features(features: &[FontFeature]) -> Vec<rustybuzz::Feature> {
+    features
+        .iter()
+        .map(|f| {
+            rustybuzz::Feature::new(
+                rustybuzz::ttf_parser::Tag::from_bytes_lossy(f.tag.as_bytes()),
+                f.value,
+                ..,
+            )
+        })
+        .collect()
 }
 
 /// Shape text with explicit direction control.
@@ -47,6 +74,7 @@ pub fn shape_text_with_direction(
     text: &str,
     font_data: &[u8],
     is_rtl: bool,
+    features: &[FontFeature],
 ) -> Option<Vec<ShapedGlyph>> {
     let face = rustybuzz::Face::from_slice(font_data, 0)?;
     let mut buffer = rustybuzz::UnicodeBuffer::new();
@@ -55,7 +83,7 @@ pub fn shape_text_with_direction(
         buffer.set_direction(rustybuzz::Direction::RightToLeft);
     }
 
-    let output = rustybuzz::shape(&face, &[], buffer);
+    let output = rustybuzz::shape(&face, &rustybuzz_features(features), buffer);
 
     let infos = output.glyph_infos();
     let positions = output.glyph_positions();

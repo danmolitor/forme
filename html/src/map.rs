@@ -221,6 +221,7 @@ struct RunStyle {
     text_decoration: Option<TextDecoration>,
     text_transform: Option<forme::style::TextTransform>,
     letter_spacing: Option<f64>,
+    font_features: Option<Vec<forme::style::FontFeature>>,
     href: Option<String>,
 }
 
@@ -240,6 +241,10 @@ impl RunStyle {
             text_decoration: c.text_decoration.or(self.text_decoration),
             text_transform: c.text_transform.or(self.text_transform),
             letter_spacing: c.letter_spacing.or(self.letter_spacing),
+            font_features: c
+                .font_features
+                .clone()
+                .or_else(|| self.font_features.clone()),
             href: href.map(str::to_string).or_else(|| self.href.clone()),
         }
     }
@@ -269,6 +274,7 @@ impl RunStyle {
             && deco_eq(self.text_decoration, other.text_decoration)
             && self.text_transform.map(|t| t as u8) == other.text_transform.map(|t| t as u8)
             && self.letter_spacing == other.letter_spacing
+            && self.font_features == other.font_features
             && self.href == other.href
     }
 
@@ -288,6 +294,7 @@ impl RunStyle {
             text_decoration: self.text_decoration,
             text_transform: self.text_transform,
             letter_spacing: self.letter_spacing,
+            font_features: self.font_features.clone(),
             ..Default::default()
         }
     }
@@ -1712,6 +1719,7 @@ fn to_engine_style(c: &Computed) -> Style {
     s.text_transform = c.text_transform;
     s.letter_spacing = c.letter_spacing;
     s.word_spacing = c.word_spacing;
+    s.font_features = c.font_features.clone();
     s.flex_grow = c.flex_grow;
     s.flex_shrink = c.flex_shrink;
     s.flex_basis = c.flex_basis.map(forme::style::Dimension::Pt);
@@ -1823,6 +1831,7 @@ fn split_box_and_text_style(c: &Computed) -> (Style, Style) {
         text_transform: box_style.text_transform.take(),
         letter_spacing: box_style.letter_spacing.take(),
         word_spacing: box_style.word_spacing.take(),
+        font_features: box_style.font_features.take(),
         hyphens: box_style.hyphens.take(),
         lang: box_style.lang.take(),
         direction: box_style.direction.take(),

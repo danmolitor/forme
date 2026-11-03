@@ -136,6 +136,11 @@ pub struct CssStyle {
     pub text_decoration: Option<TextDecoration>,
     pub text_transform: Option<TextTransform>,
     pub letter_spacing: Option<Length>,
+    /// `font-feature-settings`: (tag, value) pairs; `normal` is an empty list.
+    pub font_feature_settings: Option<Vec<(String, u32)>>,
+    /// `font-variant-numeric`, as the OpenType tags its keywords turn on;
+    /// `normal` is an empty list.
+    pub font_variant_numeric: Option<Vec<String>>,
     /// `word-spacing`. Block-level only: the engine reads it off the text
     /// node's own style in both `layout_text` and `layout_text_runs`, never
     /// per-run, so it is deliberately NOT carried on `RunStyle`.
@@ -250,6 +255,8 @@ impl CssStyle {
             text_decoration,
             text_transform,
             letter_spacing,
+            font_feature_settings,
+            font_variant_numeric,
             word_spacing,
             vertical_align,
             max_width,
@@ -342,6 +349,78 @@ pub(crate) fn parse_declarations(
 }
 
 /// Dispatch one declaration into the style bag.
+/// `font-feature-settings: normal | "tag" [on | off | <integer>]#`.
+/// A malformed entry is skipped with a warning; `None` when nothing parses.
+fn parse_font_feature_settings(
+    p: &mut Parser<'_, '_>,
+    warnings: &mut Vec<String>,
+) -> Option<Vec<(String, u32)>> {
+    let mut out = Vec::new();
+    let mut any = false;
+    let mut pending: Option<String> = None;
+    let push = |pending: &mut Option<String>, value: u32, out: &mut Vec<(String, u32)>| {
+        if let Some(tag) = pending.take() {
+            out.push((tag, value));
+        }
+    };
+    while let Ok(tok) = p.next() {
+        match tok.clone() {
+            Token::Ident(id) if id.eq_ignore_ascii_case("normal") && !any => {
+                return Some(Vec::new());
+            }
+            Token::QuotedString(tag) => {
+                push(&mut pending, 1, &mut out);
+                if tag.chars().count() == 4 && tag.is_ascii() {
+                    pending = Some(tag.to_string());
+                    any = true;
+                } else {
+                    warnings.push(format!(
+                        "font-feature-settings: \"{tag}\" is not a four-letter OpenType tag; ignoring it"
+                    ));
+                }
+            }
+            Token::Ident(id) if id.eq_ignore_ascii_case("on") => push(&mut pending, 1, &mut out),
+            Token::Ident(id) if id.eq_ignore_ascii_case("off") => push(&mut pending, 0, &mut out),
+            Token::Number {
+                int_value: Some(v), ..
+            } if v >= 0 => push(&mut pending, v as u32, &mut out),
+            Token::Comma => push(&mut pending, 1, &mut out),
+            _ => {}
+        }
+    }
+    push(&mut pending, 1, &mut out);
+    any.then_some(out)
+}
+
+/// `font-variant-numeric` keywords, as the OpenType features they turn on.
+fn parse_font_variant_numeric(
+    p: &mut Parser<'_, '_>,
+    warnings: &mut Vec<String>,
+) -> Option<Vec<String>> {
+    let mut tags = Vec::new();
+    while let Ok(id) = p.expect_ident_cloned() {
+        let tag = match id.to_ascii_lowercase().as_str() {
+            "normal" => return Some(Vec::new()),
+            "lining-nums" => "lnum",
+            "oldstyle-nums" => "onum",
+            "proportional-nums" => "pnum",
+            "tabular-nums" => "tnum",
+            "diagonal-fractions" => "frac",
+            "stacked-fractions" => "afrc",
+            "ordinal" => "ordn",
+            "slashed-zero" => "zero",
+            other => {
+                warnings.push(format!(
+                    "font-variant-numeric: unknown value {other:?}; ignoring it"
+                ));
+                continue;
+            }
+        };
+        tags.push(tag.to_string());
+    }
+    (!tags.is_empty()).then_some(tags)
+}
+
 pub(crate) fn apply_declaration(
     name: &str,
     p: &mut Parser<'_, '_>,
@@ -746,6 +825,12 @@ pub(crate) fn apply_declaration(
                 Some(t) => token_to_length(t),
                 None => None,
             };
+        }
+        "font-feature-settings" => {
+            style.font_feature_settings = parse_font_feature_settings(p, warnings);
+        }
+        "font-variant-numeric" => {
+            style.font_variant_numeric = parse_font_variant_numeric(p, warnings);
         }
         "letter-spacing" => {
             let tok = p.next().ok().cloned();

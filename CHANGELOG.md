@@ -8,6 +8,17 @@ while this file lapsed. They are reproduced, not rewritten.
 
 ## [Unreleased]
 
+### Added
+
+- OpenType font features: `fontFeatureSettings` (CSS `font-feature-settings`,
+  e.g. `'"tnum" 1'`) and `fontVariantNumeric` (`tabular-nums`,
+  `oldstyle-nums`, `slashed-zero`, ...), in every adapter, Python and the HTML
+  path. Tabular figures line up a column of amounts in a font whose figures
+  are proportional by default. Measurement and drawing shape with the same
+  features, and substituted glyphs still copy as their characters. Applies
+  to registered fonts and the builtin Noto Sans; the standard fonts have no
+  OpenType features (#224)
+
 ### Fixed
 
 - `mergePdfs` accepts PDFs whose objects aren't stored in numeric order,

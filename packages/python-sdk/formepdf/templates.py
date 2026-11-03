@@ -234,6 +234,52 @@ def _parse_border_string(val: str) -> Tuple[Optional[float], Optional[Dict[str, 
     return width, color
 
 
+_VARIANT_NUMERIC_FEATURES = {
+    "lining-nums": "lnum",
+    "oldstyle-nums": "onum",
+    "proportional-nums": "pnum",
+    "tabular-nums": "tnum",
+    "diagonal-fractions": "frac",
+    "stacked-fractions": "afrc",
+    "ordinal": "ordn",
+    "slashed-zero": "zero",
+}
+
+
+def _parse_font_features(
+    variant_numeric: Optional[str], settings: Optional[str]
+) -> Optional[List[Dict[str, Any]]]:
+    """Combine CSS ``font-variant-numeric`` and ``font-feature-settings`` into
+    the engine's feature list. As in CSS, ``font-feature-settings`` wins for
+    the same tag; ``normal`` clears features. ``None`` when neither parses."""
+    by_tag: Dict[str, int] = {}
+    parsed = False
+    if variant_numeric is not None:
+        words = variant_numeric.strip().lower().split()
+        if words == ["normal"]:
+            parsed = True
+        else:
+            for word in words:
+                tag = _VARIANT_NUMERIC_FEATURES.get(word)
+                if tag:
+                    by_tag[tag] = 1
+                    parsed = True
+    if settings is not None:
+        if settings.strip().lower() == "normal":
+            parsed = True
+        else:
+            for item in settings.split(","):
+                m = re.match(r"""^\s*(["'])(.{4})\1(?:\s+(on|off|\d+))?\s*$""", item, re.IGNORECASE)
+                if not m:
+                    continue
+                raw = (m.group(3) or "on").lower()
+                by_tag[m.group(2)] = 1 if raw == "on" else 0 if raw == "off" else int(raw)
+                parsed = True
+    if not parsed:
+        return None
+    return [{"tag": tag, "value": value} for tag, value in by_tag.items()]
+
+
 def _map_style(style: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     """Map a user-facing style dict to the Forme JSON schema."""
     if not style:
@@ -366,6 +412,10 @@ def _map_style(style: Optional[Dict[str, Any]]) -> Dict[str, Any]:
         result["textTransform"] = _TEXT_TRANSFORM_MAP.get(style["textTransform"], style["textTransform"])
     if "hyphens" in style:
         result["hyphens"] = _HYPHENS_MAP.get(style["hyphens"], style["hyphens"])
+    if "fontFeatureSettings" in style or "fontVariantNumeric" in style:
+        features = _parse_font_features(style.get("fontVariantNumeric"), style.get("fontFeatureSettings"))
+        if features is not None:
+            result["fontFeatures"] = features
     if "lang" in style:
         result["lang"] = style["lang"]
     if "direction" in style:

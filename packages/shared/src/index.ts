@@ -79,6 +79,7 @@ export type {
   FormeGridPlacement,
   FormeListMarkerType,
   FormeTransformOp,
+  FormeFontFeature,
 } from './types.js';
 
 // Adapter SSR markup pipeline (shared by the Svelte and Vue adapters):

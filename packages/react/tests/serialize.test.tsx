@@ -329,6 +329,28 @@ describe('Style mapping', () => {
     expect(mapStyle({ transformOrigin: 'center' }).transformOrigin).toEqual([0.5, 0.5]);
   });
 
+  it('fontFeatureSettings parses CSS feature settings', () => {
+    expect(mapStyle({ fontFeatureSettings: '"tnum" 1' }).fontFeatures).toEqual([{ tag: 'tnum', value: 1 }]);
+    expect(mapStyle({ fontFeatureSettings: "'zero', \"ss01\" on, \"liga\" off, \"salt\" 2" }).fontFeatures).toEqual([
+      { tag: 'zero', value: 1 },
+      { tag: 'ss01', value: 1 },
+      { tag: 'liga', value: 0 },
+      { tag: 'salt', value: 2 },
+    ]);
+    expect(mapStyle({ fontFeatureSettings: 'normal' }).fontFeatures).toEqual([]);
+    expect(mapStyle({ fontFeatureSettings: 'nonsense' }).fontFeatures).toBeUndefined();
+  });
+
+  it('fontVariantNumeric maps to features, and fontFeatureSettings wins', () => {
+    expect(mapStyle({ fontVariantNumeric: 'tabular-nums slashed-zero' }).fontFeatures).toEqual([
+      { tag: 'tnum', value: 1 },
+      { tag: 'zero', value: 1 },
+    ]);
+    expect(
+      mapStyle({ fontVariantNumeric: 'tabular-nums', fontFeatureSettings: '"tnum" 0' }).fontFeatures,
+    ).toEqual([{ tag: 'tnum', value: 0 }]);
+  });
+
   it('transformOrigin accepts tuple form', () => {
     const style = mapStyle({ transformOrigin: [0.25, 0.75] });
     expect(style.transformOrigin).toEqual([0.25, 0.75]);

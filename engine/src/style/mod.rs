@@ -108,6 +108,11 @@ pub struct Style {
     pub text_transform: Option<TextTransform>,
     /// Hyphenation mode (CSS `hyphens` property).
     pub hyphens: Option<Hyphens>,
+
+    /// OpenType features to apply when shaping text (CSS
+    /// `font-feature-settings`), e.g. `tnum` for tabular figures. Inherited.
+    /// Only fonts with font data are shaped, so the standard fonts ignore it.
+    pub font_features: Option<Vec<FontFeature>>,
     /// BCP 47 language tag for hyphenation and line breaking.
     pub lang: Option<String>,
     /// Text direction (ltr, rtl, or auto).
@@ -416,6 +421,23 @@ pub enum LineBreaking {
     Greedy,
 }
 
+/// One OpenType feature setting, as in CSS `font-feature-settings`:
+/// `"tnum" 1` is `{ tag: "tnum", value: 1 }`. A value of 0 turns a feature
+/// off; for an alternates feature such as `salt`, a value above 1 picks an
+/// alternate.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FontFeature {
+    /// The four-character feature tag, e.g. `tnum`, `zero`, `ss01`.
+    pub tag: String,
+    /// The feature's value; `1` turns it on.
+    #[serde(default = "default_feature_value")]
+    pub value: u32,
+}
+
+fn default_feature_value() -> u32 {
+    1
+}
+
 /// CSS `hyphens` property controlling word hyphenation.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -649,6 +671,8 @@ pub struct ResolvedStyle {
     pub text_decoration: TextDecoration,
     pub text_transform: TextTransform,
     pub hyphens: Hyphens,
+    /// OpenType features for shaping (inherited; empty = the font's defaults).
+    pub font_features: Vec<FontFeature>,
     pub lang: Option<String>,
     pub direction: Direction,
     pub text_overflow: TextOverflow,
@@ -816,6 +840,10 @@ impl Style {
             hyphens: self
                 .hyphens
                 .unwrap_or(parent.map(|p| p.hyphens).unwrap_or_default()),
+            font_features: match &self.font_features {
+                Some(own) => own.clone(),
+                None => parent.map(|p| p.font_features.clone()).unwrap_or_default(),
+            },
             lang: self
                 .lang
                 .clone()
