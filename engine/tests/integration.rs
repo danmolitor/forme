@@ -11690,7 +11690,7 @@ fn test_svg_issue_209_transform_clip_and_text_warning() {
 </g>"##,
     );
     assert!(
-        streams.contains("1.000000 0.000000 0.000000 1.000000 40.0000 10.0000 cm"),
+        streams.contains("\n1 0 0 1 40 10 cm\n"),
         "the group's translate must reach the PDF:\n{streams}"
     );
     assert!(
@@ -11755,7 +11755,7 @@ fn test_svg_gradients_become_shadings() {
     // objectBoundingBox units resolve into the gradient matrix: the rect
     // is 80 wide at x=10.
     assert!(
-        streams.contains("80.000000 0.000000 0.000000 40.000000 10.0000 10.0000 cm"),
+        streams.contains("\n80 0 0 40 10 10 cm\n"),
         "bbox units must map to the shape's box:\n{streams}"
     );
 }

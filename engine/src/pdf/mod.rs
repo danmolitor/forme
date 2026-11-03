@@ -5282,11 +5282,7 @@ impl PdfWriter {
                     }
                 }
                 SvgCommand::Transform(a, b, c, d, e, f) => {
-                    let _ = writeln!(
-                        stream,
-                        "{:.6} {:.6} {:.6} {:.6} {:.4} {:.4} cm",
-                        a, b, c, d, e, f
-                    );
+                    let _ = writeln!(stream, "{} cm", compact_matrix([*a, *b, *c, *d, *e, *f]));
                 }
                 SvgCommand::ClipNonZero => {
                     let _ = writeln!(stream, "W n");
@@ -5312,11 +5308,11 @@ impl PdfWriter {
                     let key = (page_idx, *gradient_counter);
                     *gradient_counter += 1;
                     if let Some((_, sh_name)) = builder.shading_map.get(&key) {
-                        let [a, b, c, d, e, f] = gradient.transform;
                         let _ = writeln!(
                             stream,
-                            "{:.6} {:.6} {:.6} {:.6} {:.4} {:.4} cm\n/{} sh",
-                            a, b, c, d, e, f, sh_name
+                            "{} cm\n/{} sh",
+                            compact_matrix(gradient.transform),
+                            sh_name
                         );
                     }
                 }
@@ -5473,6 +5469,29 @@ impl PdfWriter {
 /// times its own `opacity`. Shared by the ExtGState collection and the
 /// writer so both compute the same value, bit for bit. With no translucent
 /// ancestor this is the element's own opacity exactly (1.0 * x == x).
+/// `cm` operands with trailing zeros trimmed. SVG content carries a
+/// transform per positioned element (a chart has hundreds), and the fixed
+/// `1.000000 0.000000 ...` form made those the bulk of its content stream.
+fn compact_matrix(m: [f64; 6]) -> String {
+    m.iter()
+        .enumerate()
+        .map(|(i, v)| {
+            let s = if i < 4 {
+                format!("{:.6}", v)
+            } else {
+                format!("{:.4}", v)
+            };
+            let s = s.trim_end_matches('0').trim_end_matches('.');
+            if s == "-0" {
+                "0".to_string()
+            } else {
+                s.to_string()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
 fn effective_alpha(inherited: f64, own_opacity: f64) -> f64 {
     if own_opacity < 1.0 {
         inherited * own_opacity
