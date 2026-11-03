@@ -10,6 +10,11 @@ while this file lapsed. They are reproduced, not rewritten.
 
 ### Fixed
 
+- `mergePdfs` accepts PDFs whose objects aren't stored in numeric order,
+  and PDFs saved incrementally. It looked an object up by searching for its
+  header, which could find object 13 when asked for object 3, and it read
+  only the newest cross-reference section, dropping every object an
+  incremental save didn't touch (#206)
 - `hyphens: auto` no longer panics on a word longer than 45 bytes, which
   aborted the whole render (#207)
 - Text cut with `textOverflow: "ellipsis"` or `"clip"` is measured as the
@@ -29,7 +34,7 @@ while this file lapsed. They are reproduced, not rewritten.
 - A translucent background or border colour (`rgba()`, `#rrggbbaa`) is
   drawn with its alpha instead of opaque (#211)
 
-Contributed by @PerryLink in #216, #217, #218, #219, #220 and #222, and by
+Contributed by @PerryLink in #216, #217, #218, #219, #220, #222 and #223, and by
 @amruthpillai in #215.
 
 ## [0.29.0] - 2026-10-21

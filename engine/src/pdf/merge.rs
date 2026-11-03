@@ -13,6 +13,7 @@
 //! no encrypted PDF support.
 
 use crate::error::FormeError;
+use std::collections::HashMap;
 
 /// Merge multiple PDFs into a single document.
 ///
@@ -176,6 +177,10 @@ struct MergeScanResult {
     size: usize,
     _root_obj: usize,
     pages_obj: usize,
+    /// Object number -> byte offset, from the xref table(s). Empty when the
+    /// file's cross-reference data can't be read here; lookups then fall
+    /// back to searching for the object header.
+    xref: HashMap<usize, usize>,
 }
 
 fn scan_pdf(pdf: &[u8]) -> Result<MergeScanResult, FormeError> {
@@ -192,40 +197,46 @@ fn scan_pdf(pdf: &[u8]) -> Result<MergeScanResult, FormeError> {
     let root_obj = find_ref_in_bytes(trailer_section, b"/Root")
         .ok_or_else(|| FormeError::RenderError("No /Root in trailer".to_string()))?;
 
+    let xref: HashMap<usize, usize> = parse_xref_offsets(pdf, size)
+        .map(|offsets| offsets.into_iter().collect())
+        .unwrap_or_default();
+
     // Find the catalog object using byte-level scanning to avoid
     // position corruption from String::from_utf8_lossy on binary streams.
-    let pages_obj = find_catalog_ref_bytes(pdf, root_obj, b"/Pages")
+    let pages_obj = find_catalog_ref_bytes(pdf, &xref, root_obj, b"/Pages")
         .ok_or_else(|| FormeError::RenderError("No /Pages in catalog".to_string()))?;
 
     Ok(MergeScanResult {
         size,
         _root_obj: root_obj,
         pages_obj,
+        xref,
     })
 }
 
 /// Collect leaf page object IDs in document order.
 fn collect_page_ids(pdf: &[u8], scan: &MergeScanResult) -> Result<Vec<usize>, FormeError> {
-    let kids = extract_kids_refs_bytes(pdf, scan.pages_obj)?;
+    let kids = extract_kids_refs_bytes(pdf, &scan.xref, scan.pages_obj)?;
     let mut page_ids = Vec::new();
     for kid_id in &kids {
-        collect_page_ids_recursive_bytes(pdf, *kid_id, &mut page_ids)?;
+        collect_page_ids_recursive_bytes(pdf, &scan.xref, *kid_id, &mut page_ids)?;
     }
     Ok(page_ids)
 }
 
 fn collect_page_ids_recursive_bytes(
     pdf: &[u8],
+    xref: &HashMap<usize, usize>,
     obj_id: usize,
     page_ids: &mut Vec<usize>,
 ) -> Result<(), FormeError> {
-    let content = find_object_content_bytes(pdf, obj_id)
+    let content = find_object_content_bytes(pdf, xref, obj_id)
         .ok_or_else(|| FormeError::RenderError(format!("Cannot find object {obj_id}")))?;
 
     if find_bytes(content, b"/Type /Pages").is_some() {
         let kids = extract_kids_from_content_bytes(content)?;
         for kid_id in &kids {
-            collect_page_ids_recursive_bytes(pdf, *kid_id, page_ids)?;
+            collect_page_ids_recursive_bytes(pdf, xref, *kid_id, page_ids)?;
         }
     } else if find_bytes(content, b"/Type /Page").is_some() {
         page_ids.push(obj_id);
@@ -271,19 +282,54 @@ fn locate_objects(pdf: &[u8], size: usize) -> Result<Vec<ObjectSpan>, FormeError
     Ok(spans)
 }
 
-/// Parse the xref table to get byte offsets for each object.
+/// Parse the xref tables to get byte offsets for each object.
+///
+/// A file saved incrementally has one xref section per save, chained from
+/// the newest (at `startxref`) to the oldest through each trailer's `/Prev`.
+/// Every section is read; where several list the same object, the newest
+/// wins, because an incremental save appends the changed copy and leaves
+/// the old one in place. Reading only the newest section dropped every
+/// object an incremental save didn't touch.
 fn parse_xref_offsets(pdf: &[u8], size: usize) -> Result<Vec<(usize, usize)>, FormeError> {
     let startxref_pos = rfind_bytes(pdf, b"startxref")
         .ok_or_else(|| FormeError::RenderError("No startxref".to_string()))?;
     let after = &pdf[startxref_pos + 9..];
-    let xref_offset = parse_number_from_bytes(after)
-        .ok_or_else(|| FormeError::RenderError("Cannot parse startxref value".to_string()))?;
+    let mut xref_offset = Some(
+        parse_number_from_bytes(after)
+            .ok_or_else(|| FormeError::RenderError("Cannot parse startxref value".to_string()))?,
+    );
 
+    let mut newest: HashMap<usize, usize> = HashMap::with_capacity(size);
+    let mut seen_sections = std::collections::HashSet::new();
+    while let Some(offset) = xref_offset {
+        // A /Prev loop in a damaged file must not spin forever.
+        if !seen_sections.insert(offset) {
+            break;
+        }
+        let (entries, prev) = parse_xref_section(pdf, offset)?;
+        for (obj_id, byte_offset) in entries {
+            newest.entry(obj_id).or_insert(byte_offset);
+        }
+        xref_offset = prev;
+    }
+
+    let mut offsets: Vec<(usize, usize)> = newest.into_iter().collect();
+    offsets.sort_unstable();
+    Ok(offsets)
+}
+
+/// Parse one xref table section at `xref_offset`: its in-use entries, and
+/// the `/Prev` offset of the older section from the trailer that follows it.
+#[allow(clippy::type_complexity)]
+fn parse_xref_section(
+    pdf: &[u8],
+    xref_offset: usize,
+) -> Result<(Vec<(usize, usize)>, Option<usize>), FormeError> {
     if xref_offset >= pdf.len() {
         return Err(FormeError::RenderError("Invalid xref offset".to_string()));
     }
 
-    let mut offsets = Vec::with_capacity(size);
+    let mut offsets = Vec::new();
     let xref_data = &pdf[xref_offset..];
 
     // Skip "xref\n"
@@ -350,7 +396,14 @@ fn parse_xref_offsets(pdf: &[u8], size: usize) -> Result<Vec<(usize, usize)>, Fo
         }
     }
 
-    Ok(offsets)
+    // The trailer follows the table; its /Prev points at the older section.
+    let prev = find_bytes(&xref_data[pos..], b"trailer").and_then(|t| {
+        let trailer = &xref_data[pos + t..];
+        let end = find_bytes(trailer, b"startxref").unwrap_or(trailer.len());
+        find_value_in_bytes(&trailer[..end], b"/Prev")
+    });
+
+    Ok((offsets, prev))
 }
 
 /// Find "endobj" after an object header, skipping over stream..endstream
@@ -581,21 +634,82 @@ fn find_ref_in_bytes(section: &[u8], key: &[u8]) -> Option<usize> {
     parse_number_from_bytes(&section[pos + key.len()..])
 }
 
-/// Find an object's content bytes (between "N 0 obj" header and "endobj").
-/// Works on raw bytes to avoid position corruption from lossy UTF-8 conversion.
-fn find_object_content_bytes(pdf: &[u8], obj_id: usize) -> Option<&[u8]> {
+/// The content of object `obj_id`: everything between its `N G obj` header
+/// and its `endobj`.
+///
+/// Read at the object's xref offset, which is exact and, in a file saved
+/// incrementally, the newest copy. Searching the file for the header text
+/// found the first copy, and could match one object's number inside
+/// another's ("3 0 obj" inside "13 0 obj", #206). The search stays as a
+/// fallback for objects the xref doesn't list.
+fn find_object_content_bytes<'a>(
+    pdf: &'a [u8],
+    xref: &HashMap<usize, usize>,
+    obj_id: usize,
+) -> Option<&'a [u8]> {
+    if let Some(&offset) = xref.get(&obj_id) {
+        if let Some(content) = object_content_at(pdf, offset, obj_id) {
+            return Some(content);
+        }
+    }
     let header = format!("{obj_id} 0 obj");
     let header_bytes = header.as_bytes();
-    let start = find_bytes(pdf, header_bytes)?;
-    let after_header = start + header_bytes.len();
-    let rest = &pdf[after_header..];
-    let end = find_bytes(rest, b"endobj")?;
-    Some(&rest[..end])
+    let mut from = 0;
+    while let Some(rel) = find_bytes(&pdf[from..], header_bytes) {
+        let start = from + rel;
+        // The id must be a standalone number: a search for object 3 must not
+        // match the "3 0 obj" inside "13 0 obj" (#206).
+        if start == 0 || !pdf[start - 1].is_ascii_digit() {
+            let after_header = start + header_bytes.len();
+            let rest = &pdf[after_header..];
+            let end = find_bytes(rest, b"endobj")?;
+            return Some(&rest[..end]);
+        }
+        from = start + 1;
+    }
+    None
+}
+
+/// The content of the object whose header starts at `offset`, if that
+/// header really is `obj_id`'s (`N G obj`, any generation).
+fn object_content_at(pdf: &[u8], offset: usize, obj_id: usize) -> Option<&[u8]> {
+    let data = pdf.get(offset..)?;
+    let id = obj_id.to_string();
+    let rest = data.strip_prefix(id.as_bytes())?;
+    // "N G obj": the number, whitespace, a generation number, whitespace, "obj".
+    let mut i = 0;
+    let skip_ws = |i: &mut usize| {
+        while *i < rest.len() && rest[*i].is_ascii_whitespace() {
+            *i += 1;
+        }
+    };
+    let ws_start = i;
+    skip_ws(&mut i);
+    if i == ws_start {
+        return None;
+    }
+    let gen_start = i;
+    while i < rest.len() && rest[i].is_ascii_digit() {
+        i += 1;
+    }
+    if i == gen_start {
+        return None;
+    }
+    skip_ws(&mut i);
+    let body = rest.get(i..)?.strip_prefix(b"obj")?;
+    let end = find_endobj_skipping_stream(body)?;
+    // find_endobj_skipping_stream returns the end of "endobj".
+    Some(&body[..end - b"endobj".len()])
 }
 
 /// Find a reference value (N 0 R) for a key inside an object.
-fn find_catalog_ref_bytes(pdf: &[u8], obj_id: usize, key: &[u8]) -> Option<usize> {
-    let content = find_object_content_bytes(pdf, obj_id)?;
+fn find_catalog_ref_bytes(
+    pdf: &[u8],
+    xref: &HashMap<usize, usize>,
+    obj_id: usize,
+    key: &[u8],
+) -> Option<usize> {
+    let content = find_object_content_bytes(pdf, xref, obj_id)?;
     let key_pos = find_bytes(content, key)?;
     let after_key = &content[key_pos + key.len()..];
     // Skip whitespace, parse number.
@@ -616,8 +730,12 @@ fn find_catalog_ref_bytes(pdf: &[u8], obj_id: usize, key: &[u8]) -> Option<usize
         .ok()
 }
 
-fn extract_kids_refs_bytes(pdf: &[u8], pages_obj: usize) -> Result<Vec<usize>, FormeError> {
-    let content = find_object_content_bytes(pdf, pages_obj)
+fn extract_kids_refs_bytes(
+    pdf: &[u8],
+    xref: &HashMap<usize, usize>,
+    pages_obj: usize,
+) -> Result<Vec<usize>, FormeError> {
+    let content = find_object_content_bytes(pdf, xref, pages_obj)
         .ok_or_else(|| FormeError::RenderError(format!("Cannot find /Pages object {pages_obj}")))?;
     extract_kids_from_content_bytes(content)
 }
@@ -674,6 +792,90 @@ mod tests {
             r#"{{"children":[{{"kind":{{"type":"Page"}},"children":[{{"kind":{{"type":"Text","content":"{text}"}}}}]}}]}}"#
         );
         crate::render_json(&json).unwrap()
+    }
+
+    /// Build a minimal valid PDF with the objects emitted in `order`.
+    /// Object 13 comes before object 3 in the reordered variant, which used to
+    /// make the `"{id} 0 obj"` substring lookup find 13 when asked for 3.
+    fn build_reordered_pdf(order: &[usize]) -> Vec<u8> {
+        let stream = "BT /F1 24 Tf 72 700 Td (Hello) Tj ET";
+        let body = |id: usize| -> String {
+            match id {
+                1 => "<< /Type /Catalog /Pages 3 0 R >>".to_string(),
+                2 => "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>".to_string(),
+                3 => "<< /Type /Pages /Kids [4 0 R] /Count 1 >>".to_string(),
+                4 => "<< /Type /Page /Parent 3 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 2 0 R >> >> /Contents 5 0 R >>".to_string(),
+                5 => format!("<< /Length {} >>\nstream\n{stream}\nendstream", stream.len()),
+                13 => "<< /Producer (repro) >>".to_string(),
+                _ => unreachable!(),
+            }
+        };
+
+        let mut pdf = String::from("%PDF-1.4\n");
+        let mut offsets = std::collections::HashMap::new();
+        for &id in order {
+            offsets.insert(id, pdf.len());
+            pdf.push_str(&format!("{id} 0 obj\n{}\nendobj\n", body(id)));
+        }
+        let xref = pdf.len();
+        pdf.push_str("xref\n0 6\n0000000000 65535 f \n");
+        for id in 1..=5 {
+            pdf.push_str(&format!("{:010} 00000 n \n", offsets[&id]));
+        }
+        pdf.push_str("13 1\n");
+        pdf.push_str(&format!("{:010} 00000 n \n", offsets[&13]));
+        pdf.push_str(&format!(
+            "trailer\n<< /Size 14 /Root 1 0 R /Info 13 0 R >>\nstartxref\n{xref}\n%%EOF\n"
+        ));
+        pdf.into_bytes()
+    }
+
+    #[test]
+    fn test_merge_pdf_with_out_of_order_objects() {
+        let ordered = build_reordered_pdf(&[1, 2, 3, 4, 5, 13]);
+        let reordered = build_reordered_pdf(&[13, 1, 2, 3, 4, 5]);
+        let merged =
+            merge_pdfs(&[&ordered, &reordered]).expect("merge must accept out-of-order objects");
+        assert!(merged.starts_with(b"%PDF"));
+    }
+
+    /// A PDF saved incrementally: a base section with one page, then an
+    /// appended update that rewrites the /Pages object (3) to add a second
+    /// page (6). The update's xref lists only 3 and 6 and points at the base
+    /// section through /Prev.
+    fn build_incremental_pdf() -> Vec<u8> {
+        let mut pdf = String::from_utf8(build_reordered_pdf(&[1, 2, 3, 4, 5, 13])).unwrap();
+        let prev = pdf.rfind("startxref\n").unwrap();
+        let prev_xref: usize = pdf[prev + 10..].lines().next().unwrap().parse().unwrap();
+
+        let off3 = pdf.len();
+        pdf.push_str("3 0 obj\n<< /Type /Pages /Kids [4 0 R 6 0 R] /Count 2 >>\nendobj\n");
+        let off6 = pdf.len();
+        pdf.push_str("6 0 obj\n<< /Type /Page /Parent 3 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 2 0 R >> >> /Contents 5 0 R >>\nendobj\n");
+        let xref = pdf.len();
+        pdf.push_str("xref\n0 1\n0000000000 65535 f \n");
+        pdf.push_str(&format!(
+            "3 1\n{off3:010} 00000 n \n6 1\n{off6:010} 00000 n \n"
+        ));
+        pdf.push_str(&format!(
+            "trailer\n<< /Size 14 /Root 1 0 R /Prev {prev_xref} >>\nstartxref\n{xref}\n%%EOF\n"
+        ));
+        pdf.into_bytes()
+    }
+
+    #[test]
+    fn test_merge_pdf_saved_incrementally() {
+        let incremental = build_incremental_pdf();
+        let single = build_reordered_pdf(&[1, 2, 3, 4, 5, 13]);
+        let merged = merge_pdfs(&[&incremental, &single]).expect("merge an incremental PDF");
+
+        // Both pages of the updated file, then the other file's page.
+        let text = String::from_utf8_lossy(&merged);
+        assert!(text.contains("/Count 3 >>"), "expected 3 pages");
+        // The objects the update didn't touch (catalog, font, page 4, its
+        // content stream) come from the base section and must be copied too.
+        assert_eq!(text.matches("/BaseFont /Helvetica").count(), 2);
+        assert_eq!(text.matches("(Hello) Tj").count(), 2);
     }
 
     #[test]
@@ -805,8 +1007,9 @@ mod tests {
         // Find all page objects and check.
         let mut found_pdf2_page = false;
         let objs = locate_objects(&merged, 0).unwrap();
+        let xref: HashMap<usize, usize> = objs.iter().map(|o| (o.obj_id, o.start)).collect();
         for span in &objs {
-            let content = find_object_content_bytes(&merged, span.obj_id);
+            let content = find_object_content_bytes(&merged, &xref, span.obj_id);
             if let Some(c) = content {
                 if find_bytes(c, b"/Type /Page").is_some()
                     && find_bytes(c, b"/Type /Pages").is_none()
