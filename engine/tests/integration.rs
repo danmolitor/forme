@@ -11648,6 +11648,190 @@ fn test_svg_stroke_linecap_inherited_from_group() {
     );
 }
 
+// ─── SVG through usvg (#209) ─────────────────────────────────────
+
+fn svg_doc(view_box: Option<&str>, content: &str) -> Document {
+    default_doc(vec![Node {
+        kind: NodeKind::Svg {
+            width: 200.0,
+            height: 110.0,
+            view_box: view_box.map(str::to_string),
+            content: content.to_string(),
+        },
+        style: Style::default(),
+        children: vec![],
+        id: None,
+        source_location: None,
+        bookmark: None,
+        href: None,
+        alt: None,
+    }])
+}
+
+fn render_svg(view_box: Option<&str>, content: &str) -> (String, String, Vec<String>) {
+    let (pdf, warnings) = forme::render_with_warnings(&svg_doc(view_box, content)).unwrap();
+    assert_valid_pdf(&pdf);
+    let raw = String::from_utf8_lossy(&pdf).to_string();
+    (decompress_pdf_streams(&pdf), raw, warnings)
+}
+
+#[test]
+fn test_svg_issue_209_transform_clip_and_text_warning() {
+    // The shape Vega, Vega-Lite and D3 emit. Before usvg, the <clipPath>'s
+    // path was painted as a black 150x80 block, every transform was
+    // ignored, and the <text> vanished with no warning.
+    let (streams, _, warnings) = render_svg(
+        Some("0 0 200 110"),
+        r##"<defs><clipPath id="c"><path d="M0,0h150v80h-150Z"/></clipPath></defs>
+<g transform="translate(40,10)">
+  <g clip-path="url(#c)"><path d="M10,80h30v-60h-30Z" fill="#4c78a8"/></g>
+  <line x2="150" y2="0" transform="translate(0,80)" stroke="#888"/>
+  <text transform="translate(25,95) rotate(-45)" font-size="10">Jan</text>
+</g>"##,
+    );
+    assert!(
+        streams.contains("1.000000 0.000000 0.000000 1.000000 40.0000 10.0000 cm"),
+        "the group's translate must reach the PDF:\n{streams}"
+    );
+    assert!(
+        streams.contains("150.00 0.00 l") && streams.contains("W n"),
+        "the clip path must become a clip, not a shape:\n{streams}"
+    );
+    assert!(
+        !streams.contains("0.000 0.000 0.000 rg\n0.00 0.00 m\n150.00 0.00 l"),
+        "the clip path's shape must not be painted black:\n{streams}"
+    );
+    assert!(
+        streams.contains("0.298 0.471 0.659 rg"),
+        "the bar must be drawn in its fill:\n{streams}"
+    );
+    assert!(
+        warnings.iter().any(|w| w.contains("SVG <text>")),
+        "the dropped <text> must be named in the warnings: {warnings:?}"
+    );
+}
+
+#[test]
+fn test_svg_css_class_and_style_element() {
+    // An Illustrator export colours its paths through <style> + class.
+    let (streams, _, warnings) = render_svg(
+        Some("0 0 100 100"),
+        r##"<style>.st0{fill:#006E58;}</style><path class="st0" d="M0 0h50v50h-50z"/>"##,
+    );
+    assert!(
+        streams.contains("0.000 0.431 0.345 rg"),
+        "the class fill must apply:\n{streams}"
+    );
+    assert!(warnings.is_empty(), "{warnings:?}");
+}
+
+#[test]
+fn test_svg_gradients_become_shadings() {
+    let (streams, raw, _) = render_svg(
+        Some("0 0 200 110"),
+        r##"<defs>
+<linearGradient id="g1"><stop offset="0" stop-color="#f00"/><stop offset="0.5" stop-color="#0f0"/><stop offset="1" stop-color="#00f"/></linearGradient>
+<radialGradient id="g2"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#036"/></radialGradient>
+</defs>
+<rect x="10" y="10" width="80" height="40" fill="url(#g1)"/>
+<circle cx="140" cy="30" r="25" fill="url(#g2)"/>"##,
+    );
+    assert!(
+        raw.contains("/ShadingType 2"),
+        "linear gradient shading missing"
+    );
+    assert!(
+        raw.contains("/ShadingType 3"),
+        "radial gradient shading missing"
+    );
+    assert!(
+        raw.contains("/FunctionType 3"),
+        "3-stop gradient must stitch"
+    );
+    assert!(
+        streams.contains("/Sh0 sh") && streams.contains("/Sh1 sh"),
+        "both gradients must be painted:\n{streams}"
+    );
+    // objectBoundingBox units resolve into the gradient matrix: the rect
+    // is 80 wide at x=10.
+    assert!(
+        streams.contains("80.000000 0.000000 0.000000 40.000000 10.0000 10.0000 cm"),
+        "bbox units must map to the shape's box:\n{streams}"
+    );
+}
+
+#[test]
+fn test_svg_dash_evenodd_and_separate_opacities() {
+    let (streams, _, _) = render_svg(
+        Some("0 0 200 110"),
+        r##"<path fill="none" stroke="#c00" stroke-width="3" stroke-dasharray="6 3" d="M10 10h60"/>
+<path fill-rule="evenodd" d="M10 20h80v25h-80z M30 25h40v15h-40z"/>
+<rect x="100" y="20" width="40" height="25" fill="blue" fill-opacity="0.5" stroke="red" stroke-width="4"/>"##,
+    );
+    assert!(
+        streams.contains("[6.00 3.00] 0.00 d"),
+        "dash missing:\n{streams}"
+    );
+    assert!(streams.contains("f*"), "even-odd fill missing:\n{streams}");
+    // Fill at 0.5 and stroke at 1.0 cannot share one B: the fill is drawn
+    // under its own alpha and the stroke separately.
+    assert!(
+        streams.contains("0.000 0.000 1.000 rg") && streams.contains("1.000 0.000 0.000 RG"),
+        "{streams}"
+    );
+    assert!(
+        !streams.contains("\nB\n"),
+        "fill and stroke must be split:\n{streams}"
+    );
+}
+
+#[test]
+fn test_svg_whole_document_supplies_its_view_box() {
+    // A pasted icon: whole <svg> with its own viewBox and inherited
+    // presentation attributes on the root.
+    let (streams, _, warnings) = render_svg(
+        None,
+        r##"<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>"##,
+    );
+    assert!(warnings.is_empty(), "{warnings:?}");
+    // 24-unit viewBox in a 200x110 box: meet scale is 110/24.
+    assert!(
+        streams.contains("4.5833 0 0 4.5833"),
+        "viewBox not used:\n{streams}"
+    );
+    assert!(
+        streams.contains("20.00 6.00 m"),
+        "raw user space expected:\n{streams}"
+    );
+    assert!(
+        streams.contains("2.00 w") && !streams.contains("\nf\n"),
+        "{streams}"
+    );
+}
+
+#[test]
+fn test_svg_unparseable_falls_back_with_warning() {
+    let (_, _, warnings) = render_svg(Some("0 0 10 10"), r##"<rect width="5" height="5"#"##);
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.contains("SVG could not be parsed")),
+        "{warnings:?}"
+    );
+}
+
+#[test]
+fn test_svg_image_is_named_and_never_read_from_disk() {
+    let (_, _, warnings) = render_svg(
+        Some("0 0 10 10"),
+        r##"<image href="/etc/hosts" width="10" height="10"/>"##,
+    );
+    assert!(
+        warnings.iter().any(|w| w.contains("SVG <image>")),
+        "{warnings:?}"
+    );
+}
+
 // ─── Flex overflow robustness (found by the HTML input path spike) ─────
 
 /// Collect all rendered text from a layout, all pages, depth-first.

@@ -174,6 +174,74 @@ pub fn map_html(
 }
 
 /// Elements that generate inline boxes (flattened into TextRuns).
+/// An SVG length attribute in points: unitless and `px` are CSS pixels.
+fn svg_length_pt(raw: &str) -> Option<f64> {
+    let (num, factor) = if let Some(n) = raw.strip_suffix("px") {
+        (n, 0.75)
+    } else if let Some(n) = raw.strip_suffix("pt") {
+        (n, 1.0)
+    } else {
+        (raw, 0.75)
+    };
+    num.trim()
+        .parse::<f64>()
+        .ok()
+        .filter(|v| *v > 0.0)
+        .map(|v| v * factor)
+}
+
+/// Serialize an SVG element subtree back to XML markup.
+fn serialize_svg(el: &Element, out: &mut String) {
+    out.push('<');
+    out.push_str(&el.tag);
+    for (name, value) in &el.attrs {
+        out.push(' ');
+        out.push_str(name);
+        out.push_str("=\"");
+        out.push_str(&xml_escape(value).replace('"', "&quot;"));
+        out.push('"');
+    }
+    if el.children.is_empty() {
+        out.push_str("/>");
+        return;
+    }
+    out.push('>');
+    for child in &el.children {
+        match child {
+            DomNode::Element(e) => serialize_svg(e, out),
+            DomNode::Text(t) => out.push_str(&xml_escape(t)),
+        }
+    }
+    out.push_str("</");
+    out.push_str(&el.tag);
+    out.push('>');
+}
+
+fn xml_escape(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+}
+
+/// Text of the `<title>` that is a direct child of the `<svg>`.
+fn svg_title(el: &Element) -> Option<String> {
+    el.children.iter().find_map(|c| match c {
+        DomNode::Element(e) if e.tag == "title" => {
+            let text: String = e
+                .children
+                .iter()
+                .filter_map(|t| match t {
+                    DomNode::Text(t) => Some(t.as_str()),
+                    _ => None,
+                })
+                .collect();
+            let text = text.trim();
+            (!text.is_empty()).then(|| text.to_string())
+        }
+        _ => None,
+    })
+}
+
 fn is_inline(tag: &str) -> bool {
     matches!(
         tag,
@@ -539,6 +607,7 @@ impl Mapper {
             "table" => self.map_table(el, &computed),
             "ul" | "ol" => self.map_list(el, &computed),
             "img" => self.map_img(el, &computed),
+            "svg" => self.map_svg(el, &computed),
             "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => {
                 let level = el.tag.as_bytes()[1] - b'0';
                 self.map_paragraph_like(el, computed, Some(level))
@@ -1001,6 +1070,78 @@ impl Mapper {
         // <img alt> → Figure /Alt (PDF/UA 7.3-1). Absent alt stays None; a
         // pdf_ua render warns about it (see html_to_document).
         node.alt = el.attr("alt").map(|s| s.to_string());
+        Some(node)
+    }
+
+    /// Inline `<svg>` → the engine's Svg node, carrying the element's
+    /// markup. Sizing follows the browser order: CSS width/height, then the
+    /// width/height attributes, then the viewBox proportions for whichever
+    /// dimension is still missing, with 300×150 px when neither is set.
+    /// What the engine cannot draw (`<text>` among it) is named in the
+    /// warnings by the engine's SVG import, not here.
+    fn map_svg(&mut self, el: &Element, computed: &Computed) -> Option<Node> {
+        let view_box = el.attr("viewBox").map(str::to_string);
+        let ratio = view_box
+            .as_deref()
+            .and_then(forme::svg::parse_view_box)
+            .filter(|vb| vb.width > 0.0 && vb.height > 0.0)
+            .map(|vb| vb.height / vb.width);
+
+        let mut dim = |css: Option<Dimension>, attr: &str| -> Option<f64> {
+            match css {
+                Some(Dimension::Pt(v)) => return Some(v),
+                Some(Dimension::Percent(p)) => {
+                    self.warnings.push(format!(
+                        "{attr}: {p}% on <svg> is not supported (an inline SVG needs a fixed size); it is sized from its attributes and viewBox"
+                    ));
+                }
+                _ => {}
+            }
+            let raw = el.attr(attr)?.trim();
+            if let Some(pct) = raw.strip_suffix('%') {
+                self.warnings.push(format!(
+                    "{attr}=\"{pct}%\" on <svg> is not supported (an inline SVG needs a fixed size); it is sized from its viewBox"
+                ));
+                return None;
+            }
+            svg_length_pt(raw)
+        };
+        let css_w = dim(computed.width, "width");
+        let css_h = dim(computed.height, "height");
+
+        const DEFAULT_W: f64 = 300.0 * 0.75;
+        const DEFAULT_H: f64 = 150.0 * 0.75;
+        let (width, height) = match (css_w, css_h, ratio) {
+            (Some(w), Some(h), _) => (w, h),
+            (Some(w), None, Some(r)) => (w, w * r),
+            (Some(w), None, None) => (w, DEFAULT_H),
+            (None, Some(h), Some(r)) => (h / r, h),
+            (None, Some(h), None) => (DEFAULT_W, h),
+            (None, None, Some(r)) => (DEFAULT_W, DEFAULT_W * r),
+            (None, None, None) => (DEFAULT_W, DEFAULT_H),
+        };
+
+        let mut computed = computed.clone();
+        computed.width = None;
+        computed.height = None;
+        let mut content = String::new();
+        serialize_svg(el, &mut content);
+        let mut node = make_node(
+            NodeKind::Svg {
+                width,
+                height,
+                view_box,
+                content,
+            },
+            to_engine_style(&computed),
+            vec![],
+        );
+        // An accessible name, as a browser computes one for role="img":
+        // aria-label, then the SVG's own <title>.
+        node.alt = el
+            .attr("aria-label")
+            .map(str::to_string)
+            .or_else(|| svg_title(el));
         Some(node)
     }
 

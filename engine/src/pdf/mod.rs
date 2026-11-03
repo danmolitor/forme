@@ -2480,7 +2480,14 @@ impl PdfWriter {
                     );
                 }
 
-                Self::write_svg_commands(stream, commands, &builder.ext_gstate_map, alpha);
+                Self::write_svg_commands(
+                    stream,
+                    commands,
+                    builder,
+                    alpha,
+                    page_idx,
+                    gradient_counter,
+                );
 
                 let _ = writeln!(stream, "Q");
             }
@@ -3577,6 +3584,16 @@ impl PdfWriter {
                     .shading_map
                     .insert((page_idx, ordinal), (obj_id, name));
             }
+            if let DrawCommand::Svg { commands, .. } = &element.draw {
+                for cmd in commands {
+                    if let crate::svg::SvgCommand::PaintGradient(gradient) = cmd {
+                        let ordinal = *counter;
+                        *counter += 1;
+                        let entry = Self::write_svg_shading_objects(builder, gradient, ordinal);
+                        builder.shading_map.insert((page_idx, ordinal), entry);
+                    }
+                }
+            }
             Self::collect_shadings_recursive(&element.children, page_idx, counter, builder);
         }
     }
@@ -3619,61 +3636,7 @@ impl PdfWriter {
             Background::Radial(g) => normalize_gradient_stops(&g.stops, black),
         };
 
-        // Build the color-interpolation function. With <=2 stops we emit
-        // a single Type 2 (exponential) function; with 3+ stops we emit a
-        // Type 3 (stitching) function combining N-1 Type 2 sub-functions.
-        let function_id = if stops.len() <= 2 {
-            let c0 = stops.first().map(|s| s.color).unwrap_or(black);
-            let c1 = stops.last().map(|s| s.color).unwrap_or(c0);
-            let id = builder.objects.len();
-            let data = format!(
-                "<< /FunctionType 2 /Domain [0 1] /C0 [{:.4} {:.4} {:.4}] /C1 [{:.4} {:.4} {:.4}] /N 1 >>",
-                c0.r, c0.g, c0.b, c1.r, c1.g, c1.b,
-            );
-            builder.objects.push(PdfObject {
-                id,
-                data: data.into_bytes(),
-            });
-            id
-        } else {
-            // Reserve N-1 Type 2 sub-function objects.
-            let mut sub_ids: Vec<usize> = Vec::with_capacity(stops.len() - 1);
-            for window in stops.windows(2) {
-                let c0 = window[0].color;
-                let c1 = window[1].color;
-                let id = builder.objects.len();
-                let data = format!(
-                    "<< /FunctionType 2 /Domain [0 1] /C0 [{:.4} {:.4} {:.4}] /C1 [{:.4} {:.4} {:.4}] /N 1 >>",
-                    c0.r, c0.g, c0.b, c1.r, c1.g, c1.b,
-                );
-                builder.objects.push(PdfObject {
-                    id,
-                    data: data.into_bytes(),
-                });
-                sub_ids.push(id);
-            }
-            // Bounds = interior stop positions (exclude first and last).
-            // Encode = [0 1] per sub-function — each sub-function uses its
-            // full domain regardless of the bound interval width.
-            let bounds: Vec<String> = stops[1..stops.len() - 1]
-                .iter()
-                .map(|s| format!("{:.4}", s.position))
-                .collect();
-            let encode: Vec<&str> = (0..sub_ids.len()).map(|_| "0 1").collect();
-            let functions: Vec<String> = sub_ids.iter().map(|i| format!("{} 0 R", i)).collect();
-            let id = builder.objects.len();
-            let data = format!(
-                "<< /FunctionType 3 /Domain [0 1] /Functions [{}] /Bounds [{}] /Encode [{}] >>",
-                functions.join(" "),
-                bounds.join(" "),
-                encode.join(" "),
-            );
-            builder.objects.push(PdfObject {
-                id,
-                data: data.into_bytes(),
-            });
-            id
-        };
+        let function_id = Self::write_gradient_function(builder, &stops, black);
 
         // Element dimensions. The shading's coord space is local to the
         // rect (we cm-translate to the rect's bottom-left at draw time),
@@ -3739,6 +3702,116 @@ impl PdfWriter {
         builder.objects.push(PdfObject {
             id: shading_id,
             data: shading_data.into_bytes(),
+        });
+        (shading_id, format!("Sh{}", ordinal))
+    }
+
+    /// Build the color function for a normalized stop list and return its
+    /// object id.
+    fn write_gradient_function(
+        builder: &mut PdfBuilder,
+        stops: &[crate::style::GradientStop],
+        black: Color,
+    ) -> usize {
+        // Build the color-interpolation function. With <=2 stops we emit
+        // a single Type 2 (exponential) function; with 3+ stops we emit a
+        // Type 3 (stitching) function combining N-1 Type 2 sub-functions.
+        if stops.len() <= 2 {
+            let c0 = stops.first().map(|s| s.color).unwrap_or(black);
+            let c1 = stops.last().map(|s| s.color).unwrap_or(c0);
+            let id = builder.objects.len();
+            let data = format!(
+                "<< /FunctionType 2 /Domain [0 1] /C0 [{:.4} {:.4} {:.4}] /C1 [{:.4} {:.4} {:.4}] /N 1 >>",
+                c0.r, c0.g, c0.b, c1.r, c1.g, c1.b,
+            );
+            builder.objects.push(PdfObject {
+                id,
+                data: data.into_bytes(),
+            });
+            id
+        } else {
+            // Reserve N-1 Type 2 sub-function objects.
+            let mut sub_ids: Vec<usize> = Vec::with_capacity(stops.len() - 1);
+            for window in stops.windows(2) {
+                let c0 = window[0].color;
+                let c1 = window[1].color;
+                let id = builder.objects.len();
+                let data = format!(
+                    "<< /FunctionType 2 /Domain [0 1] /C0 [{:.4} {:.4} {:.4}] /C1 [{:.4} {:.4} {:.4}] /N 1 >>",
+                    c0.r, c0.g, c0.b, c1.r, c1.g, c1.b,
+                );
+                builder.objects.push(PdfObject {
+                    id,
+                    data: data.into_bytes(),
+                });
+                sub_ids.push(id);
+            }
+            // Bounds = interior stop positions (exclude first and last).
+            // Encode = [0 1] per sub-function — each sub-function uses its
+            // full domain regardless of the bound interval width.
+            let bounds: Vec<String> = stops[1..stops.len() - 1]
+                .iter()
+                .map(|s| format!("{:.4}", s.position))
+                .collect();
+            let encode: Vec<&str> = (0..sub_ids.len()).map(|_| "0 1").collect();
+            let functions: Vec<String> = sub_ids.iter().map(|i| format!("{} 0 R", i)).collect();
+            let id = builder.objects.len();
+            let data = format!(
+                "<< /FunctionType 3 /Domain [0 1] /Functions [{}] /Bounds [{}] /Encode [{}] >>",
+                functions.join(" "),
+                bounds.join(" "),
+                encode.join(" "),
+            );
+            builder.objects.push(PdfObject {
+                id,
+                data: data.into_bytes(),
+            });
+            id
+        }
+    }
+
+    /// Build the Function + Shading objects for an SVG gradient. Coords
+    /// are in the gradient's own space; the `cm` with its transform is
+    /// written at draw time, inside the clip of the filled path.
+    fn write_svg_shading_objects(
+        builder: &mut PdfBuilder,
+        gradient: &crate::svg::SvgGradient,
+        ordinal: usize,
+    ) -> (usize, String) {
+        let black = Color {
+            r: 0.0,
+            g: 0.0,
+            b: 0.0,
+            a: 1.0,
+        };
+        let stops = normalize_gradient_stops(&gradient.stops, black);
+        let function_id = Self::write_gradient_function(builder, &stops, black);
+        let coords = match gradient.kind {
+            crate::svg::GradientKind::Linear { x1, y1, x2, y2 } => format!(
+                "/ShadingType 2 /Coords [{:.4} {:.4} {:.4} {:.4}]",
+                x1, y1, x2, y2
+            ),
+            // SVG's focal circle (fx, fy, fr) is the PDF start circle.
+            crate::svg::GradientKind::Radial {
+                cx,
+                cy,
+                r,
+                fx,
+                fy,
+                fr,
+            } => format!(
+                "/ShadingType 3 /Coords [{:.4} {:.4} {:.4} {:.4} {:.4} {:.4}]",
+                fx, fy, fr, cx, cy, r
+            ),
+        };
+        let shading_id = builder.objects.len();
+        let data = format!(
+            "<< {} /ColorSpace /DeviceRGB /Function {} 0 R /Extend [true true] >>",
+            coords, function_id
+        );
+        builder.objects.push(PdfObject {
+            id: shading_id,
+            data: data.into_bytes(),
         });
         (shading_id, format!("Sh{}", ordinal))
     }
@@ -5141,9 +5214,12 @@ impl PdfWriter {
     fn write_svg_commands(
         stream: &mut String,
         commands: &[SvgCommand],
-        ext_gstate_map: &HashMap<u64, (usize, String)>,
+        builder: &PdfBuilder,
         alpha: f64,
+        page_idx: usize,
+        gradient_counter: &mut usize,
     ) {
+        let ext_gstate_map = &builder.ext_gstate_map;
         for cmd in commands {
             match cmd {
                 SvgCommand::MoveTo(x, y) => {
@@ -5203,6 +5279,45 @@ impl PdfWriter {
                         ext_gstate_map.get(&scaled_alpha(alpha, *opacity).to_bits())
                     {
                         let _ = writeln!(stream, "/{} gs", gs_name);
+                    }
+                }
+                SvgCommand::Transform(a, b, c, d, e, f) => {
+                    let _ = writeln!(
+                        stream,
+                        "{:.6} {:.6} {:.6} {:.6} {:.4} {:.4} cm",
+                        a, b, c, d, e, f
+                    );
+                }
+                SvgCommand::ClipNonZero => {
+                    let _ = writeln!(stream, "W n");
+                }
+                SvgCommand::ClipEvenOdd => {
+                    let _ = writeln!(stream, "W* n");
+                }
+                SvgCommand::FillEvenOdd => {
+                    let _ = writeln!(stream, "f*");
+                }
+                SvgCommand::FillAndStrokeEvenOdd => {
+                    let _ = writeln!(stream, "B*");
+                }
+                SvgCommand::SetDash(dashes, phase) => {
+                    let parts: Vec<String> = dashes.iter().map(|d| format!("{:.2}", d)).collect();
+                    let _ = writeln!(stream, "[{}] {:.2} d", parts.join(" "), phase);
+                }
+                SvgCommand::SetMiterLimit(limit) => {
+                    let _ = writeln!(stream, "{:.2} M", limit);
+                }
+                SvgCommand::PaintGradient(gradient) => {
+                    // Same pre-order ordinal as register_shadings assigned.
+                    let key = (page_idx, *gradient_counter);
+                    *gradient_counter += 1;
+                    if let Some((_, sh_name)) = builder.shading_map.get(&key) {
+                        let [a, b, c, d, e, f] = gradient.transform;
+                        let _ = writeln!(
+                            stream,
+                            "{:.6} {:.6} {:.6} {:.6} {:.4} {:.4} cm\n/{} sh",
+                            a, b, c, d, e, f, sh_name
+                        );
                     }
                 }
             }

@@ -66,6 +66,7 @@ the bar is "what does an invoice, report, statement, or contract need."
 | `table`, `thead`, `tbody`, `tfoot`, `tr`, `td`, `th` (+ `colspan`/`rowspan`; `<thead>` rows repeat on every page) | |
 | `ul`, `ol` (+ `start`), `li` | |
 | `img` (block-level) — data URIs and local files only | external `http(s)` image fetching |
+| `svg` (block-level, inline markup) — sized from CSS, then `width`/`height`, then the `viewBox` (300×150 px when nothing sets it) | `<svg>` mid-paragraph, percentage sizes; SVG `<text>`, `<image>`, masks, filters and patterns are warned by name |
 | | inline `<img>` mid-paragraph — the engine's text model has no inline-replaced box (spike verdict); engine design, not a gap |
 | `style` blocks (anywhere in the document); the `forme-html` CLI additionally resolves **local** `<link rel="stylesheet">` relative to the input file and inlines it at its source position | `<link rel="stylesheet">` in the library (WASM/API) — never fetched; warns with the href and the remedy (`--css` / `options.css`). Absolute `http(s)` links are never fetched even by the CLI. |
 

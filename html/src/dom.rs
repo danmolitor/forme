@@ -186,19 +186,34 @@ fn assign_sibling_positions(out: &mut [DomNode]) {
     }
 }
 
+const SVG_NS: &str = "http://www.w3.org/2000/svg";
+
 fn convert_children(handle: &Handle, out: &mut Vec<DomNode>) {
     for child in handle.children.borrow().iter() {
         match &child.data {
             NodeData::Element { name, attrs, .. } => {
-                let tag = name.local.as_ref().to_ascii_lowercase();
+                // SVG is case-sensitive XML: html5ever already restores
+                // `viewBox`, `clipPath`, `linearGradient` and the like, and
+                // lowercasing them again would break the markup an inline
+                // <svg> is serialized back into. `xlink:href` keeps its
+                // prefix for the same reason.
+                let svg = name.ns.as_ref() == SVG_NS;
+                let tag = if svg {
+                    name.local.as_ref().to_string()
+                } else {
+                    name.local.as_ref().to_ascii_lowercase()
+                };
                 let attrs = attrs
                     .borrow()
                     .iter()
                     .map(|a| {
-                        (
-                            a.name.local.as_ref().to_ascii_lowercase(),
-                            a.value.to_string(),
-                        )
+                        let local = a.name.local.as_ref();
+                        let name = match (&a.name.prefix, svg) {
+                            (Some(prefix), true) => format!("{}:{}", prefix.as_ref(), local),
+                            (None, true) => local.to_string(),
+                            _ => local.to_ascii_lowercase(),
+                        };
+                        (name, a.value.to_string())
                     })
                     .collect();
                 let mut grandchildren = Vec::new();

@@ -50,6 +50,7 @@ This is a deliberately **documented subset** of HTML/CSS, in the spirit of Sator
 | Tables: `table`, `thead`, `tbody`, `tfoot`, `tr`, `td`, `th` + `colspan`/`rowspan` | |
 | Lists: `ul`, `ol` (+ `start`), `li` | |
 | `img` (block-level) — data URIs and local files | External `http(s)` image fetching |
+| `svg` (block-level, inline markup) — sized from CSS, then `width`/`height`, then the `viewBox`; `<title>` becomes the alt text | `<svg>` mid-paragraph; percentage sizes; SVG `<text>`, `<image>`, masks, filters and patterns (each warned by name) |
 | `<style>` blocks; the CLI inlines **local** `<link rel="stylesheet">` | Remote stylesheets — never fetched, warned with the href and remedy |
 
 ### Selectors
