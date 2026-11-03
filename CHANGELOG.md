@@ -21,6 +21,19 @@ while this file lapsed. They are reproduced, not rewritten.
 - CSS `opacity` in the HTML path, on block-level elements and text blocks.
   On an inline element such as `<span>`, which text runs can't express, it
   is reported by name; it used to be dropped as an unsupported property
+- `<Svg>` parses its markup with usvg. It now draws `transform`, `<use>`,
+  `<clipPath>`, linear and radial gradients, dashes, even-odd fills, and CSS
+  from `<style>`, `class` and `style=""`. Before, a clip path's shape was
+  painted as a black block, transforms were ignored, and gradient and
+  class-styled fills drew nothing or black. `content` may be a whole `<svg>`
+  document, whose `viewBox` is used when the prop is not set. What is not
+  drawn yet (`<text>`, `<image>`, masks, filters, patterns) is named in the
+  warnings instead of disappearing (#209)
+- Inline `<svg>` in the HTML path is drawn, sized like a browser sizes it:
+  CSS width and height, then the `width`/`height` attributes, then the
+  `viewBox` proportions, with 300×150 px when nothing sets a size. Its
+  `<title>` or `aria-label` becomes the alt text. Before, the shapes were
+  dropped and any `<text>` printed as paragraphs, with no warning (#196)
 
 ### Fixed
 

@@ -7,6 +7,9 @@
 use quick_xml::events::Event;
 use quick_xml::Reader;
 
+mod import;
+pub use import::{document_view_box, import_svg, SvgImport};
+
 /// A parsed SVG viewBox.
 #[derive(Debug, Clone, Copy)]
 pub struct ViewBox {
@@ -37,6 +40,49 @@ pub enum SvgCommand {
     RestoreState,
     /// Set fill and stroke opacity via PDF ExtGState. Value is 0.0–1.0.
     SetOpacity(f64),
+    /// Concatenate a matrix to the CTM (`a b c d e f cm`).
+    Transform(f64, f64, f64, f64, f64, f64),
+    /// Intersect the clip with the current path (nonzero), then end it.
+    ClipNonZero,
+    /// Intersect the clip with the current path (even-odd), then end it.
+    ClipEvenOdd,
+    /// Fill the current path with the even-odd rule.
+    FillEvenOdd,
+    /// Fill (even-odd) and stroke the current path.
+    FillAndStrokeEvenOdd,
+    /// Stroke dash pattern and phase.
+    SetDash(Vec<f64>, f64),
+    SetMiterLimit(f64),
+    /// Paint a gradient over the current clip (a PDF shading).
+    PaintGradient(Box<SvgGradient>),
+}
+
+/// A gradient in SVG user space, painted as a PDF shading.
+#[derive(Debug, Clone)]
+pub struct SvgGradient {
+    pub kind: GradientKind,
+    /// gradientTransform (with objectBoundingBox units resolved), as
+    /// PDF `cm` operands.
+    pub transform: [f64; 6],
+    pub stops: Vec<crate::style::GradientStop>,
+}
+
+#[derive(Debug, Clone)]
+pub enum GradientKind {
+    Linear {
+        x1: f64,
+        y1: f64,
+        x2: f64,
+        y2: f64,
+    },
+    Radial {
+        cx: f64,
+        cy: f64,
+        r: f64,
+        fx: f64,
+        fy: f64,
+        fr: f64,
+    },
 }
 
 /// Parse a viewBox string like "0 0 100 100".

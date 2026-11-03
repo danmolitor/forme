@@ -6575,8 +6575,11 @@ impl LayoutEngine {
 
         cursor.y += margin.top;
 
+        // The node's viewBox wins; a whole `<svg>` document passed as the
+        // content supplies its own; otherwise user space is the box.
         let vb = view_box
             .and_then(crate::svg::parse_view_box)
+            .or_else(|| crate::svg::document_view_box(content))
             .unwrap_or(crate::svg::ViewBox {
                 min_x: 0.0,
                 min_y: 0.0,
@@ -6584,7 +6587,11 @@ impl LayoutEngine {
                 height: svg_height,
             });
 
-        let commands = crate::svg::parse_svg(content, vb, svg_width, svg_height);
+        let import = crate::svg::import_svg(content, vb);
+        for warning in import.warnings {
+            self.defect(warning);
+        }
+        let commands = import.commands;
 
         cursor.elements.push(LayoutElement {
             x: x + margin.left,

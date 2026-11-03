@@ -357,7 +357,11 @@ Cells can contain any Forme element, not just Text.
 
 ## Svg
 
-Renders inline SVG graphics. Supports basic SVG elements: `rect`, `circle`, `ellipse`, `line`, `polyline`, `polygon`, and `path`. Elements support `opacity`, `fill-opacity`, and `stroke-opacity` attributes with proper inheritance through `<g>` groups.
+Renders inline SVG graphics as native PDF vector drawing. The markup is parsed by [usvg](https://github.com/linebender/resvg), so it supports what SVG files exported by design tools and chart libraries use: shapes and paths, `<g>` with `transform`, `<use>`, `<clipPath>`, linear and radial gradients, dashes, fill rules, `opacity`, `fill-opacity` and `stroke-opacity`, and CSS through `<style>`, `class` and `style=""`.
+
+`content` can be the inner markup or a whole `<svg>` document, such as a pasted icon. A whole document supplies its own `viewBox` when the `viewBox` prop is not set.
+
+Not drawn yet, and named in the render warnings when present: `<text>`, `<image>`, `<foreignObject>`, masks, filters and pattern fills. A translucent `<g>` applies its opacity to each shape inside it, so shapes that overlap inside the group show through each other.
 
 ### Props
 
