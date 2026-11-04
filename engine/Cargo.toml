@@ -35,6 +35,8 @@ qrcode = "0.14"            # QR code generation — pure Rust, no_std compatible
 barcoders = { version = "2", default-features = false }  # 1D barcode generation — no_std, zero deps
 quick-xml = "0.41"
 usvg = { version = "0.49", default-features = false }  # SVG parsing: CSS, transforms, clip paths, gradients (no text feature)
+simplecss = "0.2"  # SVG <text> CSS cascade (already compiled in through usvg)
+svgtypes = "0.16"  # SVG <text> transforms, lengths, colours (already compiled in through usvg)
 image = { version = "0.24", default-features = false, features = ["jpeg", "png", "webp"] }
 base64 = "0.22"
 

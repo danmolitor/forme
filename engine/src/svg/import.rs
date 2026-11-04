@@ -8,9 +8,10 @@
 //! Y flip, so nothing here may apply them a second time.
 //!
 //! usvg is built without its `text` feature (it would add ~1.2 MB of font
-//! machinery to the WASM bundle), so `<text>` is dropped by usvg. It, and
-//! every other construct this lowering does not draw, is reported by name
-//! instead of disappearing silently.
+//! machinery and a second shaper to the WASM bundle), so usvg drops
+//! `<text>`; [`super::text`] reads it from the same document and layout
+//! shapes it with Forme's own text pipeline. Every construct neither draws
+//! is reported by name instead of disappearing silently.
 
 use super::{GradientKind, SvgCommand, SvgGradient, ViewBox};
 use crate::style::{Color, GradientStop};
@@ -21,6 +22,8 @@ use usvg::roxmltree;
 pub struct SvgImport {
     pub commands: Vec<SvgCommand>,
     pub warnings: Vec<String>,
+    /// `<text>` elements, for layout to shape and draw over the shapes.
+    pub texts: Vec<super::SvgText>,
 }
 
 const SVG_NS: &str = "http://www.w3.org/2000/svg";
@@ -41,14 +44,16 @@ const VIEWPORT_ATTRS: &[&str] = &[
 /// Import SVG markup. `content` is either the inner markup of an `<svg>`
 /// element or a whole `<svg>` document. Falls back to the basic parser,
 /// with a warning, when usvg cannot parse the markup.
-pub fn import_svg(content: &str, view_box: ViewBox) -> SvgImport {
+pub fn import_svg(content: &str, view_box: ViewBox, defaults: &super::TextDefaults) -> SvgImport {
     let mut warnings = Vec::new();
     let source = match prepare_document(content, view_box) {
         Ok(s) => s,
         Err(e) => return fallback(content, view_box, e, warnings),
     };
+    let mut texts = Vec::new();
     if let Ok(doc) = roxmltree::Document::parse(&source) {
         scan_dropped_elements(&doc, &mut warnings);
+        texts = super::text::extract_texts(&doc, defaults, &mut warnings);
     }
 
     // usvg reads `<image href="file.png">` from the local disk by default.
@@ -74,16 +79,18 @@ pub fn import_svg(content: &str, view_box: ViewBox) -> SvgImport {
     SvgImport {
         commands: lower.commands,
         warnings: lower.warnings,
+        texts,
     }
 }
 
 fn fallback(content: &str, view_box: ViewBox, err: String, mut warnings: Vec<String>) -> SvgImport {
     warnings.push(format!(
-        "render defect: SVG could not be parsed ({err}); it is drawn with the basic SVG parser, which ignores CSS, transforms, clip paths and gradients"
+        "render defect: SVG could not be parsed ({err}); it is drawn with the basic SVG parser, which ignores CSS, transforms, clip paths, gradients and text"
     ));
     SvgImport {
         commands: super::parse_svg(content, view_box, view_box.width, view_box.height),
         warnings,
+        texts: Vec::new(),
     }
 }
 
@@ -197,24 +204,18 @@ fn escape_attr(s: &str) -> String {
         .replace('<', "&lt;")
 }
 
-/// Elements usvg drops without leaving a node behind: `<text>` (no text
-/// feature), `<image>` (both resolvers refuse) and `<foreignObject>`.
+/// Elements usvg drops without leaving a node behind and nothing else
+/// draws: `<image>` (both resolvers refuse) and `<foreignObject>`.
+/// (`<text>` is drawn through [`super::text`].)
 fn scan_dropped_elements(doc: &roxmltree::Document, warnings: &mut Vec<String>) {
-    let mut text = false;
     let mut image = false;
     let mut foreign = false;
     for node in doc.descendants().filter(|n| n.is_element()) {
         match node.tag_name().name() {
-            "text" => text = true,
             "image" => image = true,
             "foreignObject" => foreign = true,
             _ => {}
         }
-    }
-    if text {
-        warnings.push(
-            "render defect: SVG <text> is not supported yet; the text is not drawn".to_string(),
-        );
     }
     if image {
         warnings.push(
@@ -265,14 +266,19 @@ impl Lower {
                 usvg::Node::Image(_) => {
                     self.warn("render defect: SVG <image> is not supported; the image is not drawn")
                 }
-                // Unreachable without usvg's text feature.
-                usvg::Node::Text(_) => self
-                    .warn("render defect: SVG <text> is not supported yet; the text is not drawn"),
+                // Unreachable without usvg's text feature; text is drawn
+                // from `super::text` instead.
+                usvg::Node::Text(_) => {}
             }
         }
     }
 
     fn group(&mut self, g: &usvg::Group, alpha: f64) {
+        // A group that held only <text> is empty here (usvg drops the text;
+        // it is drawn from `super::text`), and would only write q/cm/Q.
+        if !has_paths(g) {
+            return;
+        }
         if g.mask().is_some() {
             self.warn(
                 "render defect: SVG <mask> is not supported; the masked content is drawn unmasked",
@@ -621,6 +627,14 @@ fn collect_clip_shapes(
             _ => {}
         }
     }
+}
+
+fn has_paths(g: &usvg::Group) -> bool {
+    g.children().iter().any(|c| match c {
+        usvg::Node::Path(_) => true,
+        usvg::Node::Group(g) => has_paths(g),
+        _ => false,
+    })
 }
 
 fn push_path_data(out: &mut Vec<SvgCommand>, path: &usvg::tiny_skia_path::Path) {

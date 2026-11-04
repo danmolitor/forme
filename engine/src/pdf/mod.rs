@@ -2436,6 +2436,7 @@ impl PdfWriter {
                 viewbox_width,
                 viewbox_height,
                 clip,
+                text_transforms,
             } => {
                 let x = element.x;
                 let y = page_height - element.y - element.height;
@@ -2488,6 +2489,31 @@ impl PdfWriter {
                     page_idx,
                     gradient_counter,
                 );
+
+                // The SVG's <text>, shaped in layout as ordinary text with its
+                // baseline at the origin. Each is drawn through the normal
+                // text path, in SVG user space through its own matrix. Svg
+                // is a leaf drawing, so these children are drawn only here.
+                // They sit inside the Svg's own marked content, so they take
+                // no structure of their own.
+                for (child, matrix) in element.children.iter().zip(text_transforms) {
+                    let _ = writeln!(stream, "q\n{} cm", compact_matrix(*matrix));
+                    self.write_element(
+                        stream,
+                        child,
+                        0.0,
+                        builder,
+                        page_idx,
+                        element_counter,
+                        gradient_counter,
+                        page_number,
+                        total_pages,
+                        None,
+                        flatten_forms,
+                        alpha,
+                    );
+                    let _ = writeln!(stream, "Q");
+                }
 
                 let _ = writeln!(stream, "Q");
             }

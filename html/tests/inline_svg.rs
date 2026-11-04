@@ -1,6 +1,7 @@
 //! Inline `<svg>` maps to the engine's Svg node (#196): the shapes are
 //! drawn, the size follows the browser order, and what the engine cannot
-//! draw is named in the warnings instead of printing as paragraphs.
+//! draw is named in the warnings. `<text>` is drawn as text inside the SVG,
+//! not printed as paragraphs.
 
 use forme_pdf_html::{html_to_document, render_html, HtmlOptions};
 
@@ -19,6 +20,27 @@ fn svgs(nodes: &[forme::Node], out: &mut Vec<(f64, f64, Option<String>, String)>
     }
 }
 
+/// Every inflated content stream of a PDF, concatenated.
+fn content_streams(pdf: &[u8]) -> String {
+    let find = |hay: &[u8], needle: &[u8]| hay.windows(needle.len()).position(|w| w == needle);
+    let mut out = String::new();
+    let mut rest = pdf;
+    while let Some(i) = find(rest, b"stream") {
+        let after = &rest[i + b"stream".len()..];
+        let body = match after.first() {
+            Some(b'\r') => &after[2..],
+            Some(b'\n') => &after[1..],
+            _ => after,
+        };
+        let end = find(body, b"endstream").unwrap_or(body.len());
+        if let Ok(text) = miniz_oxide::inflate::decompress_to_vec_zlib(&body[..end]) {
+            out.push_str(&String::from_utf8_lossy(&text));
+        }
+        rest = &rest[i + b"stream".len()..];
+    }
+    out
+}
+
 fn first_svg(html: &str) -> (f64, f64, Option<String>, String) {
     let (doc, _) = html_to_document(html, &HtmlOptions::default());
     let mut found = Vec::new();
@@ -28,7 +50,7 @@ fn first_svg(html: &str) -> (f64, f64, Option<String>, String) {
 }
 
 #[test]
-fn issue_196_repro_draws_the_rect_and_names_the_text() {
+fn issue_196_repro_draws_the_rect_and_the_text() {
     let html = r##"<!doctype html><html><body><p>Before</p>
 <svg width="200" height="60" viewBox="0 0 200 60">
   <rect x="1" y="1" width="120" height="40" fill="#e8eafb" stroke="#3b4cca"/>
@@ -42,13 +64,11 @@ fn issue_196_repro_draws_the_rect_and_names_the_text() {
     assert!(content.contains("viewBox=\"0 0 200 60\""), "{content}");
 
     let out = render_html(html, &HtmlOptions::default()).unwrap();
-    assert!(
-        out.warnings.iter().any(|w| w.contains("SVG <text>")),
-        "{:?}",
-        out.warnings
-    );
-    assert!(out.pdf.starts_with(b"%PDF"));
-    // "label" must not print as a paragraph between Before and After.
+    assert!(out.warnings.is_empty(), "{:?}", out.warnings);
+    // "label" is drawn inside the SVG, as text...
+    let streams = content_streams(&out.pdf);
+    assert!(streams.contains("(label) Tj"), "{streams}");
+    // ...and not printed as a paragraph between Before and After.
     let (doc, _) = html_to_document(html, &HtmlOptions::default());
     fn texts(n: &[forme::Node], out: &mut String) {
         for x in n {
@@ -140,5 +160,28 @@ fn svg_style_block_is_not_page_css() {
             .any(|w| w.contains("unsupported property")),
         "{:?}",
         out.warnings
+    );
+}
+
+#[test]
+fn user_units_are_css_px_without_a_view_box() {
+    // 200 x 100 px is a 150 x 75 pt box; a 200-unit-wide rect fills it.
+    let (w, h, vb, _) =
+        first_svg(r#"<svg width="200" height="100"><rect width="200" height="100"/></svg>"#);
+    assert_eq!((w, h), (150.0, 75.0));
+    assert_eq!(vb.as_deref(), Some("0 0 200 100"));
+}
+
+#[test]
+fn svg_text_inherits_the_page_font_size_in_px() {
+    let (_, _, _, content) = first_svg(
+        r#"<div style="font-size: 9pt"><svg width="10" height="10"><text>a</text></svg></div>"#,
+    );
+    assert!(content.contains(r#"font-size="12""#), "{content}");
+    let (_, _, _, content) =
+        first_svg(r#"<svg width="10" height="10" font-size="7"><text>a</text></svg>"#);
+    assert!(
+        !content.contains(r#"font-size="9"#) && content.contains(r#"font-size="7""#),
+        "{content}"
     );
 }

@@ -27,13 +27,22 @@ while this file lapsed. They are reproduced, not rewritten.
   painted as a black block, transforms were ignored, and gradient and
   class-styled fills drew nothing or black. `content` may be a whole `<svg>`
   document, whose `viewBox` is used when the prop is not set. What is not
-  drawn yet (`<text>`, `<image>`, masks, filters, patterns) is named in the
-  warnings instead of disappearing (#209)
+  drawn (`<image>`, masks, filters, patterns) is named in the warnings
+  instead of disappearing (#209)
+- SVG `<text>` is drawn as real, selectable text through Forme's own text
+  pipeline: registered fonts and fallback chains, shaping, right-to-left
+  scripts, subsetting and PDF/UA tagging, positioned by `x`/`y`/`dx`/`dy`,
+  `transform`, `text-anchor` and `dominant-baseline`, styled from
+  attributes and CSS. It inherits the font around the `<svg>`, as in a
+  browser. Labels draw over the SVG's shapes and are not clipped by a
+  `<clipPath>`; a `<tspan>` that moves or restyles its text, `<textPath>`,
+  stroked text and letter spacing are named in the warnings
 - Inline `<svg>` in the HTML path is drawn, sized like a browser sizes it:
   CSS width and height, then the `width`/`height` attributes, then the
   `viewBox` proportions, with 300×150 px when nothing sets a size. Its
-  `<title>` or `aria-label` becomes the alt text. Before, the shapes were
-  dropped and any `<text>` printed as paragraphs, with no warning (#196)
+  `<title>` or `aria-label` becomes the alt text. Without a `viewBox`, user
+  units are CSS px, as in a browser. Before, the shapes were dropped and
+  any `<text>` printed as paragraphs, with no warning (#196)
 
 ### Fixed
 
