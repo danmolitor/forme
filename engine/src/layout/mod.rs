@@ -813,6 +813,10 @@ pub enum DrawCommand {
         viewbox_height: f64,
         /// When true, clip content to [0, 0, width, height] (used by Canvas).
         clip: bool,
+        /// One matrix per child element: the SVG's `<text>` elements, shaped
+        /// as ordinary text and drawn after the shapes. Each maps the text's
+        /// glyph space (baseline at the origin, y up) into SVG user space.
+        text_transforms: Vec<[f64; 6]>,
     },
     /// Draw a 1D barcode as filled rectangles.
     Barcode {
@@ -2081,6 +2085,7 @@ impl LayoutEngine {
                     *svg_h,
                     view_box.as_deref(),
                     content,
+                    font_context,
                 );
             }
 
@@ -6564,6 +6569,7 @@ impl LayoutEngine {
         svg_height: f64,
         view_box: Option<&str>,
         content: &str,
+        font_context: &FontContext,
     ) {
         let margin = &style.margin.to_edges();
         let total_height = svg_height + margin.vertical();
@@ -6587,15 +6593,36 @@ impl LayoutEngine {
                 height: svg_height,
             });
 
-        let import = crate::svg::import_svg(content, vb);
+        // SVG text inherits the font around the Svg, as in a browser. Svg
+        // user units are points here (the box is in points), so the
+        // inherited size carries over as is.
+        let defaults = crate::svg::TextDefaults {
+            font_family: Some(style.font_family.clone()),
+            font_size: Some(style.font_size),
+            font_weight: Some(style.font_weight),
+            italic: matches!(style.font_style, FontStyle::Italic | FontStyle::Oblique),
+        };
+        let import = crate::svg::import_svg(content, vb, &defaults);
         for warning in import.warnings {
             self.defect(warning);
         }
         let commands = import.commands;
+        let elem_x = x + margin.left;
+        let elem_y = cursor.content_y + cursor.y;
+        let mut text_elements = Vec::new();
+        let mut text_transforms = Vec::new();
+        for text in &import.texts {
+            if let Some((element, matrix)) =
+                self.layout_svg_text(text, font_context, (elem_x, elem_y, svg_width, svg_height))
+            {
+                text_elements.push(element);
+                text_transforms.push(matrix);
+            }
+        }
 
         cursor.elements.push(LayoutElement {
-            x: x + margin.left,
-            y: cursor.content_y + cursor.y,
+            x: elem_x,
+            y: elem_y,
             width: svg_width,
             height: svg_height,
             draw: DrawCommand::Svg {
@@ -6607,8 +6634,9 @@ impl LayoutEngine {
                 viewbox_width: vb.width,
                 viewbox_height: vb.height,
                 clip: false,
+                text_transforms,
             },
-            children: vec![],
+            children: text_elements,
             node_type: Some("Svg".to_string()),
             resolved_style: Some(style.clone()),
             source_location: node.source_location.clone(),
@@ -6748,6 +6776,134 @@ impl LayoutEngine {
         commands
     }
 
+    /// Shape one SVG `<text>` with Forme's text pipeline (font fallback,
+    /// bidi, shaping, the extraction mappings) and place it. Returns the
+    /// text element and the matrix from its glyph space (baseline at the
+    /// origin, y up) into SVG user space. `svg_box` is the Svg element's
+    /// page box, which the text element reports as its own.
+    fn layout_svg_text(
+        &self,
+        text: &crate::svg::SvgText,
+        font_context: &FontContext,
+        svg_box: (f64, f64, f64, f64),
+    ) -> Option<(LayoutElement, [f64; 6])> {
+        use crate::svg::{TextAnchor, TextBaseline};
+        // Shape at a fixed size and scale into user units in the matrix:
+        // text sizes in user units can be tiny (a 0 0 1 1 viewBox) and the
+        // writer prints font sizes to one decimal.
+        const SHAPE_SIZE: f64 = 12.0;
+        if text.font_size <= 0.0 {
+            return None;
+        }
+        let k = SHAPE_SIZE / text.font_size;
+        let font_style = if text.italic {
+            FontStyle::Italic
+        } else {
+            FontStyle::Normal
+        };
+        let color = Color {
+            r: text.fill.0,
+            g: text.fill.1,
+            b: text.fill.2,
+            a: 1.0,
+        };
+        let style = Style {
+            font_family: Some(text.font_family.clone()),
+            font_size: Some(SHAPE_SIZE),
+            font_weight: Some(text.font_weight),
+            font_style: Some(font_style),
+            color: Some(color),
+            direction: Some(if text.rtl {
+                Direction::Rtl
+            } else {
+                Direction::Ltr
+            }),
+            ..Style::default()
+        }
+        .resolve(None, SHAPE_SIZE);
+
+        let line = self
+            .text_layout
+            .break_into_lines(
+                font_context,
+                &text.text,
+                f64::MAX / 4.0,
+                SHAPE_SIZE,
+                &style.font_family,
+                style.font_weight,
+                style.font_style,
+                &style.font_features,
+                0.0,
+                0.0,
+                style.hyphens,
+                None,
+            )
+            .into_iter()
+            .next()?;
+        let glyphs = self.build_positioned_glyphs_single_style(&line, &style, None, font_context);
+        let width = line.width;
+
+        // `start` is the left edge for left-to-right text and the right edge
+        // when `direction="rtl"`.
+        let dx = match (text.anchor, text.rtl) {
+            (TextAnchor::Start, false) | (TextAnchor::End, true) => 0.0,
+            (TextAnchor::Middle, _) => -width / 2.0,
+            (TextAnchor::End, false) | (TextAnchor::Start, true) => -width,
+        };
+        let (ascent, descent) =
+            font_context.baseline_metrics(&style.font_family, style.font_weight, text.italic);
+        // SVG y points down: a positive shift moves the baseline down.
+        let dy = SHAPE_SIZE
+            * match text.baseline {
+                TextBaseline::Alphabetic => 0.0,
+                TextBaseline::Central => (ascent - descent) / 2.0,
+                TextBaseline::Top => ascent,
+                TextBaseline::Bottom => -descent,
+            };
+
+        // Glyph space (y up) → shaping units in SVG orientation → user units
+        // at the anchor → the text element's user space → the root's.
+        let mut m = [1.0, 0.0, 0.0, -1.0, dx, dy];
+        m = svg_concat([1.0 / k, 0.0, 0.0, 1.0 / k, 0.0, 0.0], m);
+        m = svg_concat([1.0, 0.0, 0.0, 1.0, text.x, text.y], m);
+        m = svg_concat(text.matrix, m);
+
+        let (x, y, w, h) = svg_box;
+        let element = LayoutElement {
+            x,
+            y,
+            width: w,
+            height: h,
+            draw: DrawCommand::Text {
+                lines: vec![TextLine {
+                    x: 0.0,
+                    y: 0.0,
+                    glyphs,
+                    width,
+                    height: SHAPE_SIZE,
+                    word_spacing: 0.0,
+                }],
+                color,
+                text_decoration: TextDecoration::None,
+                opacity: 1.0,
+            },
+            children: vec![],
+            node_type: None,
+            resolved_style: Some(style),
+            source_location: None,
+            href: None,
+            bookmark: None,
+            alt: None,
+            is_header_row: false,
+            actual_text: None,
+            list_numbering: None,
+            col_span: 1,
+            overflow: Overflow::Visible,
+            opacity: text.opacity,
+        };
+        Some((element, m))
+    }
+
     /// Layout a canvas element as a fixed-size box with vector graphics.
     #[allow(clippy::too_many_arguments)]
     fn layout_canvas(
@@ -6791,6 +6947,7 @@ impl LayoutEngine {
                 viewbox_width: canvas_width,
                 viewbox_height: canvas_height,
                 clip: true,
+                text_transforms: vec![],
             },
             children: vec![],
             node_type: Some("Canvas".to_string()),
@@ -8947,6 +9104,19 @@ fn baseline_in_line(line_height: f64, font_size: f64, (ascent, descent): (f64, f
     (line_height - (ascent + descent) * font_size) / 2.0 + ascent * font_size
 }
 
+/// `outer · inner` for `[a b c d e f]` matrices: `inner` is applied to a
+/// point first.
+fn svg_concat(outer: [f64; 6], inner: [f64; 6]) -> [f64; 6] {
+    let (a, b) = (outer, inner);
+    [
+        a[0] * b[0] + a[2] * b[1],
+        a[1] * b[0] + a[3] * b[1],
+        a[0] * b[2] + a[2] * b[3],
+        a[1] * b[2] + a[3] * b[3],
+        a[0] * b[4] + a[2] * b[5] + a[4],
+        a[1] * b[4] + a[3] * b[5] + a[5],
+    ]
+}
 #[cfg(test)]
 mod tests {
     use super::*;

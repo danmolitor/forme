@@ -368,6 +368,8 @@ dependencies = [
  "serde_json",
  "sha2",
  "signature",
+ "simplecss",
+ "svgtypes",
  "thiserror",
  "ttf-parser",
  "unicode-bidi",

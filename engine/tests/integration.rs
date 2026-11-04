@@ -11676,10 +11676,11 @@ fn render_svg(view_box: Option<&str>, content: &str) -> (String, String, Vec<Str
 }
 
 #[test]
-fn test_svg_issue_209_transform_clip_and_text_warning() {
+fn test_svg_issue_209_transform_clip_and_text() {
     // The shape Vega, Vega-Lite and D3 emit. Before usvg, the <clipPath>'s
     // path was painted as a black 150x80 block, every transform was
-    // ignored, and the <text> vanished with no warning.
+    // ignored, and the <text> vanished with no warning. The label is now
+    // real text, rotated with its element.
     let (streams, _, warnings) = render_svg(
         Some("0 0 200 110"),
         r##"<defs><clipPath id="c"><path d="M0,0h150v80h-150Z"/></clipPath></defs>
@@ -11706,9 +11707,16 @@ fn test_svg_issue_209_transform_clip_and_text_warning() {
         "the bar must be drawn in its fill:\n{streams}"
     );
     assert!(
-        warnings.iter().any(|w| w.contains("SVG <text>")),
-        "the dropped <text> must be named in the warnings: {warnings:?}"
+        streams.contains("(Jan) Tj"),
+        "the label must be drawn as text:\n{streams}"
     );
+    // translate(40,10) translate(25,95) rotate(-45), shaped at 12 and
+    // scaled to the 10-unit font size, then flipped back upright.
+    assert!(
+        streams.contains("\n0.589256 -0.589256 -0.589256 -0.589256 "),
+        "the label must carry its rotation:\n{streams}"
+    );
+    assert!(warnings.is_empty(), "{warnings:?}");
 }
 
 #[test]
@@ -11818,6 +11826,86 @@ fn test_svg_unparseable_falls_back_with_warning() {
             .any(|w| w.contains("SVG could not be parsed")),
         "{warnings:?}"
     );
+}
+
+/// The `cm` written just before an SVG label's text object.
+fn svg_text_matrices(streams: &str) -> Vec<[f64; 6]> {
+    let lines: Vec<&str> = streams.lines().collect();
+    lines
+        .windows(2)
+        .filter(|w| w[0].ends_with(" cm") && w[1] == "BT")
+        .map(|w| {
+            let v: Vec<f64> = w[0]
+                .split_whitespace()
+                .take(6)
+                .map(|t| t.parse().unwrap())
+                .collect();
+            [v[0], v[1], v[2], v[3], v[4], v[5]]
+        })
+        .collect()
+}
+
+#[test]
+fn test_svg_text_anchor_and_baseline() {
+    let (streams, _, warnings) = render_svg(
+        Some("0 0 200 110"),
+        r##"<text x="100" y="50" font-size="10">Label</text>
+<text x="100" y="50" font-size="10" text-anchor="middle">Label</text>
+<text x="100" y="50" font-size="10" text-anchor="end">Label</text>
+<text x="100" y="50" font-size="10" dominant-baseline="hanging">Label</text>"##,
+    );
+    assert!(warnings.is_empty(), "{warnings:?}");
+    let m = svg_text_matrices(&streams);
+    assert_eq!(m.len(), 4, "{streams}");
+    // Start puts the text's left edge at x; end puts its right edge there.
+    assert!((m[0][4] - 100.0).abs() < 1e-3, "{m:?}");
+    assert!(m[2][4] < 100.0, "{m:?}");
+    assert!(((m[0][4] + m[2][4]) / 2.0 - m[1][4]).abs() < 1e-3, "{m:?}");
+    // Upright in SVG space: y flips back, 10 units drawn from a 12pt shape.
+    assert!((m[0][0] - 10.0 / 12.0).abs() < 1e-5 && (m[0][3] + 10.0 / 12.0).abs() < 1e-5);
+    // Alphabetic sits on y; hanging moves the baseline down by the ascent.
+    assert!((m[0][5] - 50.0).abs() < 1e-3, "{m:?}");
+    assert!(m[3][5] > 57.0 && m[3][5] < 60.0, "{m:?}");
+}
+
+#[test]
+fn test_svg_text_css_and_opacity() {
+    let (streams, _, warnings) = render_svg(
+        Some("0 0 200 110"),
+        r##"<style>.t { fill: #006E58; font-family: serif; font-weight: bold; font-size: 14px }</style>
+<g opacity="0.5"><text class="t" x="10" y="40">Styled</text></g>"##,
+    );
+    assert!(warnings.is_empty(), "{warnings:?}");
+    assert!(streams.contains("0.000 0.431 0.345 rg"), "{streams}");
+    assert!(streams.contains("(Styled) Tj"), "{streams}");
+    // The group's opacity reaches the text through an ExtGState.
+    let bt = streams.find("BT").unwrap();
+    assert!(streams[..bt].rfind(" gs").is_some(), "{streams}");
+}
+
+#[test]
+fn test_svg_text_uses_registered_fonts() {
+    let hebrew = std::fs::read("tests/fixtures/fonts/NotoSansHebrew-Regular.ttf").unwrap();
+    let mut doc = svg_doc(
+        Some("0 0 200 110"),
+        r##"<text x="190" y="40" font-family="NotoSansHebrew" font-size="16" text-anchor="end">שָׁלוֹם</text>"##,
+    );
+    doc.fonts = vec![FontEntry {
+        family: "NotoSansHebrew".into(),
+        src: to_data_uri(&hebrew, "font/ttf"),
+        weight: 400,
+        italic: false,
+    }];
+    let (pdf, warnings) = forme::render_with_warnings(&doc).unwrap();
+    assert!(warnings.is_empty(), "{warnings:?}");
+    let raw = String::from_utf8_lossy(&pdf);
+    assert!(
+        raw.contains("/BaseFont /NotoSansHebrew"),
+        "font not embedded"
+    );
+    let streams = decompress_pdf_streams(&pdf);
+    // Shaped with the registered font: CID glyphs and the run's ActualText.
+    assert!(streams.contains("/ActualText"), "{streams}");
 }
 
 #[test]

@@ -8,7 +8,9 @@ use quick_xml::events::Event;
 use quick_xml::Reader;
 
 mod import;
+mod text;
 pub use import::{document_view_box, import_svg, SvgImport};
+pub use text::{SvgText, TextAnchor, TextBaseline, TextDefaults};
 
 /// A parsed SVG viewBox.
 #[derive(Debug, Clone, Copy)]

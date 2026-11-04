@@ -1121,11 +1121,27 @@ impl Mapper {
             (None, None, None) => (DEFAULT_W, DEFAULT_H),
         };
 
+        // Without a viewBox, SVG user units are CSS px, and the box is in
+        // points: map one onto the other, or every shape is drawn 4/3 too
+        // large.
+        let view_box = view_box.or_else(|| Some(format!("0 0 {} {}", width / 0.75, height / 0.75)));
+
         let mut computed = computed.clone();
         computed.width = None;
         computed.height = None;
+        // SVG text inherits the font size around the <svg>, in CSS px (user
+        // units). The engine supplies family, weight and style itself.
+        let mut root = el.clone();
+        let sets_font_size = root.attr("font-size").is_some()
+            || root.attr("style").is_some_and(|s| s.contains("font-size"));
+        if !sets_font_size {
+            root.attrs.push((
+                "font-size".to_string(),
+                format!("{}", computed.font_size / 0.75),
+            ));
+        }
         let mut content = String::new();
-        serialize_svg(el, &mut content);
+        serialize_svg(&root, &mut content);
         let mut node = make_node(
             NodeKind::Svg {
                 width,
