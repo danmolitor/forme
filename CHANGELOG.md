@@ -8,6 +8,39 @@ while this file lapsed. They are reproduced, not rewritten.
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-11-03
+
+SVG is drawn the way a browser draws it. `<Svg>` parses its markup with
+usvg, so transforms, clip paths, gradients and CSS work, its `<text>` is real
+text set in the document's fonts, and inline `<svg>` in HTML is drawn instead
+of dropped. Fonts gain OpenType features such as tabular figures, nested
+opacity multiplies as it does in CSS, and translucent colours keep their
+alpha. All packages share the line: engine (crates.io `forme-pdf`), every
+`@formepdf/*` npm package, `formepdf` (PyPI), `forme-go` (tag v0.30.0), and
+the VS Code extension.
+
+Addresses #176, #196, #206, #207, #209, #210, #211, #212, #213, #214 and
+#224.
+
+### Security
+
+- `@formepdf/mcp`: the lockfile takes the fixed releases of four transitive
+  dependencies of the MCP TypeScript SDK, `@hono/node-server` 2.1.5
+  ([GHSA-rmxm-3fg6-px4f](https://github.com/advisories/GHSA-rmxm-3fg6-px4f)),
+  `body-parser` 2.4.0
+  ([GHSA-27r3-jxmh-p828](https://github.com/advisories/GHSA-27r3-jxmh-p828)),
+  `fast-uri` 3.1.9 (four advisories, including
+  [GHSA-w74x-v6f9-j3xg](https://github.com/advisories/GHSA-w74x-v6f9-j3xg))
+  and `qs` 6.16.1
+  ([GHSA-6pq8-jhm2-2vcw](https://github.com/advisories/GHSA-6pq8-jhm2-2vcw)),
+  each held to a release at least a week old
+- `@formepdf/mcp` moves to Zod 4 (4.6.7): Zod before 4.6.6 can exhaust
+  memory validating an oversized array
+  ([GHSA-mrhx-c7xc-m3w5](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5)),
+  with no fixed 3.x release. Its `get_schema` tool now builds JSON Schema
+  with Zod's own converter: draft 2020-12, with a `$schema` key, describing
+  the data a caller sends. `@formepdf/templates` still accepts Zod 3 or 4
+
 ### Added
 
 - OpenType font features: `fontFeatureSettings` (CSS `font-feature-settings`,
@@ -18,17 +51,6 @@ while this file lapsed. They are reproduced, not rewritten.
   features, and substituted glyphs still copy as their characters. Applies
   to registered fonts and the builtin Noto Sans; the standard fonts have no
   OpenType features (#224)
-- CSS `opacity` in the HTML path, on block-level elements and text blocks.
-  On an inline element such as `<span>`, which text runs can't express, it
-  is reported by name; it used to be dropped as an unsupported property
-- `<Svg>` parses its markup with usvg. It now draws `transform`, `<use>`,
-  `<clipPath>`, linear and radial gradients, dashes, even-odd fills, and CSS
-  from `<style>`, `class` and `style=""`. Before, a clip path's shape was
-  painted as a black block, transforms were ignored, and gradient and
-  class-styled fills drew nothing or black. `content` may be a whole `<svg>`
-  document, whose `viewBox` is used when the prop is not set. What is not
-  drawn (`<image>`, masks, filters, patterns) is named in the warnings
-  instead of disappearing (#209)
 - SVG `<text>` is drawn as real, selectable text through Forme's own text
   pipeline: registered fonts and fallback chains, shaping, right-to-left
   scripts, subsetting and PDF/UA tagging, positioned by `x`/`y`/`dx`/`dy`,
@@ -43,6 +65,36 @@ while this file lapsed. They are reproduced, not rewritten.
   `<title>` or `aria-label` becomes the alt text. Without a `viewBox`, user
   units are CSS px, as in a browser. Before, the shapes were dropped and
   any `<text>` printed as paragraphs, with no warning (#196)
+- CSS `opacity` in the HTML path, on block-level elements and text blocks.
+  On an inline element such as `<span>`, which text runs can't express, it
+  is reported by name; it used to be dropped as an unsupported property
+
+### Changed: these move existing documents
+
+- **SVG is parsed by usvg** (#209). `<Svg>` now draws `transform`, `<use>`,
+  `<clipPath>`, linear and radial gradients, dashes, even-odd fills, and CSS
+  from `<style>`, `class` and `style=""`. Before, a clip path's shape was
+  painted as a black block, transforms were ignored, and gradient and
+  class-styled fills drew nothing or black. `content` may be a whole `<svg>`
+  document, whose `viewBox` is used when the prop is not set. What is not
+  drawn (`<image>`, masks, filters, patterns) is named in the warnings
+  instead of disappearing
+- **`transform: rotate()` and `scale()` pivot about `transform-origin`**
+  (#214) instead of the page corner, which moved a rotated element and could
+  put it off the page. Several transform functions apply in CSS order, as in
+  Chrome
+- **Translucent colours keep their alpha** (#211). A background or border
+  colour given as `rgba()` or `#rrggbbaa` was drawn opaque: Bootstrap 2's
+  `.well` border, `rgba(0, 0, 0, 0.05)`, came out solid black, and is now
+  the faint line Chrome draws
+- **Nested opacity multiplies.** A box with `opacity: 0.5` inside another
+  draws at 0.25, as do a translucent colour, shadow, text, SVG or chart fill
+  inside an `opacity` box. PDF alpha replaces rather than multiplies, and
+  each of these set its own alpha alone, so it drew at 0.5. Overlapping
+  children of a translucent parent still show through each other, where a
+  browser composites the parent as one layer
+- **A `Text` element's own `opacity` applies** to its text; it was drawn
+  opaque whatever the style said
 
 ### Fixed
 
@@ -63,25 +115,14 @@ while this file lapsed. They are reproduced, not rewritten.
   (#213)
 - A character the standard fonts cannot encode is measured as the "?" the
   PDF draws in its place, so it no longer overlaps the text after it
-- `transform: rotate()` and `scale()` pivot about the element's
-  `transform-origin` instead of the page corner, which moved a rotated
-  element and could put it off the page; several transform functions apply
-  in CSS order, as in Chrome (#214)
-- A translucent background or border colour (`rgba()`, `#rrggbbaa`) is
-  drawn with its alpha instead of opaque (#211)
-- Nested transparency multiplies: a box with `opacity: 0.5` inside another
-  draws at 0.25, as do a translucent colour, shadow, text, SVG or chart fill
-  inside an `opacity` box. PDF alpha replaces rather than multiplies, and each
-  of these set its own alpha alone, so it drew at 0.5. Overlapping children of
-  a translucent parent still show through each other, where a browser
-  composites the parent as one layer
-- A `Text` element's own `opacity` applies to its text; it was drawn opaque
-  whatever the style said
 - Text with a variation selector or a combining grapheme joiner extracts in
   order in PDF.js: the cluster's base letter was moved to the end of the
   line. These invisible characters are no longer drawn as zero-width space
   glyphs, whose width PDF.js and the PDF disagreed on, and they stay in the
-  extracted text (#176)
+  extracted text. In PDF.js a combining grapheme joiner and the mark after
+  it still come out swapped, a PDF.js bug
+  ([mozilla/pdf.js#22433](https://github.com/mozilla/pdf.js/issues/22433));
+  pdftotext extracts them in order (#176)
 
 Contributed by @PerryLink in #216, #217, #218, #219, #220, #222 and #223, and by
 @amruthpillai in #215.

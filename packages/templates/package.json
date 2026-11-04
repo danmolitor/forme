@@ -1,6 +1,6 @@
 {
   "name": "@formepdf/templates",
-  "version": "0.29.0",
+  "version": "0.30.0",
   "description": "Shared PDF templates and schemas for Forme",
   "type": "module",
   "main": "./dist/index.js",
@@ -23,7 +23,7 @@
     "dist"
   ],
   "dependencies": {
-    "@formepdf/react": "0.29.0"
+    "@formepdf/react": "0.30.0"
   },
   "peerDependencies": {
     "zod": ">=3.0.0"
@@ -37,7 +37,7 @@
     "react": "^19.0.0",
     "typescript": "^5.7.0",
     "vitest": "^4.1.0",
-    "zod": "^3.24.0"
+    "zod": "^4.6.7"
   },
   "license": "MIT",
   "repository": {

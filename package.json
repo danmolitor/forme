@@ -8,5 +8,10 @@
     "miniflare": "4.20260730.0",
     "puppeteer-core": "25.10.0",
     "sharp": "0.34.4"
+  },
+  "overrides": {
+    "@modelcontextprotocol/sdk": {
+      "zod": "^4.6.7"
+    }
   }
 }
