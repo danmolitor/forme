@@ -14,9 +14,9 @@ go get github.com/formepdf/forme-go
 go get github.com/formepdf/forme-go/templates
 ```
 
-## HTTP client (self-hosted server)
+## HTTP client
 
-The HTTP client uses only the Go standard library and targets a [self-hosted server](/self-hosting) (the hosted API has been retired):
+The HTTP client uses only the Go standard library. It targets the [hosted API](/hosted-api) at `https://api.formepdf.com` by default. Set a base URL with `forme.WithBaseURL` to use a [self-hosted server](/self-hosting) instead:
 
 ```go
 package main

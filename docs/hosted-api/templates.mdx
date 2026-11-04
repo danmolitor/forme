@@ -1,0 +1,152 @@
+---
+title: Saved Templates
+sidebarTitle: Templates
+description: Saved templates on the hosted API are either JSX (React components) or HTML + Liquid with a separate CSS tab. How each kind binds data, and their limits.
+---
+
+A saved template lives in the [Dashboard](https://app.formepdf.com) and is rendered by slug with [`POST /v1/render/:slug`](/hosted-api/render#render-a-saved-template). The request body is the template's data.
+
+Each template has a **kind**, chosen when you create it with **New template** on the Templates page. The kind cannot change later.
+
+| Kind | Dashboard label | Source | Data binding |
+|---|---|---|---|
+| `jsx` | React (JSX) | A TSX module that default-exports a component | The data is the component's props |
+| `html` | HTML + Liquid | HTML, plus a separate **CSS** tab | [Liquid](https://liquidjs.com/) tags and filters |
+
+The slug comes from the template name. You can edit it in the editor header: lowercase letters, digits, and `-`.
+
+---
+
+## JSX templates
+
+A JSX template uses the [Forme components](/components). The default export receives the request data:
+
+```tsx
+import { Document, Page, Text, View } from '@formepdf/react';
+
+export default function Invoice(data) {
+  return (
+    <Document>
+      <Page size="Letter" margin={48}>
+        <Text style={{ fontSize: 24 }}>Invoice for {data.customer}</Text>
+        {data.items.map((item) => (
+          <View key={item.name} style={{ flexDirection: 'row' }}>
+            <Text>{item.name}</Text>
+            <Text>{item.qty} × {item.price}</Text>
+          </View>
+        ))}
+      </Page>
+    </Document>
+  );
+}
+```
+
+Templates run in a sandbox:
+
+- Only React and the `@formepdf/react` exports are in scope. You can import from `react` and `@formepdf/react`. Other imports, `require`, `eval`, `Function`, and dynamic `import()` are rejected with `400`.
+- Evaluation is time-limited. A template that runs too long fails with `408`.
+- Font and image sources must be `data:` URIs or `http(s)://` URLs. File paths and other schemes are rejected with `400`.
+
+**Embedded data.** A JSX template render attaches the request data to the PDF as an [embedded file](/embedded-data). Read it back with [`POST /v1/extract`](/hosted-api/extract). HTML templates do not embed the data.
+
+---
+
+## HTML + Liquid templates
+
+An HTML template is the HTML that [`@formepdf/html`](/html) renders, with [Liquid](https://liquidjs.com/) for the data. Write the markup on the **HTML** tab and the stylesheet on the **CSS** tab:
+
+<CodeGroup>
+
+```html HTML
+<!doctype html>
+<html lang="en">
+<head><title>Invoice {{ number }}</title></head>
+<body>
+  <h1>Invoice {{ number }}</h1>
+  <p>Billed to {{ customer.name }}</p>
+  <table>
+    {% for item in items %}
+      <tr>
+        <td>{{ item.description }}</td>
+        <td>{{ item.qty | number }}</td>
+        <td>{{ item.amount | currency }}</td>
+      </tr>
+    {% endfor %}
+  </table>
+  {% if discount %}<p>Discount: {{ discount | percent }}</p>{% endif %}
+  <p>Total: {{ total | currency: 'EUR' }}</p>
+</body>
+</html>
+```
+
+```css CSS
+@page { size: A4; margin: 48pt; }
+h1 { font-size: 24pt; }
+td { padding: 4pt 8pt; }
+```
+
+```json Data
+{
+  "number": "INV-001",
+  "customer": { "name": "Acme Corp" },
+  "items": [{ "description": "Consulting", "qty": 10, "amount": 1500 }],
+  "discount": 0.05,
+  "total": 1425
+}
+```
+
+</CodeGroup>
+
+At render time:
+
+1. Liquid renders the **HTML** tab with the request data.
+2. The **CSS** tab goes into one `<style>` block just before `</head>`. With no `</head>`, the block goes first. The CSS is not processed by Liquid.
+3. `@formepdf/html` renders the result. Page size and margins come from your CSS (`@page`). Engine warnings come back in the [`X-Forme-Warnings`](/hosted-api/render#warnings) header.
+
+The supported HTML and CSS are the [documented subset](/html).
+
+### Escaping
+
+Every `{{ output }}` is **HTML-escaped**. A value like `<b>Acme & Co</b>` renders as text, not markup. To output trusted HTML unescaped, end the expression with `| raw`:
+
+```liquid
+<p>{{ customer.name }}</p>      <!-- escaped -->
+<div>{{ notes_html | raw }}</div>  <!-- not escaped -->
+```
+
+<Warning>Use `| raw` only for HTML you trust. With `| raw`, markup in the data goes into the document as-is.</Warning>
+
+### Number filters
+
+Three filters format numbers, in the `en-US` locale. Each one also takes numeric strings. A value that is not a number passes through unchanged.
+
+| Filter | Example | Output |
+|---|---|---|
+| `currency` | `{{ 4647.07 \| currency }}` | `$4,647.07` |
+| `currency: 'CODE'` | `{{ 4647.07 \| currency: 'EUR' }}` | `€4,647.07` |
+| `number` | `{{ 1200 \| number }}` | `1,200` |
+| `number: decimals` | `{{ 46.5 \| number: 2 }}` | `46.50` |
+| `percent` | `{{ 0.08 \| percent }}` | `8%` |
+| `percent: decimals` | `{{ 0.08 \| percent: 2 }}` | `8.00%` |
+
+`currency` defaults to USD. `percent` takes a fraction: `0.08` is 8%.
+
+The standard Liquid filters (`upcase`, `date`, `default`, `size`, …) are also available.
+
+### Rules and limits
+
+- **Strict filters.** An unknown filter name (a typo such as `| curency`) is an error, not empty output.
+- **No file includes.** `{% include %}`, `{% render %}`, and `{% layout %}` cannot load other files. Each template is self-contained.
+- **Own properties only.** Liquid reads only the data's own keys, not inherited members such as `constructor`.
+- **Size and time limits.** The template source can be up to 2,000,000 characters, and one render can take up to 1 second. A render also has a memory limit for runaway loops.
+- **Errors.** A Liquid syntax or render error returns `400` with `"Template error: ..."`.
+
+### Starters
+
+For an HTML template, the editor's **Templates** menu has 30 starters from the Northmoor document set: invoices, quotes, receipts, statements, packing slips, reports, letters, contracts, certificates, and more. They are the same designs as the [Template Library](/templates), converted to Liquid, with sample data. Loading a starter replaces the template's HTML, CSS, and data with the starter's.
+
+---
+
+## Listing templates
+
+`GET /v1/templates` lists your saved templates. See [Resources](/hosted-api/resources#templates).

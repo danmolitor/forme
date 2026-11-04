@@ -1,0 +1,61 @@
+---
+title: Merge PDFs
+sidebarTitle: Merge
+description: Combine 2 to 20 PDFs into one document with the hosted API.
+---
+
+`POST /v1/merge`
+
+Merges PDFs into one document, in array order. See the [Merge API reference](/api-reference/merge) for what is and is not carried over from the source files.
+
+Each successful call is one [operation](/hosted-api#operations-and-plan-limits).
+
+---
+
+## Request body
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `pdfs` | `string[]` | Yes | Base64-encoded PDFs. At least 2, at most 20. |
+
+The whole JSON body can be up to 20 MB, base64 included.
+
+<CodeGroup>
+
+```bash curl
+curl -X POST https://api.formepdf.com/v1/merge \
+  -H "Authorization: Bearer forme_sk_abc123..." \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"pdfs\": [
+      \"$(base64 -w0 invoice.pdf)\",
+      \"$(base64 -w0 terms.pdf)\"
+    ]
+  }" \
+  --output combined.pdf
+```
+
+```javascript Node.js
+const res = await fetch("https://api.formepdf.com/v1/merge", {
+  method: "POST",
+  headers: {
+    Authorization: "Bearer forme_sk_abc123...",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    pdfs: ["invoice.pdf", "terms.pdf"].map((f) => fs.readFileSync(f).toString("base64")),
+  }),
+});
+
+fs.writeFileSync("combined.pdf", Buffer.from(await res.arrayBuffer()));
+```
+
+</CodeGroup>
+
+---
+
+## Response
+
+`200 OK`, `Content-Type: application/pdf`. The body is the merged PDF. It is not saved to [Documents](/hosted-api/documents).
+
+Fewer than 2 or more than 20 PDFs returns `400`.

@@ -77,7 +77,7 @@ const pdf = await renderDocument(element, { embedData: { recordId: 'inv_abc123' 
 
 ### 2. Hosted API (automatic)
 
-The [Forme hosted API](https://formepdf.com) automatically embeds the request body into every rendered PDF. No opt-in needed.
+The [Forme hosted API](/hosted-api) automatically embeds the request data into every PDF rendered from a saved **JSX** template (`POST /v1/render/:slug` and its async variant). No opt-in needed. The reserved keys (`s3`, `save`, `saveName`, `metadata`) are not embedded. PDFs from HTML + Liquid templates and from `POST /v1/render/html` have no embedded data.
 
 ```bash
 # Render a PDF — data is embedded automatically

@@ -1,7 +1,7 @@
 ---
 title: Render PDF
 sidebarTitle: Render
-description: Render PDFs over HTTP with the self-hosted server — sync rendering, form flattening, and embedded-data extraction.
+description: Render PDFs over HTTP with the self-hosted server — inline templates, pre-compiled templates by slug, and form flattening.
 ---
 
 These endpoints are served by the **self-hosted server** — the same engine behind `npm install`, packaged as a Docker image:
@@ -12,33 +12,55 @@ docker run -p 3000:3000 formepdf/forme
 
 Base URL below is `http://localhost:3000` (substitute your deployment). Authentication is optional: set the `FORME_API_KEY` environment variable on the container and pass it as a Bearer token; with no key set, endpoints are open. See [Self-Hosting](/self-hosting) for full setup.
 
-> The hosted API at `api.formepdf.com` has been retired — Forme is open-source only. If you'd rather not run a server at all, every operation here is also a function call in [@formepdf/core](/typescript-sdk).
+<Note>Forme also runs a [hosted API](/hosted-api) at `https://api.formepdf.com`, in the same `/v1` route family. It adds saved JSX and HTML + Liquid templates, `POST /v1/render/html`, async jobs with webhooks, S3 upload, document storage, and `POST /v1/extract`. Its request bodies differ in places: see [Hosted API — Render](/hosted-api/render). If you'd rather not run a server at all, every operation here is also a function call in [@formepdf/core](/typescript-sdk).</Note>
 
 ---
 
-## Render PDF (sync)
+## Render PDF (inline)
+
+`POST /v1/render`
+
+Renders a compiled template sent in the request. Fully stateless.
+
+**Body:**
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `template` | `object` | Yes | The compiled document JSON tree — the output of `forme build --template` or `serialize()` from `@formepdf/react` |
+| `data` | `object` | No | Template data. When present, template expressions (`$ref`, `$each`, `$if`) are evaluated against it. |
+
+```bash
+curl -X POST http://localhost:3000/v1/render \
+  -H "Content-Type: application/json" \
+  -d '{"template": {"children": [{"kind": {"type": "Page"}, "children": [{"kind": {"type": "Text", "content": "Hello"}}]}]}, "data": {"customer": "Acme"}}' \
+  --output hello.pdf
+```
+
+**Response:** `200 OK` with `Content-Type: application/pdf` body.
+
+---
+
+## Render PDF (template by slug)
 
 `POST /v1/render/:slug`
 
-Renders a PDF from a template and returns the file directly.
+Renders a pre-compiled JSON template from the directory set by `FORME_TEMPLATES_DIR` (`{slug}.json`). See [Self-Hosting — Template render](/self-hosting#template-render).
 
-**Path params:** `slug` — your template's URL slug.
+**Path params:** `slug` — the template file name without `.json`.
 
-**Body:** JSON object passed as template data. All fields are forwarded to your JSX template function.
+**Body:**
 
-**Optional fields:**
-- `s3` — upload the PDF to your S3 bucket instead of returning bytes (see [S3 Upload](#s3-upload) below)
-- `save` — `boolean`, default `true`. Every render is auto-saved to your [Documents](/concepts/documents) with `source: "generated"`. Set `false` to skip saving.
-- `saveName` — `string`, optional custom document name. Default: `{slug}-{YYYY-MM-DD}` (e.g. `invoice-2026-04-03`).
-- `metadata` — `object`, optional developer-defined key-value pairs stored on the saved document. Useful for tagging renders with your own identifiers (customer ID, department, environment, etc.). See [Metadata](#metadata) below.
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `data` | `object` | No | Template data, evaluated against the template's expressions |
 
 <CodeGroup>
 
 ```bash curl
 curl http://localhost:3000/v1/render/invoice \
-  -H "Authorization: Bearer forme_sk_abc123..." \
+  -H "Authorization: Bearer your-secret-key" \
   -H "Content-Type: application/json" \
-  -d '{"clientName": "Jane Smith", "date": "2024-01-15", "dueDate": "2024-02-15", "items": [{"description": "Consulting", "quantity": 10, "unitPrice": 150}]}' \
+  -d '{"data": {"clientName": "Jane Smith", "date": "2026-01-15", "dueDate": "2026-02-15", "items": [{"description": "Consulting", "quantity": 10, "unitPrice": 150}]}}' \
   --output invoice.pdf
 ```
 
@@ -46,14 +68,16 @@ curl http://localhost:3000/v1/render/invoice \
 const res = await fetch("http://localhost:3000/v1/render/invoice", {
   method: "POST",
   headers: {
-    Authorization: "Bearer forme_sk_abc123...",
+    Authorization: "Bearer your-secret-key",
     "Content-Type": "application/json",
   },
   body: JSON.stringify({
-    clientName: "Jane Smith",
-    date: "2024-01-15",
-    dueDate: "2024-02-15",
-    items: [{ description: "Consulting", quantity: 10, unitPrice: 150 }],
+    data: {
+      clientName: "Jane Smith",
+      date: "2026-01-15",
+      dueDate: "2026-02-15",
+      items: [{ description: "Consulting", quantity: 10, unitPrice: 150 }],
+    },
   }),
 });
 
@@ -66,15 +90,14 @@ import requests
 
 res = requests.post(
     "http://localhost:3000/v1/render/invoice",
-    headers={
-        "Authorization": "Bearer forme_sk_abc123...",
-        "Content-Type": "application/json",
-    },
+    headers={"Authorization": "Bearer your-secret-key"},
     json={
-        "clientName": "Jane Smith",
-        "date": "2024-01-15",
-        "dueDate": "2024-02-15",
-        "items": [{"description": "Consulting", "quantity": 10, "unitPrice": 150}],
+        "data": {
+            "clientName": "Jane Smith",
+            "date": "2026-01-15",
+            "dueDate": "2026-02-15",
+            "items": [{"description": "Consulting", "quantity": 10, "unitPrice": 150}],
+        }
     },
 )
 
@@ -95,16 +118,18 @@ import (
 
 func main() {
 	body, _ := json.Marshal(map[string]any{
-		"clientName": "Jane Smith",
-		"date":       "2024-01-15",
-		"dueDate":    "2024-02-15",
-		"items": []map[string]any{
-			{"description": "Consulting", "quantity": 10, "unitPrice": 150},
+		"data": map[string]any{
+			"clientName": "Jane Smith",
+			"date":       "2026-01-15",
+			"dueDate":    "2026-02-15",
+			"items": []map[string]any{
+				{"description": "Consulting", "quantity": 10, "unitPrice": 150},
+			},
 		},
 	})
 
 	req, _ := http.NewRequest("POST", "http://localhost:3000/v1/render/invoice", bytes.NewReader(body))
-	req.Header.Set("Authorization", "Bearer forme_sk_abc123...")
+	req.Header.Set("Authorization", "Bearer your-secret-key")
 	req.Header.Set("Content-Type", "application/json")
 
 	res, _ := http.DefaultClient.Do(req)
@@ -117,92 +142,35 @@ func main() {
 
 </CodeGroup>
 
-**Response:** `200 OK` with `Content-Type: application/pdf` body.
-
----
-
-## Extract Embedded Data
-
-`POST /v1/extract`
-
-Extract embedded JSON data from a PDF that was rendered with `embedData`.
-
-Send the raw PDF bytes as the request body with `Content-Type: application/pdf`.
-
-<CodeGroup>
-
-```bash curl
-curl -X POST http://localhost:3000/v1/extract \
-  -H "Authorization: Bearer forme_sk_abc123..." \
-  -H "Content-Type: application/pdf" \
-  --data-binary @invoice.pdf
-```
-
-```javascript Node.js
-const pdf = fs.readFileSync("invoice.pdf");
-const res = await fetch("http://localhost:3000/v1/extract", {
-  method: "POST",
-  headers: {
-    Authorization: "Bearer forme_sk_abc123...",
-    "Content-Type": "application/pdf",
-  },
-  body: pdf,
-});
-
-const { data } = await res.json();
-console.log(data); // the original JSON passed to embedData
-```
-
-```python Python
-with open("invoice.pdf", "rb") as f:
-    pdf_bytes = f.read()
-
-res = requests.post(
-    "http://localhost:3000/v1/extract",
-    headers={
-        "Authorization": "Bearer forme_sk_abc123...",
-        "Content-Type": "application/pdf",
-    },
-    data=pdf_bytes,
-)
-
-print(res.json()["data"])
-```
-
-</CodeGroup>
-
-**Response:** `200 OK`
-```json
-{ "data": { "clientName": "Jane Smith", "items": [...] } }
-```
-
-Returns `404` if no embedded data is found.
+**Response:** `200 OK` with `Content-Type: application/pdf` body. An unknown slug returns `404`.
 
 ---
 
 ## Flatten Forms
 
-`POST /v1/render/:slug?flattenForms=true`
+`POST /v1/render?flattenForms=true` or `POST /v1/render/:slug?flattenForms=true`
 
 Render a PDF with all form fields flattened — interactive fields are converted to static content. Useful for filling a form template with data and sending a non-editable PDF.
 
-Pass `flattenForms=true` as a query parameter on any render endpoint (sync or async).
-
 ---
 
+## Embedded Data
+
+The self-hosted server has no `/v1/extract` endpoint. To read data embedded with `embedData`, call `extractData()` from `@formepdf/core`, or use [`POST /v1/extract`](/hosted-api/extract) on the hosted API. See [Embedded Data](/embedded-data).
+
+---
 
 ## Error Format
 
 All errors return JSON:
 
 ```json
-{ "error": "Human-readable error message" }
+{ "error": "Human-readable error message", "code": "BAD_REQUEST" }
 ```
 
 Common HTTP status codes:
-- `400` — Invalid request (missing fields, bad S3 config)
-- `401` — Missing or invalid API key
-- `404` — Template or resource not found
-- `429` — Rate limit or usage limit exceeded
-- `502` — S3 upload failed
+- `400` — Invalid request, or the render failed (`code`: `BAD_REQUEST`, `RENDER_FAILED`). Hosted-only fields such as `certificateId` and a redaction `template` also return `400`.
+- `401` — Missing or wrong API key, when `FORME_API_KEY` is set
+- `404` — Template not found
+- `501` — Resource listing (`GET /v1/templates`, `/v1/documents`, …), which is hosted-only
 - `500` — Internal server error

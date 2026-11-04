@@ -1,0 +1,166 @@
+---
+title: Resources
+sidebarTitle: Resources
+description: List your saved templates, documents, redaction templates, and certificates with the hosted API.
+---
+
+Read-only endpoints for the resources of the account that owns the API key. They are not counted as [operations](/hosted-api#operations-and-plan-limits) and are not rate-limited.
+
+| Endpoint | Returns |
+|---|---|
+| [`GET /v1/templates`](#templates) | Saved templates |
+| [`GET /v1/templates/:slug`](#templates) | One template |
+| [`GET /v1/documents`](#documents) | Saved documents |
+| [`GET /v1/documents/:id`](#documents) | One document, with a download URL |
+| [`GET /v1/redaction-templates`](#redaction-templates) | Saved redaction templates |
+| [`GET /v1/redaction-templates/:slug`](#redaction-templates) | One redaction template |
+| [`GET /v1/certificates`](#certificates) | Saved certificates, without key material |
+
+To create, change, or delete these resources, use the [Dashboard](https://app.formepdf.com).
+
+---
+
+## Pagination
+
+List endpoints return a page:
+
+```json
+{
+  "data": [ ... ],
+  "total": 42,
+  "limit": 20,
+  "offset": 0,
+  "hasMore": true
+}
+```
+
+| Query param | Default | Description |
+|---|---|---|
+| `limit` | `20` | Results per page, 1–100 |
+| `offset` | `0` | Results to skip |
+
+Single-item endpoints return `{ "data": { ... } }`, or `404` when the item is not found.
+
+---
+
+## Templates
+
+`GET /v1/templates` — newest-updated first. `search` filters by name or slug (case-insensitive).
+
+`GET /v1/templates/:slug` — one template.
+
+```bash
+curl "https://api.formepdf.com/v1/templates?search=invoice" \
+  -H "Authorization: Bearer forme_sk_abc123..."
+```
+
+The template source and sample data are not returned.
+
+```json
+{
+  "id": "clxyz...",
+  "name": "Invoice",
+  "slug": "invoice",
+  "documentType": "invoice",
+  "createdAt": "2026-01-15T12:00:00.000Z",
+  "updatedAt": "2026-01-20T15:30:00.000Z"
+}
+```
+
+---
+
+## Documents
+
+`GET /v1/documents` — newest first.
+
+| Query param | Description |
+|---|---|
+| `source` | `generated`, `uploaded`, `redacted`, `merged`, or `certified` |
+| `from` | ISO date: created on or after |
+| `to` | ISO date: created on or before |
+| `metadata.<key>` | Exact match on a metadata value. Up to 5. Paid plans. |
+
+```bash
+curl "https://api.formepdf.com/v1/documents?source=generated&from=2026-01-01&metadata.customerId=cust_123" \
+  -H "Authorization: Bearer forme_sk_abc123..."
+```
+
+```json
+{
+  "id": "clxyz...",
+  "name": "invoice-2026-01-15",
+  "source": "generated",
+  "templateId": "clxyz...",
+  "metadata": { "renderTimeMs": 84, "templateSlug": "invoice", "customerId": "cust_123" },
+  "expiresAt": "2027-01-15T12:00:00.000Z",
+  "createdAt": "2026-01-15T12:00:00.000Z",
+  "updatedAt": "2026-01-15T12:00:00.000Z",
+  "template": { "id": "clxyz...", "name": "Invoice", "slug": "invoice" }
+}
+```
+
+- Multiple `metadata.*` filters must all match. More than 5 returns `400`. On the Free plan, any `metadata.*` filter returns `403`.
+- Metadata filters compare as strings. A metadata value stored as a number (yours, or `renderTimeMs`) does not match a filter. Store values you want to filter on as strings.
+
+`GET /v1/documents/:id` — one document, with a `downloadUrl`:
+
+```bash
+curl https://api.formepdf.com/v1/documents/clxyz... \
+  -H "Authorization: Bearer forme_sk_abc123..."
+```
+
+```json
+{
+  "data": {
+    "id": "clxyz...",
+    "name": "invoice-2026-01-15",
+    "source": "generated",
+    "downloadUrl": "https://..."
+  }
+}
+```
+
+`downloadUrl` is a signed URL. It expires **1 hour** after the request. Request the document again for a new URL.
+
+See [Documents](/hosted-api/documents) for how documents are created and kept.
+
+---
+
+## Redaction templates
+
+`GET /v1/redaction-templates` — newest-updated first. `search` filters by name or slug.
+
+`GET /v1/redaction-templates/:slug` — one redaction template.
+
+```json
+{
+  "id": "clxyz...",
+  "name": "HIPAA Patient Record",
+  "slug": "hipaa-patient-record",
+  "description": "Redacts SSN, DOB, and patient names",
+  "patterns": [{ "pattern": "Patient:", "pattern_type": "Literal" }],
+  "presets": ["ssn", "date-of-birth"],
+  "createdAt": "2026-01-15T12:00:00.000Z",
+  "updatedAt": "2026-01-20T15:30:00.000Z"
+}
+```
+
+See [Redaction Templates](/hosted-api/redaction-templates).
+
+---
+
+## Certificates
+
+`GET /v1/certificates` — newest first. Returns the certificate's name, subject common name, and expiry. The certificate PEM and private key are not returned.
+
+```json
+{
+  "id": "clxyz...",
+  "name": "Production Signing Cert",
+  "subject": "Acme Corp",
+  "expiresAt": "2027-12-31T23:59:59.000Z",
+  "createdAt": "2026-01-15T12:00:00.000Z"
+}
+```
+
+Use the `id` as `certificateId` in [`POST /v1/certify`](/hosted-api/certify). There is no single-certificate endpoint.

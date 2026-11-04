@@ -86,9 +86,9 @@ writeFileSync('certified-contract.pdf', certifiedPdf);
 
 ## Certification via the Hosted API
 
-Use `POST /v1/certify` to certify a PDF via the hosted API. You can pass inline PEM data or reference a [saved certificate](/concepts/credentials) by ID.
+Use `POST /v1/certify` to certify a PDF via the [hosted API](/hosted-api/certify). You can pass inline PEM data (`certificate` and `privateKey`) or reference a [saved certificate](/hosted-api/credentials) by ID. The hosted endpoint applies an invisible signature.
 
-See the [Certify API reference](/api-reference/certify) for full details and code examples.
+The [self-hosted server](/api-reference/certify) has the same endpoint, with inline PEM only, and also supports visible signatures.
 
 ---
 
@@ -143,6 +143,7 @@ The visible annotation displays the signer's common name (from the certificate) 
 
 ## Related
 
-- [Certify API](/api-reference/certify) — hosted API endpoint reference
-- [Credentials & Certificates](/concepts/credentials) — generating, uploading, and managing certificates
+- [Certify API (hosted)](/hosted-api/certify) — hosted API endpoint reference
+- [Certify API (self-hosted)](/api-reference/certify) — self-hosted server endpoint reference
+- [Credentials & Certificates](/hosted-api/credentials) — generating, uploading, and managing certificates
 - [Migrating to 0.9.0](/guides/migrating-to-0-9) — sign → certify rename details

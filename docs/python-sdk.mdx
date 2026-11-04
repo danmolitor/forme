@@ -14,9 +14,9 @@ pip install formepdf
 pip install formepdf[local]
 ```
 
-## HTTP client (self-hosted server)
+## HTTP client
 
-The HTTP client uses only the Python standard library and targets a [self-hosted server](/self-hosting) (the hosted API has been retired):
+The HTTP client uses only the Python standard library. It targets the [hosted API](/hosted-api) at `https://api.formepdf.com` by default. Pass `base_url` to use a [self-hosted server](/self-hosting) instead:
 
 ```python
 from formepdf import Forme
@@ -66,7 +66,7 @@ certified = client.certify(
 )
 ```
 
-Or certify via the self-hosted server:
+Or use a [saved certificate](/hosted-api/credentials) on the hosted API:
 
 ```python
 certified = client.certify(pdf_bytes, certificate_id="cert_abc123")

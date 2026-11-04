@@ -1,0 +1,77 @@
+---
+title: Documents
+description: How the hosted API saves rendered PDFs to Documents — what is saved, metadata, retention per plan, and download URLs.
+---
+
+**Documents** is the archive of PDFs in your hosted account. API renders are saved there automatically, and you can work on saved documents in the Dashboard's Document Editor (redact, certify, merge).
+
+---
+
+## How documents are created
+
+| Action | `source` | Saved |
+|---|---|---|
+| `POST /v1/render/:slug` | `generated` | Yes, by default. Opt out with `save: false`. |
+| `POST /v1/render/html` | `generated` | Yes, by default. Opt out with `save: false`. |
+| Upload in the Dashboard | `uploaded` | Yes |
+| Redact, merge, or certify in the Dashboard's Document Editor | `redacted`, `merged`, `certified` | Yes |
+| `POST /v1/render/:slug/async` | — | No. The PDF is in the job result. |
+| `POST /v1/redact`, `/v1/merge`, `/v1/certify` | — | No. The PDF is returned in the response only. |
+
+### Save options on sync renders
+
+- `save: false` — do not save.
+- `saveName: "Q1 Report"` — the document name. Default: `{slug}-YYYY-MM-DD` for templates, `html-YYYY-MM-DD` for `/v1/render/html`.
+- `metadata` — your own key-value pairs (paid plans). See [Metadata](/hosted-api/render#metadata).
+
+The save happens after the response is sent. A render response does not include the document ID. Find the document with [`GET /v1/documents`](/hosted-api/resources#documents), for example by a `metadata` value you set.
+
+---
+
+## Metadata
+
+Each saved render has system metadata: `renderTimeMs`, plus `templateSlug` (template renders) or `input: "html"` (`/v1/render/html`). Your `metadata` keys are merged into the same object.
+
+```json
+{
+  "renderTimeMs": 84,
+  "templateSlug": "invoice",
+  "customerId": "cust_123",
+  "department": "billing"
+}
+```
+
+Filter by your keys with `metadata.<key>` query parameters on [`GET /v1/documents`](/hosted-api/resources#documents).
+
+---
+
+## Retention
+
+When a document is saved, it gets an expiry date (`expiresAt`) from the account's plan at that time:
+
+| Plan | Retention |
+|---|---|
+| Free | 7 days |
+| Starter | 90 days |
+| Pro | 365 days |
+| Business | No expiry (`expiresAt: null`) |
+
+After `expiresAt`, the document and its PDF are permanently deleted. The deletion can happen some time after `expiresAt`, so do not rely on a document being gone at an exact time. Changing plans does not change the expiry of documents that are already saved. See the **Billing** page in the Dashboard for current plan details.
+
+<Tip>To keep PDFs beyond the retention period, store them yourself: use the response bytes, the [`s3`](/hosted-api/render#s3-upload) option, or download them with `downloadUrl`.</Tip>
+
+---
+
+## Download URLs
+
+[`GET /v1/documents/:id`](/hosted-api/resources#documents) returns a `downloadUrl`. It is a signed URL that expires 1 hour after the request. Ask again for a new URL. The storage location of the PDF itself is never returned.
+
+---
+
+## Audit trail
+
+Actions on a document are logged: who did what, when, and from where (Dashboard or API key). See [Audit Trail](/hosted-api/audit-trail).
+
+---
+
+<Note>Documents are a hosted API feature. The [self-hosted server](/self-hosting) has no storage: it returns the PDF and keeps nothing.</Note>

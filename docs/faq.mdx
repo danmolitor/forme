@@ -62,15 +62,19 @@ Yes. Pass `embedData` when rendering to attach any JSON object as a hidden file 
 
 ## Is there a hosted API?
 
-Not anymore — the hosted service was retired when Forme went open-source only. Everything renders locally via `npm install`, or over HTTP via the [self-hosted server](/self-hosting) (`docker run formepdf/forme`), which serves the same `/v1` endpoints. See the [API reference](/api-reference/render).
+Yes. The [hosted API](/hosted-api) at `https://api.formepdf.com` renders saved JSX or HTML + Liquid templates and raw HTML, and adds async jobs with webhooks, document storage, saved certificates, and redaction templates. Sign up at [app.formepdf.com/sign-up](https://app.formepdf.com/sign-up).
+
+You don't need it: everything also renders locally via `npm install`, or over HTTP via the [self-hosted server](/self-hosting) (`docker run formepdf/forme`), which serves the same `/v1` route family. See the [self-hosted API reference](/api-reference/render).
 
 ## How do I upload PDFs to S3?
 
-Pass an `s3` object in the render request body with your bucket name, key, credentials, and region. Forme uploads the rendered PDF directly to your S3-compatible bucket and returns the URL. This works with AWS S3, Cloudflare R2, MinIO, and DigitalOcean Spaces. See the [S3 upload docs](/api-reference/render#s3-upload) for examples.
+On the hosted API, pass an `s3` object in the render request body with your bucket name, key, credentials, and region. Forme uploads the rendered PDF directly to your S3-compatible bucket and returns the URL. This works with AWS S3, Cloudflare R2, MinIO, and DigitalOcean Spaces. See the [S3 upload docs](/hosted-api/render#s3-upload) for examples. When you render locally or with the self-hosted server, upload the returned bytes with your own S3 client.
 
 ## Is Forme free?
 
-Yes — entirely. Everything is open source under the MIT license: the engine, every adapter, every SDK, and the self-hosted server. There are no plans, no tiers, no render limits, and nothing calls home. Use it in personal and commercial projects without restrictions.
+The open-source project is, entirely. The engine, every adapter, every SDK, and the self-hosted server are MIT-licensed. They have no plans, no tiers, no render limits, and nothing calls home. Use them in personal and commercial projects without restrictions.
+
+The [hosted API](/hosted-api) is a separate, optional service. It has a free plan and paid plans with monthly operation limits; see the Billing page in the [Dashboard](https://app.formepdf.com) for details.
 
 ## Does Forme support fillable PDF forms?
 

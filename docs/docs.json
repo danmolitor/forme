@@ -96,7 +96,25 @@
         ]
       },
       {
-        "group": "API Reference",
+        "group": "Hosted API",
+        "pages": [
+          "hosted-api",
+          "hosted-api/templates",
+          "hosted-api/render",
+          "hosted-api/async",
+          "hosted-api/certify",
+          "hosted-api/redact",
+          "hosted-api/merge",
+          "hosted-api/extract",
+          "hosted-api/resources",
+          "hosted-api/documents",
+          "hosted-api/credentials",
+          "hosted-api/redaction-templates",
+          "hosted-api/audit-trail"
+        ]
+      },
+      {
+        "group": "Self-Hosted API Reference",
         "pages": [
           "api-reference/render",
           "api-reference/certify",
@@ -165,6 +183,22 @@
     {
       "source": "/changelog/0-8-3",
       "destination": "/changelog"
+    },
+    {
+      "source": "/concepts/credentials",
+      "destination": "/hosted-api/credentials"
+    },
+    {
+      "source": "/concepts/documents",
+      "destination": "/hosted-api/documents"
+    },
+    {
+      "source": "/concepts/redaction-templates",
+      "destination": "/hosted-api/redaction-templates"
+    },
+    {
+      "source": "/concepts/audit-trail",
+      "destination": "/hosted-api/audit-trail"
     }
   ]
 }
