@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import re
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from ._colors import NAMED_COLORS
 
 # ─── Style mapping ───────────────────────────────────────────────────
 
@@ -140,8 +141,14 @@ def _parse_color(color: str) -> Dict[str, float]:
             "a": 1.0,
         }
 
+    # CSS colour names (red, rebeccapurple, transparent)
+    named = NAMED_COLORS.get(s.lower())
+    if named:
+        r, g, b, a = named
+        return {"r": r / 255, "g": g / 255, "b": b / 255, "a": a / 255}
+
     # Hex: #RGB, #RRGGBB, #RRGGBBAA
-    if s.startswith("#"):
+    if s.startswith("#") and re.fullmatch(r"[0-9a-fA-F]+", s[1:]):
         h = s[1:]
         if len(h) == 3:
             h = h[0] * 2 + h[1] * 2 + h[2] * 2

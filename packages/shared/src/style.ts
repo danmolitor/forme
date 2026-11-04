@@ -1,3 +1,4 @@
+import { NAMED_COLORS } from './colors.js';
 import type {
   Style,
   Edges,
@@ -448,7 +449,20 @@ export function parseColor(hex: string): FormeColor {
     };
   }
 
+  // CSS colour names (`red`, `rebeccapurple`, `transparent`). Read as hex,
+  // "red" became r: NaN, which serializes as null and failed the whole
+  // render with a schema error that never mentioned colour.
+  const named = NAMED_COLORS[s.toLowerCase()];
+  if (named) {
+    return { r: named[0] / 255, g: named[1] / 255, b: named[2] / 255, a: named[3] / 255 };
+  }
+
   const h = s.replace(/^#/, '');
+  // Anything else that is not hex falls back to black below rather than
+  // producing NaN channels.
+  if (!/^[0-9a-fA-F]+$/.test(h)) {
+    return { r: 0, g: 0, b: 0, a: 1 };
+  }
 
   if (h.length === 3) {
     const r = parseInt(h[0] + h[0], 16) / 255;
