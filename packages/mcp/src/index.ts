@@ -70,7 +70,7 @@ server.tool(
   'Render a built-in template with data and write PDF to disk',
   {
     template: z.string().describe('Template name (e.g. "invoice", "receipt", "report", "shipping-label", "letter")'),
-    data: z.record(z.unknown()).describe('Template data matching the template schema'),
+    data: z.record(z.string(), z.unknown()).describe('Template data matching the template schema'),
     output: z.string().optional().describe('Output file path (defaults to ./{template}.pdf)'),
     watermark: z.string().optional().describe('Watermark text to overlay on every page (e.g. "DRAFT", "CONFIDENTIAL")'),
   },

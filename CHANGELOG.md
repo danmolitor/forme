@@ -34,6 +34,12 @@ Addresses #176, #196, #206, #207, #209, #210, #211, #212, #213, #214 and
   and `qs` 6.16.1
   ([GHSA-6pq8-jhm2-2vcw](https://github.com/advisories/GHSA-6pq8-jhm2-2vcw)),
   each held to a release at least a week old
+- `@formepdf/mcp` moves to Zod 4 (4.6.7): Zod before 4.6.6 can exhaust
+  memory validating an oversized array
+  ([GHSA-mrhx-c7xc-m3w5](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5)),
+  with no fixed 3.x release. Its `get_schema` tool now builds JSON Schema
+  with Zod's own converter: draft 2020-12, with a `$schema` key, describing
+  the data a caller sends. `@formepdf/templates` still accepts Zod 3 or 4
 
 ### Added
 
