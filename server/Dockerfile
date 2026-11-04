@@ -6,7 +6,7 @@
 # MUST be alpine-based (publish it first; keep the bases in lockstep).
 
 # Pull pre-built rasterizer binary
-FROM formepdf/rasterizer:0.14.0 AS rasterizer
+FROM formepdf/rasterizer:0.30.0 AS rasterizer
 
 FROM rust:1.98-alpine3.24 AS builder
 
