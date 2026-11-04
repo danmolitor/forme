@@ -17904,3 +17904,117 @@ fn test_text_opacity_is_applied() {
         "the text is drawn under it"
     );
 }
+
+// ─── 0.30 follow-up bugs ───────────────────────────────────────────
+
+/// Rotation `cm` operators written for a CSS rotation of `deg` degrees.
+fn rotation_cms(streams: &str, deg: f64) -> usize {
+    let theta = (-deg).to_radians();
+    let (c, s) = (theta.cos(), theta.sin());
+    let needle = format!("{:.6} {:.6} {:.6} {:.6} 0 0 cm", c, s, -s, c);
+    streams.matches(&needle).count()
+}
+
+#[test]
+fn test_text_transform_is_applied_once() {
+    // #239: a Text's own transform was applied by its container and again
+    // by each line, so rotate(-45deg) turned it by -90.
+    for runs in [false, true] {
+        let kind = if runs {
+            serde_json::json!({ "type": "Text", "content": "", "runs": [{ "content": "Tilted" }] })
+        } else {
+            serde_json::json!({ "type": "Text", "content": "Tilted" })
+        };
+        let doc = serde_json::json!({
+            "children": [{
+                "kind": kind,
+                "style": { "transform": [{ "type": "rotate", "deg": -45.0 }] },
+                "children": []
+            }],
+            "metadata": {}
+        });
+        let pdf = forme::render_json(&doc.to_string()).expect("render");
+        let streams = decompress_pdf_streams(&pdf);
+        assert_eq!(
+            rotation_cms(&streams, -45.0),
+            1,
+            "runs={runs}: the rotation must be written once:\n{streams}"
+        );
+    }
+}
+
+#[test]
+fn test_page_smaller_than_its_margins_renders_with_a_warning() {
+    // #236: an 80 x 40 page keeps the default 54pt margins, so it has no
+    // content area. A wrapping page laid the box out page after page
+    // forever, until the WASM build failed with "capacity overflow". This
+    // is the JSON @formepdf/react sends for the issue's repro.
+    let doc = serde_json::json!({
+        "children": [{
+            "kind": { "type": "Page", "config": {
+                "size": { "Custom": { "width": 80, "height": 40 } },
+                "margin": { "top": 54, "right": 54, "bottom": 54, "left": 54 },
+                "wrap": true
+            } },
+            "style": {},
+            "children": [{
+                "kind": { "type": "View" },
+                "style": {
+                    "width": { "Pt": 40 },
+                    "height": { "Pt": 20 },
+                    "backgroundColor": { "r": 0.8, "g": 0.0, "b": 0.0, "a": 1.0 }
+                },
+                "children": []
+            }]
+        }],
+        "metadata": {}
+    });
+    let doc: Document = serde_json::from_value(doc).expect("document");
+    let (pdf, warnings) = forme::render_with_warnings(&doc).expect("render");
+    assert_valid_pdf(&pdf);
+    assert!(
+        warnings.iter().any(|w| w.contains("margins leave no room")),
+        "the empty content area must be named: {warnings:?}"
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&pdf)
+            .matches("/Type /Page ")
+            .count(),
+        1,
+        "the box overflows its one page"
+    );
+}
+
+#[test]
+fn test_translucent_border_on_one_side_keeps_its_alpha() {
+    // #235: a border on some sides only goes through the per-side path,
+    // which wrote `RG` without the ExtGState #211 gave the uniform border,
+    // so a white-at-40% left border came out solid white.
+    let doc = serde_json::json!({
+        "children": [{
+            "kind": { "type": "View" },
+            "style": {
+                "width": { "Pt": 50 }, "height": { "Pt": 30 },
+                "borderWidth": { "top": 0, "right": 0, "bottom": 0, "left": 6 },
+                "borderColor": { "top": { "r": 1, "g": 1, "b": 1, "a": 0.4 }, "right": { "r": 1, "g": 1, "b": 1, "a": 0.4 }, "bottom": { "r": 1, "g": 1, "b": 1, "a": 0.4 }, "left": { "r": 1, "g": 1, "b": 1, "a": 0.4 } }
+            },
+            "children": []
+        }],
+        "metadata": {}
+    });
+    let pdf = forme::render_json(&doc.to_string()).expect("render");
+    let raw = String::from_utf8_lossy(&pdf).to_string();
+    assert!(
+        raw.contains("/CA 0.4000"),
+        "an ExtGState at 0.4 for the stroke"
+    );
+    let streams = decompress_pdf_streams(&pdf);
+    let stroke = streams
+        .find("1.000 1.000 1.000 RG")
+        .expect("the left border");
+    let side = &streams[streams[..stroke].rfind("q\n").unwrap()..stroke];
+    assert!(
+        side.contains(" gs\n"),
+        "the side is stroked under its alpha:\n{streams}"
+    );
+}

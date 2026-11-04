@@ -1282,6 +1282,8 @@ struct PageCursor {
 
 impl PageCursor {
     fn new(config: &PageConfig) -> Self {
+        let fitted = fit_margins(config);
+        let config = &fitted;
         let (page_w, page_h) = config.size.dimensions();
         let content_width = page_w - config.margin.horizontal();
         let content_height = page_h - config.margin.vertical();
@@ -1552,6 +1554,19 @@ impl LayoutEngine {
         }
     }
 
+    /// A page whose margins are as wide or as tall as the page itself has
+    /// no content area; `fit_margins` drops them, and this says so (#236).
+    fn warn_no_content_area(&self, config: &PageConfig) {
+        let (w, h) = config.size.dimensions();
+        let m = &config.margin;
+        if w - m.horizontal() <= 0.0 || h - m.vertical() <= 0.0 {
+            self.defect(format!(
+                "render defect: the page margins leave no room for content ({w}x{h}pt page, margins {} {} {} {}pt); they are not applied on this page",
+                m.top, m.right, m.bottom, m.left
+            ));
+        }
+    }
+
     /// Drain the render-defect warnings collected by the LAST `layout()`
     /// call (each call starts fresh — the sentinel re-layout loop runs
     /// layout multiple times and only the final pass's defects stand).
@@ -1572,6 +1587,7 @@ impl LayoutEngine {
         // page 1, so the parity display only applies when :first is absent.
         // Explicit <Page> nodes carry their own configs and do not
         // participate in parity selection.
+        self.warn_no_content_area(&document.default_page);
         cursor.left_config = document.left_page.clone();
         cursor.right_config = document.right_page.clone();
         // The document-level family + named sets, for PageName switches.
@@ -1614,6 +1630,7 @@ impl LayoutEngine {
                     };
                     cursor = PageCursor::new(&config);
                     cursor.page_index = pages.len();
+                    self.warn_no_content_area(&config);
 
                     // Build a page-level root style that carries document lang
                     // AND has a fixed height matching the page content area.
@@ -2558,7 +2575,12 @@ impl LayoutEngine {
                 let mut owed = h - consumed;
                 while owed > 0.0 {
                     let room = cursor.remaining_height();
-                    if owed <= room {
+                    // A page whose margins leave no content height has no
+                    // room on any page: the box overflows where it is. Taking
+                    // the negative room off what is owed grew it on every
+                    // pass, and the loop added pages until memory ran out
+                    // (#236).
+                    if owed <= room || cursor.content_height <= 0.0 {
                         cursor.y += owed;
                         break;
                     }
@@ -5447,7 +5469,9 @@ impl LayoutEngine {
                 },
                 children: vec![],
                 node_type: Some("TextLine".to_string()),
-                resolved_style: Some(style.clone()),
+                // The Text container applies the transform; a line that
+                // carried it too was turned a second time (#239).
+                resolved_style: Some(line_style(style)),
                 source_location: None,
                 href: href.map(|s| s.to_string()),
                 bookmark: None,
@@ -5794,7 +5818,9 @@ impl LayoutEngine {
                 },
                 children: vec![],
                 node_type: Some("TextLine".to_string()),
-                resolved_style: Some(style.clone()),
+                // The Text container applies the transform; a line that
+                // carried it too was turned a second time (#239).
+                resolved_style: Some(line_style(style)),
                 source_location: None,
                 href: parent_href.map(|s| s.to_string()),
                 bookmark: None,
@@ -9116,6 +9142,32 @@ fn svg_concat(outer: [f64; 6], inner: [f64; 6]) -> [f64; 6] {
         a[0] * b[4] + a[2] * b[5] + a[4],
         a[1] * b[4] + a[3] * b[5] + a[5],
     ]
+}
+
+/// The style a TextLine element carries: its Text's, without the paint
+/// transform, which the Text container applies once for all its lines.
+fn line_style(style: &ResolvedStyle) -> ResolvedStyle {
+    let mut s = style.clone();
+    s.transform.clear();
+    s
+}
+
+/// A page whose margins on one axis meet or exceed its size has no content
+/// area along it: every box overflows, and each line or row that cannot fit
+/// starts a page that cannot fit it either. Those margins are dropped for
+/// the page, as a `margin={0}` would, and layout reports it (#236).
+fn fit_margins(config: &PageConfig) -> PageConfig {
+    let (w, h) = config.size.dimensions();
+    let mut fitted = config.clone();
+    if config.margin.horizontal() >= w {
+        fitted.margin.left = 0.0;
+        fitted.margin.right = 0.0;
+    }
+    if config.margin.vertical() >= h {
+        fitted.margin.top = 0.0;
+        fitted.margin.bottom = 0.0;
+    }
+    fitted
 }
 #[cfg(test)]
 mod tests {
