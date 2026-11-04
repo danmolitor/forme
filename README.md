@@ -14,6 +14,18 @@ Forme is a document engine for JavaScript, written in Rust and compiled to WASM.
 
 ![Forme dev server](./assets/dev-server.gif)
 
+## Used by
+
+<p>
+  <a href="https://github.com/theopenco/llmgateway"><picture><source media="(prefers-color-scheme: dark)" srcset="./assets/used-by/llmgateway-white.png"><img src="./assets/used-by/llmgateway-black.png" height="26" alt="LLM Gateway"></picture></a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://github.com/reactive-resume/reactive-resume"><picture><source media="(prefers-color-scheme: dark)" srcset="./assets/used-by/reactive-resume-white.png"><img src="./assets/used-by/reactive-resume-black.png" height="26" alt="Reactive Resume"></picture></a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://github.com/shadcn-labs/pdfcn"><picture><source media="(prefers-color-scheme: dark)" srcset="./assets/used-by/pdfcn-white.png"><img src="./assets/used-by/pdfcn-black.png" height="26" alt="pdfcn"></picture></a>
+</p>
+
+Using Forme too? [Tell us](https://formepdf.com/production) and we'll add you.
+
 ## Why
 
 Every PDF tool makes you choose: fight with CSS page breaks or use an editor that can't handle dynamic data. Forme is a layout engine built for pages. No headless browser. No Chrome. Renders in milliseconds. Runs anywhere — Node, the browser, or at the edge.
