@@ -1,0 +1,93 @@
+---
+title: Redact PDF
+sidebarTitle: Redact
+description: Redact a PDF with the hosted API by coordinates, text patterns, presets, or a saved redaction template.
+---
+
+`POST /v1/redact`
+
+Removes content from a PDF: text in the redacted areas is removed from the content stream, not only covered. See [Redaction](/concepts/redaction) for how it works.
+
+Each successful call is one [operation](/hosted-api#operations-and-plan-limits).
+
+---
+
+## Request body
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `pdf` | `string` | Yes | Base64-encoded PDF bytes |
+| `redactions` | `array` | * | Rectangles: `{ page, x, y, width, height, color? }` |
+| `patterns` | `array` | * | Text patterns: `{ pattern, pattern_type, page?, color? }`, with `pattern_type` `"Literal"` or `"Regex"` |
+| `presets` | `string[]` | * | Built-in patterns (below) |
+| `template` | `string` | * | Slug of a saved [redaction template](/hosted-api/redaction-templates). Paid plans. |
+
+\* At least one of `redactions`, `patterns`, `presets`, or `template` is required. You can combine them. All patterns (from the template, `patterns`, and `presets`) are searched, and every match is redacted together with the `redactions` rectangles.
+
+The fields of `redactions` and `patterns` are the same as on the self-hosted server. See the [Redact API reference](/api-reference/redact) for each field.
+
+### Hosted limits
+
+- **Patterns per request.** The number of entries in `patterns` is limited by plan: 10 on Free, 50 on paid plans. Over the limit returns `403`. Patterns that come from `template` and `presets` do not count toward this limit.
+- **Validation.** A `pattern_type` other than `Literal` or `Regex`, or a regex that does not compile, returns `400`.
+- **Redaction templates** need a paid plan. On Free, a request with `template` returns `403`. An unknown slug returns `404`.
+
+---
+
+## Presets
+
+| Preset | Matches |
+|---|---|
+| `ssn` | US Social Security numbers: `123-45-6789` |
+| `email` | Email addresses |
+| `phone` | US phone numbers, with optional `+1`, parentheses, `-` or `.` separators |
+| `date-of-birth` | Dates as `MM/DD/YYYY` or `MM-DD-YYYY`, years 1900–2099 |
+| `credit-card` | 16-digit card numbers, in groups of 4 with optional `-` or space |
+
+An unknown preset name is ignored.
+
+---
+
+## Example
+
+<CodeGroup>
+
+```bash curl
+curl -X POST https://api.formepdf.com/v1/redact \
+  -H "Authorization: Bearer forme_sk_abc123..." \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"pdf\": \"$(base64 -w0 patient-record.pdf)\",
+    \"presets\": [\"ssn\", \"email\", \"date-of-birth\"],
+    \"patterns\": [{\"pattern\": \"Jane Doe\", \"pattern_type\": \"Literal\"}],
+    \"redactions\": [{\"page\": 0, \"x\": 100, \"y\": 200, \"width\": 150, \"height\": 20}]
+  }" \
+  --output redacted.pdf
+```
+
+```javascript Node.js
+const res = await fetch("https://api.formepdf.com/v1/redact", {
+  method: "POST",
+  headers: {
+    Authorization: "Bearer forme_sk_abc123...",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    pdf: fs.readFileSync("patient-record.pdf").toString("base64"),
+    template: "hipaa-patient-record",
+    patterns: [{ pattern: "Dr. Smith", pattern_type: "Literal" }],
+  }),
+});
+
+fs.writeFileSync("redacted.pdf", Buffer.from(await res.arrayBuffer()));
+```
+
+</CodeGroup>
+
+---
+
+## Response
+
+`200 OK`, `Content-Type: application/pdf`. The body is the redacted PDF. It is not saved to [Documents](/hosted-api/documents).
+
+If no pattern matches and there are no `redactions`, the response is the **original PDF, unchanged**, and the call still counts as an operation.

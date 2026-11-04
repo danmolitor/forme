@@ -6,6 +6,8 @@ description: Run the Forme render engine as a self-hosted Docker container. Same
 
 A single Docker container that exposes the Forme render engine as an HTTP API. Same endpoints as the [API reference](/api-reference/render), runs anywhere Docker runs. No Chromium, no LibreOffice, no database, no native dependencies.
 
+<Note>If you'd rather not run a server, the [hosted API](/hosted-api) at `https://api.formepdf.com` serves the same `/v1` route family, plus saved templates, async jobs, and document storage.</Note>
+
 ```bash
 docker run --rm -p 3000:3000 formepdf/forme:latest
 ```

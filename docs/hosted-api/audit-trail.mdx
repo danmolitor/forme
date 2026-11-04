@@ -1,0 +1,53 @@
+---
+title: Audit Trail
+description: The operation history on each hosted document — who did what, when, and whether from the Dashboard or an API key.
+---
+
+Actions on a [document](/hosted-api/documents) are logged automatically: what was done, by whom, when, and whether from the Dashboard or an API key. Open a document in the Dashboard's Document Editor and click **History** to see its trail.
+
+---
+
+## What is logged
+
+| Event | When |
+|---|---|
+| `generated` | A sync render saved the document (`POST /v1/render/:slug` or `/v1/render/html`) |
+| `uploaded` | A PDF was uploaded in the Dashboard |
+| `redacted` | The document was redacted in the Dashboard |
+| `merged` | The document was created by a merge in the Dashboard |
+| `certified` | The document was certified in the Dashboard |
+| `downloaded` | The document was downloaded from the Dashboard |
+| `deleted` | The document was deleted in the Dashboard |
+
+Calls to `/v1/redact`, `/v1/merge`, and `/v1/certify` do not create documents, so they have no audit events. Deletion at the end of the [retention period](/hosted-api/documents#retention) does not log a `deleted` event.
+
+---
+
+## Who is logged
+
+- **Dashboard actions:** the user's email address.
+- **API actions:** the name of the API key (e.g. "API · Production Key"), not the key itself.
+
+Each event also records the time and, when available, the request's IP address.
+
+---
+
+## Viewing the trail
+
+In the Document Editor, the **History** panel lists the latest 100 events for the document, newest first, with the action, the actor, and the time.
+
+There is no `/v1` endpoint for audit events. The trail is available in the Dashboard only.
+
+---
+
+## Durability
+
+Events are stored separately from the document record. Later changes to the document do not remove them. When a document is deleted, its events are kept, but they are no longer shown, because the History panel belongs to the document.
+
+---
+
+## Use cases
+
+- **Compliance:** show who generated, redacted, certified, or downloaded a document.
+- **Chain of custody:** see the order of actions on a document and who performed each one.
+- **Internal audit:** find which API key or team member generated a document.

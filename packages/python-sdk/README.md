@@ -115,11 +115,12 @@ config = json.dumps({
 certified = certify_pdf(pdf, config)
 ```
 
-## Self-hosted render server (optional)
+## HTTP client (optional)
 
-The package also ships a thin HTTP client, `Forme`, for a **self-hosted** Forme render
-server — the public hosted API has been retired, so point `base_url` at your own
-deployment. It exposes server-side operations the local WASM engine doesn't:
+The package also ships a thin HTTP client, `Forme`. It targets the Forme hosted API at
+`https://api.formepdf.com` by default (see https://docs.formepdf.com/hosted-api); point
+`base_url` at your own deployment to use a self-hosted Forme server instead. It exposes
+server-side operations the local WASM engine doesn't:
 render stored templates by slug (`render` / `render_async` / `get_job`), true redaction
 (`redact`), `merge`, `rasterize`, and `extract`.
 

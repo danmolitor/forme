@@ -1,0 +1,192 @@
+---
+title: Async Rendering
+sidebarTitle: Async & Webhooks
+description: Queue a render job on the hosted API, get the result by webhook or by polling the job.
+---
+
+Queue a render and return at once. Get the PDF by webhook, by polling, or both.
+
+---
+
+## Queue a render
+
+`POST /v1/render/:slug/async`
+
+Renders a [saved template](/hosted-api/templates) in the background.
+
+**Path params:** `slug` — the template's slug.
+
+**Body:** the template data, plus one reserved key:
+
+| Reserved key | Type | Description |
+|---|---|---|
+| `webhookUrl` | `string` | Optional. URL that receives a `POST` when the job finishes. |
+
+Every other key goes to the template, as with the [sync render](/hosted-api/render#render-a-saved-template). The sync reserved keys `s3`, `save`, `saveName`, and `metadata` have no special meaning here: an async render does not upload to S3 and does not save to [Documents](/hosted-api/documents). Those keys are passed to the template as data.
+
+<CodeGroup>
+
+```bash curl
+curl -X POST https://api.formepdf.com/v1/render/invoice/async \
+  -H "Authorization: Bearer forme_sk_abc123..." \
+  -H "Content-Type: application/json" \
+  -d '{"clientName": "Jane Smith", "items": [{"description": "Consulting", "quantity": 10, "unitPrice": 150}], "webhookUrl": "https://example.com/webhooks/forme"}'
+```
+
+```javascript Node.js
+const res = await fetch("https://api.formepdf.com/v1/render/invoice/async", {
+  method: "POST",
+  headers: {
+    Authorization: "Bearer forme_sk_abc123...",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    clientName: "Jane Smith",
+    items: [{ description: "Consulting", quantity: 10, unitPrice: 150 }],
+    webhookUrl: "https://example.com/webhooks/forme",
+  }),
+});
+
+const { jobId, status } = await res.json(); // status: "pending"
+```
+
+```python Python
+import requests
+
+res = requests.post(
+    "https://api.formepdf.com/v1/render/invoice/async",
+    headers={"Authorization": "Bearer forme_sk_abc123..."},
+    json={
+        "clientName": "Jane Smith",
+        "items": [{"description": "Consulting", "quantity": 10, "unitPrice": 150}],
+        "webhookUrl": "https://example.com/webhooks/forme",
+    },
+)
+
+job_id = res.json()["jobId"]
+```
+
+</CodeGroup>
+
+### Response
+
+`202 Accepted`
+
+```json
+{ "jobId": "clxyz...", "status": "pending" }
+```
+
+The template must exist when you queue the job. Otherwise the response is `404`. The monthly [operation limit](/hosted-api#operations-and-plan-limits) is checked when you queue. The operation is counted when the job completes.
+
+For a JSX template, the data is [embedded in the PDF](/embedded-data), as with the sync render.
+
+---
+
+## Webhook
+
+When the job finishes, Forme sends a `POST` with a JSON body to `webhookUrl`.
+
+On success:
+
+```json
+{
+  "jobId": "clxyz...",
+  "status": "complete",
+  "pdfBase64": "JVBERi0xLjcK..."
+}
+```
+
+On failure:
+
+```json
+{
+  "jobId": "clxyz...",
+  "status": "failed",
+  "error": "Template error: ..."
+}
+```
+
+- Delivery is attempted **once**, with a 10-second timeout. A failed or slow delivery is not retried.
+- The webhook request is not signed. Use a URL that is hard to guess, and check the `jobId` against jobs you queued. You can also fetch the result with [`GET /v1/jobs/:jobId`](#poll-a-job) using your API key.
+- The job result is kept whether or not the webhook is delivered.
+
+---
+
+## Poll a job
+
+`GET /v1/jobs/:jobId`
+
+Returns the job's status. Only jobs created with keys of the same account are visible. Polling is not counted as an operation and is not rate-limited.
+
+<CodeGroup>
+
+```bash curl
+curl https://api.formepdf.com/v1/jobs/clxyz... \
+  -H "Authorization: Bearer forme_sk_abc123..."
+```
+
+```javascript Node.js
+let job;
+do {
+  const res = await fetch(`https://api.formepdf.com/v1/jobs/${jobId}`, {
+    headers: { Authorization: "Bearer forme_sk_abc123..." },
+  });
+  job = await res.json();
+  if (job.status === "pending" || job.status === "processing") {
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+} while (job.status === "pending" || job.status === "processing");
+
+if (job.status === "complete") {
+  fs.writeFileSync("invoice.pdf", Buffer.from(job.pdfBase64, "base64"));
+} else {
+  console.error(job.error);
+}
+```
+
+```python Python
+import base64
+import time
+
+import requests
+
+while True:
+    job = requests.get(
+        f"https://api.formepdf.com/v1/jobs/{job_id}",
+        headers={"Authorization": "Bearer forme_sk_abc123..."},
+    ).json()
+    if job["status"] in ("complete", "failed"):
+        break
+    time.sleep(1)
+
+if job["status"] == "complete":
+    with open("invoice.pdf", "wb") as f:
+        f.write(base64.b64decode(job["pdfBase64"]))
+```
+
+</CodeGroup>
+
+### Response
+
+```json
+{
+  "jobId": "clxyz...",
+  "status": "complete",
+  "pdfBase64": "JVBERi0xLjcK...",
+  "createdAt": "2026-11-03T12:00:00.000Z",
+  "completedAt": "2026-11-03T12:00:01.000Z"
+}
+```
+
+| Field | Present | Description |
+|---|---|---|
+| `jobId` | Always | The job ID |
+| `status` | Always | `pending`, `processing`, `complete`, or `failed` |
+| `pdfBase64` | `complete` only | The PDF, base64-encoded |
+| `error` | `failed` only | The error message |
+| `createdAt` | Always | When the job was queued |
+| `completedAt` | Once finished | When the job completed or failed; `null` before |
+
+An unknown job ID returns `404` `{"error": "Job not found"}`.
+
+<Note>A job can fail without a render error, for example when it is interrupted by a service restart. Its `error` then says so. Queue the render again.</Note>

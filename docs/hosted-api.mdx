@@ -1,0 +1,176 @@
+---
+title: Hosted API
+sidebarTitle: Overview
+description: Render, certify, redact, and merge PDFs over HTTP with the Forme hosted API — saved templates, document storage, async jobs, and API keys from the Dashboard.
+---
+
+The Forme hosted API runs the same engine as `npm install`, behind an HTTP API with saved templates, document storage, and usage tracking. You manage templates, keys, and certificates in the [Dashboard](https://app.formepdf.com).
+
+Sign up at [app.formepdf.com/sign-up](https://app.formepdf.com/sign-up).
+
+```bash
+curl -X POST https://api.formepdf.com/v1/render/html \
+  -H "Authorization: Bearer forme_sk_..." \
+  -H "Content-Type: application/json" \
+  -d '{"html": "<h1>Hello</h1>"}' \
+  --output hello.pdf
+```
+
+---
+
+## Hosted or self-hosted
+
+Forme has two HTTP servers. Both serve the same `/v1` route family. Pick one:
+
+| | Hosted API | [Self-hosted server](/self-hosting) |
+|---|---|---|
+| **Base URL** | `https://api.formepdf.com` | Your deployment (e.g. `http://localhost:3000`) |
+| **Auth** | `forme_sk_` key from the Dashboard (required) | Optional `FORME_API_KEY` you set |
+| **Templates** | Saved in the Dashboard: JSX or HTML + Liquid ([Templates](/hosted-api/templates)) | Pre-compiled JSON files on a mounted volume |
+| **Raw HTML render** | `POST /v1/render/html` | — |
+| **Async jobs + webhooks** | Yes | No |
+| **Document storage** | Yes ([Documents](/hosted-api/documents)) | No — PDFs are returned, not stored |
+| **Saved certificates, redaction templates** | Yes | No — pass PEM and patterns inline |
+| **Rasterize** | No | `POST /v1/rasterize` |
+| **Usage limits** | Monthly operation limit per plan | None |
+
+The request bodies are not identical in every case. For example, the hosted `POST /v1/render/:slug` takes the template data as the whole body, and the self-hosted server takes it under a `data` key. Each hosted page states the hosted shape. The [self-hosted API reference](/api-reference/render) states the self-hosted shape.
+
+---
+
+## Base URL
+
+```
+https://api.formepdf.com
+```
+
+All endpoints are under `/v1`.
+
+---
+
+## Authentication
+
+Every `/v1` request needs an API key, sent as a Bearer token:
+
+```
+Authorization: Bearer forme_sk_...
+```
+
+Create keys on the **Credentials** page of the [Dashboard](https://app.formepdf.com). A key is `forme_sk_` followed by 32 hex characters.
+
+- The full key is shown **once**, when you create it. After that, the Dashboard shows only the last 8 characters.
+- Revoking a key stops it working immediately. A revoked key returns `401`.
+- A key belongs to the account (personal or organization) that was active when you created it. Requests with that key see only that account's templates, documents, and certificates, and count against that account's usage.
+
+<Note>Keys created in an organization need the organization to be on the Pro or Business plan. Otherwise every `/v1` request with that key returns `403` with `"Org features require the Pro plan"`.</Note>
+
+| Response | Cause |
+|---|---|
+| `401` `{"error": "Missing API key. Use Authorization: Bearer forme_sk_..."}` | No `Authorization: Bearer` header |
+| `401` `{"error": "Invalid or revoked API key"}` | Unknown or revoked key |
+
+---
+
+## Endpoints
+
+| Endpoint | Description | Counts as an operation |
+|---|---|---|
+| [`POST /v1/render/html`](/hosted-api/render#render-raw-html) | Render an HTML string to PDF | Yes |
+| [`POST /v1/render/:slug`](/hosted-api/render#render-a-saved-template) | Render a saved template with data | Yes |
+| [`POST /v1/render/:slug/async`](/hosted-api/async) | Queue a render; optional webhook | Yes, when the job runs |
+| [`GET /v1/jobs/:jobId`](/hosted-api/async#poll-a-job) | Poll an async job | No |
+| [`POST /v1/certify`](/hosted-api/certify) | Apply an X.509 certification signature | Yes |
+| [`POST /v1/redact`](/hosted-api/redact) | Redact regions, text patterns, presets | Yes |
+| [`POST /v1/merge`](/hosted-api/merge) | Merge 2–20 PDFs | Yes |
+| [`POST /v1/extract`](/hosted-api/extract) | Read the data embedded in a Forme PDF | No |
+| [`GET /v1/templates`, `/v1/documents`, …](/hosted-api/resources) | List your resources | No |
+
+---
+
+## Operations and plan limits
+
+Each plan has a **monthly operation limit**. An operation is one successful call to render (sync, HTML, or async), certify, redact, or merge.
+
+- **Failed calls do not count.** Only successful operations count toward the limit.
+- **Not counted:** `POST /v1/extract`, `GET /v1/jobs/:jobId`, and the `GET` resource listings.
+- **Async renders count when the job finishes**, not when you queue them. The limit is still checked when you queue the job.
+- The count resets at the start of each calendar month.
+- Usage made in the Dashboard itself (editor previews, certifying in the Document Editor) does not count. Only API-key calls count.
+
+When you reach the limit, operation endpoints return `429`:
+
+```json
+{
+  "error": "Monthly operation limit reached.",
+  "plan": "FREE",
+  "limit": 50,
+  "used": 50,
+  "upgradeUrl": "https://app.formepdf.com/billing"
+}
+```
+
+Some features need a paid plan: developer `metadata` on renders, `metadata.*` filters on document listings, and saved [redaction templates](/hosted-api/redaction-templates) in `/v1/redact`. The number of saved templates and certificates, the per-request redaction pattern limit, and the [document retention](/hosted-api/documents#retention) period also depend on the plan. A plan-gated request returns `403`:
+
+```json
+{
+  "error": "Developer metadata requires a Pro plan or higher.",
+  "plan": "FREE",
+  "upgradeUrl": "https://app.formepdf.com/billing"
+}
+```
+
+See the **Billing** page in the [Dashboard](https://app.formepdf.com) for the current limits of each plan.
+
+---
+
+## Rate limits
+
+Rate limits apply **per API key**, over a one-minute window, per route group:
+
+| Route group | Limit |
+|---|---|
+| `POST /v1/render/html`, `/v1/render/:slug`, `/v1/render/:slug/async`, `/v1/certify`, `/v1/extract` | 100 requests per minute, shared across the group |
+| `POST /v1/redact` | 100 requests per minute |
+| `POST /v1/merge` | 100 requests per minute |
+
+`GET /v1/jobs/:jobId` and the resource listings are not rate-limited.
+
+Responses from rate-limited routes carry `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and `X-RateLimit-Reset` headers. Over the limit, the API returns `429` with a `Retry-After` header:
+
+```json
+{ "error": "Rate limit exceeded. Max 100 requests/min per API key." }
+```
+
+---
+
+## Request size
+
+- JSON bodies: up to 20 MB. This includes base64-encoded PDFs sent to certify, redact, and merge.
+- `POST /v1/extract` takes raw PDF bytes: up to 10 MB.
+
+---
+
+## Errors
+
+All errors return JSON with an `error` message:
+
+```json
+{ "error": "Template \"invoice\" not found" }
+```
+
+| Status | Meaning |
+|---|---|
+| `400` | Invalid request: missing or invalid fields, bad `s3` config, a template error (`"Template error: ..."`), or a JSX template that uses a blocked construct |
+| `401` | Missing, invalid, or revoked API key |
+| `403` | The feature needs a higher plan (body includes `plan` and `upgradeUrl`), or an organization key on a plan without org features |
+| `404` | Template, job, document, certificate, or embedded data not found |
+| `408` | A JSX template took too long to evaluate |
+| `429` | Rate limit, or monthly operation limit (body includes `plan`, `limit`, `used`, `upgradeUrl`) |
+| `502` | The upload to your `s3` bucket failed |
+| `500` | Internal error |
+
+---
+
+## SDKs
+
+The HTTP clients in the [TypeScript](/typescript-sdk), [Python](/python-sdk), and [Go](/go-sdk) SDKs default to `https://api.formepdf.com`. Pass a base URL to point them at a self-hosted server instead.

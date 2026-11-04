@@ -1,10 +1,10 @@
 ---
 title: Bring Your Own UI
 sidebarTitle: Bring Your Own UI
-description: Use Forme as a PDF operations engine behind your own frontend — redaction, merging, certification, and rasterization via API.
+description: Use Forme as a PDF operations engine behind your own frontend — redaction, merging, certification, and rasterization over HTTP.
 ---
 
-The Forme dashboard is a reference implementation. The same API endpoints that power it are available to your own applications. Build custom document workflows without adopting the Forme UI.
+The Forme Dashboard is a reference implementation. The same operations are available to your own applications through the [hosted API](/hosted-api) or a [self-hosted server](/self-hosting). Build custom document workflows without adopting the Forme UI.
 
 ---
 
@@ -16,7 +16,7 @@ Your frontend collects user intent (what to redact, which PDFs to merge, which c
 Your Frontend → Your Backend → Forme API → PDF result
 ```
 
-All `/v1/*` endpoints accept JSON and return PDF bytes (or JSON for rasterize). No cookies, sessions, or UI dependencies.
+All `/v1/*` operation endpoints accept JSON and return PDF bytes (or JSON for rasterize). No cookies, sessions, or UI dependencies. The examples below use the hosted base URL, `https://api.formepdf.com`.
 
 ---
 
@@ -47,7 +47,7 @@ const res = await fetch('https://api.formepdf.com/v1/redact', {
 const redactedPdf = Buffer.from(await res.arrayBuffer());
 ```
 
-To show a PDF preview for drawing, use [POST /v1/rasterize](/api-reference/rasterize) to convert pages to images, then overlay a canvas for region selection.
+To show a PDF preview for drawing, convert pages to images with `POST /v1/rasterize` on a [self-hosted server](/self-hosting) (the hosted API does not serve it), or render pages in the browser with a PDF viewer, then overlay a canvas for region selection.
 
 ---
 
@@ -100,10 +100,10 @@ const certified = Buffer.from(await res.arrayBuffer());
 
 ## Preview Generation
 
-Use rasterization to generate preview images for your own document viewer:
+Use rasterization on a [self-hosted server](/self-hosting) to generate preview images for your own document viewer. `POST /v1/rasterize` is not available on the hosted API.
 
 ```javascript
-const res = await fetch('https://api.formepdf.com/v1/rasterize', {
+const res = await fetch('http://localhost:3000/v1/rasterize', {
   method: 'POST',
   headers: {
     Authorization: `Bearer ${process.env.FORME_API_KEY}`,
@@ -132,12 +132,12 @@ curl https://api.formepdf.com/v1/documents/clxyz... \
   -H "Authorization: Bearer forme_sk_abc123..."
 ```
 
-See [Resources](/api-reference/render#resources) for the full listing API.
+See [Resources](/hosted-api/resources) for the full listing API.
 
 ---
 
 ## Self-Hosted
 
-All operation endpoints (`/v1/render`, `/v1/certify`, `/v1/redact`, `/v1/merge`, `/v1/rasterize`) work on [self-hosted](/self-hosting) instances. Point your application at your own Forme container and avoid external API calls entirely.
+The operation endpoints `/v1/render`, `/v1/certify`, `/v1/redact`, `/v1/merge`, and `/v1/rasterize` work on [self-hosted](/self-hosting) instances. Point your application at your own Forme container and avoid external API calls entirely. Some request bodies differ from the hosted API; see the [self-hosted API reference](/api-reference/render).
 
-The only features that require the hosted API are: saved templates, saved certificates (`certificateId`), redaction templates (`template` slug), document storage, and resource listing.
+The features that require the hosted API are: saved templates (JSX and HTML + Liquid), `POST /v1/render/html`, async jobs and webhooks, saved certificates (`certificateId`), redaction templates (`template` slug), document storage, embedded-data extraction (`/v1/extract`), and resource listing.

@@ -1,0 +1,67 @@
+---
+title: Redaction Templates
+sidebarTitle: Redaction Templates
+description: Save named sets of redaction patterns and presets on the hosted API, then apply them by slug.
+---
+
+A redaction template is a named set of text patterns and presets. Define it once in the Dashboard, then apply it to any PDF by slug in [`POST /v1/redact`](/hosted-api/redact).
+
+Using a redaction template in `/v1/redact` needs a paid plan. On the Free plan, a request with `template` returns `403`.
+
+---
+
+## Creating a template
+
+In the [Dashboard](https://app.formepdf.com), open **Redaction** in the sidebar and create a template:
+
+- **Name** — e.g. "HIPAA Patient Record". The slug comes from the name, e.g. `hipaa-patient-record`.
+- **Description** — optional notes.
+- **Presets** — built-in patterns to include: `ssn`, `email`, `phone`, `date-of-birth`, `credit-card`. See [Presets](/hosted-api/redact#presets).
+- **Custom patterns** — up to 50 literal strings or regular expressions, each with an optional page and color.
+
+---
+
+## Applying a template
+
+```json
+{
+  "pdf": "<base64>",
+  "template": "hipaa-patient-record"
+}
+```
+
+### With inline patterns
+
+Add `patterns`, `presets`, and `redactions` to the same request. Everything is applied together:
+
+```json
+{
+  "pdf": "<base64>",
+  "template": "hipaa-patient-record",
+  "patterns": [{ "pattern": "Dr. Smith", "pattern_type": "Literal" }],
+  "presets": ["credit-card"]
+}
+```
+
+The template's patterns and presets do not count toward the per-request limit on `patterns`.
+
+---
+
+## In the Document Editor
+
+In the Dashboard's Document Editor, open the Redact panel in **Search** mode and use **Load template** to apply a saved template to the open document.
+
+---
+
+## Managing templates
+
+A redaction template belongs to the account (personal or organization) that created it. On the **Redaction** page you can list, edit, and delete templates. API keys can read them with [`GET /v1/redaction-templates`](/hosted-api/resources#redaction-templates).
+
+---
+
+<Note>Redaction templates are a hosted API feature. On the [self-hosted server](/api-reference/redact), pass `patterns` and `presets` in each request.</Note>
+
+## Related
+
+- [Redaction](/concepts/redaction) — how Forme redaction works
+- [Redact PDF](/hosted-api/redact) — the hosted endpoint

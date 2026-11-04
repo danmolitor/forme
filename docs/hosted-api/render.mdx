@@ -1,0 +1,316 @@
+---
+title: Render PDF
+sidebarTitle: Render
+description: Render raw HTML or a saved template to PDF with the hosted API — S3 upload, auto-save to Documents, developer metadata, and engine warnings.
+---
+
+Two sync render endpoints. Both return the PDF in the response.
+
+| Endpoint | Input |
+|---|---|
+| [`POST /v1/render/html`](#render-raw-html) | An HTML string in the request |
+| [`POST /v1/render/:slug`](#render-a-saved-template) | A [saved template](/hosted-api/templates) plus data |
+
+For a render that does not hold the connection open, use [`POST /v1/render/:slug/async`](/hosted-api/async).
+
+Each successful render is one [operation](/hosted-api#operations-and-plan-limits).
+
+---
+
+## Render raw HTML
+
+`POST /v1/render/html`
+
+Renders an HTML document with [`@formepdf/html`](/html). No saved template is needed.
+
+### Request body
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `html` | `string` | Yes | The HTML document. Must not be empty. |
+| `options` | `object` | No | Render options (below) |
+| `s3` | `object` | No | Upload the PDF to your bucket instead of returning it. See [S3 upload](#s3-upload). |
+| `save` | `boolean` | No | Default `true`. Set `false` to not save the PDF to [Documents](/hosted-api/documents). |
+| `saveName` | `string` | No | Document name. Default: `html-YYYY-MM-DD`. |
+| `metadata` | `object` | No | Your own key-value pairs on the saved document. Paid plans. See [Metadata](#metadata). |
+
+### Options
+
+`options` is passed to the HTML engine. These are the main fields; see [HTML Input](/html) for what each one does.
+
+| Field | Type | Description |
+|---|---|---|
+| `pageSize` | `string` | `A4`, `A3`, `A5`, `Letter`, `Legal`, or `Tabloid`. Overrides `@page size`. |
+| `pageMargin` | `number` | Uniform page margin in points. Overrides `@page` margins. |
+| `css` | `string` | Extra CSS, applied after the document's own stylesheets |
+| `fonts` | `array` | TTF fonts: `{ family, data, weight?, italic? }`, with `data` as a base64 string |
+| `lang` | `string` | Document language, e.g. `"en-US"` |
+| `tagged` | `boolean` | Emit a tagged PDF |
+| `pdfUa` | `boolean` | Emit a PDF/UA-1 file. See [Accessibility](/accessibility). |
+| `pdfUa2` | `boolean` | Emit a PDF/UA-2 file |
+| `pdfA` | `string` | PDF/A level, e.g. `"2b"`. See [Archival](/archival). |
+| `auditContent` | `boolean` | Report dropped, off-page, or invisible content in the warnings |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST https://api.formepdf.com/v1/render/html \
+  -H "Authorization: Bearer forme_sk_abc123..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "html": "<!doctype html><html lang=\"en\"><body><h1>Invoice INV-001</h1><p>Total: $1,425.00</p></body></html>",
+    "options": { "pageSize": "Letter", "pageMargin": 48 },
+    "saveName": "INV-001"
+  }' \
+  --output invoice.pdf
+```
+
+```javascript Node.js
+const res = await fetch("https://api.formepdf.com/v1/render/html", {
+  method: "POST",
+  headers: {
+    Authorization: "Bearer forme_sk_abc123...",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    html: fs.readFileSync("invoice.html", "utf-8"),
+    options: { css: fs.readFileSync("print.css", "utf-8"), pageSize: "Letter" },
+    saveName: "INV-001",
+  }),
+});
+
+const warnings = JSON.parse(res.headers.get("X-Forme-Warnings") ?? "[]");
+fs.writeFileSync("invoice.pdf", Buffer.from(await res.arrayBuffer()));
+```
+
+```python Python
+import requests
+
+res = requests.post(
+    "https://api.formepdf.com/v1/render/html",
+    headers={"Authorization": "Bearer forme_sk_abc123..."},
+    json={
+        "html": open("invoice.html").read(),
+        "options": {"css": open("print.css").read(), "pageSize": "Letter"},
+        "saveName": "INV-001",
+    },
+)
+res.raise_for_status()
+
+with open("invoice.pdf", "wb") as f:
+    f.write(res.content)
+```
+
+</CodeGroup>
+
+### Response
+
+`200 OK`, `Content-Type: application/pdf`. The body is the PDF. Engine warnings are in the [`X-Forme-Warnings`](#warnings) header.
+
+With `s3`: `200 OK` with JSON. The warnings are in the body:
+
+```json
+{
+  "url": "https://my-pdfs.s3.us-east-1.amazonaws.com/invoices/inv-001.pdf",
+  "warnings": []
+}
+```
+
+The saved document's metadata includes `renderTimeMs` and `input: "html"`.
+
+---
+
+## Render a saved template
+
+`POST /v1/render/:slug`
+
+Renders a [saved template](/hosted-api/templates) (JSX or HTML + Liquid) with data.
+
+**Path params:** `slug` — the template's slug.
+
+**Body:** the request body **is** the template data. Every key goes to the template, except four reserved keys:
+
+| Reserved key | Type | Description |
+|---|---|---|
+| `s3` | `object` | Upload the PDF to your bucket instead of returning it. See [S3 upload](#s3-upload). |
+| `save` | `boolean` | Default `true`. Set `false` to not save the PDF to [Documents](/hosted-api/documents). |
+| `saveName` | `string` | Document name. Default: `{slug}-YYYY-MM-DD`, e.g. `invoice-2026-11-03`. |
+| `metadata` | `object` | Your own key-value pairs on the saved document. Paid plans. See [Metadata](#metadata). |
+
+The reserved keys are removed before the data goes to the template. Do not use them as data field names.
+
+<CodeGroup>
+
+```bash curl
+curl -X POST https://api.formepdf.com/v1/render/invoice \
+  -H "Authorization: Bearer forme_sk_abc123..." \
+  -H "Content-Type: application/json" \
+  -d '{"clientName": "Jane Smith", "date": "2026-01-15", "dueDate": "2026-02-15", "items": [{"description": "Consulting", "quantity": 10, "unitPrice": 150}]}' \
+  --output invoice.pdf
+```
+
+```javascript Node.js
+const res = await fetch("https://api.formepdf.com/v1/render/invoice", {
+  method: "POST",
+  headers: {
+    Authorization: "Bearer forme_sk_abc123...",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    clientName: "Jane Smith",
+    date: "2026-01-15",
+    dueDate: "2026-02-15",
+    items: [{ description: "Consulting", quantity: 10, unitPrice: 150 }],
+  }),
+});
+
+const pdf = Buffer.from(await res.arrayBuffer());
+fs.writeFileSync("invoice.pdf", pdf);
+```
+
+```python Python
+import requests
+
+res = requests.post(
+    "https://api.formepdf.com/v1/render/invoice",
+    headers={
+        "Authorization": "Bearer forme_sk_abc123...",
+        "Content-Type": "application/json",
+    },
+    json={
+        "clientName": "Jane Smith",
+        "date": "2026-01-15",
+        "dueDate": "2026-02-15",
+        "items": [{"description": "Consulting", "quantity": 10, "unitPrice": 150}],
+    },
+)
+
+with open("invoice.pdf", "wb") as f:
+    f.write(res.content)
+```
+
+```go Go
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"io"
+	"net/http"
+	"os"
+)
+
+func main() {
+	body, _ := json.Marshal(map[string]any{
+		"clientName": "Jane Smith",
+		"date":       "2026-01-15",
+		"dueDate":    "2026-02-15",
+		"items": []map[string]any{
+			{"description": "Consulting", "quantity": 10, "unitPrice": 150},
+		},
+	})
+
+	req, _ := http.NewRequest("POST", "https://api.formepdf.com/v1/render/invoice", bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer forme_sk_abc123...")
+	req.Header.Set("Content-Type", "application/json")
+
+	res, _ := http.DefaultClient.Do(req)
+	defer res.Body.Close()
+
+	out, _ := os.Create("invoice.pdf")
+	io.Copy(out, res.Body)
+}
+```
+
+</CodeGroup>
+
+### Response
+
+`200 OK`, `Content-Type: application/pdf`. The body is the PDF. For an HTML template, engine warnings are in the [`X-Forme-Warnings`](#warnings) header.
+
+With `s3`: `200 OK` with `{ "url": "..." }`.
+
+A template that is not found returns `404`: `{"error": "Template \"invoice\" not found"}`.
+
+For a JSX template, the data (without the reserved keys) is [embedded in the PDF](/embedded-data). Read it back with [`POST /v1/extract`](/hosted-api/extract). HTML templates and `/v1/render/html` do not embed data.
+
+The saved document's metadata includes `renderTimeMs` and `templateSlug`.
+
+---
+
+## Warnings
+
+The HTML engine reports everything outside the [supported subset](/html) as a warning. When a render returns PDF bytes, the warnings are in the `X-Forme-Warnings` response header, as a JSON array of strings:
+
+```
+X-Forme-Warnings: ["<first warning>", "<second warning>"]
+```
+
+- The header is present only when there is at least one warning.
+- The header value is cut at 2,000 characters, so a long list can be incomplete and is then not valid JSON. To see every warning, render the same HTML locally with `@formepdf/html`, or preview the template in the Dashboard.
+- JSX templates do not produce warnings here.
+
+---
+
+## S3 upload
+
+Pass an `s3` object to upload the PDF to your S3-compatible bucket. The response is JSON with the object URL instead of the PDF bytes. This works on `/v1/render/html` and `/v1/render/:slug`. It does not work on the async endpoint.
+
+```json
+{
+  "clientName": "Jane Smith",
+  "items": [{ "description": "Consulting", "quantity": 10, "unitPrice": 150 }],
+  "s3": {
+    "bucket": "my-pdfs",
+    "key": "invoices/inv-001.pdf",
+    "region": "us-east-1",
+    "accessKeyId": "AKIA...",
+    "secretAccessKey": "..."
+  }
+}
+```
+
+| Field | Required | Description |
+|---|---|---|
+| `bucket` | Yes | Bucket name |
+| `key` | Yes | Object key (path) in the bucket |
+| `accessKeyId` | Yes | Access key ID |
+| `secretAccessKey` | Yes | Secret access key |
+| `region` | * | Region, e.g. `us-east-1`. Required unless `endpoint` is set. |
+| `endpoint` | * | Endpoint URL for an S3-compatible service (Cloudflare R2, MinIO, DigitalOcean Spaces). Required unless `region` is set. With `endpoint`, path-style addressing is used. |
+
+The returned `url` is `https://{bucket}.s3.{region}.amazonaws.com/{key}`, or `{endpoint}/{bucket}/{key}` with `endpoint`. The URL is not signed. Whether it is readable depends on your bucket's access settings.
+
+| Error | Cause |
+|---|---|
+| `400` | A required `s3` field is missing |
+| `502` `{"error": "S3 upload failed: ..."}` | The bucket rejected the upload. The render still counts as an operation. |
+
+<Note>Forme uses the `s3` credentials for this one upload. They are not stored.</Note>
+
+---
+
+## Metadata
+
+Tag a saved document with your own key-value pairs. Available on paid plans. On the Free plan, a request with `metadata` returns `403`.
+
+```json
+{
+  "clientName": "Jane Smith",
+  "metadata": {
+    "customerId": "cust_123",
+    "department": "billing"
+  }
+}
+```
+
+The metadata goes onto the [saved document](/hosted-api/documents), next to the system fields. It is not passed to the template. With `save: false`, nothing is saved, so the metadata is only validated.
+
+| Constraint | Limit |
+|---|---|
+| Keys | 20 |
+| Key length | 100 characters |
+| Value types | `string` or `number` |
+| String value length | 500 characters |
+
+Find documents by metadata with `GET /v1/documents?metadata.customerId=cust_123`. See [Resources](/hosted-api/resources#documents).

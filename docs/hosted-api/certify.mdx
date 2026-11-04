@@ -1,0 +1,128 @@
+---
+title: Certify PDF
+sidebarTitle: Certify
+description: Apply an X.509 certification signature to a PDF with the hosted API, using inline PEM or a saved certificate.
+---
+
+`POST /v1/certify`
+
+Applies a PKCS#7 certification signature to an existing PDF. See [Digital Certification](/concepts/digital-certification) for what certification proves and its limits.
+
+Each successful call is one [operation](/hosted-api#operations-and-plan-limits).
+
+---
+
+## Request body
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `pdf` | `string` | Yes | Base64-encoded PDF bytes |
+| `certificateId` | `string` | * | ID of a [saved certificate](/hosted-api/credentials) |
+| `certificate` | `string` | * | X.509 certificate, PEM |
+| `privateKey` | `string` | * | RSA private key, PEM. PKCS#8 and PKCS#1 both work. |
+| `reason` | `string` | No | Certification reason, e.g. `"Approved"` |
+| `location` | `string` | No | Certification location |
+| `contact` | `string` | No | Certifier contact information |
+
+\* Pass `certificateId`, or both `certificate` and `privateKey`. With `certificateId`, inline PEM is ignored.
+
+<Warning>The hosted API reads the inline PEM from `certificate` and `privateKey`. The names `certificatePem` and `privateKeyPem`, which the self-hosted server also accepts, return `400` on the hosted API.</Warning>
+
+<Note>The hosted endpoint applies an invisible signature. The `visible`, `x`, `y`, `width`, and `height` fields of the [self-hosted endpoint](/api-reference/certify) are not supported here. For a visible signature, certify at render time with the `certification` prop. See [Digital Certification](/concepts/digital-certification#visible-vs-invisible-signatures).</Note>
+
+---
+
+## With a saved certificate
+
+Upload the certificate and key once on the **Credentials** page of the Dashboard. Then send only the ID. The private key does not travel with each request.
+
+<CodeGroup>
+
+```bash curl
+curl -X POST https://api.formepdf.com/v1/certify \
+  -H "Authorization: Bearer forme_sk_abc123..." \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"pdf\": \"$(base64 -w0 contract.pdf)\",
+    \"certificateId\": \"clxyz...\",
+    \"reason\": \"Approved\"
+  }" \
+  --output certified.pdf
+```
+
+```javascript Node.js
+const res = await fetch("https://api.formepdf.com/v1/certify", {
+  method: "POST",
+  headers: {
+    Authorization: "Bearer forme_sk_abc123...",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    pdf: fs.readFileSync("contract.pdf").toString("base64"),
+    certificateId: "clxyz...",
+    reason: "Approved",
+  }),
+});
+
+fs.writeFileSync("certified.pdf", Buffer.from(await res.arrayBuffer()));
+```
+
+</CodeGroup>
+
+Get certificate IDs from `GET /v1/certificates`. See [Resources](/hosted-api/resources#certificates).
+
+---
+
+## With inline PEM
+
+<CodeGroup>
+
+```javascript Node.js
+const res = await fetch("https://api.formepdf.com/v1/certify", {
+  method: "POST",
+  headers: {
+    Authorization: "Bearer forme_sk_abc123...",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    pdf: fs.readFileSync("contract.pdf").toString("base64"),
+    certificate: fs.readFileSync("cert.pem", "utf-8"),
+    privateKey: fs.readFileSync("key.pem", "utf-8"),
+    reason: "Approved",
+    location: "San Francisco, CA",
+    contact: "legal@acme.com",
+  }),
+});
+```
+
+```python Python
+import base64
+import requests
+
+res = requests.post(
+    "https://api.formepdf.com/v1/certify",
+    headers={"Authorization": "Bearer forme_sk_abc123..."},
+    json={
+        "pdf": base64.b64encode(open("contract.pdf", "rb").read()).decode(),
+        "certificate": open("cert.pem").read(),
+        "privateKey": open("key.pem").read(),
+        "reason": "Approved",
+    },
+)
+
+with open("certified.pdf", "wb") as f:
+    f.write(res.content)
+```
+
+</CodeGroup>
+
+---
+
+## Response
+
+`200 OK`, `Content-Type: application/pdf`. The body is the certified PDF. It is not saved to [Documents](/hosted-api/documents).
+
+| Error | Cause |
+|---|---|
+| `400` | `pdf` is missing, or neither `certificateId` nor `certificate` + `privateKey` is given |
+| `404` | `certificateId` not found in this account |

@@ -87,17 +87,17 @@ The request body is identical. No field names changed.
 | [POST /v1/certify](/api-reference/certify) | Certify a PDF (renamed from `/v1/sign`) |
 | [POST /v1/redact](/api-reference/redact) | Redact text, patterns, or regions from a PDF |
 | [POST /v1/merge](/api-reference/merge) | Combine multiple PDFs into one |
-| [POST /v1/rasterize](/api-reference/rasterize) | Convert PDF pages to PNG images |
+| [POST /v1/rasterize](/self-hosting#api-endpoints) | Convert PDF pages to PNG images (self-hosted server) |
 
 ### New Features
 
-- **[Documents archive](/concepts/documents)** — every render auto-saved with metadata
-- **[Certificate storage](/concepts/credentials)** — save certificates, reference by ID
-- **[Redaction templates](/concepts/redaction-templates)** — reusable pattern sets
+- **[Documents archive](/hosted-api/documents)** — every render auto-saved with metadata
+- **[Certificate storage](/hosted-api/credentials)** — save certificates, reference by ID
+- **[Redaction templates](/hosted-api/redaction-templates)** — reusable pattern sets
 - **[Text-search redaction](/concepts/redaction)** — literal, regex, and preset patterns
-- **[Audit trail](/concepts/audit-trail)** — full operation history on documents
+- **[Audit trail](/hosted-api/audit-trail)** — full operation history on documents
 - **Developer metadata** — tag renders with custom key-value pairs
-- **[Resource listing](/api-reference/render#resources)** — list templates, documents, certificates via API
+- **[Resource listing](/hosted-api/resources)** — list templates, documents, certificates via API
 
 ### Bug Fixes
 

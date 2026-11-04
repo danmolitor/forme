@@ -12,6 +12,8 @@ Remove sensitive content from a PDF. Forme performs true redaction — text oper
 Authorization: Bearer forme_sk_...
 ```
 
+<Note>This page documents the [self-hosted server](/self-hosting). For the hosted API at `https://api.formepdf.com`, see [Hosted API — Redact](/hosted-api/redact).</Note>
+
 ---
 
 ## Request Body
@@ -22,7 +24,7 @@ Authorization: Bearer forme_sk_...
 | `redactions` | `array` | No | Coordinate-based redaction regions |
 | `patterns` | `array` | No | Text search patterns (max 50) |
 | `presets` | `array` | No | Built-in pattern presets |
-| `template` | `string` | No | Slug of a saved [redaction template](/concepts/redaction-templates) (hosted API only) |
+| `template` | `string` | No | Slug of a saved [redaction template](/hosted-api/redaction-templates). Hosted API only: the self-hosted server returns `400`. |
 
 At least one of `redactions`, `patterns`, `presets`, or `template` is required. All can be combined in a single request — patterns from all sources are merged.
 
@@ -190,7 +192,7 @@ curl -X POST http://localhost:3000/v1/redact \
 
 ## Redaction Templates
 
-
+On the [hosted API](/hosted-api/redact), reference a saved [redaction template](/hosted-api/redaction-templates) by slug:
 
 ```json
 {
@@ -241,4 +243,4 @@ Combine a template with additional inline patterns — all sources are merged:
 ## Related
 
 - [Redaction](/concepts/redaction) — how Forme redaction works, compliance use cases
-- [Redaction Templates](/concepts/redaction-templates) — creating and managing saved templates
+- [Redaction Templates](/hosted-api/redaction-templates) — creating and managing saved templates on the hosted API

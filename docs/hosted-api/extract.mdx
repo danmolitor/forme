@@ -1,0 +1,72 @@
+---
+title: Extract Embedded Data
+sidebarTitle: Extract
+description: Read back the JSON data embedded in a Forme PDF with the hosted API. Not counted as an operation.
+---
+
+`POST /v1/extract`
+
+Returns the JSON data embedded in a Forme PDF. See [Embedded Data](/embedded-data).
+
+On the hosted API, a render of a [JSX template](/hosted-api/templates#jsx-templates) (sync or async) embeds the request data automatically. PDFs from HTML templates and from `/v1/render/html` have no embedded data. A PDF rendered locally with `embedData` also works.
+
+Extract is **not** counted as an [operation](/hosted-api#operations-and-plan-limits). It shares the render rate limit.
+
+---
+
+## Request
+
+Send the raw PDF bytes as the body, with `Content-Type: application/pdf` or `application/octet-stream`. Maximum 10 MB.
+
+<CodeGroup>
+
+```bash curl
+curl -X POST https://api.formepdf.com/v1/extract \
+  -H "Authorization: Bearer forme_sk_abc123..." \
+  -H "Content-Type: application/pdf" \
+  --data-binary @invoice.pdf
+```
+
+```javascript Node.js
+const res = await fetch("https://api.formepdf.com/v1/extract", {
+  method: "POST",
+  headers: {
+    Authorization: "Bearer forme_sk_abc123...",
+    "Content-Type": "application/pdf",
+  },
+  body: fs.readFileSync("invoice.pdf"),
+});
+
+const { data } = await res.json();
+```
+
+```python Python
+import requests
+
+res = requests.post(
+    "https://api.formepdf.com/v1/extract",
+    headers={
+        "Authorization": "Bearer forme_sk_abc123...",
+        "Content-Type": "application/pdf",
+    },
+    data=open("invoice.pdf", "rb").read(),
+)
+
+print(res.json()["data"])
+```
+
+</CodeGroup>
+
+---
+
+## Response
+
+`200 OK`
+
+```json
+{ "data": { "clientName": "Jane Smith", "items": [ ... ] } }
+```
+
+`404` `{"error": "No embedded data found in this PDF"}` when the PDF has no Forme embedded data.
+
+<Note>The self-hosted server does not have `/v1/extract`. To extract without the hosted API, use `extractData()` from `@formepdf/core`.</Note>

@@ -12,6 +12,8 @@ Apply a PKCS#7 detached digital signature to a PDF. This cryptographically prove
 Authorization: Bearer forme_sk_...
 ```
 
+<Note>This page documents the [self-hosted server](/self-hosting). For the hosted API at `https://api.formepdf.com`, see [Hosted API — Certify](/hosted-api/certify).</Note>
+
 ---
 
 ## Request Body
@@ -21,7 +23,7 @@ Authorization: Bearer forme_sk_...
 | `pdf` | `string` | Yes | Base64-encoded PDF bytes |
 | `certificatePem` | `string` | Yes* | X.509 certificate in PEM format |
 | `privateKeyPem` | `string` | Yes* | RSA private key in PEM format (PKCS#8) |
-| `certificateId` | `string` | No | ID of a saved certificate (hosted API only). Use instead of inline PEM. |
+| `certificateId` | `string` | No | ID of a saved certificate. Hosted API only: the self-hosted server returns `400`. |
 | `reason` | `string` | No | Certification reason (e.g., "Approved", "Reviewed") |
 | `location` | `string` | No | Certification location (e.g., "San Francisco, CA") |
 | `contact` | `string` | No | Certifier contact information |
@@ -31,7 +33,7 @@ Authorization: Bearer forme_sk_...
 | `width` | `number` | No | Width of the visible signature in points (default: `200`) |
 | `height` | `number` | No | Height of the visible signature in points (default: `50`) |
 
-*Either `certificatePem` + `privateKeyPem` or `certificateId` is required.
+*`certificatePem` and `privateKeyPem` are required on the self-hosted server. It also accepts them as `certificate` and `privateKey`.
 
 ---
 
@@ -157,10 +159,10 @@ func main() {
 
 ## Using Saved Certificates
 
-On the hosted API, you can save certificates in [Credentials](/concepts/credentials) and reference them by ID. This avoids sending private keys in every request.
+On the [hosted API](/hosted-api/certify), you can save certificates in [Credentials](/hosted-api/credentials) and reference them by ID. This avoids sending private keys in every request.
 
 ```bash
-curl -X POST http://localhost:3000/v1/certify \
+curl -X POST https://api.formepdf.com/v1/certify \
   -H "Authorization: Bearer forme_sk_abc123..." \
   -H "Content-Type: application/json" \
   -d "{
@@ -171,7 +173,7 @@ curl -X POST http://localhost:3000/v1/certify \
   --output certified-contract.pdf
 ```
 
-<Note>Saved certificates are not available on self-hosted instances. Pass `certificatePem` and `privateKeyPem` directly.</Note>
+<Note>Saved certificates are not available on self-hosted instances. Pass `certificatePem` and `privateKeyPem` directly. On the hosted API, inline PEM goes in `certificate` and `privateKey`, and the visible-signature fields are not supported. See [Hosted API — Certify](/hosted-api/certify).</Note>
 
 ---
 
@@ -184,4 +186,4 @@ curl -X POST http://localhost:3000/v1/certify \
 ## Related
 
 - [Digital Certification](/concepts/digital-certification) — certifying at render time, visible signatures, known limitations
-- [Credentials & Certificates](/concepts/credentials) — managing saved certificates
+- [Credentials & Certificates](/hosted-api/credentials) — managing saved certificates on the hosted API
