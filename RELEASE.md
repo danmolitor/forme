@@ -21,7 +21,7 @@
 - `@formepdf/html` + the `forme-pdf-html` crate joined the shared line at 0.14.0 (previously npm 0.1.0 / crate 0.0.1, unpublished). The crate stays `publish = false` — the HTML input path ships via **npm only**; the crate version tracks the line so artifacts describe themselves honestly.
 - `server/` + `rasterizer/` rejoined the shared line at 0.14.0 (previously frozen at 0.10.5 after the hosted-API shutdown — 0.11.x–0.13.x have no image). The unfreeze happened because the 0.10.5 images sat on ~March-era bases and accumulated CVEs (C grade on Docker Hub); publishing rebuilt images made a real version bump honest again. The rule that motivated the freeze still stands: **only bump these crates when you are actually publishing matching Docker images.** The version must always name a tag someone can pull — `server/Dockerfile:5` is `FROM formepdf/rasterizer:{version}` and breaks if the pin points at a phantom tag.
 - Docker image (`formepdf/forme`) follows `server/`'s version — tagged as `{version}` and `latest`. The image bundles the engine as a **path dependency** (`COPY engine/`), so a rebuild always compiles against current engine source regardless of the crate version number.
-- Rasterizer Docker image (`formepdf/rasterizer`) follows `rasterizer/`'s version. Publish order is mandatory: rasterizer first, then server (server's Dockerfile pulls the rasterizer image by tag). A second pin lives at `../forme-dashboard/packages/api/Dockerfile:7` (paused repo, kept buildable).
+- Rasterizer Docker image (`formepdf/rasterizer`) follows `rasterizer/`'s version. Publish order is mandatory: rasterizer first, then server (server's Dockerfile pulls the rasterizer image by tag). forme-dashboard runs the rasterizer as its own Railway service, which pulls the image by the tag set in Railway; its `packages/api/Dockerfile.local` (the combined local build) also pins it.
 
 ---
 
@@ -160,9 +160,10 @@ Files to update when bumping (e.g. 0.8.3 -> 0.9.0):
 
 > Applies only when Docker images are being published this release (see Version Strategy — crate versions and image tags move together, or not at all).
 
-After bumping the engine/server/rasterizer versions, **two Dockerfiles** still reference the old rasterizer tag and must be bumped to the new version:
-- [ ] `server/Dockerfile` — `FROM formepdf/rasterizer:{version}` (line 3). Required: bump *after* the new rasterizer image is published to Docker Hub, *before* building the server image (server pulls rasterizer at build time).
-- [ ] `forme-dashboard/packages/api/Dockerfile` — `FROM formepdf/rasterizer:{version}`. Different repo; commit + push separately so Railway's next deploy picks up the new tag.
+After bumping the engine/server/rasterizer versions, these still reference the old rasterizer tag and must be bumped to the new version:
+- [ ] `server/Dockerfile` — `FROM formepdf/rasterizer:{version}`. Required: bump *after* the new rasterizer image is published to Docker Hub, *before* building the server image (server pulls rasterizer at build time).
+- [ ] `forme-dashboard/packages/api/Dockerfile.local` — `FROM formepdf/rasterizer:{version}` (the combined local build). Different repo; commit + push separately.
+- [ ] forme-dashboard's **Railway rasterizer service** — its image tag is set in Railway, not in the repo (the API's own `Dockerfile` no longer bundles the rasterizer; it reaches the service through `RASTERIZER_URL`). Point it at `formepdf/rasterizer:{version}` and redeploy.
 
 ### SDK WASM binaries (if engine/ changed)
 
@@ -404,6 +405,10 @@ cargo publish
 
 The two images **must be published in order**: rasterizer first, then server. The server's Dockerfile (`server/Dockerfile:3`) starts with `FROM formepdf/rasterizer:{version}` and pulls the sidecar binary at build time — building server first will either pull the OLD rasterizer tag (silent regression) or fail outright if the new tag isn't on Docker Hub yet.
 
+#### Smoke-test before pushing
+
+The commands below push and then verify. Prefer the reverse: build each platform with `--load` under a local tag (e.g. `--platform linux/arm64 -t forme-server-smoke:{version} --load`), run it in a throwaway container on a loopback port (`docker run -d --name <smoke>-$$ -p 127.0.0.1::3000 ...`), check `/health` reports `{version}` and that `/v1/render` draws something only the new engine can, then `docker rm -fv` it and push with the commands below (which reuse the build cache). amd64 runs under emulation on Apple silicon; it is slower but works.
+
 #### Step 1 — Rasterizer image
 
 Build and push from the monorepo root:
@@ -438,9 +443,10 @@ After the rasterizer image is on Docker Hub, update the `FROM formepdf/rasterize
 # forme repo — server image
 sed -i '' "s|FROM formepdf/rasterizer:[0-9.]\+|FROM formepdf/rasterizer:{version}|" server/Dockerfile
 
-# forme-dashboard repo — API image (separate repo, separate commit)
+# forme-dashboard repo — the combined local build (separate repo, separate commit)
 cd ../forme-dashboard
-sed -i '' "s|FROM formepdf/rasterizer:[0-9.]\+|FROM formepdf/rasterizer:{version}|" packages/api/Dockerfile
+sed -i '' "s|FROM formepdf/rasterizer:[0-9.]\+|FROM formepdf/rasterizer:{version}|" packages/api/Dockerfile.local
+# ...and set the Railway rasterizer service's image to formepdf/rasterizer:{version}
 ```
 
 Don't bump these before publishing the rasterizer image — between the pin update and the actual publish, any Railway deploy or fresh `docker build` will fail to pull the (not-yet-existing) tag.
@@ -595,6 +601,9 @@ printf '<h1>hi</h1>' > t.html && npx forme-html t.html && head -c5 t.pdf  # %PDF
 - **Docker buildx context**: Run the buildx build from the monorepo root (`forme/`), not from `server/`. The Dockerfile copies both `engine/` and `server/` directories.
 - **PyPI stale dist/**: `twine upload dist/*` uploads everything in `dist/`, including old versions. Clean old builds first (`rm dist/formepdf-0.*.whl dist/formepdf-0.*.tar.gz`) or upload only the target version (`twine upload dist/formepdf-{version}*`).
 - **PyPI token scope**: Make sure the PyPI token has upload rights for the `formepdf` project specifically (project-scoped token), not just your account.
-- **Rasterizer version pins (TWO Dockerfiles)**: After publishing a new `formepdf/rasterizer` tag, update the `FROM formepdf/rasterizer:{version}` line in BOTH `server/Dockerfile` (this repo) AND `forme-dashboard/packages/api/Dockerfile` (separate repo). Missing the server one means the published `formepdf/forme:{version}` image will silently bundle the old rasterizer binary.
+- **Rasterizer version pins**: After publishing a new `formepdf/rasterizer` tag, update `server/Dockerfile` (this repo), `forme-dashboard/packages/api/Dockerfile.local`, and the image tag of forme-dashboard's Railway rasterizer service. Missing the server one means the published `formepdf/forme:{version}` image will silently bundle the old rasterizer binary.
+- **Docker images are easy to forget**: they sat at 0.14.0 from 0.15.0 through 0.29.0 while the self-hosting docs told people to run `formepdf/forme:latest`. Decide every release whether they ship; when an engine release fixes a security issue in input parsing, they should.
+- **Docker Desktop disk**: a two-platform build compiles both targets at once and can fill the VM disk ("No space left on device", or the builder container killed mid-build). Check `docker exec buildx_buildkit_multiplatform0 df -h /` first; free space with `docker buildx prune --builder multiplatform -f` (that builder's cache only, never a global prune on a machine with other projects' containers and volumes), and build one `--platform` at a time before the combined `--push`, which then reuses the cache.
+- **VS Code Marketplace is not checked by `release.sh` verify**: 0.29.0 never reached it, and nothing said so. After publishing, confirm with `npx @vscode/vsce show formepdf.forme-pdf --json` that the new version is listed.
 - **Docker publish order**: Always publish rasterizer BEFORE server. The server Dockerfile pulls the rasterizer image at build time — if you publish server first, you'll either bundle the old rasterizer or fail the build outright.
 - **forme-go build script is broken**: `forme-go/templates/build_wasm.sh` has a stale `REPO_ROOT="$SCRIPT_DIR/../../.."` that assumes the old in-monorepo layout. After the Go SDK was split into its own repo, this path no longer resolves to the engine. Workaround: build the python-sdk WASM (`cd packages/python-sdk && bash build_wasm.sh`), then `cp packages/python-sdk/formepdf/forme.wasm ../forme-go/templates/forme.wasm`. Same target + flags, interchangeable artifact. A real fix is small — point the script at `../../forme/engine` or accept an `ENGINE_DIR` env override.
