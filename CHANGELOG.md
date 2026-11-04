@@ -28,6 +28,10 @@ while this file lapsed. They are reproduced, not rewritten.
   not mention colour. The HTML path knew 16 names and now knows all of them;
   one table serves all three, and a test keeps them identical. A string that
   is not a colour is black, as before, instead of failing
+- An explicit `<Page>` with nothing in it is a blank page, as a browser
+  prints it. A document of one empty `Page` became a PDF with no pages,
+  which viewers reject, and an empty `Page` among others was skipped. A
+  document with no content at all still has no pages
 
 ## [0.30.0] - 2026-11-03
 

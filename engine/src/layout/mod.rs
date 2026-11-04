@@ -1607,12 +1607,26 @@ impl LayoutEngine {
         }
         .resolve(None, cursor.content_width);
 
+        // An explicit <Page> with nothing in it is a blank sheet, as a browser
+        // prints it; without this it produced no page, and a document of one
+        // empty Page became a PDF with no pages at all. `page_start` is the
+        // page count when the current Page began; its index is kept in
+        // `explicit_blank` so the trailing-blank trim below leaves it.
+        let mut in_explicit_page = false;
+        let mut page_start = 0usize;
+        let mut explicit_blank: Vec<usize> = Vec::new();
         for node in &document.children {
             match &node.kind {
                 NodeKind::Page { config } => {
-                    if !cursor.elements.is_empty() || cursor.y > 0.0 {
+                    let empty_page = in_explicit_page && pages.len() == page_start;
+                    if !cursor.elements.is_empty() || cursor.y > 0.0 || empty_page {
+                        if empty_page && cursor.elements.is_empty() {
+                            explicit_blank.push(pages.len());
+                        }
                         pages.push(cursor.finalize());
                     }
+                    in_explicit_page = true;
+                    page_start = pages.len();
                     // The Page's own background color covers each page it
                     // runs onto, so it lives on the config the cursor carries
                     // to continuation pages (#189).
@@ -1680,8 +1694,12 @@ impl LayoutEngine {
         // RENDERED on it. Bare y-advance (a parent's closing padding after
         // a named-page restore, a trailing spacer) is whitespace and must
         // not emit a blank final page. An empty document stays empty —
-        // zero pages is the documented contract (test_empty_document).
+        // zero pages is the documented contract (test_empty_document); an
+        // explicit empty Page is a blank page (`explicit_blank` above).
         if !cursor.elements.is_empty() {
+            pages.push(cursor.finalize());
+        } else if in_explicit_page && pages.len() == page_start {
+            explicit_blank.push(pages.len());
             pages.push(cursor.finalize());
         }
 
@@ -1714,7 +1732,10 @@ impl LayoutEngine {
                 paints || has_visible_ink(&e.children)
             })
         }
-        while pages.len() > 1 && !has_visible_ink(&pages.last().unwrap().elements) {
+        while pages.len() > 1
+            && !has_visible_ink(&pages.last().unwrap().elements)
+            && !explicit_blank.contains(&(pages.len() - 1))
+        {
             pages.pop();
         }
 

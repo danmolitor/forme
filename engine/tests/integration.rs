@@ -18018,3 +18018,59 @@ fn test_translucent_border_on_one_side_keeps_its_alpha() {
         "the side is stroked under its alpha:\n{streams}"
     );
 }
+
+fn page_doc(pages: Vec<Vec<serde_json::Value>>) -> Document {
+    let children: Vec<serde_json::Value> = pages
+        .into_iter()
+        .map(|kids| {
+            serde_json::json!({
+                "kind": { "type": "Page", "config": { "size": "A4", "wrap": true } },
+                "style": {},
+                "children": kids
+            })
+        })
+        .collect();
+    serde_json::from_value(serde_json::json!({ "children": children, "metadata": {} }))
+        .expect("document")
+}
+
+fn text_json(t: &str) -> serde_json::Value {
+    serde_json::json!({ "kind": { "type": "Text", "content": t }, "style": {}, "children": [] })
+}
+
+#[test]
+fn test_an_empty_page_is_a_blank_page() {
+    // A <Page> with nothing in it rendered to a PDF with no pages at all,
+    // which viewers reject. A browser prints it as a blank sheet, and the
+    // HTML path already did.
+    assert_eq!(
+        layout_doc(&page_doc(vec![vec![]])).len(),
+        1,
+        "a lone empty Page"
+    );
+    assert_eq!(
+        layout_doc(&page_doc(vec![vec![], vec![text_json("after")]])).len(),
+        2,
+        "an empty Page before content"
+    );
+    assert_eq!(
+        layout_doc(&page_doc(vec![vec![text_json("before")], vec![]])).len(),
+        2,
+        "an empty Page after content survives the trailing-blank trim"
+    );
+}
+
+#[test]
+fn test_a_trailing_page_break_still_adds_no_page() {
+    // The blank-page rule is for an explicit empty Page, not for a break
+    // at the very end of a Page's content.
+    let brk = serde_json::json!({ "kind": { "type": "PageBreak" }, "style": {}, "children": [] });
+    assert_eq!(
+        layout_doc(&page_doc(vec![vec![text_json("only"), brk]])).len(),
+        1
+    );
+    assert!(
+        layout_doc(&default_doc(vec![])).is_empty(),
+        "an empty document stays empty"
+    );
+}
