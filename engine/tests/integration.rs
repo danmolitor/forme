@@ -17904,3 +17904,79 @@ fn test_text_opacity_is_applied() {
         "the text is drawn under it"
     );
 }
+
+#[test]
+fn test_svg_tspan_lines_and_styles() {
+    // #238: Vega's two-line axis label. Each <tspan> with its own x starts
+    // a chunk, centred on its own, and dy moves it down a line.
+    let (streams, _, warnings) = render_svg(
+        Some("0 0 200 60"),
+        r##"<text text-anchor="middle" transform="translate(100,20)" font-size="10"><tspan>Sep</tspan><tspan x="0" dy="12">2025</tspan></text>"##,
+    );
+    assert!(warnings.is_empty(), "{warnings:?}");
+    assert!(
+        streams.contains("(Sep) Tj") && streams.contains("(2025) Tj"),
+        "{streams}"
+    );
+    let m = svg_text_matrices(&streams);
+    assert_eq!(m.len(), 2, "{streams}");
+    assert!(
+        (m[1][5] - m[0][5] - 12.0).abs() < 1e-3,
+        "2025 sits a line below: {m:?}"
+    );
+    // Both centred on x = 100: the narrower "Sep" starts further right.
+    assert!(m[0][4] > m[1][4], "{m:?}");
+
+    // A styled piece keeps the space before it ("Total: " then "42").
+    let (streams, _, _) = render_svg(
+        Some("0 0 200 60"),
+        r##"<text x="10" y="30" font-size="10">Total: <tspan font-weight="bold" fill="#c00">42</tspan></text>"##,
+    );
+    let m = svg_text_matrices(&streams);
+    assert_eq!(m.len(), 2, "{streams}");
+    // "Total:" is 25.01 units wide in Helvetica at 10, and 27.79 with the
+    // space.
+    assert!(
+        (m[1][4] - m[0][4] - 27.79).abs() < 0.05,
+        "the space survives: {m:?}"
+    );
+    assert!(
+        streams.contains("0.800 0.000 0.000 rg"),
+        "the piece keeps its fill"
+    );
+}
+
+#[test]
+fn test_svg_gradient_stop_opacity_is_a_soft_mask() {
+    // #237: Vega-Lite's fading area: the same colour at 40% then 0%. PDF
+    // shadings carry no alpha, so the stops were drawn opaque.
+    let (streams, raw, warnings) = render_svg(
+        Some("0 0 200 100"),
+        r##"<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0" stop-color="#005a48" stop-opacity="0.4"/><stop offset="1" stop-color="#005a48" stop-opacity="0"/>
+</linearGradient></defs><path d="M0,60 C50,20 150,40 200,10 L200,100 L0,100 Z" fill="url(#g)"/>"##,
+    );
+    assert!(warnings.is_empty(), "{warnings:?}");
+    assert!(
+        raw.contains("/SMask << /Type /Mask /S /Luminosity"),
+        "a luminosity soft mask"
+    );
+    assert!(
+        raw.contains("/ColorSpace /DeviceGray"),
+        "the mask's grey shading"
+    );
+    assert!(
+        raw.contains("/C0 [0.4000] /C1 [0.0000]"),
+        "the stops' opacities as grey levels"
+    );
+    let sh = streams.find("/Sh0 sh").expect("the gradient is painted");
+    assert!(
+        streams[..sh]
+            .trim_end()
+            .lines()
+            .last()
+            .unwrap()
+            .ends_with(" gs"),
+        "the mask is set just before the shading:\n{streams}"
+    );
+}

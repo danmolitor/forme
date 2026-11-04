@@ -33,17 +33,39 @@ pub enum TextBaseline {
     Bottom,
 }
 
-/// One `<text>` element, ready to shape.
+/// One `<text>` element, ready to lay out: its user space and its text
+/// chunks.
 #[derive(Debug, Clone)]
 pub struct SvgText {
-    /// The text, with SVG's default whitespace handling applied.
-    pub text: String,
-    /// Anchor point in the text element's own user space.
-    pub x: f64,
-    pub y: f64,
     /// The text element's user space in the SVG's root user space
     /// (ancestors' transforms, then its own), as `[a b c d e f]`.
     pub matrix: [f64; 6],
+    /// `direction="rtl"`: `start` and `end` swap sides.
+    pub rtl: bool,
+    pub chunks: Vec<SvgTextChunk>,
+}
+
+/// A text chunk, as SVG defines it: text that starts at an absolute `x` or
+/// `y` (or at the start of the `<text>`) and is aligned by `text-anchor` as
+/// one unit. Without an `x` or `y` of its own, a chunk would continue the
+/// previous one, so a new chunk always has one of them or is the first.
+#[derive(Debug, Clone)]
+pub struct SvgTextChunk {
+    /// Absolute position; `None` keeps the current text position.
+    pub x: Option<f64>,
+    pub y: Option<f64>,
+    pub anchor: TextAnchor,
+    pub baseline: TextBaseline,
+    pub pieces: Vec<SvgTextPiece>,
+}
+
+/// A run of text in one style. `dx`/`dy` shift the current text position
+/// before it, in user units.
+#[derive(Debug, Clone)]
+pub struct SvgTextPiece {
+    pub text: String,
+    pub dx: f64,
+    pub dy: f64,
     /// A Forme font-family list (generic families mapped).
     pub font_family: String,
     /// In user units.
@@ -53,10 +75,6 @@ pub struct SvgText {
     pub fill: (f64, f64, f64),
     /// Fill opacity times every ancestor's `opacity`.
     pub opacity: f64,
-    pub anchor: TextAnchor,
-    pub baseline: TextBaseline,
-    /// `direction="rtl"`: `start` and `end` swap sides.
-    pub rtl: bool,
 }
 
 /// Elements whose subtree is never rendered in place.
@@ -270,144 +288,244 @@ fn text_element(
     {
         warn("render defect: vertical SVG text (writing-mode) is not supported; it is drawn horizontally".to_string());
     }
-
-    let font_size = font_size(inherited);
-    let mut raw = String::new();
-    collect_text(node, css, &mut raw, warn);
-    let text = collapse_whitespace(&raw);
-    if text.is_empty() {
-        return None;
-    }
-
-    for (prop, label) in UNSUPPORTED {
-        if own.contains_key(*prop)
-            || inherited
-                .get(prop)
-                .is_some_and(|v| v != "normal" && v != "0")
-        {
-            warn(format!(
-                "render defect: SVG text {label} is not supported; the text is drawn without it"
-            ));
-        }
-    }
-    if inherited.get("stroke").is_some_and(|v| v.trim() != "none") {
-        warn(
-            "render defect: a stroke on SVG text is not drawn; the text is filled only".to_string(),
-        );
-    }
-
-    let fill = match inherited.get("fill").map(str::trim) {
-        Some("none") => {
-            warn("render defect: SVG text with fill=\"none\" is not drawn".to_string());
-            return None;
-        }
-        Some(v) => paint_color(v, node.document(), inherited, warn),
-        None => (0.0, 0.0, 0.0),
-    };
-    let fill_opacity = inherited
-        .get("fill-opacity")
-        .and_then(opacity_value)
-        .unwrap_or(1.0);
-
-    let first = |attr: &str| -> Option<f64> {
-        node.attribute(attr)
-            .and_then(|v| {
-                v.split(|c: char| c.is_whitespace() || c == ',')
-                    .find(|s| !s.is_empty())
-            })
-            .and_then(|v| length(Some(v), font_size))
-    };
-    let x = first("x").unwrap_or(0.0) + first("dx").unwrap_or(0.0);
-    let y = first("y").unwrap_or(0.0) + first("dy").unwrap_or(0.0);
-
-    let rtl = inherited.get("direction") == Some("rtl");
-    let anchor = match inherited.get("text-anchor") {
-        Some("middle") => TextAnchor::Middle,
-        Some("end") => TextAnchor::End,
-        _ => TextAnchor::Start,
-    };
     let baseline = match own.get("dominant-baseline").map(|v| v.trim()) {
         Some("middle" | "central") => TextBaseline::Central,
         Some("hanging" | "text-before-edge" | "text-top") => TextBaseline::Top,
         Some("text-after-edge" | "text-bottom" | "ideographic") => TextBaseline::Bottom,
         _ => TextBaseline::Alphabetic,
     };
-
-    Some(SvgText {
-        text,
-        x,
-        y,
-        matrix,
-        font_family: font_family(inherited.get("font-family")),
-        font_size,
-        font_weight: font_weight(inherited.get("font-weight")),
-        italic: inherited
-            .get("font-style")
-            .is_some_and(|v| v == "italic" || v == "oblique"),
-        fill,
-        opacity: opacity * fill_opacity,
-        anchor,
+    let mut layout = TextLayout {
+        css,
+        doc: node.document(),
         baseline,
-        rtl,
+        chunks: Vec::new(),
+        pending: (0.0, 0.0),
+    };
+    layout.element(node, own, inherited, opacity, warn);
+    let chunks = collapse_chunks(layout.chunks);
+    if chunks.is_empty() {
+        return None;
+    }
+    Some(SvgText {
+        matrix,
+        rtl: inherited.get("direction") == Some("rtl"),
+        chunks,
     })
 }
 
-/// The text of a `<text>` and its `<tspan>`s. A `<tspan>` that moves or
-/// restyles its text is drawn inline with the rest, and named.
-fn collect_text(node: Node, css: &Css, out: &mut String, warn: &mut impl FnMut(String)) {
-    for child in node.children() {
-        if child.is_text() {
-            out.push_str(child.text().unwrap_or(""));
-        } else if child.is_element() {
-            match child.tag_name().name() {
-                "tspan" | "a" => {
-                    let props = css.properties(child);
-                    let moves = ["x", "y", "dx", "dy", "rotate"]
-                        .iter()
-                        .any(|a| child.attribute(*a).is_some());
-                    let restyles = [
-                        "fill",
-                        "font-family",
-                        "font-size",
-                        "font-weight",
-                        "font-style",
-                        "baseline-shift",
-                    ]
-                    .iter()
-                    .any(|p| props.contains_key(*p));
-                    if moves || restyles {
-                        warn("render defect: SVG <tspan> positions and styles are not supported; its text is drawn inline in the <text>'s style".to_string());
+/// Walks a `<text>` and its `<tspan>`s into chunks and pieces.
+struct TextLayout<'a, 'd, 'input> {
+    css: &'a Css<'d>,
+    doc: &'d roxmltree::Document<'input>,
+    baseline: TextBaseline,
+    chunks: Vec<SvgTextChunk>,
+    /// A `dx`/`dy` read but not yet given to a piece.
+    pending: (f64, f64),
+}
+
+impl TextLayout<'_, '_, '_> {
+    fn element(
+        &mut self,
+        node: Node,
+        props: &HashMap<String, String>,
+        inherited: &Inherited,
+        opacity: f64,
+        warn: &mut impl FnMut(String),
+    ) {
+        for (prop, label) in UNSUPPORTED {
+            if props.contains_key(*prop)
+                || inherited
+                    .get(prop)
+                    .is_some_and(|v| v != "normal" && v != "0")
+            {
+                warn(format!(
+                    "render defect: SVG text {label} is not supported; the text is drawn without it"
+                ));
+            }
+        }
+        if props.contains_key("baseline-shift") {
+            warn(
+                "render defect: SVG baseline-shift is not supported; the text sits on its line"
+                    .to_string(),
+            );
+        }
+        let font_size = font_size(inherited);
+        let mut first = |attr: &str| -> Option<f64> {
+            let raw = node.attribute(attr)?;
+            let mut values = raw
+                .split(|c: char| c.is_whitespace() || c == ',')
+                .filter(|s| !s.is_empty());
+            let first = values.next();
+            if values.next().is_some() {
+                warn(format!(
+                    "render defect: SVG text with a list of {attr} values (one per character) is not supported; the first value is used"
+                ));
+            }
+            first.and_then(|v| length(Some(v), font_size))
+        };
+        let (x, y) = (first("x"), first("y"));
+        let (dx, dy) = (first("dx").unwrap_or(0.0), first("dy").unwrap_or(0.0));
+        if node.attribute("rotate").is_some() {
+            warn(
+                "render defect: SVG text rotate is not supported; the text is drawn without it"
+                    .to_string(),
+            );
+        }
+
+        // An absolute x or y starts a new chunk, aligned on its own; so does
+        // the <text> itself.
+        if x.is_some() || y.is_some() || self.chunks.is_empty() {
+            let anchor = match inherited.get("text-anchor") {
+                Some("middle") => TextAnchor::Middle,
+                Some("end") => TextAnchor::End,
+                _ => TextAnchor::Start,
+            };
+            self.chunks.push(SvgTextChunk {
+                x,
+                y,
+                anchor,
+                baseline: self.baseline,
+                pieces: Vec::new(),
+            });
+            self.pending = (0.0, 0.0);
+        }
+        self.pending.0 += dx;
+        self.pending.1 += dy;
+
+        for child in node.children() {
+            if child.is_text() {
+                self.piece(child.text().unwrap_or(""), node, inherited, opacity, warn);
+            } else if child.is_element() {
+                match child.tag_name().name() {
+                    "tspan" | "a" => {
+                        let props = self.css.properties(child);
+                        if props.get("display").is_some_and(|v| v.trim() == "none") {
+                            continue;
+                        }
+                        let inner = inherited.child(&props);
+                        if inner.get("visibility").is_some_and(|v| v != "visible") {
+                            continue;
+                        }
+                        let child_opacity = opacity
+                            * props
+                                .get("opacity")
+                                .and_then(|v| opacity_value(v))
+                                .unwrap_or(1.0);
+                        self.element(child, &props, &inner, child_opacity, warn);
                     }
-                    collect_text(child, css, out, warn);
+                    "textPath" => {
+                        warn(
+                            "render defect: SVG <textPath> is not supported; its text is not drawn"
+                                .to_string(),
+                        );
+                    }
+                    _ => {}
                 }
-                "textPath" => {
-                    warn(
-                        "render defect: SVG <textPath> is not supported; its text is not drawn"
-                            .to_string(),
-                    );
-                }
-                _ => {}
             }
         }
     }
+
+    fn piece(
+        &mut self,
+        text: &str,
+        node: Node,
+        inherited: &Inherited,
+        opacity: f64,
+        warn: &mut impl FnMut(String),
+    ) {
+        if text.is_empty() {
+            return;
+        }
+        if inherited.get("stroke").is_some_and(|v| v.trim() != "none") {
+            warn(
+                "render defect: a stroke on SVG text is not drawn; the text is filled only"
+                    .to_string(),
+            );
+        }
+        let fill = match inherited.get("fill").map(str::trim) {
+            Some("none") => {
+                warn("render defect: SVG text with fill=\"none\" is not drawn".to_string());
+                return;
+            }
+            Some(v) => paint_color(v, self.doc, inherited, warn),
+            None => (0.0, 0.0, 0.0),
+        };
+        let _ = node;
+        let fill_opacity = inherited
+            .get("fill-opacity")
+            .and_then(opacity_value)
+            .unwrap_or(1.0);
+        let (dx, dy) = std::mem::take(&mut self.pending);
+        let piece = SvgTextPiece {
+            text: text.to_string(),
+            dx,
+            dy,
+            font_family: font_family(inherited.get("font-family")),
+            font_size: font_size(inherited),
+            font_weight: font_weight(inherited.get("font-weight")),
+            italic: inherited
+                .get("font-style")
+                .is_some_and(|v| v == "italic" || v == "oblique"),
+            fill,
+            opacity: opacity * fill_opacity,
+        };
+        self.chunks
+            .last_mut()
+            .expect("a chunk is opened before any text")
+            .pieces
+            .push(piece);
+    }
 }
 
-/// SVG's default `xml:space` handling: newlines removed, tabs to spaces,
-/// runs of spaces collapsed, leading and trailing space trimmed.
-fn collapse_whitespace(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    let mut space = false;
-    for ch in s.chars() {
-        match ch {
-            '\n' | '\r' => {}
-            ' ' | '\t' => space = true,
-            _ => {
-                if space && !out.is_empty() {
-                    out.push(' ');
+/// SVG's default `xml:space` handling across a whole `<text>`: newlines
+/// removed, tabs to spaces, runs of spaces collapsed even where a run
+/// crosses from one piece into the next. Space at the start and end of each
+/// chunk is trimmed, so the indentation between two `<tspan>` lines does
+/// not shift either line's anchoring. Empty pieces and chunks are dropped.
+fn collapse_chunks(chunks: Vec<SvgTextChunk>) -> Vec<SvgTextChunk> {
+    let mut out = Vec::new();
+    for mut chunk in chunks {
+        let mut prev_space = true; // at a chunk start, leading space goes
+        for piece in &mut chunk.pieces {
+            let mut text = String::with_capacity(piece.text.len());
+            for ch in piece.text.chars() {
+                match ch {
+                    '\n' | '\r' => {}
+                    ' ' | '\t' => {
+                        if !prev_space {
+                            text.push(' ');
+                            prev_space = true;
+                        }
+                    }
+                    _ => {
+                        text.push(ch);
+                        prev_space = false;
+                    }
                 }
-                space = false;
-                out.push(ch);
             }
+            piece.text = text;
+        }
+        // Trailing space of the chunk: on its last piece that has text.
+        if let Some(last) = chunk.pieces.iter_mut().rev().find(|p| !p.text.is_empty()) {
+            let trimmed = last.text.trim_end().len();
+            last.text.truncate(trimmed);
+        }
+        // A piece left empty still carries its dx/dy to the next one.
+        let mut carry = (0.0, 0.0);
+        let mut pieces = Vec::new();
+        for mut piece in chunk.pieces {
+            piece.dx += carry.0;
+            piece.dy += carry.1;
+            if piece.text.is_empty() {
+                carry = (piece.dx, piece.dy);
+            } else {
+                carry = (0.0, 0.0);
+                pieces.push(piece);
+            }
+        }
+        if !pieces.is_empty() {
+            chunk.pieces = pieces;
+            out.push(chunk);
         }
     }
     out
@@ -654,6 +772,19 @@ impl simplecss::Element for XmlNode<'_, '_> {
 mod tests {
     use super::*;
 
+    /// The first piece of a text.
+    fn p(t: &SvgText) -> &SvgTextPiece {
+        &t.chunks[0].pieces[0]
+    }
+
+    /// All of a text's characters, chunk by chunk, piece by piece.
+    fn s(t: &SvgText) -> String {
+        t.chunks
+            .iter()
+            .flat_map(|c| c.pieces.iter().map(|p| p.text.as_str()))
+            .collect()
+    }
+
     fn texts(svg: &str) -> (Vec<SvgText>, Vec<String>) {
         let doc = roxmltree::Document::parse(svg).unwrap();
         let mut w = Vec::new();
@@ -671,11 +802,11 @@ mod tests {
         assert!(w.is_empty(), "{w:?}");
         assert_eq!(t.len(), 1);
         let t = &t[0];
-        assert_eq!(t.text, "Jan");
-        assert_eq!(t.font_family, "Helvetica");
-        assert_eq!(t.font_size, 10.0);
-        assert_eq!(t.anchor, TextAnchor::End);
-        assert!((t.opacity - 0.5).abs() < 1e-9);
+        assert_eq!(s(t), "Jan");
+        assert_eq!(p(t).font_family, "Helvetica");
+        assert_eq!(p(t).font_size, 10.0);
+        assert_eq!(t.chunks[0].anchor, TextAnchor::End);
+        assert!((p(t).opacity - 0.5).abs() < 1e-9);
         // translate(40,10) translate(20,7) rotate(315) translate(0,8):
         // the origin lands at (60,17) + rotate(315)·(0,8).
         let a = 315f64.to_radians();
@@ -698,13 +829,13 @@ mod tests {
  label  </text></g></svg>"##
         ));
         let t = &t[0];
-        assert_eq!(t.text, "A label");
-        assert_eq!(t.font_family, "Inter, Times");
-        assert!((t.font_size - 16.0).abs() < 1e-9);
-        assert_eq!(t.font_weight, 700);
-        assert!(t.italic);
-        assert!((t.fill.1 - 110.0 / 255.0).abs() < 1e-9);
-        assert_eq!((t.x, t.y), (5.0, 9.0));
+        assert_eq!(s(t), "A label");
+        assert_eq!(p(t).font_family, "Inter, Times");
+        assert!((p(t).font_size - 16.0).abs() < 1e-9);
+        assert_eq!(p(t).font_weight, 700);
+        assert!(p(t).italic);
+        assert!((p(t).fill.1 - 110.0 / 255.0).abs() < 1e-9);
+        assert_eq!((t.chunks[0].x, t.chunks[0].y), (Some(5.0), Some(9.0)));
     }
 
     #[test]
@@ -712,10 +843,7 @@ mod tests {
         let (t, _) = texts(&format!(
             r##"<svg {NS}><defs><text id="a">no</text></defs><text display="none">no</text><g style="display:none"><text>no</text></g><text visibility="hidden">no</text><text>yes</text></svg>"##
         ));
-        assert_eq!(
-            t.iter().map(|t| t.text.as_str()).collect::<Vec<_>>(),
-            ["yes"]
-        );
+        assert_eq!(t.iter().map(s).collect::<Vec<_>>(), ["yes"]);
     }
 
     #[test]
@@ -723,17 +851,10 @@ mod tests {
         let (t, w) = texts(&format!(
             r##"<svg {NS}><text>a<tspan dy="5">b</tspan></text><text><textPath href="#p">c</textPath></text><text stroke="red" letter-spacing="2">d</text><text fill="none">e</text></svg>"##
         ));
-        assert_eq!(
-            t.iter().map(|t| t.text.as_str()).collect::<Vec<_>>(),
-            ["ab", "d"]
-        );
-        for needle in [
-            "<tspan>",
-            "<textPath>",
-            "stroke",
-            "letter-spacing",
-            "fill=\"none\"",
-        ] {
+        assert_eq!(t.iter().map(s).collect::<Vec<_>>(), ["ab", "d"]);
+        // A <tspan> that moves is laid out now (#238), so it is not named.
+        assert!(!w.iter().any(|m| m.contains("<tspan>")), "{w:?}");
+        for needle in ["<textPath>", "stroke", "letter-spacing", "fill=\"none\""] {
             assert!(w.iter().any(|m| m.contains(needle)), "{needle}: {w:?}");
         }
     }
@@ -751,10 +872,13 @@ mod tests {
             italic: true,
         };
         let t = extract_texts(&doc, &defaults, &mut Vec::new());
-        assert_eq!((t[0].font_family.as_str(), t[0].font_size), ("Inter", 11.0));
-        assert!(t[0].italic && t[0].font_weight == 700);
         assert_eq!(
-            (t[1].font_family.as_str(), t[1].font_size),
+            (p(&t[0]).font_family.as_str(), p(&t[0]).font_size),
+            ("Inter", 11.0)
+        );
+        assert!(p(&t[0]).italic && p(&t[0]).font_weight == 700);
+        assert_eq!(
+            (p(&t[1]).font_family.as_str(), p(&t[1]).font_size),
             ("Courier", 9.0)
         );
     }
@@ -764,7 +888,69 @@ mod tests {
         let (t, _) = texts(&format!(
             r##"<svg {NS}><text font-size="20" y="10" dy="0.5em" dominant-baseline="central">x</text></svg>"##
         ));
-        assert_eq!(t[0].y, 20.0);
-        assert_eq!(t[0].baseline, TextBaseline::Central);
+        assert_eq!(t[0].chunks[0].y, Some(10.0));
+        assert_eq!(p(&t[0]).dy, 10.0);
+        assert_eq!(t[0].chunks[0].baseline, TextBaseline::Central);
+    }
+
+    #[test]
+    fn vega_two_line_label_is_two_chunks() {
+        // #238: Vega's axis label ["Sep", "2025"].
+        let (t, w) = texts(&format!(
+            r##"<svg {NS}><text text-anchor="middle" transform="translate(100,20)" font-size="10"><tspan>Sep</tspan><tspan x="0" dy="12">2025</tspan></text></svg>"##
+        ));
+        assert!(w.is_empty(), "{w:?}");
+        let c = &t[0].chunks;
+        assert_eq!(c.len(), 2);
+        assert_eq!((c[0].x, s(&t[0]).as_str()), (None, "Sep2025"));
+        assert_eq!((c[1].x, c[1].y), (Some(0.0), None));
+        assert_eq!(c[1].pieces[0].text, "2025");
+        assert_eq!(c[1].pieces[0].dy, 12.0);
+        assert!(c.iter().all(|c| c.anchor == TextAnchor::Middle));
+    }
+
+    #[test]
+    fn tspan_keeps_its_own_style() {
+        let (t, w) = texts(&format!(
+            r##"<svg {NS}><text font-size="10" fill="#000">Total: <tspan font-weight="bold" fill="#c00">42</tspan> items</text></svg>"##
+        ));
+        assert!(w.is_empty(), "{w:?}");
+        let pieces = &t[0].chunks[0].pieces;
+        let texts: Vec<&str> = pieces.iter().map(|p| p.text.as_str()).collect();
+        assert_eq!(texts, ["Total: ", "42", " items"]);
+        assert_eq!((pieces[1].font_weight, pieces[1].fill.0), (700, 0.8));
+        assert_eq!(pieces[0].font_weight, 400);
+    }
+
+    #[test]
+    fn whitespace_collapses_across_tspans_and_trims_at_chunks() {
+        let (t, _) = texts(&format!(
+            "<svg {NS}><text>\n  <tspan>Reserved </tspan>\n  <tspan x=\"0\" dy=\"12\"> Offers</tspan>\n</text></svg>"
+        ));
+        let c = &t[0].chunks;
+        assert_eq!(c.len(), 2);
+        assert_eq!(
+            c[0].pieces
+                .iter()
+                .map(|p| p.text.as_str())
+                .collect::<String>(),
+            "Reserved"
+        );
+        assert_eq!(
+            c[1].pieces
+                .iter()
+                .map(|p| p.text.as_str())
+                .collect::<String>(),
+            "Offers"
+        );
+    }
+
+    #[test]
+    fn per_character_position_lists_are_named() {
+        let (t, w) = texts(&format!(
+            r##"<svg {NS}><text x="1 2 3" y="5">abc</text></svg>"##
+        ));
+        assert_eq!(t[0].chunks[0].x, Some(1.0));
+        assert!(w.iter().any(|m| m.contains("list of x values")), "{w:?}");
     }
 }

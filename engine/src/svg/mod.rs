@@ -67,6 +67,10 @@ pub struct SvgGradient {
     /// PDF `cm` operands.
     pub transform: [f64; 6],
     pub stops: Vec<crate::style::GradientStop>,
+    /// Each stop's opacity as a grey level, when the stops' opacities
+    /// differ (a fade). PDF shadings carry no alpha, so the writer paints
+    /// these as a luminosity soft mask over the colour shading.
+    pub alpha_stops: Option<Vec<crate::style::GradientStop>>,
 }
 
 #[derive(Debug, Clone)]

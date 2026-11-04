@@ -357,13 +357,13 @@ Cells can contain any Forme element, not just Text.
 
 ## Svg
 
-Renders inline SVG graphics as native PDF vector drawing. The markup is parsed by [usvg](https://github.com/linebender/resvg), so it supports what SVG files exported by design tools and chart libraries use: shapes and paths, `<g>` with `transform`, `<use>`, `<clipPath>`, linear and radial gradients, dashes, fill rules, `opacity`, `fill-opacity` and `stroke-opacity`, and CSS through `<style>`, `class` and `style=""`.
+Renders inline SVG graphics as native PDF vector drawing. The markup is parsed by [usvg](https://github.com/linebender/resvg), so it supports what SVG files exported by design tools and chart libraries use: shapes and paths, `<g>` with `transform`, `<use>`, `<clipPath>`, linear and radial gradients (stops that fade through `stop-opacity` included), dashes, fill rules, `opacity`, `fill-opacity` and `stroke-opacity`, and CSS through `<style>`, `class` and `style=""`.
 
 `content` can be the inner markup or a whole `<svg>` document, such as a pasted icon. A whole document supplies its own `viewBox` when the `viewBox` prop is not set.
 
-`<text>` is drawn as real text with Forme's text engine, so registered fonts, fallback chains and right-to-left scripts work, and the text can be selected and searched. It is positioned by `x`, `y`, `dx`, `dy`, `transform`, `text-anchor` and `dominant-baseline`, styled from attributes and CSS, and inherits the font of the element around the `<Svg>` when it sets none. Text draws over the SVG's shapes and is not clipped by a `<clipPath>`.
+`<text>` is drawn as real text with Forme's text engine, so registered fonts, fallback chains and right-to-left scripts work, and the text can be selected and searched. It is positioned by `x`, `y`, `dx`, `dy`, `transform`, `text-anchor` and `dominant-baseline`, and a `<tspan>` can start a new line with its own `x`/`y`/`dy` (as chart libraries write multi-line labels) or restyle a word with its own fill, font, weight or size. Text is styled from attributes and CSS, and inherits the font of the element around the `<Svg>` when it sets none. Text draws over the SVG's shapes and is not clipped by a `<clipPath>`.
 
-Not drawn, and named in the render warnings when present: `<image>`, `<foreignObject>`, masks, filters, pattern fills, `<textPath>`, stroked text and letter spacing on text. A `<tspan>` that moves or restyles its text is drawn inline in its `<text>`'s style, with a warning. A translucent `<g>` applies its opacity to each shape inside it, so shapes that overlap inside the group show through each other.
+Not drawn, and named in the render warnings when present: `<image>`, `<foreignObject>`, masks, filters, pattern fills, `<textPath>`, stroked text, letter spacing on text, `baseline-shift`, and per-character position lists (`x="1 2 3"`; the first value is used). A translucent `<g>` applies its opacity to each shape inside it, so shapes that overlap inside the group show through each other.
 
 ### Props
 

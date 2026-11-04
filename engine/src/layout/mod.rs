@@ -6612,7 +6612,7 @@ impl LayoutEngine {
         let mut text_elements = Vec::new();
         let mut text_transforms = Vec::new();
         for text in &import.texts {
-            if let Some((element, matrix)) =
+            for (element, matrix) in
                 self.layout_svg_text(text, font_context, (elem_x, elem_y, svg_width, svg_height))
             {
                 text_elements.push(element);
@@ -6776,132 +6776,212 @@ impl LayoutEngine {
         commands
     }
 
-    /// Shape one SVG `<text>` with Forme's text pipeline (font fallback,
-    /// bidi, shaping, the extraction mappings) and place it. Returns the
-    /// text element and the matrix from its glyph space (baseline at the
-    /// origin, y up) into SVG user space. `svg_box` is the Svg element's
-    /// page box, which the text element reports as its own.
+    /// Lay out one SVG `<text>` with Forme's text pipeline (font fallback,
+    /// bidi, shaping, the extraction mappings). Each piece becomes a text
+    /// element with the matrix from its glyph space (baseline at the origin,
+    /// y up) into SVG user space. Chunks are placed as SVG places them: an
+    /// absolute `x`/`y` moves the current text position, each piece's
+    /// `dx`/`dy` shifts it, the chunk is aligned by `text-anchor` on its
+    /// total advance, and the position ends where the chunk's text ends.
+    /// `svg_box` is the Svg element's page box, which each element reports
+    /// as its own.
     fn layout_svg_text(
         &self,
         text: &crate::svg::SvgText,
         font_context: &FontContext,
         svg_box: (f64, f64, f64, f64),
-    ) -> Option<(LayoutElement, [f64; 6])> {
+    ) -> Vec<(LayoutElement, [f64; 6])> {
         use crate::svg::{TextAnchor, TextBaseline};
         // Shape at a fixed size and scale into user units in the matrix:
         // text sizes in user units can be tiny (a 0 0 1 1 viewBox) and the
         // writer prints font sizes to one decimal.
         const SHAPE_SIZE: f64 = 12.0;
-        if text.font_size <= 0.0 {
-            return None;
-        }
-        let k = SHAPE_SIZE / text.font_size;
-        let font_style = if text.italic {
-            FontStyle::Italic
-        } else {
-            FontStyle::Normal
-        };
-        let color = Color {
-            r: text.fill.0,
-            g: text.fill.1,
-            b: text.fill.2,
-            a: 1.0,
-        };
-        let style = Style {
-            font_family: Some(text.font_family.clone()),
-            font_size: Some(SHAPE_SIZE),
-            font_weight: Some(text.font_weight),
-            font_style: Some(font_style),
-            color: Some(color),
-            direction: Some(if text.rtl {
-                Direction::Rtl
-            } else {
-                Direction::Ltr
-            }),
-            ..Style::default()
-        }
-        .resolve(None, SHAPE_SIZE);
+        let (bx, by, bw, bh) = svg_box;
+        let mut out = Vec::new();
+        let (mut pen_x, mut pen_y) = (0.0_f64, 0.0_f64);
 
-        let line = self
-            .text_layout
-            .break_into_lines(
-                font_context,
-                &text.text,
-                f64::MAX / 4.0,
-                SHAPE_SIZE,
-                &style.font_family,
-                style.font_weight,
-                style.font_style,
-                &style.font_features,
-                0.0,
-                0.0,
-                style.hyphens,
-                None,
-            )
-            .into_iter()
-            .next()?;
-        let glyphs = self.build_positioned_glyphs_single_style(&line, &style, None, font_context);
-        let width = line.width;
-
-        // `start` is the left edge for left-to-right text and the right edge
-        // when `direction="rtl"`.
-        let dx = match (text.anchor, text.rtl) {
-            (TextAnchor::Start, false) | (TextAnchor::End, true) => 0.0,
-            (TextAnchor::Middle, _) => -width / 2.0,
-            (TextAnchor::End, false) | (TextAnchor::Start, true) => -width,
-        };
-        let (ascent, descent) =
-            font_context.baseline_metrics(&style.font_family, style.font_weight, text.italic);
-        // SVG y points down: a positive shift moves the baseline down.
-        let dy = SHAPE_SIZE
-            * match text.baseline {
-                TextBaseline::Alphabetic => 0.0,
-                TextBaseline::Central => (ascent - descent) / 2.0,
-                TextBaseline::Top => ascent,
-                TextBaseline::Bottom => -descent,
+        for chunk in &text.chunks {
+            if let Some(x) = chunk.x {
+                pen_x = x;
+            }
+            if let Some(y) = chunk.y {
+                pen_y = y;
+            }
+            // Shape every piece first: the chunk is aligned on its total.
+            struct Shaped {
+                style: ResolvedStyle,
+                glyphs: Vec<PositionedGlyph>,
+                /// Advance in shaping units, and their size in user units.
+                width: f64,
+                scale: f64,
+                color: Color,
+                opacity: f64,
+                dx: f64,
+                dy: f64,
+            }
+            let mut shaped = Vec::new();
+            for piece in &chunk.pieces {
+                if piece.font_size <= 0.0 {
+                    continue;
+                }
+                let color = Color {
+                    r: piece.fill.0,
+                    g: piece.fill.1,
+                    b: piece.fill.2,
+                    a: 1.0,
+                };
+                let style = Style {
+                    font_family: Some(piece.font_family.clone()),
+                    font_size: Some(SHAPE_SIZE),
+                    font_weight: Some(piece.font_weight),
+                    font_style: Some(if piece.italic {
+                        FontStyle::Italic
+                    } else {
+                        FontStyle::Normal
+                    }),
+                    color: Some(color),
+                    direction: Some(if text.rtl {
+                        Direction::Rtl
+                    } else {
+                        Direction::Ltr
+                    }),
+                    ..Style::default()
+                }
+                .resolve(None, SHAPE_SIZE);
+                // The line breaker drops a line's trailing spaces, as a
+                // paragraph should; here they separate this piece from the
+                // next ("Total: " then a bold "42"), so their advance is
+                // added back below.
+                let body = piece.text.trim_end_matches(' ');
+                let trailing = piece.text.len() - body.len();
+                let space_advance = if trailing > 0 {
+                    self.text_layout.measure_width(
+                        font_context,
+                        &" ".repeat(trailing),
+                        SHAPE_SIZE,
+                        &style.font_family,
+                        style.font_weight,
+                        style.font_style,
+                        &style.font_features,
+                        0.0,
+                        0.0,
+                    )
+                } else {
+                    0.0
+                };
+                let Some(line) = self
+                    .text_layout
+                    .break_into_lines(
+                        font_context,
+                        body,
+                        f64::MAX / 4.0,
+                        SHAPE_SIZE,
+                        &style.font_family,
+                        style.font_weight,
+                        style.font_style,
+                        &style.font_features,
+                        0.0,
+                        0.0,
+                        style.hyphens,
+                        None,
+                    )
+                    .into_iter()
+                    .next()
+                else {
+                    continue;
+                };
+                let glyphs =
+                    self.build_positioned_glyphs_single_style(&line, &style, None, font_context);
+                shaped.push(Shaped {
+                    style,
+                    glyphs,
+                    width: line.width + space_advance,
+                    scale: piece.font_size / SHAPE_SIZE,
+                    color,
+                    opacity: piece.opacity,
+                    dx: piece.dx,
+                    dy: piece.dy,
+                });
+            }
+            let Some(first) = shaped.first() else {
+                continue;
             };
 
-        // Glyph space (y up) → shaping units in SVG orientation → user units
-        // at the anchor → the text element's user space → the root's.
-        let mut m = [1.0, 0.0, 0.0, -1.0, dx, dy];
-        m = svg_concat([1.0 / k, 0.0, 0.0, 1.0 / k, 0.0, 0.0], m);
-        m = svg_concat([1.0, 0.0, 0.0, 1.0, text.x, text.y], m);
-        m = svg_concat(text.matrix, m);
+            // The chunk's advance in user units, its shifts included.
+            let total: f64 = shaped.iter().map(|p| p.dx + p.width * p.scale).sum();
+            // `start` is the left edge for left-to-right text and the right
+            // edge when `direction="rtl"`.
+            let anchor = match (chunk.anchor, text.rtl) {
+                (TextAnchor::Start, false) | (TextAnchor::End, true) => 0.0,
+                (TextAnchor::Middle, _) => -total / 2.0,
+                (TextAnchor::End, false) | (TextAnchor::Start, true) => -total,
+            };
+            let (ascent, descent) = font_context.baseline_metrics(
+                &first.style.font_family,
+                first.style.font_weight,
+                matches!(
+                    first.style.font_style,
+                    FontStyle::Italic | FontStyle::Oblique
+                ),
+            );
+            // SVG y points down: a positive shift moves the baseline down.
+            let first_size = first.scale * SHAPE_SIZE;
+            let baseline = first_size
+                * match chunk.baseline {
+                    TextBaseline::Alphabetic => 0.0,
+                    TextBaseline::Central => (ascent - descent) / 2.0,
+                    TextBaseline::Top => ascent,
+                    TextBaseline::Bottom => -descent,
+                };
 
-        let (x, y, w, h) = svg_box;
-        let element = LayoutElement {
-            x,
-            y,
-            width: w,
-            height: h,
-            draw: DrawCommand::Text {
-                lines: vec![TextLine {
-                    x: 0.0,
-                    y: 0.0,
-                    glyphs,
-                    width,
-                    height: SHAPE_SIZE,
-                    word_spacing: 0.0,
-                }],
-                color,
-                text_decoration: TextDecoration::None,
-                opacity: 1.0,
-            },
-            children: vec![],
-            node_type: None,
-            resolved_style: Some(style),
-            source_location: None,
-            href: None,
-            bookmark: None,
-            alt: None,
-            is_header_row: false,
-            actual_text: None,
-            list_numbering: None,
-            col_span: 1,
-            overflow: Overflow::Visible,
-            opacity: text.opacity,
-        };
-        Some((element, m))
+            pen_x += anchor;
+            for piece in shaped {
+                pen_x += piece.dx;
+                pen_y += piece.dy;
+                // Glyph space (y up) → shaping units in SVG orientation →
+                // user units at the pen → the text element's user space →
+                // the root's.
+                let mut m = [1.0, 0.0, 0.0, -1.0, 0.0, 0.0];
+                m = svg_concat([piece.scale, 0.0, 0.0, piece.scale, 0.0, 0.0], m);
+                m = svg_concat([1.0, 0.0, 0.0, 1.0, pen_x, pen_y + baseline], m);
+                m = svg_concat(text.matrix, m);
+                pen_x += piece.width * piece.scale;
+                let element = LayoutElement {
+                    x: bx,
+                    y: by,
+                    width: bw,
+                    height: bh,
+                    draw: DrawCommand::Text {
+                        lines: vec![TextLine {
+                            x: 0.0,
+                            y: 0.0,
+                            glyphs: piece.glyphs,
+                            width: piece.width,
+                            height: SHAPE_SIZE,
+                            word_spacing: 0.0,
+                        }],
+                        color: piece.color,
+                        text_decoration: TextDecoration::None,
+                        opacity: 1.0,
+                    },
+                    children: vec![],
+                    node_type: None,
+                    resolved_style: Some(piece.style),
+                    source_location: None,
+                    href: None,
+                    bookmark: None,
+                    alt: None,
+                    is_header_row: false,
+                    actual_text: None,
+                    list_numbering: None,
+                    col_span: 1,
+                    overflow: Overflow::Visible,
+                    opacity: piece.opacity,
+                };
+                out.push((element, m));
+            }
+        }
+        out
     }
 
     /// Layout a canvas element as a fixed-size box with vector graphics.

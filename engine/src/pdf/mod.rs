@@ -222,6 +222,9 @@ struct PdfBuilder {
     /// gradient instance. Resolves to (object_id, sh_name e.g. "Sh0").
     /// Maps `(page_idx, elem_idx) -> (obj_id, name)`.
     shading_map: HashMap<(usize, usize), (usize, String)>,
+    /// Soft-mask ExtGStates for SVG gradients whose stops fade (#237),
+    /// keyed like `shading_map`: (page, gradient ordinal) → (object, name).
+    gradient_mask_map: HashMap<(usize, usize), (usize, String)>,
     /// Non-fatal notices collected during the write (e.g. pdfUa without an
     /// embeddable font). Returned to the caller so every render surface can
     /// show them, never silently dropped.
@@ -392,6 +395,7 @@ impl PdfWriter {
             page_background_url_cache: HashMap::new(),
             ext_gstate_map: HashMap::new(),
             shading_map: HashMap::new(),
+            gradient_mask_map: HashMap::new(),
             warnings: Vec::new(),
             missing_glyphs: Default::default(),
             pdf_version: Default::default(),
@@ -3615,7 +3619,8 @@ impl PdfWriter {
                     if let crate::svg::SvgCommand::PaintGradient(gradient) = cmd {
                         let ordinal = *counter;
                         *counter += 1;
-                        let entry = Self::write_svg_shading_objects(builder, gradient, ordinal);
+                        let entry =
+                            Self::write_svg_shading_objects(builder, gradient, page_idx, ordinal);
                         builder.shading_map.insert((page_idx, ordinal), entry);
                     }
                 }
@@ -3662,7 +3667,7 @@ impl PdfWriter {
             Background::Radial(g) => normalize_gradient_stops(&g.stops, black),
         };
 
-        let function_id = Self::write_gradient_function(builder, &stops, black);
+        let function_id = Self::write_gradient_function(builder, &stops, black, false);
 
         // Element dimensions. The shading's coord space is local to the
         // rect (we cm-translate to the rect's bottom-left at draw time),
@@ -3738,7 +3743,17 @@ impl PdfWriter {
         builder: &mut PdfBuilder,
         stops: &[crate::style::GradientStop],
         black: Color,
+        gray: bool,
     ) -> usize {
+        // One channel for a DeviceGray shading (a soft mask's levels,
+        // carried in `r`), three for DeviceRGB.
+        let c = |c: Color| {
+            if gray {
+                format!("{:.4}", c.r)
+            } else {
+                format!("{:.4} {:.4} {:.4}", c.r, c.g, c.b)
+            }
+        };
         // Build the color-interpolation function. With <=2 stops we emit
         // a single Type 2 (exponential) function; with 3+ stops we emit a
         // Type 3 (stitching) function combining N-1 Type 2 sub-functions.
@@ -3747,8 +3762,9 @@ impl PdfWriter {
             let c1 = stops.last().map(|s| s.color).unwrap_or(c0);
             let id = builder.objects.len();
             let data = format!(
-                "<< /FunctionType 2 /Domain [0 1] /C0 [{:.4} {:.4} {:.4}] /C1 [{:.4} {:.4} {:.4}] /N 1 >>",
-                c0.r, c0.g, c0.b, c1.r, c1.g, c1.b,
+                "<< /FunctionType 2 /Domain [0 1] /C0 [{}] /C1 [{}] /N 1 >>",
+                c(c0),
+                c(c1),
             );
             builder.objects.push(PdfObject {
                 id,
@@ -3763,8 +3779,9 @@ impl PdfWriter {
                 let c1 = window[1].color;
                 let id = builder.objects.len();
                 let data = format!(
-                    "<< /FunctionType 2 /Domain [0 1] /C0 [{:.4} {:.4} {:.4}] /C1 [{:.4} {:.4} {:.4}] /N 1 >>",
-                    c0.r, c0.g, c0.b, c1.r, c1.g, c1.b,
+                    "<< /FunctionType 2 /Domain [0 1] /C0 [{}] /C1 [{}] /N 1 >>",
+                    c(c0),
+                    c(c1),
                 );
                 builder.objects.push(PdfObject {
                     id,
@@ -3802,6 +3819,7 @@ impl PdfWriter {
     fn write_svg_shading_objects(
         builder: &mut PdfBuilder,
         gradient: &crate::svg::SvgGradient,
+        page_idx: usize,
         ordinal: usize,
     ) -> (usize, String) {
         let black = Color {
@@ -3811,7 +3829,7 @@ impl PdfWriter {
             a: 1.0,
         };
         let stops = normalize_gradient_stops(&gradient.stops, black);
-        let function_id = Self::write_gradient_function(builder, &stops, black);
+        let function_id = Self::write_gradient_function(builder, &stops, black, false);
         let coords = match gradient.kind {
             crate::svg::GradientKind::Linear { x1, y1, x2, y2 } => format!(
                 "/ShadingType 2 /Coords [{:.4} {:.4} {:.4} {:.4}]",
@@ -3839,6 +3857,50 @@ impl PdfWriter {
             id: shading_id,
             data: data.into_bytes(),
         });
+
+        // Stops that fade (#237): a shading carries no alpha, so the stops'
+        // opacities are painted as a DeviceGray shading over the same
+        // coordinates in a transparency group, and used as a luminosity soft
+        // mask. The mask is set after the gradient's `cm`, so the group is
+        // drawn in gradient space, where the shading's coordinates live.
+        if let Some(alpha_stops) = &gradient.alpha_stops {
+            let alpha_stops = normalize_gradient_stops(alpha_stops, black);
+            let mask_function = Self::write_gradient_function(builder, &alpha_stops, black, true);
+            let mask_shading = builder.objects.len();
+            builder.objects.push(PdfObject {
+                id: mask_shading,
+                data: format!(
+                    "<< {} /ColorSpace /DeviceGray /Function {} 0 R /Extend [true true] >>",
+                    coords, mask_function
+                )
+                .into_bytes(),
+            });
+            let content = b"/M0 sh";
+            let form = builder.objects.len();
+            let mut data: Vec<u8> = Vec::new();
+            let _ = write!(
+                data,
+                "<< /Type /XObject /Subtype /Form /BBox [-100000 -100000 100000 100000] /Group << /S /Transparency /CS /DeviceGray >> /Resources << /Shading << /M0 {} 0 R >> >> /Length {} >>\nstream\n",
+                mask_shading,
+                content.len()
+            );
+            data.extend_from_slice(content);
+            data.extend_from_slice(b"\nendstream");
+            builder.objects.push(PdfObject { id: form, data });
+            let gs = builder.objects.len();
+            builder.objects.push(PdfObject {
+                id: gs,
+                data: format!(
+                    "<< /Type /ExtGState /SMask << /Type /Mask /S /Luminosity /G {} 0 R >> >>",
+                    form
+                )
+                .into_bytes(),
+            });
+            builder.gradient_mask_map.insert(
+                (page_idx, ordinal),
+                (gs, format!("GM{}x{}", page_idx, ordinal)),
+            );
+        }
         (shading_id, format!("Sh{}", ordinal))
     }
 
@@ -4113,12 +4175,13 @@ impl PdfWriter {
 
     /// Build the ExtGState resource dict entries for a page.
     fn build_ext_gstate_resource_dict(&self, builder: &PdfBuilder) -> String {
-        if builder.ext_gstate_map.is_empty() {
+        if builder.ext_gstate_map.is_empty() && builder.gradient_mask_map.is_empty() {
             return String::new();
         }
         let mut entries: Vec<(&String, usize)> = builder
             .ext_gstate_map
             .values()
+            .chain(builder.gradient_mask_map.values())
             .map(|(obj_id, name)| (name, *obj_id))
             .collect();
         entries.sort_by_key(|(name, _)| (*name).clone());
@@ -5334,10 +5397,16 @@ impl PdfWriter {
                     let key = (page_idx, *gradient_counter);
                     *gradient_counter += 1;
                     if let Some((_, sh_name)) = builder.shading_map.get(&key) {
+                        let mask = builder
+                            .gradient_mask_map
+                            .get(&key)
+                            .map(|(_, name)| format!("/{name} gs\n"))
+                            .unwrap_or_default();
                         let _ = writeln!(
                             stream,
-                            "{} cm\n/{} sh",
+                            "{} cm\n{}/{} sh",
                             compact_matrix(gradient.transform),
+                            mask,
                             sh_name
                         );
                     }
