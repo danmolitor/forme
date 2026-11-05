@@ -32,6 +32,7 @@ mod wasm_raw;
 #[cfg(any(feature = "wasm", feature = "wasm-raw"))]
 mod options_wire;
 
+mod colors;
 mod css;
 mod dom;
 mod map;

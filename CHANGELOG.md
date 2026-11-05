@@ -8,6 +8,31 @@ while this file lapsed. They are reproduced, not rewritten.
 
 ## [Unreleased]
 
+### Fixed
+
+- A `Text`'s own `transform` is applied once. Its container and each of its
+  lines applied it, so `rotate(-45deg)` turned the text by 90 degrees and
+  `rotate(-90deg)` turned it upside down. A `Text` inside a transformed
+  `View` was unaffected (#239)
+- A page whose margins leave no room for content renders, with a warning,
+  instead of panicking with "capacity overflow" (after which a WASM instance
+  cannot render again). A wrapping page placed the box on page after page
+  without end; the margins on the axis that has no room are now not applied
+  on that page, as `margin={0}` would (#236)
+- A translucent border on some sides only (`borderLeftWidth` with an
+  `rgba()` or `#rrggbbaa` colour) keeps its alpha; it was drawn opaque. The
+  border on all four sides already did (#211, #235)
+- CSS colour names (`red`, `rebeccapurple`, `transparent` and the rest of
+  the 148) work in every adapter and in Python. Read as hex, `"red"` made a
+  channel `null` and the whole render failed with a schema error that did
+  not mention colour. The HTML path knew 16 names and now knows all of them;
+  one table serves all three, and a test keeps them identical. A string that
+  is not a colour is black, as before, instead of failing
+- An explicit `<Page>` with nothing in it is a blank page, as a browser
+  prints it. A document of one empty `Page` became a PDF with no pages,
+  which viewers reject, and an empty `Page` among others was skipped. A
+  document with no content at all still has no pages
+
 ## [0.30.0] - 2026-11-03
 
 SVG is drawn the way a browser draws it. `<Svg>` parses its markup with

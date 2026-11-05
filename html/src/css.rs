@@ -1482,26 +1482,14 @@ fn parse_color_function(name: String, p: &mut Parser<'_, '_>) -> Option<Color> {
 }
 
 fn named_color(name: &str) -> Option<Color> {
-    let hex = match name {
-        "black" => "#000000",
-        "white" => "#ffffff",
-        "red" => "#ff0000",
-        "green" => "#008000",
-        "blue" => "#0000ff",
-        "yellow" => "#ffff00",
-        "orange" => "#ffa500",
-        "purple" => "#800080",
-        "gray" | "grey" => "#808080",
-        "silver" => "#c0c0c0",
-        "lightgray" | "lightgrey" => "#d3d3d3",
-        "darkgray" | "darkgrey" => "#a9a9a9",
-        "navy" => "#000080",
-        "teal" => "#008080",
-        "maroon" => "#800000",
-        "transparent" => return Some(Color::TRANSPARENT),
-        _ => return None,
-    };
-    Some(Color::hex(hex))
+    // The full CSS table (148 names and `transparent`), shared with the
+    // JavaScript adapters and the Python SDK.
+    crate::colors::lookup(name).map(|(r, g, b, a)| Color {
+        r: r as f64 / 255.0,
+        g: g as f64 / 255.0,
+        b: b as f64 / 255.0,
+        a: a as f64 / 255.0,
+    })
 }
 
 /// `rtl` / `ltr` / `auto` (the HTML `dir` values; CSS `direction` takes the
