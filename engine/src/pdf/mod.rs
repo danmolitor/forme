@@ -1926,8 +1926,16 @@ impl PdfWriter {
                         }
                         // Translate so the shading's local 0,0 sits at
                         // the rect's bottom-left.
-                        let _ =
-                            writeln!(stream, "1 0 0 1 {:.3} {:.3} cm\n/{} sh\nQ", x, y, sh_name);
+                        let mask = builder
+                            .gradient_mask_map
+                            .get(&key)
+                            .map(|(_, name)| format!("/{name} gs\n"))
+                            .unwrap_or_default();
+                        let _ = writeln!(
+                            stream,
+                            "1 0 0 1 {:.3} {:.3} cm\n{}/{} sh\nQ",
+                            x, y, mask, sh_name
+                        );
                     }
                 } else if let Some(bg) = background {
                     if bg.a > 0.0 {
@@ -3634,7 +3642,7 @@ impl PdfWriter {
                 let ordinal = *counter;
                 *counter += 1;
                 let (obj_id, name) =
-                    Self::write_shading_objects(builder, gradient, element, ordinal);
+                    Self::write_shading_objects(builder, gradient, element, page_idx, ordinal);
                 builder
                     .shading_map
                     .insert((page_idx, ordinal), (obj_id, name));
@@ -3663,6 +3671,7 @@ impl PdfWriter {
         builder: &mut PdfBuilder,
         gradient: &crate::style::Background,
         element: &LayoutElement,
+        page_idx: usize,
         ordinal: usize,
     ) -> (usize, String) {
         use crate::style::Background;
@@ -3690,6 +3699,28 @@ impl PdfWriter {
             ],
             Background::Linear(g) => normalize_gradient_stops(&g.stops, black),
             Background::Radial(g) => normalize_gradient_stops(&g.stops, black),
+        };
+        // Translucent stops (`rgba()`, `transparent`): a shading carries no
+        // alpha, so their alpha becomes a soft mask, as SVG stop-opacity
+        // does (#237). Before, they were drawn opaque.
+        let alpha_stops: Option<Vec<GradientStop>> =
+            stops.iter().any(|s| s.color.a < 1.0).then(|| {
+                stops
+                    .iter()
+                    .map(|s| GradientStop {
+                        position: s.position,
+                        color: Color {
+                            r: s.color.a,
+                            g: s.color.a,
+                            b: s.color.a,
+                            a: 1.0,
+                        },
+                    })
+                    .collect()
+            });
+        let stops = match &alpha_stops {
+            Some(alpha) => premultiplied_stop_colors(&stops, alpha),
+            None => stops,
         };
 
         let function_id = Self::write_gradient_function(builder, &stops, black, false);
@@ -3757,9 +3788,80 @@ impl PdfWriter {
         };
         builder.objects.push(PdfObject {
             id: shading_id,
-            data: shading_data.into_bytes(),
+            data: shading_data.clone().into_bytes(),
         });
+        if let Some(alpha_stops) = &alpha_stops {
+            Self::write_alpha_mask(
+                builder,
+                &shading_data,
+                function_id,
+                alpha_stops,
+                page_idx,
+                ordinal,
+            );
+        }
         (shading_id, format!("Sh{}", ordinal))
+    }
+
+    /// A gradient's soft mask (#237): the stops' alphas as a DeviceGray
+    /// shading over the same geometry as `shading_dict` (the colour
+    /// shading's dictionary, with its colour space and function swapped),
+    /// painted in a transparency group and used as a luminosity soft mask.
+    /// The paint step sets it after the gradient's own `cm`, so the group
+    /// lies in the shading's coordinate space. Registered for (page,
+    /// ordinal) in `gradient_mask_map`.
+    fn write_alpha_mask(
+        builder: &mut PdfBuilder,
+        shading_dict: &str,
+        color_function: usize,
+        alpha_stops: &[crate::style::GradientStop],
+        page_idx: usize,
+        ordinal: usize,
+    ) {
+        let black = Color {
+            r: 0.0,
+            g: 0.0,
+            b: 0.0,
+            a: 1.0,
+        };
+        let mask_function = Self::write_gradient_function(builder, alpha_stops, black, true);
+        let mask_dict = shading_dict
+            .replace("/ColorSpace /DeviceRGB", "/ColorSpace /DeviceGray")
+            .replace(
+                &format!("/Function {} 0 R", color_function),
+                &format!("/Function {} 0 R", mask_function),
+            );
+        debug_assert!(mask_dict.contains("/DeviceGray") && mask_dict != shading_dict);
+        let mask_shading = builder.objects.len();
+        builder.objects.push(PdfObject {
+            id: mask_shading,
+            data: mask_dict.into_bytes(),
+        });
+        let content = b"/M0 sh";
+        let form = builder.objects.len();
+        let mut data: Vec<u8> = Vec::new();
+        let _ = write!(
+            data,
+            "<< /Type /XObject /Subtype /Form /BBox [-100000 -100000 100000 100000] /Group << /S /Transparency /CS /DeviceGray >> /Resources << /Shading << /M0 {} 0 R >> >> /Length {} >>\nstream\n",
+            mask_shading,
+            content.len()
+        );
+        data.extend_from_slice(content);
+        data.extend_from_slice(b"\nendstream");
+        builder.objects.push(PdfObject { id: form, data });
+        let gs = builder.objects.len();
+        builder.objects.push(PdfObject {
+            id: gs,
+            data: format!(
+                "<< /Type /ExtGState /SMask << /Type /Mask /S /Luminosity /G {} 0 R >> >>",
+                form
+            )
+            .into_bytes(),
+        });
+        builder.gradient_mask_map.insert(
+            (page_idx, ordinal),
+            (gs, format!("GM{}x{}", page_idx, ordinal)),
+        );
     }
 
     /// Build the color function for a normalized stop list and return its
@@ -3853,7 +3955,14 @@ impl PdfWriter {
             b: 0.0,
             a: 1.0,
         };
-        let stops = normalize_gradient_stops(&gradient.stops, black);
+        let mut stops = normalize_gradient_stops(&gradient.stops, black);
+        let alpha_stops = gradient
+            .alpha_stops
+            .as_ref()
+            .map(|a| normalize_gradient_stops(a, black));
+        if let Some(alpha) = &alpha_stops {
+            stops = premultiplied_stop_colors(&stops, alpha);
+        }
         let function_id = Self::write_gradient_function(builder, &stops, black, false);
         let coords = match gradient.kind {
             crate::svg::GradientKind::Linear { x1, y1, x2, y2 } => format!(
@@ -3880,51 +3989,11 @@ impl PdfWriter {
         );
         builder.objects.push(PdfObject {
             id: shading_id,
-            data: data.into_bytes(),
+            data: data.clone().into_bytes(),
         });
 
-        // Stops that fade (#237): a shading carries no alpha, so the stops'
-        // opacities are painted as a DeviceGray shading over the same
-        // coordinates in a transparency group, and used as a luminosity soft
-        // mask. The mask is set after the gradient's `cm`, so the group is
-        // drawn in gradient space, where the shading's coordinates live.
-        if let Some(alpha_stops) = &gradient.alpha_stops {
-            let alpha_stops = normalize_gradient_stops(alpha_stops, black);
-            let mask_function = Self::write_gradient_function(builder, &alpha_stops, black, true);
-            let mask_shading = builder.objects.len();
-            builder.objects.push(PdfObject {
-                id: mask_shading,
-                data: format!(
-                    "<< {} /ColorSpace /DeviceGray /Function {} 0 R /Extend [true true] >>",
-                    coords, mask_function
-                )
-                .into_bytes(),
-            });
-            let content = b"/M0 sh";
-            let form = builder.objects.len();
-            let mut data: Vec<u8> = Vec::new();
-            let _ = write!(
-                data,
-                "<< /Type /XObject /Subtype /Form /BBox [-100000 -100000 100000 100000] /Group << /S /Transparency /CS /DeviceGray >> /Resources << /Shading << /M0 {} 0 R >> >> /Length {} >>\nstream\n",
-                mask_shading,
-                content.len()
-            );
-            data.extend_from_slice(content);
-            data.extend_from_slice(b"\nendstream");
-            builder.objects.push(PdfObject { id: form, data });
-            let gs = builder.objects.len();
-            builder.objects.push(PdfObject {
-                id: gs,
-                data: format!(
-                    "<< /Type /ExtGState /SMask << /Type /Mask /S /Luminosity /G {} 0 R >> >>",
-                    form
-                )
-                .into_bytes(),
-            });
-            builder.gradient_mask_map.insert(
-                (page_idx, ordinal),
-                (gs, format!("GM{}x{}", page_idx, ordinal)),
-            );
+        if let Some(alpha_stops) = &alpha_stops {
+            Self::write_alpha_mask(builder, &data, function_id, alpha_stops, page_idx, ordinal);
         }
         (shading_id, format!("Sh{}", ordinal))
     }
@@ -5993,6 +6062,36 @@ fn pdf_number(v: f64) -> String {
     }
 }
 
+/// CSS (and Chrome's SVG) interpolate gradients in premultiplied alpha: a
+/// colour fading to `transparent` keeps its hue instead of passing through
+/// grey. The colour shading here interpolates straight RGB, so a stop with
+/// no alpha takes its neighbour's colour (the previous visible stop, else
+/// the next). That is exact for a fade to or from nothing, and an
+/// approximation only for a fully transparent stop between two colours.
+fn premultiplied_stop_colors(
+    stops: &[crate::style::GradientStop],
+    alpha: &[crate::style::GradientStop],
+) -> Vec<crate::style::GradientStop> {
+    let visible = |i: usize| alpha.get(i).is_some_and(|a| a.color.r > 1e-9);
+    (0..stops.len())
+        .map(|i| {
+            let mut stop = stops[i];
+            if !visible(i) {
+                let from = (0..i)
+                    .rev()
+                    .find(|&j| visible(j))
+                    .or_else(|| (i + 1..stops.len()).find(|&j| visible(j)));
+                if let Some(j) = from {
+                    stop.color = Color {
+                        a: stop.color.a,
+                        ..stops[j].color
+                    };
+                }
+            }
+            stop
+        })
+        .collect()
+}
 #[cfg(test)]
 mod tests {
     use super::*;
