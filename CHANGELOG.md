@@ -8,6 +8,19 @@ while this file lapsed. They are reproduced, not rewritten.
 
 ## [Unreleased]
 
+## [0.31.0] - 2026-11-05
+
+Charts print as their SVG. `<tspan>` lines and styles are laid out, so
+two-line axis labels from Vega-Lite and similar libraries print as two lines,
+and gradients fade: SVG `stop-opacity` and CSS gradients with translucent
+stops. CSS colour names work in every adapter, and a rotated `Text`, a page
+smaller than its margins and translucent one-sided borders are fixed. All
+packages share the line: engine (crates.io `forme-pdf`), every `@formepdf/*`
+npm package, `formepdf` (PyPI), `forme-go` (tag v0.31.0), and the VS Code
+extension.
+
+Addresses #235, #236, #237, #238 and #239.
+
 ### Added
 
 - SVG `<tspan>` is laid out: one with its own `x` or `y` starts a new line
@@ -18,35 +31,42 @@ while this file lapsed. They are reproduced, not rewritten.
 - SVG gradient stops whose `stop-opacity` differs are drawn with that fade,
   as a luminosity soft mask over the gradient; they were drawn opaque, with
   a warning. Vega-Lite's area charts that fade to nothing use this (#237)
-- A CSS `linear-gradient()` or `radial-gradient()` background with
-  translucent stops (`rgba()`, `#rrggbbaa`, `transparent`) fades as it does
-  in a browser; it was drawn opaque. A colour fading to `transparent` keeps
-  its hue, as CSS interpolates, instead of darkening toward black
-
-### Fixed
-
-- A `Text`'s own `transform` is applied once. Its container and each of its
-  lines applied it, so `rotate(-45deg)` turned the text by 90 degrees and
-  `rotate(-90deg)` turned it upside down. A `Text` inside a transformed
-  `View` was unaffected (#239)
-- A page whose margins leave no room for content renders, with a warning,
-  instead of panicking with "capacity overflow" (after which a WASM instance
-  cannot render again). A wrapping page placed the box on page after page
-  without end; the margins on the axis that has no room are now not applied
-  on that page, as `margin={0}` would (#236)
-- A translucent border on some sides only (`borderLeftWidth` with an
-  `rgba()` or `#rrggbbaa` colour) keeps its alpha; it was drawn opaque. The
-  border on all four sides already did (#211, #235)
 - CSS colour names (`red`, `rebeccapurple`, `transparent` and the rest of
   the 148) work in every adapter and in Python. Read as hex, `"red"` made a
   channel `null` and the whole render failed with a schema error that did
   not mention colour. The HTML path knew 16 names and now knows all of them;
   one table serves all three, and a test keeps them identical. A string that
   is not a colour is black, as before, instead of failing
-- An explicit `<Page>` with nothing in it is a blank page, as a browser
-  prints it. A document of one empty `Page` became a PDF with no pages,
-  which viewers reject, and an empty `Page` among others was skipped. A
-  document with no content at all still has no pages
+
+### Changed: these move existing documents
+
+- **A `Text`'s own `transform` is applied once** (#239). Its container and
+  each of its lines applied it, so `rotate(-45deg)` turned the text by 90
+  degrees and `rotate(-90deg)` turned it upside down. A `Text` inside a
+  transformed `View` was unaffected
+- **A translucent border on some sides only keeps its alpha** (#235).
+  `borderLeftWidth` with an `rgba()` or `#rrggbbaa` colour was drawn opaque;
+  the border on all four sides already kept it (#211)
+- **CSS gradients with translucent stops fade.** A `linear-gradient()` or
+  `radial-gradient()` background with `rgba()`, `#rrggbbaa` or `transparent`
+  stops was drawn opaque. A colour fading to `transparent` keeps its hue, as
+  CSS interpolates, instead of darkening toward black. Opaque gradients are
+  unchanged
+- **An empty `<Page>` is a blank page**, as a browser prints it. A document
+  of one empty `Page` became a PDF with no pages, which viewers reject, and
+  an empty `Page` among others was skipped. A document with no content at
+  all still has no pages
+
+None of these changed the 15-template real-world corpus or the byte-wall
+fixtures, which render byte-identically to 0.30.0.
+
+### Fixed
+
+- A page whose margins leave no room for content renders, with a warning,
+  instead of panicking with "capacity overflow" (after which a WASM instance
+  cannot render again). A wrapping page placed the box on page after page
+  without end; the margins on the axis that has no room are now not applied
+  on that page, as `margin={0}` would (#236)
 
 ## [0.30.0] - 2026-11-03
 
