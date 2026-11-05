@@ -18150,3 +18150,56 @@ fn test_svg_gradient_stop_opacity_is_a_soft_mask() {
         "the mask is set just before the shading:\n{streams}"
     );
 }
+
+fn gradient_box(stops: serde_json::Value) -> Vec<u8> {
+    let doc = serde_json::json!({
+        "children": [{
+            "kind": { "type": "View" },
+            "style": {
+                "width": { "Pt": 200 }, "height": { "Pt": 100 },
+                "background": { "type": "linear", "angleDeg": 180, "stops": stops }
+            },
+            "children": []
+        }],
+        "metadata": {}
+    });
+    forme::render_json(&doc.to_string()).expect("render")
+}
+
+#[test]
+fn test_css_gradient_translucent_stops_fade() {
+    // CSS linear-gradient() with rgba() stops was drawn opaque: a shading
+    // carries no alpha. The alphas now become a soft mask, as SVG
+    // stop-opacity does (#237).
+    let pdf = gradient_box(serde_json::json!([
+        { "position": 0, "color": { "r": 1, "g": 0, "b": 0, "a": 1 } },
+        { "position": 1, "color": { "r": 0, "g": 0, "b": 0, "a": 0 } }
+    ]));
+    let raw = String::from_utf8_lossy(&pdf).to_string();
+    assert!(
+        raw.contains("/SMask << /Type /Mask /S /Luminosity"),
+        "a soft mask"
+    );
+    assert!(
+        raw.contains("/C0 [1.0000] /C1 [0.0000]"),
+        "the alphas as grey levels"
+    );
+    // Fading to `transparent` keeps the hue (CSS interpolates premultiplied):
+    // the colour runs red to red, not red to transparent's black.
+    assert!(
+        raw.contains("/C0 [1.0000 0.0000 0.0000] /C1 [1.0000 0.0000 0.0000]"),
+        "no darkening toward black"
+    );
+    let streams = decompress_pdf_streams(&pdf);
+    let sh = streams.find("/Sh0 sh").expect("painted");
+    assert!(streams[..sh].trim_end().ends_with(" gs"), "{streams}");
+}
+
+#[test]
+fn test_css_gradient_opaque_stops_have_no_mask() {
+    let pdf = gradient_box(serde_json::json!([
+        { "position": 0, "color": { "r": 1, "g": 0, "b": 0, "a": 1 } },
+        { "position": 1, "color": { "r": 0, "g": 0, "b": 1, "a": 1 } }
+    ]));
+    assert!(!String::from_utf8_lossy(&pdf).contains("/SMask"));
+}

@@ -18,6 +18,10 @@ while this file lapsed. They are reproduced, not rewritten.
 - SVG gradient stops whose `stop-opacity` differs are drawn with that fade,
   as a luminosity soft mask over the gradient; they were drawn opaque, with
   a warning. Vega-Lite's area charts that fade to nothing use this (#237)
+- A CSS `linear-gradient()` or `radial-gradient()` background with
+  translucent stops (`rgba()`, `#rrggbbaa`, `transparent`) fades as it does
+  in a browser; it was drawn opaque. A colour fading to `transparent` keeps
+  its hue, as CSS interpolates, instead of darkening toward black
 
 ### Fixed
 
