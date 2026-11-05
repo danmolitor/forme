@@ -523,9 +523,9 @@ impl Lower {
         Some((color, a, style))
     }
 
-    /// Lower a usvg gradient. Returns the gradient and an alpha factor:
-    /// PDF shadings carry no alpha, so stop opacity is honored only when
-    /// every stop has the same one.
+    /// Lower a usvg gradient. Returns the gradient and an alpha factor: a
+    /// stop opacity shared by every stop folds into the fill's alpha;
+    /// differing ones become the gradient's soft mask (#237).
     fn gradient(
         &mut self,
         kind: GradientKind,
@@ -542,9 +542,23 @@ impl Lower {
         let uniform = stops
             .iter()
             .all(|s| (s.opacity().get() as f64 - first_opacity).abs() < 1e-6);
-        if !uniform {
-            self.warn("render defect: SVG gradient stops with differing stop-opacity are not supported; the stops are drawn opaque");
-        }
+        let alpha_stops = (!uniform).then(|| {
+            stops
+                .iter()
+                .map(|s| {
+                    let a = s.opacity().get() as f64;
+                    GradientStop {
+                        position: s.offset().get() as f64,
+                        color: Color {
+                            r: a,
+                            g: a,
+                            b: a,
+                            a: 1.0,
+                        },
+                    }
+                })
+                .collect()
+        });
         let stops = stops
             .iter()
             .map(|s| {
@@ -568,6 +582,7 @@ impl Lower {
                     t.ty as f64,
                 ],
                 stops,
+                alpha_stops,
             }),
             if uniform { first_opacity } else { 1.0 },
         ))

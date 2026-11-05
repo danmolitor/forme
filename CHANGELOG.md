@@ -8,6 +8,17 @@ while this file lapsed. They are reproduced, not rewritten.
 
 ## [Unreleased]
 
+### Added
+
+- SVG `<tspan>` is laid out: one with its own `x` or `y` starts a new line
+  (a text chunk, aligned by `text-anchor` on its own), `dx`/`dy` shift it,
+  and its own `fill`, font family, size, weight and style apply. Vega's
+  two-line axis labels ("Sep" over "2025") printed as one run ("Sep2025"),
+  with a warning (#238)
+- SVG gradient stops whose `stop-opacity` differs are drawn with that fade,
+  as a luminosity soft mask over the gradient; they were drawn opaque, with
+  a warning. Vega-Lite's area charts that fade to nothing use this (#237)
+
 ### Fixed
 
 - A `Text`'s own `transform` is applied once. Its container and each of its
