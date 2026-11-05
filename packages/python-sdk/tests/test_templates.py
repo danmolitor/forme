@@ -381,3 +381,13 @@ def test_font_feature_style_props_map_to_font_features():
     ] == [{"tag": "tnum", "value": 0}]
     assert _map_style({"fontVariantNumeric": "normal"})["fontFeatures"] == []
     assert "fontFeatures" not in _map_style({"fontFeatureSettings": "nonsense"})
+
+
+def test_parse_color_reads_css_color_names():
+    from formepdf.templates import _parse_color
+
+    assert _parse_color("red") == {"r": 1.0, "g": 0.0, "b": 0.0, "a": 1.0}
+    assert _parse_color("RebeccaPurple") == {"r": 102 / 255, "g": 51 / 255, "b": 153 / 255, "a": 1.0}
+    assert _parse_color("transparent")["a"] == 0.0
+    # Not a colour: black, never an exception from int(..., 16).
+    assert _parse_color("#zzz") == {"r": 0.0, "g": 0.0, "b": 0.0, "a": 1.0}

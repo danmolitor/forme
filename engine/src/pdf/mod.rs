@@ -2022,7 +2022,18 @@ impl PdfWriter {
 
                         let _ = writeln!(stream, "S\nQ");
                     } else {
-                        self.write_border_sides(stream, x, y, w, h, bw, border_color, border_style);
+                        self.write_border_sides(
+                            stream,
+                            x,
+                            y,
+                            w,
+                            h,
+                            bw,
+                            border_color,
+                            border_style,
+                            builder,
+                            alpha,
+                        );
                     }
                 }
 
@@ -3150,6 +3161,8 @@ impl PdfWriter {
         bw: &Edges,
         bc: &crate::style::EdgeValues<Color>,
         bs: &crate::style::EdgeValues<crate::style::BorderStyle>,
+        builder: &PdfBuilder,
+        alpha: f64,
     ) {
         // PDF dash + line-cap ops for a side, calibrated against Chrome:
         //   dashed → dash 2×width, gap 1×width (butt cap)
@@ -3174,9 +3187,21 @@ impl PdfWriter {
             if width <= 0.0 {
                 continue;
             }
+            // `RG` carries no alpha: a translucent side needs the ExtGState
+            // the uniform border uses (#211), or it is drawn opaque (#235).
+            let gs = if color.a < 1.0 {
+                builder
+                    .ext_gstate_map
+                    .get(&scaled_alpha(alpha, color.a).to_bits())
+                    .map(|(_, name)| format!("/{name} gs\n"))
+                    .unwrap_or_default()
+            } else {
+                String::new()
+            };
             let _ = write!(
                 stream,
-                "q\n{:.3} {:.3} {:.3} RG\n{:.2} w\n{}{:.2} {:.2} m\n{:.2} {:.2} l\nS\nQ\n",
+                "q\n{}{:.3} {:.3} {:.3} RG\n{:.2} w\n{}{:.2} {:.2} m\n{:.2} {:.2} l\nS\nQ\n",
+                gs,
                 color.r,
                 color.g,
                 color.b,
