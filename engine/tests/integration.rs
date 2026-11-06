@@ -18203,3 +18203,66 @@ fn test_css_gradient_opaque_stops_have_no_mask() {
     ]));
     assert!(!String::from_utf8_lossy(&pdf).contains("/SMask"));
 }
+
+/// The first glyph id drawn by an Svg's text, laid out with the builtin
+/// fonts.
+fn svg_first_glyph(doc: &Document) -> u16 {
+    fn find(els: &[forme::layout::LayoutElement]) -> Option<u16> {
+        for el in els {
+            if let forme::layout::DrawCommand::Text { lines, .. } = &el.draw {
+                if let Some(g) = lines.first().and_then(|l| l.glyphs.first()) {
+                    return Some(g.glyph_id);
+                }
+            }
+            if let Some(g) = find(&el.children) {
+                return Some(g);
+            }
+        }
+        None
+    }
+    let pages = LayoutEngine::new().layout(doc, &FontContext::new());
+    find(&pages[0].elements).expect("a glyph")
+}
+
+#[test]
+fn test_svg_text_takes_font_features() {
+    // #245: SVG text ignored OpenType features: tabular or slashed-zero
+    // figures set on the page, in the SVG's CSS or as an attribute. The
+    // builtin Noto Sans draws "0" with another glyph under `zero`.
+    let svg = |extra: &str, css: &str| {
+        format!(
+            r#"<style>{css}</style><text x="0" y="15" font-family="Noto Sans" font-size="14"{extra}>0</text>"#
+        )
+    };
+    let plain = svg_first_glyph(&svg_doc(Some("0 0 200 20"), &svg("", "")));
+    let slashed = [
+        svg(r#" font-variant-numeric="slashed-zero""#, ""),
+        svg("", "text { font-variant-numeric: slashed-zero }"),
+        svg("", r#"text { font-feature-settings: "zero" 1 }"#),
+    ];
+    for content in &slashed {
+        let g = svg_first_glyph(&svg_doc(Some("0 0 200 20"), content));
+        assert_ne!(g, plain, "the feature must reach the glyph: {content}");
+    }
+    // Inherited from the style around the Svg, as the font family is.
+    let mut doc = svg_doc(Some("0 0 200 20"), &svg("", ""));
+    doc.children[0].style.font_features = Some(vec![FontFeature {
+        tag: "zero".into(),
+        value: 1,
+    }]);
+    assert_ne!(
+        svg_first_glyph(&doc),
+        plain,
+        "inherited from the Svg's style"
+    );
+    // `normal` in the SVG turns an inherited feature off.
+    let mut doc = svg_doc(
+        Some("0 0 200 20"),
+        &svg(r#" font-variant-numeric="normal""#, ""),
+    );
+    doc.children[0].style.font_features = Some(vec![FontFeature {
+        tag: "zero".into(),
+        value: 1,
+    }]);
+    assert_eq!(svg_first_glyph(&doc), plain, "normal clears it");
+}

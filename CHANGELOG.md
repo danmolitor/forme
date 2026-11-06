@@ -8,6 +8,16 @@ while this file lapsed. They are reproduced, not rewritten.
 
 ## [Unreleased]
 
+### Fixed
+
+- SVG `<text>` takes OpenType features: `font-variant-numeric` and
+  `font-feature-settings` from its attributes and CSS, and those set around
+  the `<svg>`, as it inherits the font family. A chart's axis labels drew
+  proportional figures in a document set in tabular ones. As in CSS, the
+  SVG's own `font-variant-numeric` (`normal` included) replaces inherited
+  numeric variants, and its `font-feature-settings` replaces inherited
+  features (#245)
+
 ## [0.31.0] - 2026-11-05
 
 Charts print as their SVG. `<tspan>` lines and styles are laid out, so

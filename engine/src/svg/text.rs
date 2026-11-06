@@ -13,6 +13,8 @@ use std::str::FromStr;
 
 use usvg::roxmltree::{self, Node};
 
+use crate::style::FontFeature;
+
 /// Where the anchor point sits on the text's advance (`text-anchor`).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TextAnchor {
@@ -75,6 +77,9 @@ pub struct SvgTextPiece {
     pub fill: (f64, f64, f64),
     /// Fill opacity times every ancestor's `opacity`.
     pub opacity: f64,
+    /// OpenType features from `font-variant-numeric` and
+    /// `font-feature-settings` (#245).
+    pub font_features: Vec<FontFeature>,
 }
 
 /// Elements whose subtree is never rendered in place.
@@ -105,6 +110,9 @@ const INHERITED: &[&str] = &[
     "font-style",
     "fill",
     "fill-opacity",
+    "font-variant-numeric",
+    "font-feature-settings",
+    DEFAULT_FEATURES,
     "text-anchor",
     "dominant-baseline",
     "visibility",
@@ -135,6 +143,8 @@ pub struct TextDefaults {
     pub font_size: Option<f64>,
     pub font_weight: Option<u32>,
     pub italic: bool,
+    /// The OpenType features set around the `<svg>`.
+    pub font_features: Vec<FontFeature>,
 }
 
 /// Read every rendered `<text>` element of a prepared document.
@@ -197,6 +207,19 @@ impl Inherited {
         }
         if defaults.italic {
             values.insert("font-style", "italic".to_string());
+        }
+        // Kept in a slot of their own: an SVG's own font-variant-numeric or
+        // font-feature-settings overrides them as CSS would (`normal` clears
+        // an inherited numeric variant), which merging them into
+        // font-feature-settings could not express.
+        if !defaults.font_features.is_empty() {
+            let settings = defaults
+                .font_features
+                .iter()
+                .map(|f| format!("\"{}\" {}", f.tag, f.value))
+                .collect::<Vec<_>>()
+                .join(", ");
+            values.insert(DEFAULT_FEATURES, settings);
         }
         Inherited { values }
     }
@@ -468,6 +491,7 @@ impl TextLayout<'_, '_, '_> {
                 .is_some_and(|v| v == "italic" || v == "oblique"),
             fill,
             opacity: opacity * fill_opacity,
+            font_features: font_features(inherited, warn),
         };
         self.chunks
             .last_mut()
@@ -526,6 +550,94 @@ fn collapse_chunks(chunks: Vec<SvgTextChunk>) -> Vec<SvgTextChunk> {
         if !pieces.is_empty() {
             chunk.pieces = pieces;
             out.push(chunk);
+        }
+    }
+    out
+}
+
+/// The inherited slot for features set around the `<svg>`, as a
+/// font-feature-settings list. Not a CSS property, so no SVG can set it.
+const DEFAULT_FEATURES: &str = "-forme-default-features";
+
+/// `font-variant-numeric` keywords and the OpenType feature each turns on,
+/// as the JS adapters and the HTML path map them.
+const VARIANT_NUMERIC: &[(&str, &str)] = &[
+    ("lining-nums", "lnum"),
+    ("oldstyle-nums", "onum"),
+    ("proportional-nums", "pnum"),
+    ("tabular-nums", "tnum"),
+    ("diagonal-fractions", "frac"),
+    ("stacked-fractions", "afrc"),
+    ("ordinal", "ordn"),
+    ("slashed-zero", "zero"),
+];
+
+/// The features a piece is shaped with: `font-variant-numeric`, then
+/// `font-feature-settings`, which wins for the same tag, as in CSS.
+/// `normal` in either clears what it would set.
+fn font_features(inherited: &Inherited, warn: &mut impl FnMut(String)) -> Vec<FontFeature> {
+    let mut out: Vec<FontFeature> = Vec::new();
+    let set = |tag: &str, value: u32, out: &mut Vec<FontFeature>| {
+        out.retain(|f| f.tag != tag);
+        out.push(FontFeature {
+            tag: tag.to_string(),
+            value,
+        });
+    };
+    // Features from around the <svg>, unless the SVG sets its own: its
+    // font-feature-settings replaces them all, its font-variant-numeric
+    // replaces the numeric variants among them.
+    if inherited.get("font-feature-settings").is_none() {
+        if let Some(v) = inherited.get(DEFAULT_FEATURES) {
+            for item in v.split(',') {
+                let mut parts = item.split_whitespace();
+                if let (Some(tag), Some(value)) = (parts.next(), parts.next()) {
+                    let tag = tag.trim_matches('"');
+                    let numeric = VARIANT_NUMERIC.iter().any(|(_, t)| *t == tag);
+                    if numeric && inherited.get("font-variant-numeric").is_some() {
+                        continue;
+                    }
+                    set(tag, value.parse().unwrap_or(1), &mut out);
+                }
+            }
+        }
+    }
+    if let Some(v) = inherited.get("font-variant-numeric") {
+        for word in v.split_whitespace() {
+            if word == "normal" {
+                continue;
+            }
+            match VARIANT_NUMERIC.iter().find(|(k, _)| *k == word) {
+                Some((_, tag)) => set(tag, 1, &mut out),
+                None => warn(format!(
+                    "render defect: SVG text font-variant-numeric value \"{word}\" is not supported; it is ignored"
+                )),
+            }
+        }
+    }
+    if let Some(v) = inherited.get("font-feature-settings") {
+        if v.trim() != "normal" {
+            for item in v.split(',') {
+                let mut parts = item.split_whitespace();
+                let Some(tag) = parts
+                    .next()
+                    .map(|t| t.trim_matches(|c| c == '"' || c == '\''))
+                else {
+                    continue;
+                };
+                if tag.len() != 4 || !tag.is_ascii() {
+                    warn(format!(
+                        "render defect: SVG text font-feature-settings tag \"{tag}\" is not a 4-letter OpenType tag; it is ignored"
+                    ));
+                    continue;
+                }
+                let value = match parts.next() {
+                    None | Some("on") => 1,
+                    Some("off") => 0,
+                    Some(n) => n.parse().unwrap_or(1),
+                };
+                set(tag, value, &mut out);
+            }
         }
     }
     out
@@ -870,6 +982,7 @@ mod tests {
             font_size: Some(11.0),
             font_weight: Some(700),
             italic: true,
+            font_features: Vec::new(),
         };
         let t = extract_texts(&doc, &defaults, &mut Vec::new());
         assert_eq!(
@@ -952,5 +1065,27 @@ mod tests {
         ));
         assert_eq!(t[0].chunks[0].x, Some(1.0));
         assert!(w.iter().any(|m| m.contains("list of x values")), "{w:?}");
+    }
+
+    #[test]
+    fn font_features_are_read_and_inherited() {
+        let (t, w) = texts(&format!(
+            r##"<svg {NS}><style>.t {{ font-feature-settings: "tnum" 1, "liga" off }}</style><g font-variant-numeric="slashed-zero tabular-nums"><text class="t">1</text><text font-variant-numeric="normal">2</text></g></svg>"##
+        ));
+        assert!(w.is_empty(), "{w:?}");
+        let tags = |t: &SvgText| {
+            p(t).font_features
+                .iter()
+                .map(|f| (f.tag.clone(), f.value))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            tags(&t[0]),
+            [("zero".into(), 1), ("tnum".into(), 1), ("liga".into(), 0)]
+        );
+        assert!(
+            tags(&t[1]).is_empty(),
+            "normal clears the inherited numeric variants"
+        );
     }
 }
