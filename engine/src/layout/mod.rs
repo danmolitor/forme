@@ -6648,6 +6648,7 @@ impl LayoutEngine {
             font_size: Some(style.font_size),
             font_weight: Some(style.font_weight),
             italic: matches!(style.font_style, FontStyle::Italic | FontStyle::Oblique),
+            font_features: style.font_features.clone(),
         };
         let import = crate::svg::import_svg(content, vb, &defaults);
         for warning in import.warnings {
@@ -6887,6 +6888,7 @@ impl LayoutEngine {
                         FontStyle::Normal
                     }),
                     color: Some(color),
+                    font_features: Some(piece.font_features.clone()),
                     direction: Some(if text.rtl {
                         Direction::Rtl
                     } else {
