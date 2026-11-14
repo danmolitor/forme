@@ -209,3 +209,19 @@ describe('Template document structure', () => {
     expect(metadata.title).toEqual({ $ref: 'docTitle' });
   });
 });
+
+// Issue #247: the template path hardcoded `style: {}` on Page nodes, so a
+// Page's font, size and colour applied only in a direct render.
+describe('Page style', () => {
+  it('carries a Page style into the template, as serialization does', () => {
+    const result = serializeTemplate(
+      <Document>
+        <Page size="A4" style={{ fontSize: 20, color: '#cc0000' }}>
+          <Text>Grundbuchamt</Text>
+        </Page>
+      </Document>
+    );
+    const page = result.children[0] as Record<string, unknown>;
+    expect(page.style).toEqual({ fontSize: 20, color: { r: 0.8, g: 0, b: 0, a: 1 } });
+  });
+});
