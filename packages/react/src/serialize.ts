@@ -1368,7 +1368,7 @@ export function serializeTemplate(element: ReactElement): Record<string, unknown
 }
 
 function serializeTemplatePage(element: ReactElement): Record<string, unknown> {
-  const props = element.props as { size?: string | { width: number; height: number }; margin?: number | string | number[] | Edges; children?: unknown };
+  const props = element.props as { size?: string | { width: number; height: number }; margin?: number | string | number[] | Edges; style?: Style; children?: unknown };
 
   let size: FormePageSize = 'A4';
   if (props.size !== undefined) {
@@ -1390,7 +1390,7 @@ function serializeTemplatePage(element: ReactElement): Record<string, unknown> {
 
   return {
     kind: { type: 'Page', config },
-    style: {},
+    style: mapTemplateStyle(props.style),
     children,
   };
 }
