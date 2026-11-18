@@ -18266,3 +18266,87 @@ fn test_svg_text_takes_font_features() {
     }]);
     assert_eq!(svg_first_glyph(&doc), plain, "normal clears it");
 }
+
+fn runs_doc(runs: serde_json::Value, style: serde_json::Value) -> Document {
+    serde_json::from_value(serde_json::json!({
+        "children": [{ "kind": { "type": "Text", "content": "", "runs": runs }, "style": style, "children": [] }],
+        "metadata": {}
+    }))
+    .expect("document")
+}
+
+/// Every `x y w h re` filled under the given `r g b rg`, in stream order.
+fn filled_rects(streams: &str, rgb: &str) -> Vec<[f64; 4]> {
+    let lines: Vec<&str> = streams.lines().collect();
+    let mut out = Vec::new();
+    for (i, l) in lines.iter().enumerate() {
+        if *l == format!("{rgb} rg") {
+            if let Some(re) = lines.get(i + 1).filter(|n| n.ends_with(" re")) {
+                let v: Vec<f64> = re
+                    .split_whitespace()
+                    .take(4)
+                    .map(|t| t.parse().unwrap())
+                    .collect();
+                out.push([v[0], v[1], v[2], v[3]]);
+            }
+        }
+    }
+    out
+}
+
+#[test]
+fn test_inline_run_background_is_painted() {
+    // #250: a run's backgroundColor was dropped silently. The reporter's
+    // repro: "highlighted" on yellow between two plain runs.
+    let doc = runs_doc(
+        serde_json::json!([
+            { "content": "Skills: " },
+            { "content": "highlighted", "style": { "backgroundColor": { "r": 1.0, "g": 1.0, "b": 0.0, "a": 1.0 } } },
+            { "content": " tail." }
+        ]),
+        serde_json::json!({ "fontSize": 12 }),
+    );
+    let (pdf, warnings) = forme::render_with_warnings(&doc).unwrap();
+    assert!(warnings.is_empty(), "{warnings:?}");
+    let streams = decompress_pdf_streams(&pdf);
+    let rects = filled_rects(&streams, "1.000 1.000 0.000");
+    assert_eq!(rects.len(), 1, "one box for the run:\n{streams}");
+    let [x, _y, w, h] = rects[0];
+    // Helvetica at 12: "Skills: " is 2.889em (34.67pt) and "highlighted"
+    // 4.836em (58.03pt); the page's left margin is 54.
+    assert!(
+        (x - (54.0 + 34.668)).abs() < 0.05,
+        "box starts at the run: {x}"
+    );
+    assert!((w - 58.032).abs() < 0.05, "box spans the run: {w}");
+    // Helvetica's content area: ascent 0.905 + descent 0.212 of 12pt.
+    assert!(
+        (h - 12.0 * (0.9053 + 0.2119)).abs() < 0.05,
+        "content-area height: {h}"
+    );
+    // Under the text: the box comes before the text object.
+    assert!(streams.find("1.000 1.000 0.000 rg").unwrap() < streams.find("BT").unwrap());
+}
+
+#[test]
+fn test_inline_run_background_wraps_and_fades() {
+    // A run that wraps paints one box per line; a translucent background
+    // gets its alpha.
+    let doc = runs_doc(
+        serde_json::json!([
+            { "content": "lead ".repeat(14) },
+            { "content": "a highlighted phrase that wraps onto the next line", "style": { "backgroundColor": { "r": 0.0, "g": 0.0, "b": 1.0, "a": 0.25 } } }
+        ]),
+        serde_json::json!({ "fontSize": 12 }),
+    );
+    let pdf = render_to_pdf(&doc);
+    let raw = String::from_utf8_lossy(&pdf).to_string();
+    assert!(raw.contains("/ca 0.2500"), "an ExtGState at 0.25");
+    let streams = decompress_pdf_streams(&pdf);
+    let rects = filled_rects(&streams, "0.000 0.000 1.000");
+    assert_eq!(rects.len(), 2, "one box per line:\n{streams}");
+    assert!(
+        rects[0][1] > rects[1][1],
+        "the second box is on the next line down"
+    );
+}

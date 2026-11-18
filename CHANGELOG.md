@@ -8,7 +8,29 @@ while this file lapsed. They are reproduced, not rewritten.
 
 ## [Unreleased]
 
+### Added
+
+- A text run's own `backgroundColor` is painted behind its glyphs, as an
+  inline box's background is in a browser: highlighted words, `<mark>`, or
+  a code chip inside a sentence. The box covers the font's content area
+  (ascent to descent), one box per line when the run wraps, and stops at
+  the line's last word. In HTML, `<mark>` (yellow, as Chrome draws it) and
+  a `background-color` on any inline element work. It was dropped without
+  a warning (#250)
+
+### Changed: these move existing documents
+
+- **HTML: a collapsed space at the edge of an inline element belongs to
+  the text before it**, as in CSS. It took the next element's style: the
+  space before `<b>` was set bold (a bold space is wider) and the space
+  before a link was underlined with it
+
 ### Fixed
+
+- A `<Page>`'s `style` survives template compilation (`serializeTemplate`,
+  `forme build --template`): a compiled template printed in the default
+  12pt black where the direct render used the Page's font, size and colour.
+  Fixed for React by @PerryLink in #249, and for Preact (#247)
 
 - SVG `<text>` takes OpenType features: `font-variant-numeric` and
   `font-feature-settings` from its attributes and CSS, and those set around

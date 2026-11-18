@@ -531,6 +531,7 @@ mod tests {
                 color: None,
                 href: None,
                 text_decoration: TextDecoration::None,
+                background: None,
                 letter_spacing: 0.0,
                 cluster_text: None,
                 extraction_text: None,

@@ -52,6 +52,8 @@ pub struct StyledChar {
     /// is shaped together only while these match, in measurement and in
     /// drawing alike.
     pub font_features: Vec<FontFeature>,
+    /// A run's own `backgroundColor`, painted behind its glyphs (#250).
+    pub background: Option<Color>,
 }
 
 /// The same fallback families are used to measure and position styled text.
@@ -2559,6 +2561,7 @@ mod tests {
                 letter_spacing: 0.0,
                 word_spacing: 0.0,
                 font_features: vec![],
+                background: None,
             })
             .collect();
         for width in [236.25, 200.0, 180.0, 150.0, 120.0] {

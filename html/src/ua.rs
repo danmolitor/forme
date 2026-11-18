@@ -58,6 +58,11 @@ pub fn ua_style(tag: &str) -> CssStyle {
         }
         "small" => s.font_size = Some(Length::Em(0.83)),
         "code" | "pre" => s.font_family = Some("Courier".to_string()),
+        // Chrome: mark { background-color: yellow; color: black }
+        "mark" => {
+            s.background_color = Some(Color::hex("#ffff00"));
+            s.color = Some(Color::BLACK);
+        }
         "hr" => {
             s.margin[0] = Some(Length::Em(0.5));
             s.margin[2] = Some(Length::Em(0.5));

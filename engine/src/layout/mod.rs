@@ -862,6 +862,16 @@ pub struct TextLine {
     pub word_spacing: f64,
 }
 
+/// An inline run's background box: its colour and the font's content area
+/// (ascent above and descent below the baseline, in points), as CSS paints
+/// the background of an inline box.
+#[derive(Debug, Clone, Copy)]
+pub struct InlineBackground {
+    pub color: Color,
+    pub ascent: f64,
+    pub descent: f64,
+}
+
 #[derive(Debug, Clone)]
 pub struct PositionedGlyph {
     /// Glyph ID. For custom fonts with shaping, this is a real GID from GSUB.
@@ -890,6 +900,9 @@ pub struct PositionedGlyph {
     pub href: Option<String>,
     /// Per-glyph text decoration (for runs with different decorations).
     pub text_decoration: TextDecoration,
+    /// A run's own background, painted behind this glyph as an inline box
+    /// is (#250); `None` for text without one.
+    pub background: Option<InlineBackground>,
     /// Letter spacing applied to this glyph.
     pub letter_spacing: f64,
     /// For glyphs of a cluster spanning several chars, the full cluster text
@@ -5606,6 +5619,7 @@ impl LayoutEngine {
                     letter_spacing: run_style.letter_spacing,
                     word_spacing: run_style.word_spacing,
                     font_features: run_style.font_features.clone(),
+                    background: run_style.background_color.filter(|c| c.a > 0.0),
                 });
             }
         }
@@ -5988,6 +6002,7 @@ impl LayoutEngine {
                                     color: Some(style.color),
                                     href: href.map(|s| s.to_string()),
                                     text_decoration: style.text_decoration,
+                                    background: None,
                                     letter_spacing: style.letter_spacing,
                                     cluster_text,
                                     extraction_text,
@@ -6026,6 +6041,7 @@ impl LayoutEngine {
                             color: Some(style.color),
                             href: href.map(|s| s.to_string()),
                             text_decoration: style.text_decoration,
+                            background: None,
                             letter_spacing: style.letter_spacing,
                             cluster_text: None,
                             extraction_text: None,
@@ -6094,6 +6110,7 @@ impl LayoutEngine {
                                 color: Some(style.color),
                                 href: href.map(|s| s.to_string()),
                                 text_decoration: style.text_decoration,
+                                background: None,
                                 letter_spacing: style.letter_spacing,
                                 cluster_text,
                                 extraction_text,
@@ -6164,6 +6181,7 @@ impl LayoutEngine {
                     color: Some(style.color),
                     href: href.map(|s| s.to_string()),
                     text_decoration: style.text_decoration,
+                    background: None,
                     letter_spacing: style.letter_spacing,
                     cluster_text: None,
                     extraction_text: None,
@@ -6326,6 +6344,11 @@ impl LayoutEngine {
                 color: Some(sc.color),
                 href: sc.href.clone(),
                 text_decoration: sc.text_decoration,
+                background: sc.background.map(|color| InlineBackground {
+                    color,
+                    ascent: 0.0,
+                    descent: 0.0,
+                }),
                 letter_spacing: sc.letter_spacing,
                 cluster_text: None,
                 extraction_text: None,
@@ -6333,6 +6356,19 @@ impl LayoutEngine {
             });
             bidi_levels.push(level);
             i += 1;
+        }
+
+        // A run background covers the font's content area, ascent above the
+        // baseline to descent below, as an inline box's background does in
+        // CSS. Measured from the glyph's resolved font (#250).
+        for g in &mut glyphs {
+            if let Some(bg) = &mut g.background {
+                let italic = matches!(g.font_style, FontStyle::Italic | FontStyle::Oblique);
+                let (ascent, descent) =
+                    font_context.baseline_metrics(&g.font_family, g.font_weight, italic);
+                bg.ascent = ascent * g.font_size;
+                bg.descent = descent * g.font_size;
+            }
         }
 
         // Apply BiDi visual reordering if needed
@@ -6391,6 +6427,7 @@ impl LayoutEngine {
                 color,
                 href: href.map(|s| s.to_string()),
                 text_decoration,
+                background: None,
                 letter_spacing,
                 cluster_text,
                 extraction_text,
@@ -6452,6 +6489,11 @@ impl LayoutEngine {
                 color: Some(sc.color),
                 href: sc.href.clone(),
                 text_decoration: sc.text_decoration,
+                background: sc.background.map(|color| InlineBackground {
+                    color,
+                    ascent: 0.0,
+                    descent: 0.0,
+                }),
                 letter_spacing: sc.letter_spacing,
                 cluster_text,
                 extraction_text,
@@ -7372,6 +7414,7 @@ impl LayoutEngine {
                                 letter_spacing: run_style.letter_spacing,
                                 word_spacing: run_style.word_spacing,
                                 font_features: run_style.font_features.clone(),
+                                background: run_style.background_color.filter(|c| c.a > 0.0),
                             });
                         }
                     }
@@ -8527,6 +8570,7 @@ impl LayoutEngine {
                                     color: Some(color),
                                     href: None,
                                     text_decoration: TextDecoration::None,
+                                    background: None,
                                     letter_spacing: style.letter_spacing,
                                     cluster_text,
                                     extraction_text,
@@ -8558,6 +8602,7 @@ impl LayoutEngine {
                                     color: Some(color),
                                     href: None,
                                     text_decoration: TextDecoration::None,
+                                    background: None,
                                     letter_spacing: style.letter_spacing,
                                     cluster_text: None,
                                     extraction_text: None,
