@@ -189,3 +189,21 @@ describe('serialize() and serializeTemplate() agree about every exported compone
     });
   }
 });
+
+// Issue #247: the template path hardcoded `style: {}` on Page nodes, so a
+// Page's font, size and colour applied only in a direct render.
+describe('Page style', () => {
+  it('carries a Page style into the template, as serialize() does', () => {
+    const doc = (
+      <Forme.Document>
+        <Forme.Page size="A4" style={{ fontSize: 20, color: '#cc0000' }}>
+          <Forme.Text>Grundbuchamt</Forme.Text>
+        </Forme.Page>
+      </Forme.Document>
+    );
+    const template = Forme.serializeTemplate(doc) as { children: { style: unknown }[] };
+    const direct = Forme.serialize(doc) as { children: { style: unknown }[] };
+    expect(template.children[0].style).toEqual({ fontSize: 20, color: { r: 0.8, g: 0, b: 0, a: 1 } });
+    expect(template.children[0].style).toEqual(direct.children[0].style);
+  });
+});
