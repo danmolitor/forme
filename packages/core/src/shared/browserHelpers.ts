@@ -11,7 +11,11 @@
  */
 
 export function uint8ArrayToBase64(bytes: Uint8Array): string {
-  // Browser-native: binary string → btoa
+  if ('toBase64' in bytes && typeof bytes.toBase64 === 'function') {
+    return bytes.toBase64();
+  }
+
+  // Keep older browsers and edge runtimes working without a polyfill.
   let binary = '';
   for (let i = 0; i < bytes.length; i++) {
     binary += String.fromCharCode(bytes[i]);
