@@ -2101,6 +2101,9 @@ impl PdfWriter {
                     let mut open_link: Option<&str> = None;
                     let pdf_y = page_height - line.y;
 
+                    // Run backgrounds (#250) go under the line's text.
+                    Self::write_run_backgrounds(stream, line, pdf_y, builder, alpha * *opacity);
+
                     let _ = writeln!(stream, "BT");
 
                     // Set word spacing for justification (PDF Tw operator)
@@ -4243,6 +4246,13 @@ impl PdfWriter {
             {
                 local(shadow.color.a);
             }
+            if let DrawCommand::Text { lines, opacity, .. } = &element.draw {
+                for g in lines.iter().flat_map(|l| &l.glyphs) {
+                    if let Some(bg) = &g.background {
+                        local(opacity * bg.color.a);
+                    }
+                }
+            }
             match &element.draw {
                 DrawCommand::Rect { opacity, .. }
                 | DrawCommand::Text { opacity, .. }
@@ -5509,6 +5519,81 @@ impl PdfWriter {
         }
     }
 
+    /// Fill the backgrounds of a line's inline runs (#250): one rectangle per
+    /// stretch of consecutive glyphs with the same background, from the
+    /// first glyph's left edge to the last one's advance, and from the
+    /// font's descent below the baseline to its ascent above, as CSS paints
+    /// an inline box's background. Glyphs are in visual order, so each
+    /// side of a bidi reordering gets its own rectangle. `alpha` is the
+    /// alpha the line's text is drawn at.
+    fn write_run_backgrounds(
+        stream: &mut String,
+        line: &crate::layout::TextLine,
+        baseline: f64,
+        builder: &PdfBuilder,
+        alpha: f64,
+    ) {
+        let same = |a: &crate::layout::InlineBackground, b: &crate::layout::InlineBackground| {
+            (a.color.r - b.color.r).abs() < 1e-9
+                && (a.color.g - b.color.g).abs() < 1e-9
+                && (a.color.b - b.color.b).abs() < 1e-9
+                && (a.color.a - b.color.a).abs() < 1e-9
+                && (a.ascent - b.ascent).abs() < 1e-6
+                && (a.descent - b.descent).abs() < 1e-6
+        };
+        // Glyph positions already include a justified line's stretch; `Tw`
+        // also widens each space's own advance. A line's trailing spaces
+        // are not drawn, so they get no box (a highlight that wraps ends at
+        // its last word, as in a browser).
+        let drawn = line
+            .glyphs
+            .iter()
+            .rposition(|g| g.char_value != ' ')
+            .map_or(0, |i| i + 1);
+        let mut spans: Vec<(f64, f64, crate::layout::InlineBackground)> = Vec::new();
+        for g in &line.glyphs[..drawn] {
+            let x = line.x + g.x_offset;
+            let stretch = if g.char_value == ' ' {
+                line.word_spacing
+            } else {
+                0.0
+            };
+            let end = x + g.x_advance + stretch;
+            let Some(bg) = g.background else {
+                continue;
+            };
+            match spans.last_mut() {
+                Some((_, last_end, last)) if same(last, &bg) && (x - *last_end).abs() < 0.5 => {
+                    *last_end = end;
+                }
+                _ => spans.push((x, end, bg)),
+            }
+        }
+        for (x0, x1, bg) in spans {
+            let gs = if bg.color.a < 1.0 {
+                builder
+                    .ext_gstate_map
+                    .get(&scaled_alpha(alpha, bg.color.a).to_bits())
+                    .map(|(_, name)| format!("/{name} gs\n"))
+                    .unwrap_or_default()
+            } else {
+                String::new()
+            };
+            let _ = writeln!(
+                stream,
+                "q\n{}{:.3} {:.3} {:.3} rg\n{:.2} {:.2} {:.2} {:.2} re\nf\nQ",
+                gs,
+                bg.color.r,
+                bg.color.g,
+                bg.color.b,
+                x0,
+                baseline - bg.descent,
+                x1 - x0,
+                bg.ascent + bg.descent
+            );
+        }
+    }
+
     /// Escape special characters in a PDF string.
     pub(crate) fn escape_pdf_string(s: &str) -> String {
         s.replace('\\', "\\\\")
@@ -6268,6 +6353,7 @@ mod tests {
                                 color: None,
                                 href: None,
                                 text_decoration: TextDecoration::None,
+                                background: None,
                                 letter_spacing: 0.0,
                                 cluster_text: None,
                                 extraction_text: None,
@@ -6317,6 +6403,7 @@ mod tests {
                                 color: None,
                                 href: None,
                                 text_decoration: TextDecoration::None,
+                                background: None,
                                 letter_spacing: 0.0,
                                 cluster_text: None,
                                 extraction_text: None,
@@ -6477,6 +6564,7 @@ mod tests {
             color: None,
             href: None,
             text_decoration: TextDecoration::None,
+            background: None,
             letter_spacing: 0.0,
             cluster_text: cluster.map(str::to_string),
             extraction_text: None,
@@ -6585,6 +6673,7 @@ mod tests {
                             color: None,
                             href: None,
                             text_decoration: TextDecoration::None,
+                            background: None,
                             letter_spacing: 0.0,
                             cluster_text: None,
                             extraction_text: None,

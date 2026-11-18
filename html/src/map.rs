@@ -290,6 +290,10 @@ struct RunStyle {
     text_transform: Option<forme::style::TextTransform>,
     letter_spacing: Option<f64>,
     font_features: Option<Vec<forme::style::FontFeature>>,
+    /// An inline element's background (#250). Not inherited in CSS, but an
+    /// inline box inside a highlighted one sits on its background, so a
+    /// nested run keeps it unless it sets its own.
+    background_color: Option<Color>,
     href: Option<String>,
 }
 
@@ -313,6 +317,10 @@ impl RunStyle {
                 .font_features
                 .clone()
                 .or_else(|| self.font_features.clone()),
+            background_color: c
+                .background_color
+                .filter(|c| c.a > 0.0)
+                .or(self.background_color),
             href: href.map(str::to_string).or_else(|| self.href.clone()),
         }
     }
@@ -343,6 +351,7 @@ impl RunStyle {
             && self.text_transform.map(|t| t as u8) == other.text_transform.map(|t| t as u8)
             && self.letter_spacing == other.letter_spacing
             && self.font_features == other.font_features
+            && color_eq(self.background_color, other.background_color)
             && self.href == other.href
     }
 
@@ -363,6 +372,7 @@ impl RunStyle {
             text_transform: self.text_transform,
             letter_spacing: self.letter_spacing,
             font_features: self.font_features.clone(),
+            background_color: self.background_color,
             ..Default::default()
         }
     }
@@ -376,6 +386,11 @@ struct InlineFlattener {
     current_style: RunStyle,
     /// Whitespace seen but not yet emitted (may be dropped at boundaries).
     pending_space: bool,
+    /// The style where that whitespace began. CSS keeps a collapsed space
+    /// at the first whitespace character, so it belongs to the text it
+    /// follows: "Skills: <mark>x</mark>" highlights "x", not " x" (#250),
+    /// and the space before a link is not underlined.
+    pending_style: RunStyle,
     /// Whether any non-whitespace character has been emitted since the last
     /// hard boundary (group start or <br>). Suppresses leading spaces.
     emitted_any: bool,
@@ -388,6 +403,7 @@ impl InlineFlattener {
             current: String::new(),
             current_style: RunStyle::default(),
             pending_space: false,
+            pending_style: RunStyle::default(),
             emitted_any: false,
         }
     }
@@ -397,10 +413,14 @@ impl InlineFlattener {
             // U+00A0 (nbsp) is deliberately NOT whitespace here — it must
             // survive collapsing.
             if ch.is_ascii_whitespace() {
+                if !self.pending_space {
+                    self.pending_style = style.clone();
+                }
                 self.pending_space = true;
             } else {
                 if self.pending_space && self.emitted_any {
-                    self.push_char(' ', style);
+                    let space_style = self.pending_style.clone();
+                    self.push_char(' ', &space_style);
                 }
                 self.pending_space = false;
                 self.push_char(ch, style);

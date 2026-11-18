@@ -60,6 +60,7 @@ fn styled_fallback_uses_shaped_widths_for_line_breaking() {
                 letter_spacing: 0.0,
                 word_spacing: 0.0,
                 font_features: vec![],
+                background: None,
             })
             .collect();
         layout.break_runs_into_lines(&context, &chars, width, Hyphens::None, None)
