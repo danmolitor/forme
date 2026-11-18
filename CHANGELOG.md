@@ -8,6 +8,18 @@ while this file lapsed. They are reproduced, not rewritten.
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-11-18
+
+A text run's own background colour is painted: highlighted words, `<mark>`
+and code chips inside a sentence. SVG `<text>` takes OpenType features, a
+`<Page>` style survives template compilation in React and Preact, and the
+browser and Workers builds encode fonts and images to base64 natively. All
+packages share the line: engine (crates.io `forme-pdf`), every `@formepdf/*`
+npm package, `formepdf` (PyPI), `forme-go` (tag v0.32.0), and the VS Code
+extension.
+
+Addresses #245, #247 and #250.
+
 ### Added
 
 - A text run's own `backgroundColor` is painted behind its glyphs, as an
@@ -24,6 +36,14 @@ while this file lapsed. They are reproduced, not rewritten.
   the text before it**, as in CSS. It took the next element's style: the
   space before `<b>` was set bold (a bold space is wider) and the space
   before a link was underlined with it
+
+### Changed
+
+- `@formepdf/core`'s browser and Workers builds encode font and image bytes
+  with the runtime's native `Uint8Array.prototype.toBase64` where it exists,
+  and fall back to the previous encoder elsewhere. The output is identical;
+  4.4 MB of fonts encode in under 1 ms instead of about 30 ms. By
+  @Phillip9587 in #248
 
 ### Fixed
 
