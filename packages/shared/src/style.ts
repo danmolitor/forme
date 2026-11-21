@@ -346,6 +346,7 @@ export function mapStyle(style?: Style): FormeStyle {
   if (style.right !== undefined) result.right = style.right;
   if (style.bottom !== undefined) result.bottom = style.bottom;
   if (style.left !== undefined) result.left = style.left;
+  if (style.zIndex !== undefined) result.zIndex = Math.trunc(style.zIndex);
 
   // Page behavior
   if (style.wrap !== undefined) result.wrap = style.wrap;

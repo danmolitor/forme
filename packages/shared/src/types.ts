@@ -208,6 +208,8 @@ export interface Style {
   right?: number;
   bottom?: number;
   left?: number;
+  /** Paint order of an absolutely positioned box among its siblings; a negative value paints it beneath the in-flow content */
+  zIndex?: number;
 
   // Page behavior
   wrap?: boolean;
@@ -648,6 +650,7 @@ export interface FormeStyle {
   right?: number;
   bottom?: number;
   left?: number;
+  zIndex?: number;
   wrap?: boolean;
   breakBefore?: boolean;
   minWidowLines?: number;
