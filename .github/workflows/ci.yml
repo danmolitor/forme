@@ -260,8 +260,9 @@ jobs:
           tool: cargo-llvm-cov
       - name: Engine coverage
         working-directory: engine
+        # `regex`: the redaction security suite redacts by regex pattern.
         run: |
-          cargo llvm-cov --html
+          cargo llvm-cov --html --features regex
           {
             echo "### Engine coverage"
             echo '```'

@@ -72,11 +72,14 @@ pub fn certify_pdf(
     pdf::certify::certify_pdf(pdf_bytes, config)
 }
 
-/// Redact regions of a PDF by overlaying opaque rectangles.
+/// Redact regions of a PDF.
 ///
 /// Takes arbitrary PDF bytes and a list of redaction regions (page, x, y,
-/// width, height in top-origin coordinates). Returns new PDF bytes with
-/// the redaction rectangles drawn on top via incremental update.
+/// width, height in top-origin coordinates). Returns a new, single-revision
+/// PDF: text and images under each region are removed from the page,
+/// matching copies are removed from annotations, bookmarks, alternate text
+/// and metadata, and an opaque rectangle marks each region. Input that
+/// cannot be redacted safely returns an error.
 pub fn redact_pdf(
     pdf_bytes: &[u8],
     regions: &[model::RedactionRegion],
