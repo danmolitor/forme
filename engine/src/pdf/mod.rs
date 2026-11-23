@@ -28,6 +28,8 @@
 
 pub mod certify;
 pub mod merge;
+pub mod pdfobj;
+pub mod redact_engine;
 pub mod redaction;
 pub(crate) mod tagged;
 pub(crate) mod xmp;
