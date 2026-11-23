@@ -8,14 +8,45 @@ while this file lapsed. They are reproduced, not rewritten.
 
 ## [Unreleased]
 
-### Fixed
+## [0.33.0] - 2026-11-23
 
-- Absolutely positioned boxes are sized and painted as in CSS: an auto
-  height between `top` and `bottom` stretches between them (it was the
-  content height, 0pt for an empty box, so the box was not drawn), a
-  percentage `height` is a share of the containing block's height (it
-  resolved as points), and a new `zIndex` sets their paint order, a
-  negative value painting beneath the in-flow content (#234)
+A security release: redaction removes content from the file instead of
+leaving copies of it behind. Upgrade if you redact PDFs, and redact
+documents again from their originals. Also: absolutely positioned boxes
+stretch between `top` and `bottom`, resolve percentage heights, and take a
+`zIndex`. All packages share the line: engine (crates.io `forme-pdf`), every
+`@formepdf/*` npm package, `formepdf` (PyPI), `forme-go` (tag v0.33.0), and
+the VS Code extension.
+
+Addresses #234 and
+[GHSA-c9p3-6mjx-rp9g](https://github.com/danmolitor/forme/security/advisories/GHSA-c9p3-6mjx-rp9g).
+
+### Security
+
+- **Redaction could leave the redacted content in the file**
+  ([GHSA-c9p3-6mjx-rp9g](https://github.com/danmolitor/forme/security/advisories/GHSA-c9p3-6mjx-rp9g)).
+  The page showed a box over it, but the content could be recovered with
+  ordinary PDF tools. Redaction now writes a new, single-revision file that
+  holds only the objects the document still uses; removes redacted text and
+  images from the page, and matching copies from annotations, bookmarks,
+  alternate text and metadata; and returns an error for input it cannot
+  redact safely. Documents redacted with an earlier version should be
+  treated as not redacted: redact them again from the originals
+
+### Added
+
+- `zIndex` sets the paint order of absolutely positioned boxes among their
+  siblings; a negative value paints beneath the containing block's in-flow
+  content. By @onetwothird in #254 (#234)
+
+### Changed: these move existing documents
+
+- **An absolutely positioned box with `top` and `bottom` and no `height`
+  stretches between them**, minus its margins and within
+  `minHeight`/`maxHeight`, as in CSS. It took its content height: 0pt for
+  an empty box, so it was not drawn. A percentage `height` on an absolute
+  box is a share of the containing block's height; it resolved as points.
+  By @onetwothird in #254 (#234)
 
 ## [0.32.0] - 2026-11-18
 
