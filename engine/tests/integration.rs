@@ -18350,3 +18350,130 @@ fn test_inline_run_background_wraps_and_fades() {
         "the second box is on the next line down"
     );
 }
+
+/// Issue #234's timeline: a 2pt rail, absolutely positioned in a
+/// relative 200pt-wide list of two 30pt rows, with `rail_style` added.
+fn absolute_rail_layout(rail_style: &str) -> forme::layout::LayoutInfo {
+    let json = format!(
+        r#"{{
+        "children": [
+            {{ "kind": {{ "type": "View" }},
+               "style": {{ "position": "Relative", "width": {{ "Pt": 200 }} }},
+               "children": [
+                    {{ "kind": {{ "type": "View" }},
+                       "style": {{ "position": "Absolute", "left": 0, "width": {{ "Pt": 2 }},
+                                  "backgroundColor": {{ "r": 1.0, "g": 0.0, "b": 0.0, "a": 1.0 }}
+                                  {rail_style} }},
+                       "children": [] }},
+                    {{ "kind": {{ "type": "View" }},
+                       "style": {{ "height": {{ "Pt": 30 }},
+                                  "backgroundColor": {{ "r": 0.9, "g": 0.9, "b": 0.9, "a": 1.0 }} }},
+                       "children": [] }},
+                    {{ "kind": {{ "type": "View" }},
+                       "style": {{ "height": {{ "Pt": 30 }},
+                                  "backgroundColor": {{ "r": 0.8, "g": 0.8, "b": 0.8, "a": 1.0 }} }},
+                       "children": [] }}
+               ] }}
+        ],
+        "metadata": {{}}
+    }}"#
+    );
+    let (_pdf, layout, _warnings) =
+        forme::render_json_with_layout(&json).expect("the absolute rail renders");
+    layout
+}
+
+/// The siblings the list's elements end up among: the first element list
+/// that holds the 2pt rail.
+fn rail_siblings(layout: &forme::layout::LayoutInfo) -> Vec<forme::layout::ElementInfo> {
+    fn find(els: &[forme::layout::ElementInfo]) -> Option<Vec<forme::layout::ElementInfo>> {
+        if els.iter().any(|e| (e.width - 2.0).abs() < 0.01) {
+            return Some(els.to_vec());
+        }
+        els.iter().find_map(|e| find(&e.children))
+    }
+    layout
+        .pages
+        .iter()
+        .find_map(|p| find(&p.elements))
+        .expect("the rail is laid out")
+}
+
+fn rail_height(layout: &forme::layout::LayoutInfo) -> f64 {
+    rail_siblings(layout)
+        .iter()
+        .find(|e| (e.width - 2.0).abs() < 0.01)
+        .expect("the rail is laid out")
+        .height
+}
+
+#[test]
+fn an_absolute_auto_height_stretches_between_top_and_bottom() {
+    // #234: the rail got its content height, 0pt, and was not drawn.
+    let layout = absolute_rail_layout(r#", "top": 0, "bottom": 0"#);
+    assert!(
+        (rail_height(&layout) - 60.0).abs() < 0.01,
+        "{}",
+        rail_height(&layout)
+    );
+
+    // Offsets and margins come off the stretched height.
+    let layout = absolute_rail_layout(
+        r#", "top": 5, "bottom": 10, "margin": { "top": 3, "right": 0, "bottom": 2, "left": 0 }"#,
+    );
+    assert!(
+        (rail_height(&layout) - 40.0).abs() < 0.01,
+        "{}",
+        rail_height(&layout)
+    );
+
+    // max-height still clamps it.
+    let layout = absolute_rail_layout(r#", "top": 0, "bottom": 0, "maxHeight": { "Pt": 25 }"#);
+    assert!(
+        (rail_height(&layout) - 25.0).abs() < 0.01,
+        "{}",
+        rail_height(&layout)
+    );
+}
+
+#[test]
+fn an_absolute_percentage_height_resolves_against_the_containing_block() {
+    // #234: `height: 50%` resolved to 50pt, not half of the 60pt block.
+    let layout = absolute_rail_layout(r#", "top": 0, "height": { "Percent": 50 }"#);
+    assert!(
+        (rail_height(&layout) - 30.0).abs() < 0.01,
+        "{}",
+        rail_height(&layout)
+    );
+}
+
+#[test]
+fn a_negative_z_index_paints_an_absolute_beneath_the_in_flow_content() {
+    fn rail_index(layout: &forme::layout::LayoutInfo) -> (usize, usize) {
+        let siblings = rail_siblings(layout);
+        let rail = siblings
+            .iter()
+            .position(|e| (e.width - 2.0).abs() < 0.01)
+            .expect("the rail is laid out");
+        let row = siblings
+            .iter()
+            .position(|e| (e.height - 30.0).abs() < 0.01)
+            .expect("the rows are laid out");
+        (rail, row)
+    }
+    // #234: absolutes always painted over the rows, and zIndex was ignored.
+    let (rail, row) = rail_index(&absolute_rail_layout(
+        r#", "top": 0, "bottom": 0, "zIndex": -1"#,
+    ));
+    assert!(
+        rail < row,
+        "a negative z-index paints first: rail {rail}, row {row}"
+    );
+
+    // Without one, an absolute still paints on top, as before.
+    let (rail, row) = rail_index(&absolute_rail_layout(r#", "top": 0, "bottom": 0"#));
+    assert!(
+        rail > row,
+        "an absolute paints after the rows: rail {rail}, row {row}"
+    );
+}

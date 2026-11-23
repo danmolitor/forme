@@ -206,6 +206,12 @@ describe('Style mapping', () => {
     expect(mapDimension('auto')).toBe('Auto');
   });
 
+  it('zIndex passes through to the engine', () => {
+    expect(mapStyle({ position: 'absolute', zIndex: -1 }).zIndex).toBe(-1);
+    expect(mapStyle({ zIndex: 2 }).zIndex).toBe(2);
+    expect(mapStyle({}).zIndex).toBeUndefined();
+  });
+
   it('padding shorthand', () => {
     expect(mapStyle({ padding: 8 }).padding).toEqual({ top: 8, right: 8, bottom: 8, left: 8 });
   });

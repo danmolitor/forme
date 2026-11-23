@@ -175,6 +175,9 @@ Margins in Forme are always additive (like flexbox gap). There is no CSS margin 
 | `right` | `number` | - | Offset from the right of the containing block |
 | `bottom` | `number` | - | Offset from the bottom of the containing block |
 | `left` | `number` | - | Offset from the left of the containing block |
+| `zIndex` | `number` | `0` | Paint order of an `absolute` element among its siblings, lowest first. A negative value paints it beneath the containing block's in-flow content. |
+
+An `absolute` element with both `top` and `bottom` and no `height` stretches between them, as `left` and `right` stretch its width. A percentage `height` on an `absolute` element is a share of its containing block's height.
 
 ### Positioning examples
 

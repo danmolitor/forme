@@ -2833,6 +2833,10 @@ impl LayoutEngine {
         let row_gap = parent_style.map(|s| s.row_gap).unwrap_or(0.0);
         let column_gap = parent_style.map(|s| s.column_gap).unwrap_or(0.0);
 
+        // Where the in-flow content starts: absolutes with a negative
+        // z-index are painted from here, beneath it.
+        let flow_start = cursor.elements.len();
+
         // First pass: flow children
         match direction {
             FlexDirection::Column | FlexDirection::ColumnReverse => {
@@ -3172,7 +3176,12 @@ impl LayoutEngine {
             cursor.containing_block
         };
 
-        // Second pass: absolute children
+        // Second pass: absolute children, in ascending z-index (stable, so
+        // equal values keep source order). Those with a negative z-index go
+        // beneath the in-flow content; the rest paint on top of it.
+        let mut abs_children = abs_children;
+        abs_children.sort_by_key(|child| child.style.z_index.unwrap_or(0));
+        let mut beneath_at = flow_start;
         for abs_child in &abs_children {
             let abs_style = abs_child.style.resolve(parent_style, cb_w);
 
@@ -3189,21 +3198,53 @@ impl LayoutEngine {
                 }
             };
 
-            let child_height = match abs_style.height {
-                SizeConstraint::Fixed(h) => h,
-                SizeConstraint::Auto => {
-                    self.measure_node_height(abs_child, child_width, &abs_style, font_context)
-                }
-            };
-
-            // Position relative to the containing block. Per CSS, the
-            // offsets position the MARGIN edge: layout_node applies
+            // Per CSS, offsets position the MARGIN edge: layout_node applies
             // margin.top/left inside the slot, so a top/left anchor needs
             // no adjustment — but bottom/right anchors must reserve the
             // margins, or a margin shoves the border box past the anchor
             // (template-compat 15: `bottom:0` + `margin-top:1rem` pushed a
             // footer off the page bottom, leaving only ascender tips).
             let abs_margin = abs_style.margin.to_edges();
+
+            // A percentage height resolves against the containing block's
+            // height, and an auto height with both `top` and `bottom` set
+            // stretches between them, as in CSS. Both are clamped by
+            // min/max-height and laid out as a fixed height.
+            let resolved_height = match abs_child.style.height {
+                Some(Dimension::Percent(p)) => Some(cb_h * p / 100.0),
+                Some(Dimension::Pt(_)) => None,
+                Some(Dimension::Auto) | None => match (abs_style.top, abs_style.bottom) {
+                    (Some(t), Some(b)) => Some(cb_h - t - b - abs_margin.vertical()),
+                    _ => None,
+                },
+            }
+            .map(|h| {
+                h.min(abs_style.max_height)
+                    .max(abs_style.min_height)
+                    .max(0.0)
+            });
+            let sized_child;
+            let abs_child: &Node = match resolved_height {
+                Some(h) => {
+                    let mut node = (*abs_child).clone();
+                    node.style.height = Some(Dimension::Pt(h));
+                    sized_child = node;
+                    &sized_child
+                }
+                None => abs_child,
+            };
+
+            let child_height = match resolved_height {
+                Some(h) => h,
+                None => match abs_style.height {
+                    SizeConstraint::Fixed(h) => h,
+                    SizeConstraint::Auto => {
+                        self.measure_node_height(abs_child, child_width, &abs_style, font_context)
+                    }
+                },
+            };
+
+            // Position relative to the containing block.
             let abs_x = if let Some(l) = abs_style.left {
                 cb_x + l
             } else if let Some(r) = abs_style.right {
@@ -3240,11 +3281,20 @@ impl LayoutEngine {
 
             // Add absolute elements to the page the containing block starts
             // on: the finalized first fragment when the parent broke across
-            // pages, else the current cursor (renders on top either way).
-            if parent_fragmented {
-                pages[entry_page_index].elements.extend(abs_cursor.elements);
+            // pages, else the current cursor. A negative z-index paints
+            // beneath the in-flow content, any other on top of it.
+            let target = if parent_fragmented {
+                &mut pages[entry_page_index].elements
             } else {
-                cursor.elements.extend(abs_cursor.elements);
+                &mut cursor.elements
+            };
+            if abs_style.z_index < 0 {
+                let at = beneath_at.min(target.len());
+                let added = abs_cursor.elements.len();
+                target.splice(at..at, abs_cursor.elements);
+                beneath_at = at + added;
+            } else {
+                target.extend(abs_cursor.elements);
             }
         }
 

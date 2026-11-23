@@ -8,6 +8,15 @@ while this file lapsed. They are reproduced, not rewritten.
 
 ## [Unreleased]
 
+### Fixed
+
+- Absolutely positioned boxes are sized and painted as in CSS: an auto
+  height between `top` and `bottom` stretches between them (it was the
+  content height, 0pt for an empty box, so the box was not drawn), a
+  percentage `height` is a share of the containing block's height (it
+  resolved as points), and a new `zIndex` sets their paint order, a
+  negative value painting beneath the in-flow content (#234)
+
 ## [0.32.0] - 2026-11-18
 
 A text run's own background colour is painted: highlighted words, `<mark>`

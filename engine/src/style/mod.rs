@@ -166,6 +166,10 @@ pub struct Style {
     pub bottom: Option<f64>,
     /// Left offset (for absolute positioning).
     pub left: Option<f64>,
+    /// Paint order of an absolutely positioned box among its siblings.
+    /// A negative value paints it beneath the containing block's in-flow
+    /// content.
+    pub z_index: Option<i32>,
 
     // ── Page Behavior ──────────────────────────────────────────
     /// Whether this node can be broken across pages.
@@ -702,6 +706,7 @@ pub struct ResolvedStyle {
     pub right: Option<f64>,
     pub bottom: Option<f64>,
     pub left: Option<f64>,
+    pub z_index: i32,
 
     // Page behavior
     pub breakable: bool,
@@ -888,6 +893,7 @@ impl Style {
             right: self.right,
             bottom: self.bottom,
             left: self.left,
+            z_index: self.z_index.unwrap_or(0),
 
             breakable: self.wrap.unwrap_or(true),
             break_before: self.break_before.unwrap_or(false),
