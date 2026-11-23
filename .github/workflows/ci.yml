@@ -41,8 +41,10 @@ jobs:
         # feature flag hid it from this job — same failure shape as the
         # ICC profile and the measure/layout divergence: a check that
         # exists but doesn't run catches nothing. The suite FAILS (not
-        # skips) in CI when pdftoppm is missing.
-        run: cargo test --features visual-tests
+        # skips) in CI when pdftoppm is missing. `regex` because the
+        # redaction security suite redacts by regex pattern; without the
+        # feature, those tests fail on an error instead of testing anything.
+        run: cargo test --features visual-tests,regex
       - name: Check formatting
         working-directory: engine
         run: cargo fmt --check
