@@ -61,7 +61,8 @@ function main() {
   const push = (suite, counts) => { if (counts) suites.push({ suite, ...counts }); };
 
   // Rust
-  const engineOut = run('cargo test 2>&1', join(REPO, 'engine'));
+  // `regex`, as in CI: the redaction security suite needs it.
+  const engineOut = run('cargo test --features regex 2>&1', join(REPO, 'engine'));
   push('engine (lib + integration)', cargoCounts(engineOut));
   const htmlOut = run('cargo test 2>&1', join(REPO, 'html'));
   push('html crate', cargoCounts(htmlOut));
