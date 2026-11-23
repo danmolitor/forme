@@ -137,7 +137,8 @@ if phase_reached build; then
   (cd html && cargo build --release && cargo fmt --check && cargo clippy --all-targets -- -D warnings)
   (cd packages/html && ./build.sh)
   (cd packages/vscode && npm run build)        # snapshots BOTH wasms + preview
-  for p in hono next mcp resend sdk tailwind templates; do (cd "packages/$p" && npm run build); done
+  # templates first: hono, next, mcp and resend import it.
+  for p in templates hono next mcp resend sdk tailwind; do (cd "packages/$p" && npm run build); done
   (cd packages/python-sdk && bash build_wasm.sh)
 
   step "BUILD — copied-artifact verification (the stale-copy gate)"
@@ -157,7 +158,7 @@ fi
 if phase_reached test; then
   step "TEST — every suite, including the ones the old gate missed"
 
-  (cd engine && cargo test)
+  (cd engine && cargo test --features regex)   # the redaction security suite needs regex
   (cd html && cargo test)
   for p in fonts-standard react core renderer svelte vue preact cli hono next resend mcp; do
     (cd "packages/$p" && npm test)
