@@ -1,9 +1,11 @@
 ---
 title: Redaction
-description: How Forme performs true PDF redaction — content stream text removal, metadata scrubbing, and compliance-grade sensitive data removal.
+description: How Forme redacts PDFs — removing content rather than covering it, what is removed, and how to check a redacted PDF.
 ---
 
-Forme performs true PDF redaction: text is removed from the content stream, not just hidden behind a black box. This is the difference between compliance-grade redaction and a cosmetic overlay that can be trivially reversed.
+Forme redacts by removing content from the file, not only hiding it behind a black box.
+
+<Warning>Use Forme 0.33.0 or later for redaction. Output from earlier versions can still contain the redacted content. If you redacted documents with an earlier version, regenerate them from the originals.</Warning>
 
 ---
 
@@ -21,35 +23,17 @@ This is not a theoretical risk. Improperly redacted court documents, government 
 
 ## How Forme Redacts
 
-When you call `POST /v1/redact`, Forme:
+When you redact a PDF, Forme:
 
-1. **Decompresses content streams** — PDF content streams use FlateDecode compression. Forme decompresses them to access the raw page description operators.
+1. **Reads the whole document** — including compressed object streams and every earlier revision, so it works on the content a viewer shows.
+2. **Finds what lies under each region** — text positions come from the font's glyph widths and the page's transforms, so text is located where it is drawn.
+3. **Removes page content** — text and images under a region are removed from the page. The spacing is kept, so the rest of the line does not move.
+4. **Removes hidden copies** — matching text is removed from annotations, links, bookmarks, and alternate text.
+5. **Removes document data** — XMP metadata, embedded files, and document JavaScript are removed, and the document information is replaced (`/Producer` is "Forme").
+6. **Draws a visual overlay** — a black (or custom-colored) rectangle marks each redacted area.
+7. **Writes a new file** — the output holds only the content the document still uses. Earlier revisions and unused objects from the input are not carried over.
 
-2. **Identifies text operators** — PDF draws text using operators like `Tj` (show text), `TJ` (show text with positioning), `'` (move to next line and show text), and `"` (set spacing and show text). Forme identifies which text operators fall within redaction regions.
-
-3. **Removes text operators** — Text operators within redacted regions are removed from the content stream entirely. The text data no longer exists in the PDF.
-
-4. **Draws visual overlay** — A black (or custom-colored) rectangle is drawn where the text was, providing a clear visual indicator that content has been redacted.
-
-5. **Recompresses content streams** — The modified content stream is recompressed with FlateDecode.
-
-6. **Scrubs metadata** — Document metadata is automatically cleaned (see below).
-
----
-
-## Metadata Scrubbing
-
-Every redaction automatically scrubs document metadata. This is not optional — metadata often contains sensitive information that authors don't realize is embedded.
-
-**What gets removed:**
-- Author name
-- Creator application
-- Edit history
-- Comments and annotations
-
-**What gets replaced:**
-- `/Producer` → `"Forme"`
-- `/ModDate` → current timestamp
+If Forme cannot redact some content safely, it returns an error instead of a PDF. See [Known Limitations](#known-limitations).
 
 ---
 
@@ -110,20 +94,24 @@ All three methods can be combined in a single request.
 
 ## Verifying Redaction
 
-After redacting a PDF:
+Selecting text in a viewer only checks what the page shows. It does not check the rest of the file. Check the output with a tool other than the one that redacted it:
 
-1. Open the redacted PDF in **Chrome** (not macOS Preview)
-2. Try to select text in the redacted areas
-3. If the redaction worked, there will be nothing to select — the text no longer exists
+1. Extract all text with a separate tool (for example `pdftotext redacted.pdf -`) and search it for the redacted values.
+2. Check the document properties, bookmarks, comments, and attachments.
+3. Confirm that values you did not redact are still there, so you know the check works.
 
-<Note>macOS Preview may show a text cursor in redacted areas. This is a rendering artifact — the text is actually removed. Always verify in Chrome or Adobe Acrobat.</Note>
+Do not rely on Forme's own text search (`findTextRegions`) to confirm a Forme redaction.
 
 ---
 
 ## Known Limitations
 
-- **WinAnsi encoding only**: Text search and pattern matching works on standard Western-encoded text (WinAnsi/Windows-1252). CJK, Arabic, and other non-WinAnsi encoded text cannot be found by text search — use coordinate redaction instead.
-- **Images and vector graphics**: In v1, images and vector graphics within redacted regions are covered by the visual overlay but not removed from the content stream. True image redaction is planned for a future release.
+- **Whole text runs**: A text run that touches a region is removed whole. If the match shares a run with other words (for example a label on the same line), those words are removed too.
+- **Vector graphics**: Lines and shapes under a region are covered by the overlay, not removed.
+- **Scanned text**: Text inside an image is not searchable; run OCR first. An image under a region is removed whole.
+- **Text search needs a text mapping**: Search finds text in fonts with a standard encoding or a ToUnicode map. Text without one cannot be found by search — use coordinate redaction.
+- **Page rotation and CropBox**: Region coordinates are measured from the MediaBox; `/Rotate` and CropBox offsets are not applied.
+- **Refused input**: Encrypted PDFs, form fields under a region or holding matching text, and text or images inside form XObjects under a region return an error instead of a PDF.
 - **Maximum 50 patterns per request**: Keep the total number of patterns (including those expanded from presets and templates) under 50.
 
 ---

@@ -206,7 +206,7 @@ Install [Forme PDF Preview](https://marketplace.visualstudio.com/items?itemName=
 - **PDF/UA accessibility**: `<Document pdfUa>` generates PDF/UA-1 conforming documents — structure tree with tagged headings, lists (`/LBody`), tables (`/TH` scope, `/ColSpan`), links (`/Link` + `OBJR`), figure `/Alt`, tab order, and artifact tagging. See [Compliance](#compliance).
 - **PDF/A archival**: `<Document pdfa="2b">` for long-term preservation — PDF/A-2b, 2u, and 2a, veraPDF-verified, and composable with `pdfUa` (archival + accessible at once). See [Compliance](#compliance).
 - **Digital certification**: PKCS#7 certification with X.509 certificates via the `certification` prop or `/v1/certify` API endpoint.
-- **PDF redaction**: True content removal with metadata scrubbing. Text-search, regex, presets, and saved templates.
+- **PDF redaction**: Removes redacted content from the file, not only covers it. Redact by region, text search, regex, presets, and saved templates.
 - **PDF merging**: Combine 2-20 PDFs into one via `/v1/merge`.
 - **PDF rasterization**: Convert pages to PNG images via `/v1/rasterize`, powered by PDFium.
 
@@ -421,7 +421,7 @@ Font sources can be file paths, data URIs, or `Uint8Array`. Fonts are automatica
 | PDF/UA accessibility | `<Document pdfUa>` | No | No |
 | PDF/A archival | `<Document pdfa="2b">` | No | No |
 | Digital certification | PKCS#7 via `certification` prop or API | No | No |
-| Redaction | True content removal + metadata scrubbing | No | No |
+| Redaction | Removes content (not an overlay); region, text, regex | No | No |
 | PDF merging | Combine multiple PDFs | No | No |
 | Rasterization | PDF → PNG via PDFium | No | No |
 | Dependencies | None (WASM) | yoga-layout | Chrome/Chromium |

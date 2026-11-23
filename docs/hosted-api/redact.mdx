@@ -6,7 +6,9 @@ description: Redact a PDF with the hosted API by coordinates, text patterns, pre
 
 `POST /v1/redact`
 
-Removes content from a PDF: text in the redacted areas is removed from the content stream, not only covered. See [Redaction](/concepts/redaction) for how it works.
+Redacts content in a PDF by region, text pattern, preset, or saved template. Matching content is removed from the file, not only covered. See [Redaction](/concepts/redaction) for how it works.
+
+<Warning>Use Forme 0.33.0 or later for redaction. Output from earlier versions can still contain the redacted content. If you redacted documents with an earlier version, regenerate them from the originals.</Warning>
 
 Each successful call is one [operation](/hosted-api#operations-and-plan-limits).
 

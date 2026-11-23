@@ -54,7 +54,7 @@ fn main() -> Result<(), FormeError> {
 |----------|-------------|
 | `merge_pdfs(&[&[u8]])` | Combine multiple PDFs into one |
 | `certify_pdf(&[u8], &str, &str, ...)` | Apply a PKCS#7 digital signature to an existing PDF |
-| `redact_pdf(&[u8], &[RedactionRegion])` | Redact regions from a PDF (removes underlying text) |
+| `redact_pdf(&[u8], &[RedactionRegion])` | Redact regions from a PDF |
 | `redact_text(&[u8], &[TextSearchRedaction])` | Find text by pattern and redact matching regions |
 | `find_text_regions(&[u8], &[TextSearchPattern])` | Find text regions in a PDF without redacting |
 

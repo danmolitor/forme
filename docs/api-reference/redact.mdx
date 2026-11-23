@@ -1,12 +1,14 @@
 ---
 title: Redact PDF
 sidebarTitle: Redact
-description: Redact sensitive content from PDFs with true content removal — by coordinates, text patterns, regex, presets, or saved templates.
+description: Redact sensitive content from PDFs — by coordinates, text patterns, regex, presets, or saved templates.
 ---
 
 `POST /v1/redact`
 
-Remove sensitive content from a PDF. Forme performs true redaction — text operators are removed from the PDF content stream, not just covered with a black box. Metadata is automatically scrubbed on every redaction.
+Redact sensitive content in a PDF by coordinates, text pattern, regex, preset, or saved template. Matching content is removed from the file, not only covered with a black box.
+
+<Warning>Use Forme 0.33.0 or later for redaction. Output from earlier versions can still contain the redacted content. If you redacted documents with an earlier version, regenerate them from the originals.</Warning>
 
 ```
 Authorization: Bearer forme_sk_...
@@ -222,21 +224,29 @@ Combine a template with additional inline patterns — all sources are merged:
 
 ---
 
-## What Gets Removed
+## What Redaction Does
 
-- **Text operators** (`Tj`, `TJ`, `'`, `"`) within redacted regions are removed from the PDF content stream
-- **Metadata** is automatically scrubbed: author, creator, edit history, and comments are stripped. `/Producer` is replaced with "Forme" and `/ModDate` with the current timestamp.
-- **Visual overlay**: A black rectangle covers each redacted area
+- **Page content**: Text and images under a redacted region are removed from the page.
+- **Hidden copies**: Matching text is removed from annotations, links, bookmarks, and alternate text.
+- **Document data**: XMP metadata, embedded files, and document JavaScript are removed. The document information is replaced (`/Producer` is "Forme").
+- **New file**: The output is written as a new file that holds only the content the document still uses. Earlier revisions of the input are not carried over.
+- **Visual overlay**: A black rectangle covers each redacted area.
 
-<Tip>To verify redaction worked, open the PDF in Chrome and try to select text in the redacted area. If the text is truly removed, there will be nothing to select.</Tip>
+If the input cannot be redacted safely, the request fails with `422` and code `REDACTION_REFUSED` instead of returning a PDF. See Known Limitations.
+
+<Tip>To check the result, see [Verifying redaction](/concepts/redaction#verifying-redaction). Selecting text in a viewer is not enough.</Tip>
 
 ---
 
 ## Known Limitations
 
-- **WinAnsi encoding only**: Text search works on standard Western-encoded text. CJK and other non-WinAnsi text is not searchable by patterns — use coordinate redaction instead.
-- **Maximum 50 patterns per request**: Combine multiple presets into a single request, but keep the total pattern count under 50.
-- **Images and vector graphics**: Visual black rectangles cover these elements, but the underlying image data is not removed from the content stream in v1.
+- **Whole text runs**: A text run that touches a region is removed whole. If the match shares a run with other words (for example a label on the same line), those words are removed too.
+- **Vector graphics**: Lines and shapes under a region are covered by the overlay, not removed.
+- **Scanned text**: Text inside an image is not searchable; run OCR first. An image under a region is removed whole.
+- **Text search needs a text mapping**: Search finds text in fonts with a standard encoding or a ToUnicode map. Text without one cannot be found by search — use coordinate redaction.
+- **Page rotation and CropBox**: Region coordinates are measured from the MediaBox; `/Rotate` and CropBox offsets are not applied.
+- **Refused input**: Encrypted PDFs, form fields under a region or holding matching text, and text or images inside form XObjects under a region return an error instead of a PDF.
+- **Maximum 50 patterns per request**: Keep the total number of patterns (including those expanded from presets and templates) under 50.
 
 ---
 
