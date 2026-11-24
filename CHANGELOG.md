@@ -8,6 +8,13 @@ while this file lapsed. They are reproduced, not rewritten.
 
 ## [Unreleased]
 
+## [0.34.1] - 2026-11-24
+
+`@formepdf/hono` renders on Cloudflare Workers. No engine changes: PDF output
+is byte-identical to 0.34.0. All packages share the line: engine (crates.io
+`forme-pdf`), every `@formepdf/*` npm package, `formepdf` (PyPI), `forme-go`
+(tag v0.34.1), and the VS Code extension.
+
 ### Fixed
 
 - `@formepdf/hono` renders on Cloudflare Workers. `c.pdf()` and
