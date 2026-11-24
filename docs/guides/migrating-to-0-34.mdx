@@ -1,0 +1,52 @@
+---
+title: Migrating to 0.34.0
+sidebarTitle: Migrating to 0.34.0
+description: Redaction in Forme 0.34.0 — displayed-page coordinates, vector graphics removal, and new refusals.
+---
+
+Forme 0.34.0 is a security release for redaction. Rendering is unchanged. If you use `redactPdf`, `redactText`, `findTextRegions`, or `POST /v1/redact`, read this page.
+
+<Warning>Documents redacted with 0.33.0 or earlier that have rotated or cropped pages, vector graphics (such as signatures or outlined text), or patterns under a redaction can still contain the redacted content. Redact them again from the originals with 0.34.0. See the [security advisory](https://github.com/danmolitor/forme/security/advisories/GHSA-PENDING-0-34).</Warning>
+
+---
+
+## Region coordinates are on the page as displayed
+
+A region's `x` and `y` are now points from the **top-left corner of the visible page** (the CropBox, clipped to the MediaBox), **after** the page's `/Rotate` is applied. These are the coordinates a PDF viewer shows, such as a pdf.js viewport at scale 1, and the Dashboard editor.
+
+| Page | 0.33.0 and earlier | 0.34.0 |
+|------|-------------------|--------|
+| No CropBox, no `/Rotate` | from the MediaBox's top-left | **unchanged** |
+| CropBox smaller than the MediaBox | from the MediaBox's top-left | from the CropBox's top-left |
+| `/Rotate 90`, `180`, `270` | unrotated page | rotated page, as displayed |
+
+**What to do:**
+
+- If you compute regions from a viewer (for example pdf.js `page.getViewport({ scale: 1 })`), they are now correct as they are.
+- If you computed regions against the unrotated MediaBox to work around 0.33.0, remove that adjustment.
+- Regions from `findTextRegions` are in the new frame and can be passed straight to `redactPdf`.
+
+## Vector graphics under a region are removed
+
+Paths under a region are cut at the region's edges, not only covered. Parts outside the region stay. Curves in a cut path are redrawn as straight segments within 0.05 pt, which is not visible at normal zoom.
+
+## New refusals
+
+Where Forme cannot remove content safely, it returns an error that starts with `Redaction refused:` and no PDF. The hosted API answers `422` with code `REDACTION_REFUSED`. New in 0.34.0:
+
+- a page whose `/Rotate` is not a multiple of 90, or that sets `/UserUnit`, when it has a region;
+- a region coordinate that is not a finite number;
+- paths inside a form XObject under a region (text and images there were already refused);
+- an area painted with a tiling pattern under a region;
+- text drawn with a Type3 font that may lie under a region;
+- text used as a clipping path (rendering modes 4 to 7) under a region.
+
+**What to do:** treat `Redaction refused:` as "this document cannot be redacted automatically". Do not fall back to an unredacted copy. Options: flatten the document to images first, or redact it with a tool that rasterizes the affected page.
+
+## Text removal is decided per glyph
+
+A text run is removed whole when any of its glyphs is under a region: at least a fifth of the glyph's box under the region in each direction, or the centre of the box. Before, a run was removed when its bounding box touched a region, which could also remove tightly spaced neighbouring lines. Whole runs are still removed: words that share a run with redacted text go with it.
+
+## Check the result
+
+As before, check a redacted PDF with a tool other than the one that redacted it. See [Verifying redaction](/concepts/redaction#verifying-redaction).
