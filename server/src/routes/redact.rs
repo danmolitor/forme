@@ -148,7 +148,7 @@ pub async fn redact(Json(payload): Json<RedactRequest>) -> Result<Response, ApiE
         .map_err(|e| ApiError::BadRequest(format!("Invalid base64 PDF: {e}")))?;
 
     // Build coordinate regions
-    let mut regions: Vec<forme::RedactionRegion> = payload
+    let regions: Vec<forme::RedactionRegion> = payload
         .redactions
         .into_iter()
         .map(|r| forme::RedactionRegion {
@@ -191,33 +191,23 @@ pub async fn redact(Json(payload): Json<RedactRequest>) -> Result<Response, ApiE
         }
     }
 
-    // Find text regions and merge
-    if !all_patterns.is_empty() {
-        let pdf_for_search = pdf_bytes.clone();
-        let text_regions = tokio::task::spawn_blocking(move || {
-            forme::find_text_regions(&pdf_for_search, &all_patterns)
-        })
-        .await
-        .map_err(|e| ApiError::Internal(format!("Search task failed: {e}")))?
-        .map_err(ApiError::from)?;
-        regions.extend(text_regions);
-    }
-
-    if regions.is_empty() {
-        // No matches — return original PDF
-        return Ok((
-            StatusCode::OK,
-            [(header::CONTENT_TYPE, "application/pdf")],
-            pdf_bytes,
-        )
-            .into_response());
-    }
-
-    let redacted_bytes =
-        tokio::task::spawn_blocking(move || forme::redact_pdf(&pdf_bytes, &regions))
-            .await
-            .map_err(|e| ApiError::Internal(format!("Redact task failed: {e}")))?
-            .map_err(ApiError::from)?;
+    // Regions through redact_pdf; patterns through redact_text, which also
+    // removes matches outside the page text (annotations, links, bookmarks,
+    // alternate text, metadata). Each returns the input unchanged when it
+    // has nothing to do.
+    let redacted_bytes = tokio::task::spawn_blocking(move || {
+        let mut bytes = pdf_bytes;
+        if !regions.is_empty() {
+            bytes = forme::redact_pdf(&bytes, &regions)?;
+        }
+        if !all_patterns.is_empty() {
+            bytes = forme::redact_text(&bytes, &all_patterns)?;
+        }
+        Ok::<_, forme::FormeError>(bytes)
+    })
+    .await
+    .map_err(|e| ApiError::Internal(format!("Redact task failed: {e}")))?
+    .map_err(ApiError::from)?;
 
     Ok((
         StatusCode::OK,

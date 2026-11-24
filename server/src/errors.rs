@@ -21,6 +21,11 @@ pub enum ApiError {
 
     #[error("{0}")]
     NotImplemented(String),
+
+    /// The engine refused to redact (it cannot remove the content safely)
+    /// and returned no PDF.
+    #[error("{0}")]
+    RedactionRefused(String),
 }
 
 impl ApiError {
@@ -32,6 +37,7 @@ impl ApiError {
             ApiError::RenderFailed(_) => StatusCode::BAD_REQUEST,
             ApiError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
             ApiError::NotImplemented(_) => StatusCode::NOT_IMPLEMENTED,
+            ApiError::RedactionRefused(_) => StatusCode::UNPROCESSABLE_ENTITY,
         }
     }
 
@@ -43,6 +49,7 @@ impl ApiError {
             ApiError::RenderFailed(_) => "RENDER_FAILED",
             ApiError::Internal(_) => "INTERNAL_ERROR",
             ApiError::NotImplemented(_) => "NOT_IMPLEMENTED",
+            ApiError::RedactionRefused(_) => "REDACTION_REFUSED",
         }
     }
 }
@@ -59,6 +66,11 @@ impl IntoResponse for ApiError {
 
 impl From<forme::FormeError> for ApiError {
     fn from(err: forme::FormeError) -> Self {
+        let msg = err.to_string();
+        let msg = msg.strip_prefix("Render error: ").unwrap_or(&msg);
+        if msg.starts_with("Redaction refused:") {
+            return ApiError::RedactionRefused(msg.to_string());
+        }
         ApiError::RenderFailed(err.to_string())
     }
 }
