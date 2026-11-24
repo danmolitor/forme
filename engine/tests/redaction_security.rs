@@ -1601,3 +1601,190 @@ fn zero_width_glyphs_inside_the_region_are_removed() {
         Evidence::of(&out).locate(SECRET)
     );
 }
+
+// ───────────────────────── Type3 fonts, clip-mode text ─────────────────────────
+
+/// A Type3 font with FontMatrix 0.01 (glyph space 100 units/em) whose
+/// glyphs are 60 units (0.6 em) wide, ToUnicode identity for ASCII.
+fn type3_objs(content: &str, font_bbox: &str) -> Vec<Obj> {
+    let mut objs = base_objs(content.as_bytes().to_vec(), "");
+    objs[2] = obj(3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R /T3 6 0 R >> >> >>");
+    let widths = vec!["60"; 95].join(" ");
+    let diffs: String = (32..127).map(|c| format!("/g{c} ")).collect();
+    let procs: String = (32..127).map(|c| format!("/g{c} 7 0 R ")).collect();
+    objs.push(obj(6, &format!("<< /Type /Font /Subtype /Type3 /FontMatrix [0.01 0 0 0.01 0 0] /FontBBox {font_bbox} /FirstChar 32 /LastChar 126 /Widths [{widths}] /Encoding << /Type /Encoding /Differences [32 {diffs}] >> /CharProcs << {procs} >> /Resources << >> >>")));
+    objs.push(sobj(7, "", b"60 0 0 0 50 70 d1 5 0 40 70 re f"));
+    objs
+}
+
+#[test]
+fn type3_text_is_located_with_its_font_matrix_and_refused_under_a_region() {
+    // "SSN: 123-45-6789" in the Type3 font: glyphs are 0.6 em = 7.2 pt wide
+    // at 12 pt, so the digits start at x ≈ 72 + 5·7.2 = 108. The region
+    // covers x 100..250 only: with widths read as 1/1000 em the whole run
+    // would sit at x 72..80 and be missed.
+    let content = format!(
+        "BT /F1 12 Tf 72 700 Td (Name: Jane Example) Tj ET\nBT /T3 12 Tf 72 680 Td (SSN: {SECRET}) Tj ET\n"
+    );
+    let input = build(&type3_objs(&content, "[0 0 50 70]"), 1, None, true);
+    let err = redact_pdf(&input, &[region(100.0, 96.0, 150.0, 20.0)])
+        .expect_err("Type3 text under a region must be refused");
+    assert!(err.to_string().contains("Redaction refused"), "{err}");
+}
+
+#[test]
+fn type3_text_away_from_regions_is_kept_and_unknown_bounds_are_refused() {
+    let content = format!(
+        "BT /T3 12 Tf 72 400 Td (KEEP-T3) Tj ET\nBT /F1 12 Tf 72 680 Td (SSN: {SECRET}) Tj ET\n"
+    );
+    let out = redact_pdf(
+        &build(&type3_objs(&content, "[0 0 50 70]"), 1, None, true),
+        &[ssn_line()],
+    )
+    .expect("Type3 text far from the region is kept");
+    assert!(!Evidence::of(&out).contains(SECRET));
+    // FontBBox [0 0 0 0] means "unknown": a glyph may draw anywhere, so a
+    // region on the page cannot be shown to miss it.
+    let err = redact_pdf(
+        &build(&type3_objs(&content, "[0 0 0 0]"), 1, None, true),
+        &[ssn_line()],
+    )
+    .expect_err("Type3 text with unknown bounds must be refused");
+    assert!(err.to_string().contains("Redaction refused"), "{err}");
+}
+
+#[test]
+fn clip_mode_text_under_a_region_is_refused() {
+    // Text rendering mode 7 adds the glyphs to the clip; the image drawn
+    // through it shows the text's shape. Removing the text would widen the
+    // clip for the later content, so it is refused.
+    for mode in [4, 5, 6, 7] {
+        let content = format!(
+            "BT /F1 12 Tf 72 700 Td (Name: Jane Example) Tj ET\nq BT {mode} Tr /F1 12 Tf 72 680 Td (SSN: {SECRET}) Tj ET 0 0 1 rg 60 670 300 30 re f Q\n"
+        );
+        let input = build(&base_objs(content.into_bytes(), ""), 1, None, true);
+        let err = redact_pdf(&input, &[ssn_line()])
+            .expect_err("clip-mode text under a region must be refused");
+        assert!(
+            err.to_string().contains("Redaction refused"),
+            "mode {mode}: {err}"
+        );
+    }
+    // Clip-mode text away from the region does not block the redaction.
+    let content = format!(
+        "BT /F1 12 Tf 72 680 Td (SSN: {SECRET}) Tj ET\nq BT 7 Tr /F1 12 Tf 72 400 Td (Clip) Tj ET Q\n"
+    );
+    let out = redact_pdf(
+        &build(&base_objs(content.into_bytes(), ""), 1, None, true),
+        &[ssn_line()],
+    )
+    .unwrap();
+    assert!(!Evidence::of(&out).contains(SECRET));
+}
+
+// ───────────────────────── the glyph-overlap rule, at its boundaries ─────────────────────────
+//
+// One run "ZXZ" in Helvetica 100 pt at (100, 400). The first glyph Z is
+// 61.1 pt wide; every glyph box spans y 378..495 (descent 0.22 em, ascent
+// 0.95 em: 117 pt). Regions below touch only the first Z.
+
+const GX0: f64 = 100.0;
+const GX1: f64 = 161.1;
+const GY0: f64 = 378.0;
+const GY1: f64 = 495.0;
+
+fn zxz_pdf() -> Vec<u8> {
+    let content = b"BT /F1 12 Tf 72 700 Td (Name: Jane Example) Tj ET\nBT /F1 100 Tf 100 400 Td (ZXZ) Tj ET\n".to_vec();
+    build(&base_objs(content, ""), 1, None, true)
+}
+
+/// Region given in page space (x0, y0, x1, y1), converted to top-origin.
+fn page_region(x0: f64, y0: f64, x1: f64, y1: f64) -> RedactionRegion {
+    region(x0, 792.0 - y1, x1 - x0, y1 - y0)
+}
+
+fn zxz_removed(r: RedactionRegion) -> bool {
+    let out = redact_pdf(&zxz_pdf(), &[r]).unwrap();
+    assert!(has_text(&out, "Jane Example"));
+    !has_text(&out, "ZXZ")
+}
+
+#[test]
+fn glyph_overlap_rule_boundaries() {
+    let (w, h) = (GX1 - GX0, GY1 - GY0);
+    // Horizontal share, full height: 19% kept, 21% removed.
+    assert!(
+        !zxz_removed(page_region(GX1 - 0.19 * w, GY0 - 5.0, GX1, GY1 + 5.0)),
+        "19% across: kept"
+    );
+    assert!(
+        zxz_removed(page_region(GX1 - 0.21 * w, GY0 - 5.0, GX1, GY1 + 5.0)),
+        "21% across: removed"
+    );
+    // Vertical share, full width: 19% kept, 21% removed (top and bottom).
+    assert!(
+        !zxz_removed(page_region(GX0, GY1 - 0.19 * h, GX1, GY1 + 5.0)),
+        "top 19%: kept"
+    );
+    assert!(
+        zxz_removed(page_region(GX0, GY1 - 0.21 * h, GX1, GY1 + 5.0)),
+        "top 21%: removed"
+    );
+    assert!(
+        !zxz_removed(page_region(GX0, GY0 - 5.0, GX1, GY0 + 0.19 * h)),
+        "bottom 19%: kept"
+    );
+    assert!(
+        zxz_removed(page_region(GX0, GY0 - 5.0, GX1, GY0 + 0.21 * h)),
+        "bottom 21%: removed"
+    );
+    // Both shares must hold: 50% across but 10% high is kept.
+    assert!(
+        !zxz_removed(page_region(GX0, GY1 - 0.1 * h, GX0 + 0.5 * w, GY1)),
+        "corner sliver: kept"
+    );
+    // A small box over the middle of the glyph removes it, although it
+    // covers less than a fifth of the glyph's box in both directions.
+    let (cx, cy) = ((GX0 + GX1) / 2.0, (GY0 + GY1) / 2.0);
+    assert!(
+        zxz_removed(page_region(cx - 2.0, cy - 2.0, cx + 2.0, cy + 2.0)),
+        "box over the centre: removed"
+    );
+    // A box entirely inside the glyph, off centre, covering 15% x 15%.
+    assert!(
+        !zxz_removed(page_region(
+            GX0 + 2.0,
+            GY0 + 2.0,
+            GX0 + 2.0 + 0.15 * w,
+            GY0 + 2.0 + 0.15 * h
+        )),
+        "small off-centre box: kept"
+    );
+    // Full cover: removed.
+    assert!(
+        zxz_removed(page_region(GX0 - 1.0, GY0 - 1.0, GX1, GY1 + 1.0)),
+        "full cover: removed"
+    );
+}
+
+#[test]
+fn type3_text_with_unknown_bounds_inside_a_form_is_refused() {
+    let content =
+        "BT /F1 12 Tf 72 700 Td (Name: Jane Example) Tj ET\nq 1 0 0 1 72 400 cm /Fx Do Q\n";
+    let mut objs = type3_objs(content, "[0 0 0 0]");
+    objs[2] = obj(3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R /T3 6 0 R >> /XObject << /Fx 8 0 R >> >> >>");
+    objs.push(sobj(
+        8,
+        "/Type /XObject /Subtype /Form /BBox [0 0 300 20] /Resources << /Font << /T3 6 0 R >> >>",
+        format!("BT /T3 12 Tf 0 4 Td (T3-{SECRET}) Tj ET").as_bytes(),
+    ));
+    let input = build(&objs, 1, None, true);
+    let err = redact_pdf(&input, &[ssn_line()]).expect_err("must be refused");
+    assert!(err.to_string().contains("Redaction refused"), "{err}");
+    // Pattern redaction that leaves the page without a region is not
+    // blocked by it (here: a match only in the document information).
+    let out = redact_text(&input, &[lit("NOT-ON-ANY-PAGE")]).expect("no region on the page");
+    assert!(has_text(&out, "Jane Example"));
+    // A match on the same page creates a region there: refused as well.
+    assert!(redact_text(&input, &[lit("Jane Example")]).is_err());
+}

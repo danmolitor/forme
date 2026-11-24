@@ -110,9 +110,10 @@ fn any_hit(r: &Rect, regions: &[Rect]) -> bool {
 /// Is a glyph under a region? Its box is an upper bound of the glyph (full
 /// advance, ascent and descent), so boxes of neighbouring lines overlap. A
 /// glyph counts when at least a fifth of its box, in each direction, lies
-/// under the region; a glyph 80% outside a region along an axis is not
-/// covered by it. A degenerate box (zero width or height) counts when it
-/// lies inside the region.
+/// under the region, or when the centre of its box does; a glyph 80% outside
+/// a region along an axis, with its centre outside, is not covered by it. A
+/// degenerate box (zero width or height) counts when it lies inside the
+/// region.
 fn glyph_hit(g: &Rect, regions: &[Rect]) -> bool {
     const SHARE: f64 = 0.2;
     let axis = |a0: f64, a1: f64, r0: f64, r1: f64| {
@@ -123,9 +124,12 @@ fn glyph_hit(g: &Rect, regions: &[Rect]) -> bool {
         let o = a1.min(r1) - a0.max(r0);
         o > 0.0 && o >= SHARE * len
     };
-    regions
-        .iter()
-        .any(|r| axis(g.x0, g.x1, r.x0, r.x1) && axis(g.y0, g.y1, r.y0, r.y1))
+    let (cx, cy) = ((g.x0 + g.x1) / 2.0, (g.y0 + g.y1) / 2.0);
+    regions.iter().any(|r| {
+        (axis(g.x0, g.x1, r.x0, r.x1) && axis(g.y0, g.y1, r.y0, r.y1))
+            // A box over the middle of a glyph covers it, however small.
+            || (cx > r.x0 && cx < r.x1 && cy > r.y0 && cy < r.y1)
+    })
 }
 
 // ───────────────────────────────── fonts ─────────────────────────────────
@@ -140,6 +144,9 @@ struct Font {
     default_width: Option<f64>,
     /// All widths come from the font program's metrics (not estimated).
     exact: bool,
+    /// Type3: glyph bounds per unit of font size (FontBBox through
+    /// FontMatrix), or `Some(None)` when they are unknown.
+    type3: Option<Option<Rect>>,
 }
 
 const STANDARD: [StandardFont; 14] = [
@@ -234,6 +241,38 @@ fn load_font(doc: &Document, font: &Obj) -> Font {
                 f.exact = true;
             }
         }
+        return f;
+    }
+    if subtype == b"Type3" {
+        // Widths are in glyph space; FontMatrix maps glyph space to text
+        // space (1/1000 em in other fonts).
+        let num_arr = |key: &[u8], n: usize| -> Option<Vec<f64>> {
+            match dict_get(d, key).map(|o| doc.resolve(o)) {
+                Some(Obj::Array(a)) if a.len() == n => {
+                    let v: Vec<f64> = a.iter().filter_map(|o| doc.resolve(o).as_f64()).collect();
+                    (v.len() == n && v.iter().all(|x| x.is_finite())).then_some(v)
+                }
+                _ => None,
+            }
+        };
+        let fm = num_arr(b"FontMatrix", 6).unwrap_or(vec![0.001, 0.0, 0.0, 0.001, 0.0, 0.0]);
+        let m: M = [fm[0], fm[1], fm[2], fm[3], fm[4], fm[5]];
+        let axis_aligned = m[1] == 0.0 && m[2] == 0.0 && m[0] > 0.0;
+        if let (Some(fc), Some(Obj::Array(ws))) = (
+            dict_get(d, b"FirstChar").and_then(|o| doc.resolve(o).as_f64()),
+            dict_get(d, b"Widths").map(|o| doc.resolve(o)),
+        ) {
+            for (k, v) in ws.iter().enumerate() {
+                if let Some(x) = doc.resolve(v).as_f64() {
+                    f.widths.insert(fc as u32 + k as u32, x * m[0] * 1000.0);
+                }
+            }
+        }
+        f.exact = axis_aligned;
+        let bbox = num_arr(b"FontBBox", 4)
+            .filter(|b| axis_aligned && b[2] > b[0] && b[3] > b[1])
+            .map(|b| Rect::transformed(&m, b[0], b[1], b[2], b[3]));
+        f.type3 = Some(bbox);
         return f;
     }
     // Simple font.
@@ -472,6 +511,8 @@ struct Gs {
     ts: f64,
     font: Option<Vec<u8>>,
     fs: f64,
+    /// Text rendering mode (`Tr`).
+    tr: i64,
     /// Pattern names of the current fill / stroke paint, if a pattern.
     fill_pat: Option<Vec<u8>>,
     stroke_pat: Option<Vec<u8>>,
@@ -527,6 +568,12 @@ struct ShowOp {
     text: String,
     /// The operator's glyphs: `Interp::glyphs[glyphs.0..glyphs.1]`.
     glyphs: (usize, usize),
+    /// Drawn with a Type3 font (glyphs are content streams).
+    type3: bool,
+    /// Type3 font whose glyph bounds are unknown: may draw anywhere.
+    unbounded: bool,
+    /// Text rendering mode adds the glyphs to the clip (Tr 4–7).
+    clip_text: bool,
     /// Indices into the BDC frame stack open at this operator.
     open_frames: Vec<usize>,
 }
@@ -607,6 +654,7 @@ impl<'a> Interp<'a> {
             ts: 0.0,
             font: None,
             fs: 0.0,
+            tr: 0,
             fill_pat: None,
             stroke_pat: None,
         };
@@ -772,6 +820,7 @@ impl<'a> Interp<'a> {
                         b"Tz" => gs.th = num(1) / 100.0,
                         b"TL" => gs.tl = num(1),
                         b"Ts" => gs.ts = num(1),
+                        b"Tr" => gs.tr = num(1) as i64,
                         b"Tf" if ops.len() >= 2 => {
                             gs.fs = num(1);
                             if let Some(Tok::Operand(Obj::Name(n), _)) =
@@ -835,13 +884,24 @@ impl<'a> Interp<'a> {
                                             let trm = mul(&tm, &gs.ctm);
                                             let lo = gs.ts - DESCENT * gs.fs.abs();
                                             let hi = gs.ts + ASCENT * gs.fs.abs();
-                                            let gr = Rect::transformed(
-                                                &trm,
-                                                0.0,
-                                                lo,
-                                                adv.max(upper),
-                                                hi,
-                                            );
+                                            let gr = match font.type3 {
+                                                // Type3: the glyph procedure may draw
+                                                // anywhere in FontBBox.
+                                                Some(Some(b)) => Rect::transformed(
+                                                    &trm,
+                                                    (b.x0 * gs.fs).min(0.0),
+                                                    gs.ts + b.y0 * gs.fs,
+                                                    (b.x1 * gs.fs).max(adv.max(upper)),
+                                                    gs.ts + b.y1 * gs.fs,
+                                                ),
+                                                _ => Rect::transformed(
+                                                    &trm,
+                                                    0.0,
+                                                    lo,
+                                                    adv.max(upper),
+                                                    hi,
+                                                ),
+                                            };
                                             let u = font.unicode(code);
                                             text.push_str(&u);
                                             self.glyphs.push(Glyph {
@@ -864,6 +924,29 @@ impl<'a> Interp<'a> {
                             }
                             if !parts.is_empty() {
                                 drew = true;
+                                // Inside a form, Type3 text with unknown glyph
+                                // bounds (or clip-mode text) may reach any region.
+                                if nested
+                                    && (matches!(font.type3, Some(None))
+                                        || (4..=7).contains(&gs.tr))
+                                {
+                                    self.nested_marks.push(match font.type3 {
+                                        Some(None) => Rect {
+                                            x0: f64::MIN,
+                                            y0: f64::MIN,
+                                            x1: f64::MAX,
+                                            y1: f64::MAX,
+                                        },
+                                        _ => Rect::of_points(
+                                            &self.glyphs[first_glyph..]
+                                                .iter()
+                                                .flat_map(|g| {
+                                                    [(g.rect.x0, g.rect.y0), (g.rect.x1, g.rect.y1)]
+                                                })
+                                                .collect::<Vec<_>>(),
+                                        ),
+                                    });
+                                }
                             }
                             if !nested {
                                 let n_operands = match op.as_slice() {
@@ -878,6 +961,9 @@ impl<'a> Interp<'a> {
                                     th: gs.th,
                                     text,
                                     glyphs: (first_glyph, self.glyphs.len()),
+                                    type3: font.type3.is_some(),
+                                    unbounded: matches!(font.type3, Some(None)),
+                                    clip_text: (4..=7).contains(&gs.tr),
                                     open_frames: open.clone(),
                                 });
                             }
@@ -2070,6 +2156,18 @@ pub fn redact(
         let mut frames_tainted: HashSet<usize> = HashSet::new();
         for s in &a.shows {
             let glyphs = &a.interp_glyphs[s.glyphs.0..s.glyphs.1];
+            // Constructs this version does not rewrite: refused when they
+            // may reach a region at all (any overlap, not the glyph rule).
+            if s.type3 || s.clip_text {
+                let near = !region_rects.is_empty()
+                    && (s.unbounded || glyphs.iter().any(|g| any_hit(&g.rect, &region_rects)));
+                if near && s.type3 {
+                    return Err(refuse("text drawn with a Type3 font may lie under a redaction region; its glyph procedures cannot be rewritten by this version"));
+                }
+                if near && s.clip_text {
+                    return Err(refuse("text used as a clipping path (rendering modes 4 to 7) lies under a redaction region, which this version cannot rewrite"));
+                }
+            }
             if !glyphs.iter().any(|g| glyph_hit(&g.rect, &region_rects)) {
                 continue;
             }

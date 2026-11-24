@@ -108,7 +108,7 @@ Do not rely on Forme's own text search (`findTextRegions`) to confirm a Forme re
 
 ## Known Limitations
 
-- **Whole text runs**: A text run is removed whole when any of its glyphs is under a region (at least a fifth of the glyph's box, in each direction). If the match shares a run with other words (for example a label on the same line), those words are removed too.
+- **Whole text runs**: A text run is removed whole when any of its glyphs is under a region: at least a fifth of the glyph's box lies under the region in each direction, or the centre of the box does. A glyph that is more than 80% outside the region along one axis, with its centre outside, stays. If the match shares a run with other words (for example a label on the same line), those words are removed too.
 - **Images**: An image under a region is removed whole, even where most of it lies outside the region. Text inside an image is not searchable; run OCR first.
 - **Vector graphics**: Paths under a region are cut at the region's edges. Curves in a cut path are redrawn as fine straight segments (within 0.05 pt).
 - **Text search needs a text mapping**: Search finds text in fonts with a standard encoding or a ToUnicode map. Text without one cannot be found by search — use coordinate redaction.
@@ -117,6 +117,8 @@ Do not rely on Forme's own text search (`findTextRegions`) to confirm a Forme re
   - form fields under a region or holding matching text;
   - text, images, or paths inside a form XObject under a region;
   - an area painted with a tiling pattern under a region;
+  - text drawn with a Type3 font that may lie under a region (including a Type3 font whose glyph bounds are unknown, anywhere on a page with a region);
+  - text used as a clipping path (rendering modes 4 to 7) under a region;
   - a page whose `/Rotate` is not a multiple of 90, or that sets `/UserUnit`, when it has a region;
   - a region with a coordinate that is not a finite number.
 - **Maximum 50 patterns per request**: Keep the total number of patterns (including those expanded from presets and templates) under 50.
