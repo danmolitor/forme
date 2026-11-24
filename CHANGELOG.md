@@ -8,7 +8,7 @@ while this file lapsed. They are reproduced, not rewritten.
 
 ## [Unreleased]
 
-## [0.34.0] - UNRELEASED
+## [0.34.0] - 2026-11-24
 
 A security release for redaction. Region redaction now works in the page's
 displayed coordinates, removes vector graphics under a region, and refuses
@@ -19,12 +19,12 @@ share the line: engine (crates.io `forme-pdf`), every `@formepdf/*` npm
 package, `formepdf` (PyPI), `forme-go` (tag v0.34.0), and the VS Code
 extension. See the [migration guide](https://docs.formepdf.com/guides/migrating-to-0-34).
 
-Addresses [the security advisory](https://github.com/danmolitor/forme/security/advisories/GHSA-PENDING-0-34).
+Addresses [the security advisory](https://github.com/danmolitor/forme/security/advisories/GHSA-f54v-83wx-hmg2).
 
 ### Security
 
 - **Redacted content could remain on rotated or cropped pages, in vector
-  graphics, and in tiling patterns** ([advisory](https://github.com/danmolitor/forme/security/advisories/GHSA-PENDING-0-34)).
+  graphics, and in tiling patterns** ([advisory](https://github.com/danmolitor/forme/security/advisories/GHSA-f54v-83wx-hmg2)).
   Region coordinates were measured from the MediaBox without `/Rotate`, so
   on a rotated or cropped page the redaction landed away from the area the
   caller meant. Paths under a region (outlined text, signatures, chart
@@ -32,7 +32,7 @@ Addresses [the security advisory](https://github.com/danmolitor/forme/security/a
   region kept its content. Documents redacted with 0.33.0 or earlier that
   have any of these should be redacted again from the originals.
 - **The `formepdf/forme` server's `POST /v1/redact` did not remove pattern
-  matches outside the page text** ([advisory](https://github.com/danmolitor/forme/security/advisories/GHSA-PENDING-0-34)).
+  matches outside the page text** ([advisory](https://github.com/danmolitor/forme/security/advisories/GHSA-f54v-83wx-hmg2)).
   A match only in an annotation, link, bookmark, alternate text or the
   document information was kept; when nothing matched in the page text, the
   original PDF was returned unchanged. Patterns now go through `redact_text`
