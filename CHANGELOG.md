@@ -8,6 +8,65 @@ while this file lapsed. They are reproduced, not rewritten.
 
 ## [Unreleased]
 
+## [0.34.0] - 2026-11-24
+
+A security release for redaction. Region redaction now works in the page's
+displayed coordinates, removes vector graphics under a region, and refuses
+the remaining constructs it cannot rewrite. Upgrade if you redact PDFs, and
+redact documents again from their originals where they have rotated or
+cropped pages, vector graphics, or patterns under a redaction. All packages
+share the line: engine (crates.io `forme-pdf`), every `@formepdf/*` npm
+package, `formepdf` (PyPI), `forme-go` (tag v0.34.0), and the VS Code
+extension. See the [migration guide](https://docs.formepdf.com/guides/migrating-to-0-34).
+
+Addresses [the security advisory](https://github.com/danmolitor/forme/security/advisories/GHSA-f54v-83wx-hmg2).
+
+### Security
+
+- **Redacted content could remain on rotated or cropped pages, in vector
+  graphics, and in tiling patterns** ([advisory](https://github.com/danmolitor/forme/security/advisories/GHSA-f54v-83wx-hmg2)).
+  Region coordinates were measured from the MediaBox without `/Rotate`, so
+  on a rotated or cropped page the redaction landed away from the area the
+  caller meant. Paths under a region (outlined text, signatures, chart
+  shapes) were covered but not removed, and a tiling pattern painted under a
+  region kept its content. Documents redacted with 0.33.0 or earlier that
+  have any of these should be redacted again from the originals.
+- **The `formepdf/forme` server's `POST /v1/redact` did not remove pattern
+  matches outside the page text** ([advisory](https://github.com/danmolitor/forme/security/advisories/GHSA-f54v-83wx-hmg2)).
+  A match only in an annotation, link, bookmark, alternate text or the
+  document information was kept; when nothing matched in the page text, the
+  original PDF was returned unchanged. Patterns now go through `redact_text`
+  (as `redactText` does in `@formepdf/core`), and refusals return `422` with
+  code `REDACTION_REFUSED` instead of `400 RENDER_FAILED`. Documents redacted
+  through a self-hosted server with patterns or presets should be redacted
+  again from the originals.
+
+### Changed: redaction
+
+- **Region coordinates are in points on the page as displayed**: from the
+  top-left corner of the visible area (CropBox ∩ MediaBox), after `/Rotate`,
+  including inherited values. This is what a PDF viewer and the Dashboard
+  editor show. `findTextRegions` returns the same frame. Pages without a
+  CropBox or `/Rotate` are unchanged.
+- **Vector graphics under a region are removed.** Fills and clipping paths
+  keep exactly their parts outside the region; strokes are cut where they
+  enter it. Curves in a cut path are redrawn as straight segments within
+  0.05 pt.
+- **Text is removed per glyph**: a text run goes when any glyph has at least
+  a fifth of its box under a region in each direction, or its centre under
+  it. Tightly spaced lines next to a redaction are no longer removed with it.
+- **Type3 text is positioned with its `FontMatrix`**, so search and region
+  checks find it where it is drawn.
+- **New refusals** (an error starting `Redaction refused:`, and no PDF):
+  - a page whose `/Rotate` is not a multiple of 90, or that sets
+    `/UserUnit`, when it has a region;
+  - a region coordinate that is not a finite number;
+  - text, images or paths inside a form XObject under a region (paths are
+    new; text and images were already refused);
+  - an area painted with a tiling pattern under a region;
+  - text drawn with a Type3 font that may lie under a region;
+  - text used as a clipping path (rendering modes 4 to 7) under a region.
+
 ## [0.33.0] - 2026-11-23
 
 A security release: redaction removes content from the file instead of

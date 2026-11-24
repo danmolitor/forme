@@ -1,6 +1,6 @@
 [package]
 name = "forme-server"
-version = "0.33.0"
+version = "0.34.0"
 edition = "2021"
 description = "Self-hosted PDF rendering API — no database, no dependencies, just Docker"
 

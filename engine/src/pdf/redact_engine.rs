@@ -107,6 +107,31 @@ fn any_hit(r: &Rect, regions: &[Rect]) -> bool {
     regions.iter().any(|g| r.intersects(g))
 }
 
+/// Is a glyph under a region? Its box is an upper bound of the glyph (full
+/// advance, ascent and descent), so boxes of neighbouring lines overlap. A
+/// glyph counts when at least a fifth of its box, in each direction, lies
+/// under the region, or when the centre of its box does; a glyph 80% outside
+/// a region along an axis, with its centre outside, is not covered by it. A
+/// degenerate box (zero width or height) counts when it lies inside the
+/// region.
+fn glyph_hit(g: &Rect, regions: &[Rect]) -> bool {
+    const SHARE: f64 = 0.2;
+    let axis = |a0: f64, a1: f64, r0: f64, r1: f64| {
+        let len = a1 - a0;
+        if len < 1e-6 {
+            return a0 > r0 && a0 < r1;
+        }
+        let o = a1.min(r1) - a0.max(r0);
+        o > 0.0 && o >= SHARE * len
+    };
+    let (cx, cy) = ((g.x0 + g.x1) / 2.0, (g.y0 + g.y1) / 2.0);
+    regions.iter().any(|r| {
+        (axis(g.x0, g.x1, r.x0, r.x1) && axis(g.y0, g.y1, r.y0, r.y1))
+            // A box over the middle of a glyph covers it, however small.
+            || (cx > r.x0 && cx < r.x1 && cy > r.y0 && cy < r.y1)
+    })
+}
+
 // ───────────────────────────────── fonts ─────────────────────────────────
 
 #[derive(Default, Clone)]
@@ -119,6 +144,9 @@ struct Font {
     default_width: Option<f64>,
     /// All widths come from the font program's metrics (not estimated).
     exact: bool,
+    /// Type3: glyph bounds per unit of font size (FontBBox through
+    /// FontMatrix), or `Some(None)` when they are unknown.
+    type3: Option<Option<Rect>>,
 }
 
 const STANDARD: [StandardFont; 14] = [
@@ -213,6 +241,38 @@ fn load_font(doc: &Document, font: &Obj) -> Font {
                 f.exact = true;
             }
         }
+        return f;
+    }
+    if subtype == b"Type3" {
+        // Widths are in glyph space; FontMatrix maps glyph space to text
+        // space (1/1000 em in other fonts).
+        let num_arr = |key: &[u8], n: usize| -> Option<Vec<f64>> {
+            match dict_get(d, key).map(|o| doc.resolve(o)) {
+                Some(Obj::Array(a)) if a.len() == n => {
+                    let v: Vec<f64> = a.iter().filter_map(|o| doc.resolve(o).as_f64()).collect();
+                    (v.len() == n && v.iter().all(|x| x.is_finite())).then_some(v)
+                }
+                _ => None,
+            }
+        };
+        let fm = num_arr(b"FontMatrix", 6).unwrap_or(vec![0.001, 0.0, 0.0, 0.001, 0.0, 0.0]);
+        let m: M = [fm[0], fm[1], fm[2], fm[3], fm[4], fm[5]];
+        let axis_aligned = m[1] == 0.0 && m[2] == 0.0 && m[0] > 0.0;
+        if let (Some(fc), Some(Obj::Array(ws))) = (
+            dict_get(d, b"FirstChar").and_then(|o| doc.resolve(o).as_f64()),
+            dict_get(d, b"Widths").map(|o| doc.resolve(o)),
+        ) {
+            for (k, v) in ws.iter().enumerate() {
+                if let Some(x) = doc.resolve(v).as_f64() {
+                    f.widths.insert(fc as u32 + k as u32, x * m[0] * 1000.0);
+                }
+            }
+        }
+        f.exact = axis_aligned;
+        let bbox = num_arr(b"FontBBox", 4)
+            .filter(|b| axis_aligned && b[2] > b[0] && b[3] > b[1])
+            .map(|b| Rect::transformed(&m, b[0], b[1], b[2], b[3]));
+        f.type3 = Some(bbox);
         return f;
     }
     // Simple font.
@@ -451,6 +511,40 @@ struct Gs {
     ts: f64,
     font: Option<Vec<u8>>,
     fs: f64,
+    /// Text rendering mode (`Tr`).
+    tr: i64,
+    /// Pattern names of the current fill / stroke paint, if a pattern.
+    fill_pat: Option<Vec<u8>>,
+    stroke_pat: Option<Vec<u8>>,
+}
+
+/// A path segment in the coordinates it was written in (before the CTM).
+#[derive(Clone, Copy)]
+enum Seg {
+    M(f64, f64),
+    L(f64, f64),
+    C(f64, f64, f64, f64, f64, f64),
+}
+
+#[derive(Clone, Default)]
+struct SubPath {
+    segs: Vec<Seg>,
+    closed: bool,
+}
+
+/// A path and the operator that paints (or clips with) it.
+struct PathPaint {
+    /// Token ranges (first operand ..= operator) of construction and clip
+    /// operators; the painting operator is `paint_index`.
+    spans: Vec<(usize, usize)>,
+    paint_index: usize,
+    paint_op: Vec<u8>,
+    /// `Some(even_odd)` when the path also sets the clip.
+    clip: Option<bool>,
+    ctm: M,
+    subpaths: Vec<SubPath>,
+    fill_pat: Option<Vec<u8>>,
+    stroke_pat: Option<Vec<u8>>,
 }
 
 /// One glyph, in user space of the page.
@@ -467,13 +561,19 @@ struct ShowOp {
     op_index: usize,
     /// Number of operand tokens consumed.
     operands: usize,
-    /// Upper-bound extent in user space.
-    extent: Rect,
     /// Total advance in text space (for the replacement).
     advance: f64,
     fs: f64,
     th: f64,
     text: String,
+    /// The operator's glyphs: `Interp::glyphs[glyphs.0..glyphs.1]`.
+    glyphs: (usize, usize),
+    /// Drawn with a Type3 font (glyphs are content streams).
+    type3: bool,
+    /// Type3 font whose glyph bounds are unknown: may draw anywhere.
+    unbounded: bool,
+    /// Text rendering mode adds the glyphs to the clip (Tr 4–7).
+    clip_text: bool,
     /// Indices into the BDC frame stack open at this operator.
     open_frames: Vec<usize>,
 }
@@ -489,8 +589,6 @@ struct XUse {
     op_index: usize,
     rect: Rect,
     image: bool,
-    /// For forms: contains text or images somewhere inside.
-    form_has_content: bool,
 }
 
 struct Interp<'a> {
@@ -501,6 +599,10 @@ struct Interp<'a> {
     xuses: Vec<XUse>,
     inline_images: Vec<(usize, Rect)>,
     frames: Vec<Frame>,
+    paths: Vec<PathPaint>,
+    /// Page-space extents of everything drawn inside forms (which are read,
+    /// never rewritten): images, painted paths, unreadable forms.
+    nested_marks: Vec<Rect>,
     depth: usize,
 }
 
@@ -519,6 +621,8 @@ impl<'a> Interp<'a> {
             xuses: vec![],
             inline_images: vec![],
             frames: vec![],
+            paths: vec![],
+            nested_marks: vec![],
             depth: 0,
         }
     }
@@ -550,8 +654,17 @@ impl<'a> Interp<'a> {
             ts: 0.0,
             font: None,
             fs: 0.0,
+            tr: 0,
+            fill_pat: None,
+            stroke_pat: None,
         };
         let mut stack: Vec<Gs> = vec![];
+        // Path under construction.
+        let mut path: Vec<SubPath> = vec![];
+        let mut spans: Vec<(usize, usize)> = vec![];
+        let mut pclip: Option<bool> = None;
+        let mut cur = (0.0f64, 0.0f64);
+        let mut start = (0.0f64, 0.0f64);
         let mut tm = ID;
         let mut tlm = ID;
         let mut ops: Vec<usize> = vec![];
@@ -564,6 +677,8 @@ impl<'a> Interp<'a> {
                     drew = true;
                     if !nested {
                         self.inline_images.push((i, r));
+                    } else {
+                        self.nested_marks.push(r);
                     }
                     ops.clear();
                 }
@@ -576,7 +691,116 @@ impl<'a> Interp<'a> {
                             })
                             .unwrap_or(0.0)
                     };
+                    let span = (ops.first().copied().unwrap_or(i), i);
                     match op.as_slice() {
+                        b"m" if ops.len() >= 2 => {
+                            cur = (num(2), num(1));
+                            start = cur;
+                            path.push(SubPath {
+                                segs: vec![Seg::M(cur.0, cur.1)],
+                                closed: false,
+                            });
+                            spans.push(span);
+                        }
+                        b"l" | b"c" | b"v" | b"y" => {
+                            let seg = match op.as_slice() {
+                                b"l" if ops.len() >= 2 => Some(Seg::L(num(2), num(1))),
+                                b"c" if ops.len() >= 6 => {
+                                    Some(Seg::C(num(6), num(5), num(4), num(3), num(2), num(1)))
+                                }
+                                b"v" if ops.len() >= 4 => {
+                                    Some(Seg::C(cur.0, cur.1, num(4), num(3), num(2), num(1)))
+                                }
+                                b"y" if ops.len() >= 4 => {
+                                    Some(Seg::C(num(4), num(3), num(2), num(1), num(2), num(1)))
+                                }
+                                _ => None,
+                            };
+                            if let Some(seg) = seg {
+                                if path.last().is_none_or(|s| s.closed) {
+                                    path.push(SubPath {
+                                        segs: vec![Seg::M(cur.0, cur.1)],
+                                        closed: false,
+                                    });
+                                }
+                                cur = match seg {
+                                    Seg::L(x, y) | Seg::C(_, _, _, _, x, y) | Seg::M(x, y) => {
+                                        (x, y)
+                                    }
+                                };
+                                if let Some(sp) = path.last_mut() {
+                                    sp.segs.push(seg);
+                                }
+                            }
+                            spans.push(span);
+                        }
+                        b"h" => {
+                            if let Some(sp) = path.last_mut() {
+                                sp.closed = true;
+                            }
+                            cur = start;
+                            spans.push(span);
+                        }
+                        b"re" if ops.len() >= 4 => {
+                            let (x, y, w, h) = (num(4), num(3), num(2), num(1));
+                            path.push(SubPath {
+                                segs: vec![
+                                    Seg::M(x, y),
+                                    Seg::L(x + w, y),
+                                    Seg::L(x + w, y + h),
+                                    Seg::L(x, y + h),
+                                ],
+                                closed: true,
+                            });
+                            cur = (x, y);
+                            start = cur;
+                            spans.push(span);
+                        }
+                        b"W" | b"W*" => {
+                            pclip = Some(op == b"W*");
+                            spans.push(span);
+                        }
+                        b"S" | b"s" | b"f" | b"F" | b"f*" | b"B" | b"B*" | b"b" | b"b*" | b"n" => {
+                            let subpaths = std::mem::take(&mut path);
+                            let clip = pclip.take();
+                            let sp = std::mem::take(&mut spans);
+                            if !subpaths.is_empty() {
+                                if op != b"n" {
+                                    drew = true;
+                                }
+                                if nested {
+                                    if op != b"n" {
+                                        let b = path_bbox(&subpaths, &gs.ctm);
+                                        self.nested_marks.push(b);
+                                    }
+                                } else {
+                                    self.paths.push(PathPaint {
+                                        spans: sp,
+                                        paint_index: i,
+                                        paint_op: op.clone(),
+                                        clip,
+                                        ctm: gs.ctm,
+                                        subpaths,
+                                        fill_pat: gs.fill_pat.clone(),
+                                        stroke_pat: gs.stroke_pat.clone(),
+                                    });
+                                }
+                            }
+                        }
+                        b"scn" | b"SCN" | b"sc" | b"SC" | b"g" | b"G" | b"rg" | b"RG" | b"k"
+                        | b"K" | b"cs" | b"CS" => {
+                            let pat = match (op.as_slice(), ops.last().map(|&j| &toks[j])) {
+                                (b"scn" | b"SCN", Some(Tok::Operand(Obj::Name(n), _))) => {
+                                    Some(n.clone())
+                                }
+                                _ => None,
+                            };
+                            if op.iter().all(|c| c.is_ascii_lowercase()) {
+                                gs.fill_pat = pat;
+                            } else {
+                                gs.stroke_pat = pat;
+                            }
+                        }
                         b"q" => stack.push(gs.clone()),
                         b"Q" => {
                             if let Some(g) = stack.pop() {
@@ -596,6 +820,7 @@ impl<'a> Interp<'a> {
                         b"Tz" => gs.th = num(1) / 100.0,
                         b"TL" => gs.tl = num(1),
                         b"Ts" => gs.ts = num(1),
+                        b"Tr" => gs.tr = num(1) as i64,
                         b"Tf" if ops.len() >= 2 => {
                             gs.fs = num(1);
                             if let Some(Tok::Operand(Obj::Name(n), _)) =
@@ -639,9 +864,8 @@ impl<'a> Interp<'a> {
                                 Some(n) => self.font(res, n, scope),
                                 None => Font::default(),
                             };
-                            let start_tm = tm;
+                            let first_glyph = self.glyphs.len();
                             let mut adv_total = 0.0;
-                            let mut upper_total = 0.0;
                             let mut text = String::new();
                             for part in &parts {
                                 match part {
@@ -660,13 +884,24 @@ impl<'a> Interp<'a> {
                                             let trm = mul(&tm, &gs.ctm);
                                             let lo = gs.ts - DESCENT * gs.fs.abs();
                                             let hi = gs.ts + ASCENT * gs.fs.abs();
-                                            let gr = Rect::transformed(
-                                                &trm,
-                                                0.0,
-                                                lo,
-                                                adv.max(upper),
-                                                hi,
-                                            );
+                                            let gr = match font.type3 {
+                                                // Type3: the glyph procedure may draw
+                                                // anywhere in FontBBox.
+                                                Some(Some(b)) => Rect::transformed(
+                                                    &trm,
+                                                    (b.x0 * gs.fs).min(0.0),
+                                                    gs.ts + b.y0 * gs.fs,
+                                                    (b.x1 * gs.fs).max(adv.max(upper)),
+                                                    gs.ts + b.y1 * gs.fs,
+                                                ),
+                                                _ => Rect::transformed(
+                                                    &trm,
+                                                    0.0,
+                                                    lo,
+                                                    adv.max(upper),
+                                                    hi,
+                                                ),
+                                            };
                                             let u = font.unicode(code);
                                             text.push_str(&u);
                                             self.glyphs.push(Glyph {
@@ -676,7 +911,6 @@ impl<'a> Interp<'a> {
                                             });
                                             tm = mul(&[1.0, 0.0, 0.0, 1.0, adv, 0.0], &tm);
                                             adv_total += adv;
-                                            upper_total += upper.max(adv);
                                         }
                                     }
                                     o => {
@@ -684,25 +918,37 @@ impl<'a> Interp<'a> {
                                             let adj = -n / 1000.0 * gs.fs * gs.th;
                                             tm = mul(&[1.0, 0.0, 0.0, 1.0, adj, 0.0], &tm);
                                             adv_total += adj;
-                                            upper_total += adj.max(0.0);
                                         }
                                     }
                                 }
                             }
                             if !parts.is_empty() {
                                 drew = true;
+                                // Inside a form, Type3 text with unknown glyph
+                                // bounds (or clip-mode text) may reach any region.
+                                if nested
+                                    && (matches!(font.type3, Some(None))
+                                        || (4..=7).contains(&gs.tr))
+                                {
+                                    self.nested_marks.push(match font.type3 {
+                                        Some(None) => Rect {
+                                            x0: f64::MIN,
+                                            y0: f64::MIN,
+                                            x1: f64::MAX,
+                                            y1: f64::MAX,
+                                        },
+                                        _ => Rect::of_points(
+                                            &self.glyphs[first_glyph..]
+                                                .iter()
+                                                .flat_map(|g| {
+                                                    [(g.rect.x0, g.rect.y0), (g.rect.x1, g.rect.y1)]
+                                                })
+                                                .collect::<Vec<_>>(),
+                                        ),
+                                    });
+                                }
                             }
                             if !nested {
-                                let trm = mul(&start_tm, &gs.ctm);
-                                let lo = gs.ts - DESCENT * gs.fs.abs();
-                                let hi = gs.ts + ASCENT * gs.fs.abs();
-                                let extent = Rect::transformed(
-                                    &trm,
-                                    adv_total.min(0.0),
-                                    lo,
-                                    upper_total.max(adv_total).max(0.0),
-                                    hi,
-                                );
                                 let n_operands = match op.as_slice() {
                                     b"\"" => 3,
                                     _ => 1,
@@ -710,11 +956,14 @@ impl<'a> Interp<'a> {
                                 self.shows.push(ShowOp {
                                     op_index: i,
                                     operands: n_operands.min(ops.len()),
-                                    extent,
                                     advance: adv_total,
                                     fs: gs.fs,
                                     th: gs.th,
                                     text,
+                                    glyphs: (first_glyph, self.glyphs.len()),
+                                    type3: font.type3.is_some(),
+                                    unbounded: matches!(font.type3, Some(None)),
+                                    clip_text: (4..=7).contains(&gs.tr),
                                     open_frames: open.clone(),
                                 });
                             }
@@ -731,15 +980,16 @@ impl<'a> Interp<'a> {
                                             .unwrap_or(b"");
                                         if sub == b"Image" {
                                             drew = true;
+                                            let rect =
+                                                Rect::transformed(&gs.ctm, 0.0, 0.0, 1.0, 1.0);
                                             if !nested {
                                                 self.xuses.push(XUse {
                                                     op_index: i,
-                                                    rect: Rect::transformed(
-                                                        &gs.ctm, 0.0, 0.0, 1.0, 1.0,
-                                                    ),
+                                                    rect,
                                                     image: true,
-                                                    form_has_content: true,
                                                 });
+                                            } else {
+                                                self.nested_marks.push(rect);
                                             }
                                         } else if sub == b"Form" && self.depth < 12 {
                                             let fm: M = match dict_get(xd, b"Matrix") {
@@ -787,8 +1037,12 @@ impl<'a> Interp<'a> {
                                                     self.depth -= 1;
                                                     r
                                                 }
-                                                // Unreadable form: assume it may hold content.
-                                                Err(_) => true,
+                                                // Unreadable form: assume it draws
+                                                // anywhere in its bounding box.
+                                                Err(_) => {
+                                                    self.nested_marks.push(bbox);
+                                                    true
+                                                }
                                             };
                                             drew |= has;
                                             if !nested {
@@ -796,7 +1050,6 @@ impl<'a> Interp<'a> {
                                                     op_index: i,
                                                     rect: bbox,
                                                     image: false,
-                                                    form_has_content: has,
                                                 });
                                             }
                                         }
@@ -851,12 +1104,426 @@ impl<'a> Interp<'a> {
     }
 }
 
+// ─────────────────────────────── vector paths ───────────────────────────────
+
+type P = (f64, f64);
+
+fn invert(m: &M) -> Option<M> {
+    let det = m[0] * m[3] - m[1] * m[2];
+    if !det.is_finite() || det.abs() < 1e-12 {
+        return None;
+    }
+    let (a, b, c, d) = (m[3] / det, -m[1] / det, -m[2] / det, m[0] / det);
+    Some([a, b, c, d, -(m[4] * a + m[5] * c), -(m[4] * b + m[5] * d)])
+}
+
+/// Bounding box of the control points (a superset of the drawn geometry).
+fn subpath_bbox(sp: &SubPath, ctm: &M) -> Rect {
+    let mut pts = vec![];
+    for s in &sp.segs {
+        match *s {
+            Seg::M(x, y) | Seg::L(x, y) => pts.push(apply(ctm, x, y)),
+            Seg::C(a, b, c, d, e, f) => {
+                pts.push(apply(ctm, a, b));
+                pts.push(apply(ctm, c, d));
+                pts.push(apply(ctm, e, f));
+            }
+        }
+    }
+    Rect::of_points(&pts)
+}
+
+fn path_bbox(sps: &[SubPath], ctm: &M) -> Rect {
+    sps.iter()
+        .map(|s| subpath_bbox(s, ctm))
+        .reduce(|a, b| a.union(&b))
+        .unwrap_or(Rect {
+            x0: 0.0,
+            y0: 0.0,
+            x1: 0.0,
+            y1: 0.0,
+        })
+}
+
+/// The subpath as a polyline in page space (curves flattened to 0.05 pt).
+fn flatten(sp: &SubPath, ctm: &M) -> Vec<P> {
+    fn bez(p0: P, p1: P, p2: P, p3: P, depth: u32, out: &mut Vec<P>) {
+        let d = |p: P| {
+            let (dx, dy) = (p3.0 - p0.0, p3.1 - p0.1);
+            let len = (dx * dx + dy * dy).sqrt();
+            if len < 1e-9 {
+                ((p.0 - p0.0).powi(2) + (p.1 - p0.1).powi(2)).sqrt()
+            } else {
+                ((p.0 - p0.0) * dy - (p.1 - p0.1) * dx).abs() / len
+            }
+        };
+        if depth >= 12 || (d(p1) <= 0.05 && d(p2) <= 0.05) {
+            out.push(p3);
+            return;
+        }
+        let mid = |a: P, b: P| ((a.0 + b.0) / 2.0, (a.1 + b.1) / 2.0);
+        let (a, b, c) = (mid(p0, p1), mid(p1, p2), mid(p2, p3));
+        let (e, f) = (mid(a, b), mid(b, c));
+        let g = mid(e, f);
+        bez(p0, a, e, g, depth + 1, out);
+        bez(g, f, c, p3, depth + 1, out);
+    }
+    let mut out: Vec<P> = vec![];
+    for s in &sp.segs {
+        match *s {
+            Seg::M(x, y) | Seg::L(x, y) => out.push(apply(ctm, x, y)),
+            Seg::C(a, b, c, d, e, f) => {
+                let p0 = *out.last().unwrap_or(&apply(ctm, a, b));
+                bez(
+                    p0,
+                    apply(ctm, a, b),
+                    apply(ctm, c, d),
+                    apply(ctm, e, f),
+                    0,
+                    &mut out,
+                );
+            }
+        }
+    }
+    out
+}
+
+/// Sutherland–Hodgman against one half-plane: keep `coord(axis) >= v`
+/// (`ge`) or `<= v`. Preserves the winding number inside the half-plane.
+fn clip_half(poly: &[P], axis_y: bool, v: f64, ge: bool) -> Vec<P> {
+    let inside = |p: &P| {
+        let c = if axis_y { p.1 } else { p.0 };
+        if ge {
+            c >= v
+        } else {
+            c <= v
+        }
+    };
+    let cross = |a: &P, b: &P| {
+        let (ca, cb) = if axis_y { (a.1, b.1) } else { (a.0, b.0) };
+        let t = (v - ca) / (cb - ca);
+        (a.0 + (b.0 - a.0) * t, a.1 + (b.1 - a.1) * t)
+    };
+    let mut out = vec![];
+    for k in 0..poly.len() {
+        let a = &poly[k];
+        let b = &poly[(k + 1) % poly.len()];
+        match (inside(a), inside(b)) {
+            (true, true) => out.push(*b),
+            (true, false) => out.push(cross(a, b)),
+            (false, true) => {
+                out.push(cross(a, b));
+                out.push(*b);
+            }
+            (false, false) => {}
+        }
+    }
+    out
+}
+
+fn area(poly: &[P]) -> f64 {
+    let mut s = 0.0;
+    for k in 0..poly.len() {
+        let (a, b) = (poly[k], poly[(k + 1) % poly.len()]);
+        s += a.0 * b.1 - b.0 * a.1;
+    }
+    s / 2.0
+}
+
+/// `poly` minus the regions, as pieces whose union is exactly the part of
+/// the polygon outside every region (each region's outside split into four
+/// convex bands). Fill semantics (winding, even-odd) are preserved outside
+/// the regions; nothing is left inside them.
+fn polygon_minus(poly: Vec<P>, regions: &[Rect]) -> Vec<Vec<P>> {
+    let mut polys = vec![poly];
+    for r in regions {
+        let mut next = vec![];
+        for poly in polys {
+            if !Rect::of_points(&poly).intersects(r) {
+                next.push(poly);
+                continue;
+            }
+            let bands: [&[(bool, f64, bool)]; 4] = [
+                &[(true, r.y1, true)],
+                &[(true, r.y0, false)],
+                &[
+                    (false, r.x0, false),
+                    (true, r.y0, true),
+                    (true, r.y1, false),
+                ],
+                &[(false, r.x1, true), (true, r.y0, true), (true, r.y1, false)],
+            ];
+            for band in bands {
+                let mut q = poly.clone();
+                for &(ay, v, ge) in band {
+                    if q.len() < 3 {
+                        break;
+                    }
+                    q = clip_half(&q, ay, v, ge);
+                }
+                if q.len() >= 3 && area(&q).abs() > 1e-9 {
+                    next.push(q);
+                }
+            }
+        }
+        polys = next;
+    }
+    polys
+}
+
+/// Parameter interval of segment a→b inside `r`, if it crosses the interior.
+fn seg_inside(a: P, b: P, r: &Rect) -> Option<(f64, f64)> {
+    let (mut t0, mut t1) = (0.0f64, 1.0f64);
+    let (dx, dy) = (b.0 - a.0, b.1 - a.1);
+    for (p, q) in [
+        (-dx, a.0 - r.x0),
+        (dx, r.x1 - a.0),
+        (-dy, a.1 - r.y0),
+        (dy, r.y1 - a.1),
+    ] {
+        if p.abs() < 1e-12 {
+            if q <= 0.0 {
+                return None;
+            }
+        } else {
+            let t = q / p;
+            if p < 0.0 {
+                t0 = t0.max(t);
+            } else {
+                t1 = t1.min(t);
+            }
+        }
+    }
+    (t1 - t0 > 1e-9).then_some((t0, t1))
+}
+
+/// A polyline minus the regions: the pieces outside every region.
+fn polyline_minus(line: Vec<P>, regions: &[Rect]) -> Vec<Vec<P>> {
+    let mut lines = vec![line];
+    for r in regions {
+        let mut next = vec![];
+        for line in lines {
+            let mut cur: Vec<P> = vec![];
+            let at = |a: P, b: P, t: f64| (a.0 + (b.0 - a.0) * t, a.1 + (b.1 - a.1) * t);
+            for w in line.windows(2) {
+                let (a, b) = (w[0], w[1]);
+                let outside: Vec<(f64, f64)> = match seg_inside(a, b, r) {
+                    None => vec![(0.0, 1.0)],
+                    Some((t0, t1)) => [(0.0, t0), (t1, 1.0)]
+                        .into_iter()
+                        .filter(|(s, e)| e - s > 1e-9)
+                        .collect(),
+                };
+                for (s, e) in outside {
+                    let (pa, pb) = (at(a, b, s), at(a, b, e));
+                    let joins = cur
+                        .last()
+                        .is_some_and(|l| (l.0 - pa.0).abs() < 1e-9 && (l.1 - pa.1).abs() < 1e-9);
+                    if !joins && cur.len() >= 2 {
+                        next.push(std::mem::take(&mut cur));
+                    }
+                    if !joins {
+                        cur = vec![pa];
+                    }
+                    cur.push(pb);
+                }
+            }
+            if cur.len() >= 2 {
+                next.push(cur);
+            }
+        }
+        lines = next;
+    }
+    lines
+}
+
+fn path_num(v: f64) -> Tok {
+    let s = {
+        let s = format!("{v:.5}");
+        let s = s.trim_end_matches('0').trim_end_matches('.').to_string();
+        if s == "-0" {
+            "0".to_string()
+        } else {
+            s
+        }
+    };
+    Tok::Operand(Obj::Real(v), s.into_bytes())
+}
+
+fn push_op(out: &mut Vec<Tok>, nums: &[f64], op: &[u8]) {
+    out.extend(nums.iter().map(|v| path_num(*v)));
+    out.push(Tok::Op(op.to_vec()));
+}
+
+fn emit_original(out: &mut Vec<Tok>, sp: &SubPath, close: bool) {
+    for s in &sp.segs {
+        match *s {
+            Seg::M(x, y) => push_op(out, &[x, y], b"m"),
+            Seg::L(x, y) => push_op(out, &[x, y], b"l"),
+            Seg::C(a, b, c, d, e, f) => push_op(out, &[a, b, c, d, e, f], b"c"),
+        }
+    }
+    if close {
+        out.push(Tok::Op(b"h".to_vec()));
+    }
+}
+
+/// Page-space points, written back in the path's own coordinates.
+fn emit_points(out: &mut Vec<Tok>, pts: &[P], inv: &M, close: bool) {
+    for (k, p) in pts.iter().enumerate() {
+        let (x, y) = apply(inv, p.0, p.1);
+        push_op(out, &[x, y], if k == 0 { b"m" } else { b"l" });
+    }
+    if close {
+        out.push(Tok::Op(b"h".to_vec()));
+    }
+}
+
+fn pattern_is_tiling(doc: &Document, res: &Dict, name: &[u8]) -> bool {
+    let Some(o) = resources_get(doc, res, b"Pattern", name) else {
+        // Unknown pattern: cannot tell what it draws.
+        return true;
+    };
+    let d = match doc.resolve(o) {
+        Obj::Stream(d, _) | Obj::Dict(d) => d,
+        _ => return true,
+    };
+    dict_get(d, b"PatternType").and_then(|o| o.as_f64()) != Some(2.0)
+}
+
+/// Replacement tokens for a path that touches a region, or `None` when it
+/// does not. Fills keep exactly their parts outside the regions; strokes are
+/// cut where they enter a region; clip paths keep their shape outside the
+/// regions and are opened to the full region inside (where the opaque box
+/// covers everything anyway), so no shape inside a region survives.
+fn redact_path(
+    doc: &Document,
+    res: &Dict,
+    pp: &PathPaint,
+    regions: &[Rect],
+) -> Result<Option<Vec<Tok>>, FormeError> {
+    let hit: Vec<bool> = pp
+        .subpaths
+        .iter()
+        .map(|s| any_hit(&subpath_bbox(s, &pp.ctm), regions))
+        .collect();
+    if !hit.iter().any(|h| *h) {
+        return Ok(None);
+    }
+    let op = pp.paint_op.as_slice();
+    let fill = matches!(op, b"f" | b"F" | b"f*" | b"B" | b"B*" | b"b" | b"b*");
+    let stroke = matches!(op, b"S" | b"s" | b"B" | b"B*" | b"b" | b"b*");
+    let close_stroke = matches!(op, b"s" | b"b" | b"b*");
+    let fill_op: &[u8] = if matches!(op, b"f*" | b"B*" | b"b*") {
+        b"f*"
+    } else {
+        b"f"
+    };
+    if (fill
+        && pp
+            .fill_pat
+            .as_ref()
+            .is_some_and(|n| pattern_is_tiling(doc, res, n)))
+        || (stroke
+            && pp
+                .stroke_pat
+                .as_ref()
+                .is_some_and(|n| pattern_is_tiling(doc, res, n)))
+    {
+        return Err(refuse("a redaction region covers an area painted with a tiling pattern, which this version cannot rewrite"));
+    }
+    let mut out = vec![];
+    let Some(inv) = invert(&pp.ctm) else {
+        // A degenerate transform draws nothing; an equivalent clip is empty.
+        if let Some(eo) = pp.clip {
+            push_op(&mut out, &[0.0, 0.0, 0.0, 0.0], b"re");
+            out.push(Tok::Op(if eo { b"W*".to_vec() } else { b"W".to_vec() }));
+            out.push(Tok::Op(b"n".to_vec()));
+        }
+        return Ok(Some(out));
+    };
+    let area_path = |out: &mut Vec<Tok>| -> bool {
+        let start = out.len();
+        for (sp, h) in pp.subpaths.iter().zip(&hit) {
+            if !h {
+                emit_original(out, sp, sp.closed);
+                continue;
+            }
+            for piece in polygon_minus(flatten(sp, &pp.ctm), regions) {
+                emit_points(out, &piece, &inv, true);
+            }
+        }
+        out.len() > start
+    };
+    if fill && area_path(&mut out) {
+        out.push(Tok::Op(fill_op.to_vec()));
+    }
+    if stroke {
+        let start = out.len();
+        for (sp, h) in pp.subpaths.iter().zip(&hit) {
+            let closed = sp.closed || close_stroke;
+            if !h {
+                emit_original(&mut out, sp, closed);
+                continue;
+            }
+            let mut line = flatten(sp, &pp.ctm);
+            if closed {
+                if let Some(&f) = line.first() {
+                    line.push(f);
+                }
+            }
+            for piece in polyline_minus(line, regions) {
+                emit_points(&mut out, &piece, &inv, false);
+            }
+        }
+        if out.len() > start {
+            out.push(Tok::Op(b"S".to_vec()));
+        }
+    }
+    if let Some(eo) = pp.clip {
+        area_path(&mut out);
+        let bb = path_bbox(&pp.subpaths, &pp.ctm);
+        for r in regions.iter().filter(|r| r.intersects(&bb)) {
+            let corners = [(r.x0, r.y0), (r.x1, r.y0), (r.x1, r.y1), (r.x0, r.y1)];
+            emit_points(&mut out, &corners, &inv, true);
+        }
+        out.push(Tok::Op(if eo { b"W*".to_vec() } else { b"W".to_vec() }));
+        out.push(Tok::Op(b"n".to_vec()));
+    }
+    Ok(Some(out))
+}
+
 // ─────────────────────────────── page model ───────────────────────────────
 
 struct PageRef {
     id: u32,
-    media: Rect,
+    /// The visible area in page space: CropBox ∩ MediaBox (or the MediaBox).
+    view: Rect,
+    /// `/Rotate`, normalised to 0, 90, 180 or 270.
+    rotate: i32,
+    /// Why this page's coordinates cannot be mapped safely, if they cannot.
+    geometry_error: Option<String>,
     resources: Dict,
+}
+
+fn parse_box(doc: &Document, o: Option<&Obj>) -> Option<Rect> {
+    let Some(Obj::Array(a)) = o.map(|o| doc.resolve(o)) else {
+        return None;
+    };
+    if a.len() != 4 {
+        return None;
+    }
+    let v: Vec<f64> = a.iter().filter_map(|o| doc.resolve(o).as_f64()).collect();
+    if v.len() != 4 || v.iter().any(|x| !x.is_finite()) {
+        return None;
+    }
+    let r = Rect {
+        x0: v[0].min(v[2]),
+        y0: v[1].min(v[3]),
+        x1: v[0].max(v[2]),
+        y1: v[1].max(v[3]),
+    };
+    (r.x1 > r.x0 && r.y1 > r.y0).then_some(r)
 }
 
 fn collect_pages(doc: &Document) -> Result<Vec<PageRef>, FormeError> {
@@ -866,11 +1533,17 @@ fn collect_pages(doc: &Document) -> Result<Vec<PageRef>, FormeError> {
     let pages = dict_get(root, b"Pages").ok_or_else(|| refuse("no page tree"))?;
     let mut out = Vec::new();
     let mut seen = HashSet::new();
+    #[derive(Clone, Default)]
+    struct Inherited {
+        res: Option<Dict>,
+        media: Option<Rect>,
+        crop: Option<Rect>,
+        rotate: Option<f64>,
+    }
     fn walk(
         doc: &Document,
         node: &Obj,
-        inh_res: Option<Dict>,
-        inh_media: Option<Rect>,
+        inh: Inherited,
         out: &mut Vec<PageRef>,
         seen: &mut HashSet<u32>,
         depth: usize,
@@ -885,47 +1558,106 @@ fn collect_pages(doc: &Document) -> Result<Vec<PageRef>, FormeError> {
         let Some(d) = doc.resolve_dict(node) else {
             return;
         };
-        let res = dict_get(d, b"Resources")
-            .and_then(|o| doc.resolve_dict(o))
-            .cloned()
-            .or(inh_res);
-        let media = match dict_get(d, b"MediaBox").map(|o| doc.resolve(o)) {
-            Some(Obj::Array(a)) if a.len() == 4 => {
-                let v: Vec<f64> = a
-                    .iter()
-                    .map(|o| doc.resolve(o).as_f64().unwrap_or(0.0))
-                    .collect();
-                Some(Rect {
-                    x0: v[0].min(v[2]),
-                    y0: v[1].min(v[3]),
-                    x1: v[0].max(v[2]),
-                    y1: v[1].max(v[3]),
-                })
-            }
-            _ => inh_media,
+        let here = Inherited {
+            res: dict_get(d, b"Resources")
+                .and_then(|o| doc.resolve_dict(o))
+                .cloned()
+                .or(inh.res),
+            media: parse_box(doc, dict_get(d, b"MediaBox")).or(inh.media),
+            crop: parse_box(doc, dict_get(d, b"CropBox")).or(inh.crop),
+            rotate: dict_get(d, b"Rotate")
+                .and_then(|o| doc.resolve(o).as_f64())
+                .or(inh.rotate),
         };
         match dict_get(d, b"Type").and_then(|o| o.as_name()) {
             Some(b"Pages") => {
                 if let Some(Obj::Array(kids)) = dict_get(d, b"Kids").map(|o| doc.resolve(o)) {
                     for k in kids {
-                        walk(doc, k, res.clone(), media, out, seen, depth + 1);
+                        walk(doc, k, here.clone(), out, seen, depth + 1);
                     }
                 }
             }
-            _ => out.push(PageRef {
-                id: *id,
-                media: media.unwrap_or(Rect {
+            _ => {
+                let media = here.media.unwrap_or(Rect {
                     x0: 0.0,
                     y0: 0.0,
                     x1: 612.0,
                     y1: 792.0,
-                }),
-                resources: res.unwrap_or_default(),
-            }),
+                });
+                // The visible area, as viewers compute it.
+                let view = match here.crop {
+                    Some(c) => {
+                        let v = Rect {
+                            x0: c.x0.max(media.x0),
+                            y0: c.y0.max(media.y0),
+                            x1: c.x1.min(media.x1),
+                            y1: c.y1.min(media.y1),
+                        };
+                        if v.x1 > v.x0 && v.y1 > v.y0 {
+                            v
+                        } else {
+                            media
+                        }
+                    }
+                    None => media,
+                };
+                let mut geometry_error = None;
+                let r = here.rotate.unwrap_or(0.0);
+                let rotate = if r.is_finite() && r.fract() == 0.0 && (r as i64) % 90 == 0 {
+                    (((r as i64) % 360 + 360) % 360) as i32
+                } else {
+                    geometry_error =
+                        Some(format!("the page rotation ({r}) is not a multiple of 90"));
+                    0
+                };
+                if let Some(u) = dict_get(d, b"UserUnit").and_then(|o| doc.resolve(o).as_f64()) {
+                    if (u - 1.0).abs() > 1e-9 {
+                        geometry_error = Some(format!("the page uses UserUnit {u}"));
+                    }
+                }
+                out.push(PageRef {
+                    id: *id,
+                    view,
+                    rotate,
+                    geometry_error,
+                    resources: here.res.unwrap_or_default(),
+                })
+            }
         }
     }
-    walk(doc, pages, None, None, &mut out, &mut seen, 0);
+    walk(doc, pages, Inherited::default(), &mut out, &mut seen, 0);
     Ok(out)
+}
+
+impl PageRef {
+    /// Displayed point (top-left origin, after /Rotate) → page space.
+    fn to_user(&self, u: f64, v: f64) -> (f64, f64) {
+        let b = &self.view;
+        match self.rotate {
+            90 => (b.x0 + v, b.y0 + u),
+            180 => (b.x1 - u, b.y0 + v),
+            270 => (b.x1 - v, b.y1 - u),
+            _ => (b.x0 + u, b.y1 - v),
+        }
+    }
+    /// Page space → displayed point.
+    fn to_display(&self, x: f64, y: f64) -> (f64, f64) {
+        let b = &self.view;
+        match self.rotate {
+            90 => (y - b.y0, x - b.x0),
+            180 => (b.x1 - x, y - b.y0),
+            270 => (b.y1 - y, b.x1 - x),
+            _ => (x - b.x0, b.y1 - y),
+        }
+    }
+    fn check_geometry(&self) -> Result<(), FormeError> {
+        match &self.geometry_error {
+            Some(e) => Err(refuse(format!(
+                "{e}; region coordinates on this page cannot be mapped safely"
+            ))),
+            None => Ok(()),
+        }
+    }
 }
 
 fn page_content(doc: &Document, page_id: u32) -> Result<Vec<u8>, FormeError> {
@@ -951,27 +1683,31 @@ fn page_content(doc: &Document, page_id: u32) -> Result<Vec<u8>, FormeError> {
     Ok(out)
 }
 
-/// Regions on a page, in user space.
+/// Regions on a page, in page space. Region coordinates are points from
+/// the top-left corner of the page as displayed (visible area, after
+/// /Rotate).
 fn user_rects(
     regions: &[RedactionRegion],
     page_idx: usize,
-    media: &Rect,
-) -> Vec<(Rect, Option<String>)> {
-    regions
-        .iter()
-        .filter(|r| r.page == page_idx)
+    page: &PageRef,
+) -> Result<Vec<(Rect, Option<String>)>, FormeError> {
+    let mine: Vec<&RedactionRegion> = regions.iter().filter(|r| r.page == page_idx).collect();
+    if mine.is_empty() {
+        return Ok(vec![]);
+    }
+    page.check_geometry()?;
+    mine.into_iter()
         .map(|r| {
-            let x0 = media.x0 + r.x;
-            let y1 = media.y1 - r.y;
-            (
-                Rect {
-                    x0,
-                    y0: y1 - r.height,
-                    x1: x0 + r.width,
-                    y1,
-                },
-                r.color.clone(),
-            )
+            if ![r.x, r.y, r.width, r.height].iter().all(|v| v.is_finite()) {
+                return Err(refuse(
+                    "a redaction region has a coordinate that is not a finite number",
+                ));
+            }
+            let (u0, u1) = (r.x.min(r.x + r.width), r.x.max(r.x + r.width));
+            let (v0, v1) = (r.y.min(r.y + r.height), r.y.max(r.y + r.height));
+            let a = page.to_user(u0, v0);
+            let b = page.to_user(u1, v1);
+            Ok((Rect::of_points(&[a, b]), r.color.clone()))
         })
         .collect()
 }
@@ -1121,6 +1857,8 @@ struct PageAnalysis {
     xuses: Vec<XUse>,
     inline_images: Vec<(usize, Rect)>,
     frames: Vec<Frame>,
+    paths: Vec<PathPaint>,
+    nested_marks: Vec<Rect>,
 }
 
 fn analyze_page(doc: &Document, page: &PageRef) -> Result<PageAnalysis, FormeError> {
@@ -1135,6 +1873,8 @@ fn analyze_page(doc: &Document, page: &PageRef) -> Result<PageAnalysis, FormeErr
         xuses: it.xuses,
         inline_images: it.inline_images,
         frames: it.frames,
+        paths: it.paths,
+        nested_marks: it.nested_marks,
     })
 }
 
@@ -1237,6 +1977,7 @@ pub fn find_text_regions(
     let pages = collect_pages(&doc)?;
     let mut regions = vec![];
     for (pi, page) in pages.iter().enumerate() {
+        page.check_geometry()?;
         let Ok(a) = analyze_page(&doc, page) else {
             continue;
         };
@@ -1258,12 +1999,14 @@ pub fn find_text_regions(
                 }
             }
             for b in boxes {
+                let d =
+                    Rect::of_points(&[page.to_display(b.x0, b.y0), page.to_display(b.x1, b.y1)]);
                 regions.push(RedactionRegion {
                     page: pi,
-                    x: b.x0 - page.media.x0,
-                    y: page.media.y1 - b.y1,
-                    width: b.x1 - b.x0,
-                    height: b.y1 - b.y0,
+                    x: d.x0,
+                    y: d.y0,
+                    width: d.x1 - d.x0,
+                    height: d.y1 - d.y0,
                     color: color.clone(),
                 });
             }
@@ -1330,7 +2073,7 @@ pub fn redact(
 
     // ── Pages ──
     for (pi, page) in pages.iter().enumerate() {
-        let rects = user_rects(regions, pi, &page.media);
+        let rects = user_rects(regions, pi, page)?;
         let analysis = analyze_page(&doc, page);
         // Pattern matches inside forms (which this version does not rewrite).
         if !matcher.is_empty() {
@@ -1378,15 +2121,32 @@ pub fn redact(
 
         let mut drop_ops: HashSet<usize> = HashSet::new();
         let mut replace: HashMap<usize, Vec<Tok>> = HashMap::new();
+        // Forms are read, never rewritten: anything they draw under a
+        // region is refused.
+        let nested_hit = a.nested_marks.iter().any(|m| any_hit(m, &region_rects))
+            || a.interp_glyphs
+                .iter()
+                .any(|g| g.nested && glyph_hit(&g.rect, &region_rects));
+        if nested_hit {
+            return Err(refuse("a redaction region covers content inside a form XObject, which this version cannot rewrite"));
+        }
         for x in &a.xuses {
-            if !any_hit(&x.rect, &region_rects) {
-                continue;
-            }
-            if x.image {
+            if x.image && any_hit(&x.rect, &region_rects) {
                 drop_ops.insert(x.op_index);
-            } else if x.form_has_content {
-                return Err(refuse("a redaction region covers text or images inside a form XObject, which this version cannot rewrite"));
             }
+        }
+        // Vector paths: remove the geometry inside the regions.
+        for pp in &a.paths {
+            let Some(rep) = redact_path(&doc, &page.resources, pp, &region_rects)? else {
+                continue;
+            };
+            for (s, e) in &pp.spans {
+                for k in *s..=*e {
+                    drop_ops.insert(k);
+                }
+            }
+            drop_ops.insert(pp.paint_index);
+            replace.insert(pp.paint_index, rep);
         }
         for (idx, r) in &a.inline_images {
             if any_hit(r, &region_rects) {
@@ -1395,7 +2155,20 @@ pub fn redact(
         }
         let mut frames_tainted: HashSet<usize> = HashSet::new();
         for s in &a.shows {
-            if !any_hit(&s.extent, &region_rects) {
+            let glyphs = &a.interp_glyphs[s.glyphs.0..s.glyphs.1];
+            // Constructs this version does not rewrite: refused when they
+            // may reach a region at all (any overlap, not the glyph rule).
+            if s.type3 || s.clip_text {
+                let near = !region_rects.is_empty()
+                    && (s.unbounded || glyphs.iter().any(|g| any_hit(&g.rect, &region_rects)));
+                if near && s.type3 {
+                    return Err(refuse("text drawn with a Type3 font may lie under a redaction region; its glyph procedures cannot be rewritten by this version"));
+                }
+                if near && s.clip_text {
+                    return Err(refuse("text used as a clipping path (rendering modes 4 to 7) lies under a redaction region, which this version cannot rewrite"));
+                }
+            }
+            if !glyphs.iter().any(|g| glyph_hit(&g.rect, &region_rects)) {
                 continue;
             }
             dropped_text.push(s.text.clone());

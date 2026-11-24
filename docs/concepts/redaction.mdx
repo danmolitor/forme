@@ -27,7 +27,7 @@ When you redact a PDF, Forme:
 
 1. **Reads the whole document** — including compressed object streams and every earlier revision, so it works on the content a viewer shows.
 2. **Finds what lies under each region** — text positions come from the font's glyph widths and the page's transforms, so text is located where it is drawn.
-3. **Removes page content** — text and images under a region are removed from the page. The spacing is kept, so the rest of the line does not move.
+3. **Removes page content** — text and images under a region are removed from the page. The spacing is kept, so the rest of the line does not move. Lines, shapes, and clipping paths are cut at the region's edges, so their parts outside the region stay and nothing of their shape remains inside it.
 4. **Removes hidden copies** — matching text is removed from annotations, links, bookmarks, and alternate text.
 5. **Removes document data** — XMP metadata, embedded files, and document JavaScript are removed, and the document information is replaced (`/Producer` is "Forme").
 6. **Draws a visual overlay** — a black (or custom-colored) rectangle marks each redacted area.
@@ -40,6 +40,8 @@ If Forme cannot redact some content safely, it returns an error instead of a PDF
 ## Three Ways to Redact
 
 ### 1. Coordinate Regions
+
+Region coordinates are in points on the page **as displayed**: `x` and `y` are measured from the top-left corner of the visible area (the CropBox), after the page's `/Rotate` is applied. These are the coordinates a PDF viewer shows, and the ones `findTextRegions` returns.
 
 Draw precise rectangles over areas to redact. Best for known, fixed layouts where content position is predictable. This is what the dashboard's "Draw" mode uses.
 
@@ -106,12 +108,19 @@ Do not rely on Forme's own text search (`findTextRegions`) to confirm a Forme re
 
 ## Known Limitations
 
-- **Whole text runs**: A text run that touches a region is removed whole. If the match shares a run with other words (for example a label on the same line), those words are removed too.
-- **Vector graphics**: Lines and shapes under a region are covered by the overlay, not removed.
-- **Scanned text**: Text inside an image is not searchable; run OCR first. An image under a region is removed whole.
+- **Whole text runs**: A text run is removed whole when any of its glyphs is under a region: at least a fifth of the glyph's box lies under the region in each direction, or the centre of the box does. A glyph that is more than 80% outside the region along one axis, with its centre outside, stays. If the match shares a run with other words (for example a label on the same line), those words are removed too.
+- **Images**: An image under a region is removed whole, even where most of it lies outside the region. Text inside an image is not searchable; run OCR first.
+- **Vector graphics**: Paths under a region are cut at the region's edges. Curves in a cut path are redrawn as fine straight segments (within 0.05 pt).
 - **Text search needs a text mapping**: Search finds text in fonts with a standard encoding or a ToUnicode map. Text without one cannot be found by search — use coordinate redaction.
-- **Page rotation and CropBox**: Region coordinates are measured from the MediaBox; `/Rotate` and CropBox offsets are not applied.
-- **Refused input**: Encrypted PDFs, form fields under a region or holding matching text, and text or images inside form XObjects under a region return an error instead of a PDF.
+- **Refused input**: These return an error instead of a PDF:
+  - encrypted PDFs;
+  - form fields under a region or holding matching text;
+  - text, images, or paths inside a form XObject under a region;
+  - an area painted with a tiling pattern under a region;
+  - text drawn with a Type3 font that may lie under a region (including a Type3 font whose glyph bounds are unknown, anywhere on a page with a region);
+  - text used as a clipping path (rendering modes 4 to 7) under a region;
+  - a page whose `/Rotate` is not a multiple of 90, or that sets `/UserUnit`, when it has a region;
+  - a region with a coordinate that is not a finite number.
 - **Maximum 50 patterns per request**: Keep the total number of patterns (including those expanded from presets and templates) under 50.
 
 ---
