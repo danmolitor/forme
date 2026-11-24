@@ -31,6 +31,15 @@ Addresses [the security advisory](https://github.com/danmolitor/forme/security/a
   shapes) were covered but not removed, and a tiling pattern painted under a
   region kept its content. Documents redacted with 0.33.0 or earlier that
   have any of these should be redacted again from the originals.
+- **The `formepdf/forme` server's `POST /v1/redact` did not remove pattern
+  matches outside the page text** ([advisory](https://github.com/danmolitor/forme/security/advisories/GHSA-PENDING-0-34)).
+  A match only in an annotation, link, bookmark, alternate text or the
+  document information was kept; when nothing matched in the page text, the
+  original PDF was returned unchanged. Patterns now go through `redact_text`
+  (as `redactText` does in `@formepdf/core`), and refusals return `422` with
+  code `REDACTION_REFUSED` instead of `400 RENDER_FAILED`. Documents redacted
+  through a self-hosted server with patterns or presets should be redacted
+  again from the originals.
 
 ### Changed: redaction
 
