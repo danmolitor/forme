@@ -8,6 +8,15 @@ while this file lapsed. They are reproduced, not rewritten.
 
 ## [Unreleased]
 
+### Fixed
+
+- `@formepdf/hono` renders on Cloudflare Workers. `c.pdf()` and
+  `pdfResponse()` failed there with "__wbindgen_start is not a function":
+  the edge path loaded the engine's bundler build, which Wrangler does not
+  instantiate. A `worker` export condition now gives Workers an entry that
+  initialises `@formepdf/core`'s Workers build with the imported
+  WebAssembly module. Node, Deno, Bun and browsers keep the existing entry
+
 ## [0.34.0] - 2026-11-24
 
 A security release for redaction. Region redaction now works in the page's

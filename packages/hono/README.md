@@ -106,7 +106,8 @@ export default app;
 ```toml
 # wrangler.toml
 name = "pdf-api"
-compatibility_date = "2024-01-01"
+main = "src/index.ts"
+compatibility_date = "2026-11-01"
 ```
 
 ```bash
