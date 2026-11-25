@@ -4,8 +4,15 @@
 <meta charset="utf-8">
 <title>Claim Summary</title>
 <style>
-  body { font-family: Helvetica, Arial, sans-serif; margin: 48px; font-size: 14px; }
-  h1 { font-size: 22px; }
+  /* Only IBM Plex Serif (OFL, in the repo): no system font may end up in
+     the committed PDF. */
+  @font-face {
+    font-family: "Plex";
+    src: url("../../fonts/IBMPlexSerif-Regular.ttf") format("truetype");
+    font-weight: 400;
+  }
+  body { font-family: "Plex"; margin: 48px; font-size: 14px; }
+  h1 { font-size: 22px; font-weight: 400; }
   p { margin: 6px 0; }
 </style>
 </head>

@@ -1,7 +1,7 @@
 #!/bin/bash
 # Regenerate the producer fixtures in this directory. macOS only: it needs
-# Google Chrome, python3 (for a throwaway ReportLab venv), cupsfilter and
-# swift. CI never runs this; CI uses the committed PDFs.
+# Google Chrome, python3 (for a throwaway ReportLab venv), swift and
+# pdffonts. CI never runs this; CI uses the committed PDFs.
 #
 # Usage: engine/tests/fixtures/redaction-producers/regenerate.sh
 set -euo pipefail
@@ -24,10 +24,20 @@ python3 -m venv "$SCRATCH/venv"
 "$SCRATCH/venv/bin/pip" install -q "reportlab==${REPORTLAB_VERSION:-4.4.4}"
 "$SCRATCH/venv/bin/python" "$IN/reportlab_claim.py" "$HERE" "$TTF"
 
-# macOS Quartz, two ways: the CUPS text filter (cgtexttopdf, Monaco) and
-# CoreText drawn into a CGPDFContext (Helvetica).
-cupsfilter -m application/pdf "$IN/claim.txt" > "$HERE/quartz-cupsfilter.pdf" 2>/dev/null
-swift "$IN/quartz_claim.swift" "$HERE/quartz-coretext.pdf"
+# macOS Quartz: CoreText drawn into a CGPDFContext. (Not cupsfilter: its
+# text filter, cgtexttopdf, hard-codes Apple's Monaco, and Apple font data
+# must not be committed to this MIT repo.)
+swift "$IN/quartz_claim.swift" "$HERE/quartz-coretext.pdf" "$TTF"
+
+# Every embedded font must be IBM Plex (OFL). Fail on anything else
+# (ReportLab's standard Helvetica is referenced, not embedded: allowed).
+for f in "$HERE"/*.pdf; do
+  # Columns from the end: emb sub uni object-id generation.
+  if pdffonts "$f" | awk 'NR>2 && $(NF-4)=="yes" && $1 !~ /IBMPlex/' | grep .; then
+    echo "$(basename "$f") embeds a font other than IBM Plex" >&2
+    exit 1
+  fi
+done
 
 for f in "$HERE"/*.pdf; do
   printf '%-28s %8s bytes  %s\n' "$(basename "$f")" "$(wc -c < "$f" | tr -d ' ')" \

@@ -1,16 +1,21 @@
 // Write the Quartz (CoreText) redaction fixture.
 //
-// Usage: swift quartz_claim.swift <out.pdf>
+// Usage: swift quartz_claim.swift <out.pdf> <IBMPlexSerif-Regular.ttf>
 //
-// Draws the same lines as claim.txt with CoreText into a CGPDFContext, so
-// the file is written by Quartz PDFContext itself (Helvetica, embedded by
-// Quartz as a font subset). See ../README.md.
+// Draws the fixture lines with CoreText into a CGPDFContext, so the file is
+// written by Quartz PDFContext itself. The font is IBM Plex Serif (OFL),
+// loaded from the file, so no Apple system font is embedded. See
+// ../README.md.
 
 import CoreGraphics
 import CoreText
 import Foundation
 
 let out = CommandLine.arguments[1]
+guard let provider = CGDataProvider(url: URL(fileURLWithPath: CommandLine.arguments[2]) as CFURL),
+      let plex = CGFont(provider) else {
+    fatalError("cannot load the font file")
+}
 var box = CGRect(x: 0, y: 0, width: 612, height: 792)
 let info: [CFString: Any] = [kCGPDFContextTitle: "Claim Summary"]
 guard let ctx = CGContext(URL(fileURLWithPath: out) as CFURL, mediaBox: &box, info as CFDictionary) else {
@@ -18,7 +23,7 @@ guard let ctx = CGContext(URL(fileURLWithPath: out) as CFURL, mediaBox: &box, in
 }
 
 func draw(_ text: String, size: CGFloat, y: CGFloat) {
-    let font = CTFontCreateWithName("Helvetica" as CFString, size, nil)
+    let font = CTFontCreateWithGraphicsFont(plex, size, nil, nil)
     let attrs: [NSAttributedString.Key: Any] = [NSAttributedString.Key(kCTFontAttributeName as String): font]
     let line = CTLineCreateWithAttributedString(NSAttributedString(string: text, attributes: attrs))
     ctx.textPosition = CGPoint(x: 72, y: y)
