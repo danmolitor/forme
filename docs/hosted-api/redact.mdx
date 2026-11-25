@@ -31,7 +31,7 @@ The fields of `redactions` and `patterns` are the same as on the self-hosted ser
 ### Hosted limits
 
 - **Patterns per request.** The number of entries in `patterns` is limited by plan: 10 on Free, 50 on paid plans. Over the limit returns `403`. Patterns that come from `template` and `presets` do not count toward this limit.
-- **Validation.** A `pattern_type` other than `Literal` or `Regex`, or a regex that does not compile, returns `400`.
+- **Validation.** A `pattern_type` other than `Literal` or `Regex`, a regex that does not compile, or an unknown preset name returns `400`.
 - **Redaction templates** need a paid plan. On Free, a request with `template` returns `403`. An unknown slug returns `404`.
 
 ---
@@ -46,7 +46,7 @@ The fields of `redactions` and `patterns` are the same as on the self-hosted ser
 | `date-of-birth` | Dates as `MM/DD/YYYY` or `MM-DD-YYYY`, years 1900–2099 |
 | `credit-card` | 16-digit card numbers, in groups of 4 with optional `-` or space |
 
-An unknown preset name is ignored.
+An unknown preset name returns `400` with code `VALIDATION_ERROR`, naming the valid presets. It is not skipped: skipping it would return a PDF that still holds the values you asked to remove.
 
 ---
 
@@ -93,3 +93,32 @@ fs.writeFileSync("redacted.pdf", Buffer.from(await res.arrayBuffer()));
 `200 OK`, `Content-Type: application/pdf`. The body is the redacted PDF. It is not saved to [Documents](/hosted-api/documents).
 
 If no pattern matches and there are no `redactions`, the response is the **original PDF, unchanged**, and the call still counts as an operation.
+
+### When Forme refuses
+
+If Forme cannot redact a document safely, it returns an error instead of a PDF. It does not return a partly redacted file.
+
+```json
+HTTP/1.1 422 Unprocessable Entity
+
+{
+  "error": "Redaction refused: the PDF is encrypted; decrypt it first",
+  "code": "REDACTION_REFUSED"
+}
+```
+
+`error` says why. Refused input includes encrypted PDFs, form fields under a region or holding matching text, content inside a form XObject under a region, tiling patterns, Type3 fonts and clip-mode text under a region, and pages whose rotation is not a multiple of 90° or that use `UserUnit`. See [Known limitations](/concepts/redaction#known-limitations) for the full list. A refused call does not return a PDF.
+
+### Errors
+
+| Status | `code` | When |
+|---|---|---|
+| `400` | | `pdf` missing, or none of `redactions`, `patterns`, `presets`, `template` |
+| `400` | `VALIDATION_ERROR` | Unknown preset, or a region on a page the PDF doesn't have |
+| `400` | | Invalid `pattern_type` or a regex that does not compile |
+| `401` | | Missing or invalid API key |
+| `403` | | Over the plan's pattern limit, or `template` on the Free plan |
+| `404` | | Unknown `template` slug |
+| `422` | `REDACTION_REFUSED` | Forme cannot redact this document safely (above) |
+| `429` | | Monthly operation limit reached, or more than 100 requests a minute |
+| `503` | `REDACTION_UNAVAILABLE` | Redaction is temporarily switched off |
