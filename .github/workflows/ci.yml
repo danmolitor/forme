@@ -617,6 +617,44 @@ jobs:
         id: deploy
         uses: actions/deploy-pages@v4
 
+  redaction-producers:
+    name: Redaction on producer PDFs (Poppler + pdf.js)
+    runs-on: ubuntu-latest
+    needs: [engine, wasm]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install poppler (pdftotext)
+        # Same Chrome apt source workaround as the engine job.
+        run: sudo grep -rl 'dl.google.com' /etc/apt/sources.list.d/ | xargs -r sudo rm -f && sudo apt-get update -q && sudo apt-get install -y -q poppler-utils
+      - name: Install dependencies
+        run: npm install
+      - name: Build Shared package
+        working-directory: packages/shared
+        run: npm run build
+      - name: Build React package
+        working-directory: packages/react
+        run: npm run build
+      - name: Download WASM packages (built once in the wasm job)
+        uses: actions/download-artifact@v4
+        with:
+          name: wasm-pkgs
+          path: packages
+      - name: Build Core (TS over the downloaded WASM)
+        working-directory: packages/core
+        run: npm run build:ts
+      - name: Redact real producer PDFs and check with Poppler + pdf.js
+        # Committed PDFs from headless Chrome, ReportLab and macOS Quartz
+        # (engine/tests/fixtures/redaction-producers/). Each is redacted by
+        # text pattern and by region with this commit's engine, then read
+        # back with pdftotext and pdf.js: sensitive values must be gone, the
+        # kept values must remain, and the unredacted control must show both.
+        # Missing pdftotext is a failure, not a skip.
+        run: node scripts/verify-redaction-producers.mjs
+
   pdfua-conformance:
     name: PDF/UA-1 Conformance (veraPDF)
     runs-on: ubuntu-latest
