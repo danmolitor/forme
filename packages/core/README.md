@@ -48,6 +48,10 @@ Takes a JSX document tree and returns a `Uint8Array` of PDF bytes.
 
 Returns both the PDF bytes and layout metadata (element positions, sizes, page info). Used by the dev server for the element inspector.
 
+### Redaction: `redactPdf`, `redactText`, `findTextRegions`
+
+Removes content from an existing PDF rather than covering it: by region (`redactPdf`), or by literal or regex text match (`redactText`). `findTextRegions` returns where the matches are. A PDF that can't be redacted safely is refused with an error instead of returned. Use 0.34.0 or later. [Try it in your browser](https://www.formepdf.com/pdf-redaction), or see the [redaction docs](https://docs.formepdf.com/concepts/redaction).
+
 ## Docs
 
 Full documentation at [docs.formepdf.com](https://docs.formepdf.com)
