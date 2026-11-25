@@ -5,6 +5,8 @@ description: How Forme redacts PDFs — removing content rather than covering it
 
 Forme redacts by removing content from the file, not only hiding it behind a black box.
 
+<Tip>[Try it in your browser](https://www.formepdf.com/pdf-redaction): redact a sample or your own PDF (it isn't uploaded), then copy the code for what you did.</Tip>
+
 <Warning>Use Forme 0.34.0 or later for redaction. Output from earlier versions can still contain the redacted content: before 0.33.0 in any document, and in 0.33.0 on rotated or cropped pages and in vector graphics and tiling patterns ([GHSA-c9p3-6mjx-rp9g](https://github.com/formepdf/forme/security/advisories/GHSA-c9p3-6mjx-rp9g), [GHSA-f54v-83wx-hmg2](https://github.com/formepdf/forme/security/advisories/GHSA-f54v-83wx-hmg2)). If you redacted documents with an earlier version, regenerate them from the originals.</Warning>
 
 ---
