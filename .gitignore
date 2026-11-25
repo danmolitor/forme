@@ -37,6 +37,8 @@ test-*.tsx
 test-*.json
 /tmp/
 *.pdf
+# Real producer PDFs for the redaction gate (see the README there)
+!engine/tests/fixtures/redaction-producers/*.pdf
 
 # Renderer temp modules (written next to a user's template during a render,
 # unlinked after; an interrupted render can leave one behind)

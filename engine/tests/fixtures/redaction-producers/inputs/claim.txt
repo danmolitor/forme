@@ -1,0 +1,10 @@
+Claim Summary
+
+Policy 7781
+Claimant
+Jane Doe
+SSN
+123-45-6789
+Email
+jane.doe@example.com
+Status Approved
